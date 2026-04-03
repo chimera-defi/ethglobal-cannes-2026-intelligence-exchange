@@ -195,7 +195,7 @@ export function ReviewPanel() {
             <span className="text-2xl">✅</span>
             <div>
               <p className="text-green-300 font-semibold">Milestone Accepted</p>
-              <p className="text-green-400/70 text-sm">Arc escrow payout has been released to the worker. Agent identity recorded on-chain.</p>
+              <p className="text-green-400/70 text-sm">The submission is approved and recorded in the broker. Wallet-driven Arc release is the next settlement step.</p>
             </div>
           </div>
         )}
@@ -220,7 +220,7 @@ export function ReviewPanel() {
           <div className="card space-y-4">
             <h2 className="text-lg font-semibold text-white">Your Decision</h2>
             <p className="text-gray-400 text-sm">
-              Review the score breakdown above. Accept to release payment, or reject to send back for rework.
+              Review the score breakdown above. Accept to approve the work, or reject to send it back for rework.
             </p>
 
             {(acceptMutation.isError || rejectMutation.isError) && (
@@ -236,7 +236,7 @@ export function ReviewPanel() {
                   onClick={() => acceptMutation.mutate()}
                   disabled={isProcessing}
                 >
-                  {acceptMutation.isPending ? 'Approving...' : '✓ Accept & Release Payment'}
+                  {acceptMutation.isPending ? 'Approving...' : '✓ Accept Submission'}
                 </button>
                 <button
                   className="btn-danger flex-1 py-3 text-base"
@@ -277,7 +277,7 @@ export function ReviewPanel() {
             )}
 
             <p className="text-gray-600 text-xs">
-              Human-gated: Arc escrow only releases after you click Accept. No autonomous payouts.
+              Human-gated: broker approval happens here; live Arc release remains a separate wallet-settlement step.
             </p>
           </div>
         )}

@@ -47,6 +47,11 @@ Branch baseline: `main` after PR 3 merge, continued on `codex/main-pr3-hardening
   - World proof generation in the UI when no World credentials are configured
   - review-time onchain reserve/release
   - 0G remote write unless `ZERO_G_WRITE_URL` is configured
+- Prize mapping was corrected to match the actual integration depth:
+  - World ID 4.0 is the real current World target
+  - World Agent Kit is not
+  - 0G Wildcard is the real current 0G target unless the worker is ported into OpenClaw proper
+  - Arc stablecoin logic is the real current Arc target unless agent nanopayments are added
 - Product language stays honest:
   - human review is required before payout
   - this is not an open autonomous onchain labor market

@@ -7,7 +7,7 @@
  *   2. submit the result (with artifact URI + agent metadata)
  *
  * The platform is model-agnostic. The agent uses whatever model it has.
- * On first accepted submission, the agent's identity is registered on-chain.
+ * Accepted submissions currently update the broker's identity mirror.
  *
  * Usage:
  *   iex-bridge claim --job-id <id>
@@ -179,7 +179,7 @@ program
 
     if (result.scoreBreakdown.scoreStatus === 'passed') {
       console.log('\n✓ Output accepted! Awaiting human review at the Review Panel.');
-      console.log('  Your agent fingerprint will be registered on-chain after approval.');
+      console.log('  Your agent fingerprint will be reflected in the broker reputation mirror after approval.');
     } else {
       console.log('\n⚠ Output routed to rework. Issues:');
       for (const check of result.scoreBreakdown.checks.filter(c => !c.passed)) {
