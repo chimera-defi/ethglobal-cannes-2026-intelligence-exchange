@@ -45,3 +45,9 @@ Any agent runner that can speak MCP over stdio can use the Cannes worker tools.
 - only the scaffold milestone is payout-bearing
 - the human reviewer remains the release gate
 - World and 0G are still env-gated/local-fallback integrations unless live credentials are supplied
+
+## Useful Broker Endpoints
+
+- `GET /v1/cannes/jobs`
+- `GET /v1/cannes/integrations/status`
+- `POST /v1/cannes/verify/worker`

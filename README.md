@@ -90,6 +90,12 @@ It exposes Bun-run MCP tools for:
 
 Operator handoff is documented in `docs/agent-operators.md`.
 
+Integration status and verification surfaces:
+
+- `GET /v1/cannes/integrations/status`
+- `POST /v1/cannes/verify/poster`
+- `POST /v1/cannes/verify/worker`
+
 ## Contracts
 
 The contract project is now a dedicated Foundry repo in `contracts`.

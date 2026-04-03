@@ -24,6 +24,7 @@ import {
   resetDemoState,
   submitMilestone
 } from "./demo.js";
+import { getIntegrationStatus, verifyWorldActor } from "./integrations.js";
 import { brokerRuntimePaths } from "./runtime-paths.js";
 
 const app = Fastify({ logger: false });
@@ -82,11 +83,37 @@ async function writeDossier(state: DemoState) {
 
 app.get("/health", async () => ({ ok: true }));
 app.get("/api/demo-state", async () => ensureState());
+app.get("/v1/cannes/integrations/status", async () => getIntegrationStatus());
 app.get("/v1/cannes/jobs", async () => {
   const state = await ensureState();
   return {
     workerId: state.worker.id,
     jobs: listJobBoard(state)
+  };
+});
+
+app.post("/v1/cannes/verify/:role", async (request) => {
+  const state = await ensureState();
+  const role = String((request.params as Record<string, unknown>).role);
+  const actor =
+    role === "poster" ? state.poster : role === "worker" ? state.worker : role === "reviewer" ? state.reviewer : null;
+  if (!actor) {
+    throw app.httpErrors.badRequest("Unknown verification role.");
+  }
+  const result = await verifyWorldActor(actor.role, actor, request.body ?? {});
+  if (result.success) {
+    actor.verified = true;
+    if (actor.role !== "reviewer") {
+      actor.verificationMode = result.mode === "configured" ? "world-id" : "world-stub";
+    }
+  }
+  state.activityLog.push(`${actor.name} verification result: ${result.detail}`);
+  await persistState(state);
+  return {
+    role: actor.role,
+    verified: actor.verified,
+    verificationMode: actor.verificationMode,
+    ...result
   };
 });
 
