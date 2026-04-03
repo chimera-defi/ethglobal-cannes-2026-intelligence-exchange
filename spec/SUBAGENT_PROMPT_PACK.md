@@ -1,7 +1,5 @@
 # Intelligence Exchange Sub-Agent Prompt Pack
 
-Template basis: `ideas/_templates/SUBAGENT_PROMPT_PACK.template.md`
-
 ## Prompt A: Marketplace UX
 Scope: `PRD.md`, `USER_FLOWS.md`, `WIREFRAMES.md`, `UX_AND_PAYMENTS_FLOW.md`
 Task: finalize buyer/supplier/operator first-transaction journeys with trust and failure paths.

@@ -1,6 +1,6 @@
 # ETHGlobal Cannes 2026 Intelligence Exchange
 
-Standalone local repository for the Cannes 2026 variant of the Intelligence Exchange idea.
+Standalone repository for the Cannes 2026 variant of the Intelligence Exchange idea.
 
 This repo is an extracted spec-first project for:
 - an agentic idea-build marketplace
@@ -11,7 +11,7 @@ This repo is an extracted spec-first project for:
 ## What Is In This Repo
 
 - `spec/`
-  - the full extracted Intelligence Exchange idea pack from the monorepo
+  - the full Intelligence Exchange idea pack
   - the Cannes 2026 variant docs
   - base product docs, technical spec, tasks, acceptance tests, edge cases, deployment notes, and review materials
 
@@ -36,9 +36,6 @@ Start here inside `spec/`:
 - `CANNES_2026_DEPLOYMENT_AND_DEMO.md`
 - `CANNES_2026_ADVERSARIAL_REVIEW.md`
 
-## Source
+## Scope
 
-Extracted from:
-- `/root/.openclaw/workspace/dev/Etc-mono-repo`
-
-Using the merged state of the Intelligence Exchange idea pack after PR `#276`.
+This repo is the standalone spec-first home for the Intelligence Exchange Cannes 2026 work.

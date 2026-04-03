@@ -1,7 +1,5 @@
 # Intelligence Exchange First 60 Minutes
 
-Template basis: `ideas/_templates/FIRST_60_MINUTES.template.md`
-
 > **Pre-build status:** No implementation exists yet. This runbook defines the target acceptance surface for when a build agent scaffolds the project. Use the Stack Bootstrap section first.
 
 ## Stack Bootstrap (run once before first `pnpm dev:up`)
@@ -26,7 +24,7 @@ Run local broker + worker simulation, process seed jobs, and verify deterministi
 
 ## Commands
 ```bash
-cd ideas/intelligence-exchange
+cd .
 cp .env.example .env.local
 
 pnpm install
