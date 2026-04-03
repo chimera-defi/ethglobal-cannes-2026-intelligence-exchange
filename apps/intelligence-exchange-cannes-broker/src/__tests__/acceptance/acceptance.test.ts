@@ -17,7 +17,7 @@
  *   iex-cannes:claim-ownership
  */
 
-import { describe, test, expect, beforeAll } from 'bun:test';
+import { describe, test, expect } from 'bun:test';
 import { PLATFORM_FEE_RATE, MILESTONE_ORDER } from 'intelligence-exchange-cannes-shared';
 
 const BASE = process.env.BROKER_URL ?? 'http://localhost:3001';
@@ -28,7 +28,8 @@ async function api<T>(method: string, path: string, body?: unknown): Promise<{ s
     headers: body ? { 'Content-Type': 'application/json' } : {},
     body: body ? JSON.stringify(body) : undefined,
   });
-  const data = await res.json() as T;
+  const text = await res.text();
+  const data = text ? JSON.parse(text) as T : {} as T;
   return { status: res.status, data };
 }
 
@@ -63,6 +64,7 @@ describe('iex-cannes:verify-poster', () => {
       buyerId: 'test-poster',
       taskType: 'coding',
       title: 'Test idea for acceptance tests',
+      targetArtifact: 'https://github.com/chimera-defi/ethglobal-cannes-2026-intelligence-exchange',
       prompt: 'Build something interesting for the test suite',
       budgetUsdMax: 15,
     });
@@ -86,10 +88,11 @@ describe('iex-cannes:fund-idea', () => {
     expect((data as { fundingStatus: string }).fundingStatus).toBe('funded');
   });
 
-  test('GET /ideas/:id reflects funded status', async () => {
-    const { status, data } = await api<{ idea: { fundingStatus: string } }>('GET', `/ideas/${createdIdeaId}`);
+  test('GET /ideas/:id reflects funded status and target repo', async () => {
+    const { status, data } = await api<{ idea: { fundingStatus: string; targetArtifact?: string } }>('GET', `/ideas/${createdIdeaId}`);
     expect(status).toBe(200);
     expect((data as { idea: { fundingStatus: string } }).idea.fundingStatus).toBe('funded');
+    expect((data as { idea: { targetArtifact?: string } }).idea.targetArtifact).toContain('github.com/chimera-defi');
   });
 });
 
@@ -145,7 +148,7 @@ describe('iex-cannes:claim', () => {
     const text = await res.text();
     expect(text).toContain('job_id');
     expect(text).toContain('submission_endpoint');
-    expect(text.toLowerCase()).toContain('fingerprint');
+    expect(text).toContain('agent fingerprint');
   });
 
   test('double-claim returns 409', async () => {
@@ -165,7 +168,7 @@ describe('iex-cannes:submit', () => {
       workerId: WORKER_A,
       claimId,
       status: 'completed',
-      artifactUris: ['https://demo.iex.local/artifacts/test-output.zip'],
+      artifactUris: ['https://github.com/chimera-defi/ethglobal-cannes-2026-intelligence-exchange/pull/999'],
       summary: 'Implemented the brief milestone with all required sections and clear structure.',
       agentMetadata: AGENT_META,
     });
@@ -199,7 +202,7 @@ describe('iex-cannes:claim-ownership', () => {
     expect(job2Id).toBeTruthy();
     const { status } = await api('POST', `/jobs/${job2Id}/submit`, {
       workerId: secondWorkerId, // different worker
-      claimId: '11111111-1111-1111-1111-111111111111',
+      claimId: '11111111-1111-4111-8111-111111111111',
       status: 'completed',
       artifactUris: ['https://demo.iex.local/artifacts/stolen-output.zip'],
       summary: 'Worker B trying to steal worker A claim — should be rejected',
@@ -293,7 +296,7 @@ describe('iex-cannes:dossier-async', () => {
     }
     // Submit job 4 first (brief milestone — auto-accept score)
     const job4Id = briefJobIds[3];
-    const { status: cs4, data: claim4Data } = await api<{ claimId: string }>('POST', `/jobs/${job4Id}/claim`, {
+    const { status: cs4, data: claim4 } = await api<{ claimId: string }>('POST', `/jobs/${job4Id}/claim`, {
       workerId: WORKER_A,
       agentMetadata: AGENT_META,
     });
@@ -303,7 +306,7 @@ describe('iex-cannes:dossier-async', () => {
     }
     await api('POST', `/jobs/${job4Id}/submit`, {
       workerId: WORKER_A,
-      claimId: (claim4Data as { claimId: string }).claimId,
+      claimId: claim4.claimId,
       status: 'completed',
       artifactUris: ['https://demo.iex.local/artifacts/review.zip'],
       summary: 'Code review complete: all tests pass, coverage at 85%, no critical issues found.',

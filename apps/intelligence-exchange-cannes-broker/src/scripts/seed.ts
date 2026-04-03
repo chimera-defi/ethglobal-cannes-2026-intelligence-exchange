@@ -17,9 +17,13 @@ import {
 async function seed() {
   console.log('── IEX Cannes 2026 Demo Seed ──');
 
-  // 1. Ensure schema is current
-  await migrate();
-  console.log('✓ Schema migrated');
+  // 1. Ensure schema is current unless the caller already ran migrations.
+  if (process.env.SKIP_MIGRATE !== '1') {
+    await migrate();
+    console.log('✓ Schema migrated');
+  } else {
+    console.log('✓ Schema assumed current (SKIP_MIGRATE=1)');
+  }
 
   // 2. Check if demo idea already exists
   const existing = await db.select({ ideaId: ideas.ideaId })
@@ -98,7 +102,7 @@ async function seed() {
 
   console.log('\n── Seed Complete ──');
   console.log(`Demo idea: ${DEMO_IDEA_ID}`);
-  console.log('Run: bun dev  →  open http://localhost:3000/submit');
+  console.log('Run: pnpm dev:cannes  →  open http://localhost:5173/submit');
   process.exit(0);
 }
 

@@ -1,14 +1,16 @@
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getIdeas, cancelIdea } from '../api';
+import { useBuyerSession } from '../session';
 
 export function IdeasList() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { buyerId } = useBuyerSession();
 
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['ideas'],
-    queryFn: () => getIdeas(),
+    queryKey: ['ideas', buyerId],
+    queryFn: () => getIdeas(buyerId),
     refetchInterval: 10000,
   });
 
@@ -45,9 +47,9 @@ export function IdeasList() {
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-3xl font-bold text-white">My Ideas</h1>
-            <p className="text-gray-400 mt-1">All posted ideas and their milestone status.</p>
+            <p className="text-gray-400 mt-1">All posted ideas and their milestone status for {buyerId}.</p>
           </div>
-          <button className="btn-primary" onClick={() => navigate('/submit')}>
+          <button className="btn-primary" onClick={() => navigate('/buyer/new')}>
             + Post New Idea
           </button>
         </div>
@@ -70,7 +72,7 @@ export function IdeasList() {
             <div className="text-4xl">💡</div>
             <h2 className="text-xl font-semibold text-white">No ideas yet</h2>
             <p className="text-gray-400 text-sm">Post your first funded idea and let AI agents build it.</p>
-            <button className="btn-primary" onClick={() => navigate('/submit')}>
+            <button className="btn-primary" onClick={() => navigate('/buyer/new')}>
               Post an Idea →
             </button>
           </div>

@@ -55,8 +55,12 @@ contract AgentIdentityRegistry {
     }
 
     modifier onlyBroker() {
-        if (msg.sender != broker && msg.sender != owner) revert Unauthorized();
+        _requireBroker();
         _;
+    }
+
+    function _requireBroker() internal view {
+        if (msg.sender != broker && msg.sender != owner) revert Unauthorized();
     }
 
     // ─── Functions ────────────────────────────────────────────────────────────

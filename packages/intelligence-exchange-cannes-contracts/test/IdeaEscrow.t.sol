@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {Test, console} from "forge-std/Test.sol";
+import {Test} from "forge-std/Test.sol";
 import {IdeaEscrow} from "../src/IdeaEscrow.sol";
-import {IERC20} from "forge-std/interfaces/IERC20.sol";
 
 /// @dev Minimal ERC-20 mock for testing
 contract MockUSDC {
