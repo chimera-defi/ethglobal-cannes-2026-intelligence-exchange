@@ -1,54 +1,65 @@
 # Intelligence Exchange Cannes 2026
 
-ETHGlobal Cannes 2026 hackathon submission for a controlled-supply marketplace where humans post AI work, verified operators run agents, and the platform releases escrow only after human review.
+ETHGlobal Cannes 2026 submission for a controlled-supply market where spare agent capacity can pick up scoped build work and get paid only when a human reviewer accepts the result.
 
-## What We Built
+## Thesis
 
-Intelligence Exchange is a brokered execution marketplace for AI jobs, not an open freelance board and not a token resale scheme.
+Intelligence is becoming a scarce operating resource.
 
-The current build includes:
+Some teams finish the month with idle agent time, unused model budget, and automation capacity that would otherwise go to waste. Other teams have overflow demand and would pay to turn that spare capacity into shipped work. Intelligence Exchange is the broker that sits in the middle.
 
-- a React frontend for posting ideas, tracking milestone jobs, and reviewing output
-- a Hono broker API that plans ideas into briefs, creates milestone jobs, handles claims, and scores submissions
-- a worker CLI entrypoint for agent operators
-- Postgres-backed state with Redis-backed lease handling
-- deterministic demo data for a repeatable judge flow
-- local stand-ins for Arc escrow, World ID gating, and 0G dossier storage
+This repo does **not** implement credit resale or a token market. It turns spare intelligence capacity into milestone work:
 
-## Why This Exists
+1. a buyer funds an idea,
+2. the broker decomposes it into fixed milestones,
+3. a human-backed worker agent claims one,
+4. the worker submits artifacts,
+5. a human reviewer accepts or sends it back,
+6. payout only becomes releasable after approval.
 
-The product thesis is simple:
+## What The Demo Actually Proves
 
-1. Buyers want a way to turn a prompt into shipped work without hiring a full team.
-2. Workers want paid, scoped milestones instead of vague one-off gigs.
-3. The platform should take a fee only when work is accepted, not when people just browse.
+The current build is a hackathon-ready pilot, not a live open marketplace.
 
-## How It Works
+It includes:
 
-1. A buyer verifies as human and posts an idea with a budget.
-2. The broker turns that idea into a `BuildBrief`.
-3. The brief is split into four fixed milestone types: `brief`, `tasks`, `scaffold`, and `review`.
-4. A worker operator claims one milestone with the worker app or CLI.
-5. The worker submits artifacts, a summary, and execution metadata.
-6. The broker scores the submission deterministically.
-7. A human reviewer accepts or rejects the milestone.
-8. Accepted work releases payout from escrow and records the agent identity / dossier trail.
+- a React frontend for posting ideas, tracking milestone jobs, and reviewing submissions
+- a Hono broker API that creates ideas, generates `BuildBrief`s, queues jobs, manages claims, and scores submissions
+- a worker CLI that claims jobs, fetches `skill.md`, and submits results
+- Postgres-backed state with Redis-backed lease expiry / requeue handling
+- deterministic seed data and acceptance tests for a repeatable judge flow
+- demo wiring for Arc funding, World gating, agent fingerprinting, and dossier-style metadata
 
-The demo uses deterministic seeded data so the same flow can be replayed every time.
+The implementation is deliberately constrained:
 
-## Demo Flow
+- four milestone types only: `brief`, `tasks`, `scaffold`, `review`
+- deterministic rule-based scoring
+- human-gated acceptance
+- one controlled pilot loop instead of open marketplace liquidity
 
-The seeded demo story is:
+## Why It Has Oomph
 
-1. Open the submit screen and create a funded idea.
-2. Verify with the demo World ID gate.
-3. Fund the idea and generate the brief.
-4. Open the ideas board to inspect the brief and milestone state.
-5. Open the jobs board to see queued milestones.
-6. Open the review panel for the submitted milestone.
-7. Accept the milestone to release payout.
+The useful framing is not "agents doing random gigs."
 
-Current demo data includes the seeded idea `idea-demo-cannes-2026` and four milestone jobs.
+The useful framing is:
+
+- demand side buys finished outcomes, not raw prompts
+- supply side monetizes idle agent capacity without reselling API credits directly
+- the broker gives that market structure: claim rules, review gates, payout semantics, and worker reputation
+
+That is why this looks more like an exchange for scarce execution capacity than a generic freelance board.
+
+## Demo Loop
+
+1. Open the submit flow and post a funded idea.
+2. Pass the demo World gate.
+3. Record demo Arc funding and generate the `BuildBrief`.
+4. Inspect the idea board and milestone state.
+5. Claim a queued job from the jobs board or worker CLI.
+6. Fetch the generated `skill.md` and submit an artifact.
+7. Open the review panel and accept the milestone.
+
+Seeded demo data includes `idea-demo-cannes-2026` plus four milestone jobs.
 
 ## Screenshots
 
@@ -74,25 +85,18 @@ All screenshots below were captured from the running local stack in `output/play
 
 ![Review panel](output/playwright/cannes-demo/review.png)
 
-## Money
+## Business Model
 
-### How We Make Money
-
-- Platform take rate on accepted GMV: 10% in the current build.
-- Optional enterprise fee for hosted broker, audit logs, and private deployment.
-- Optional support / integration fee for teams that want their own broker configuration.
-
-### How Users Make Money
-
-- Workers earn milestone payouts in USDC when their submissions are accepted.
-- Workers also build reputation, which can unlock better jobs and higher-value milestones.
-- Buyers save money by paying only for accepted work instead of staffing the whole execution layer in-house.
+- Platform take rate: 10% of accepted GMV in the current build.
+- Workers earn milestone payouts on accepted output.
+- Agent fingerprints and reputation are tracked so better workers can earn more over time.
 
 ## Local Run
 
 Prereqs:
 
 - Node.js 20+
+- Bun
 - Docker
 - `corepack` enabled, or `pnpm` available
 
@@ -113,24 +117,22 @@ corepack pnpm --filter intelligence-exchange-cannes-broker seed
 corepack pnpm --filter intelligence-exchange-cannes-web dev
 ```
 
-Then open:
-
-- `http://localhost:3000`
+Then open `http://localhost:3000`.
 
 The browser frontend proxies API calls to `http://localhost:3001`.
 
 ## Validation
 
-What I verified locally:
+Validated locally against the current repo state:
 
-- the web app production build succeeds
-- the broker starts against the local Postgres and Redis services
-- the seeded demo data loads and exposes the full milestone flow
-- the broker acceptance suite passes against the live local stack
-- browser screenshots were captured from the live app
+- web production build
+- broker typecheck and build
+- worker typecheck and build
+- broker acceptance suite against the live local stack
 
-## Scope Notes
+## Scope Honesty
 
-- Payouts are still human-gated in this build.
-- World ID, Arc escrow, and 0G are represented by demo wiring where the real integration is not needed for the hackathon flow.
-- This is a local deterministic demo, not an open marketplace with live liquidity.
+- This is a controlled-supply pilot, not proof of open-market liquidity.
+- Human review is still the release gate; there are no autonomous payouts.
+- World, Arc, and dossier flows are demonstrated with local/demo wiring in this repo.
+- Agent fingerprints and reputation are mirrored in broker state today; ERC-8004-style identity is an intended extension, not a claim about this build.
