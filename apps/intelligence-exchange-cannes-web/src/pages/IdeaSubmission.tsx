@@ -3,12 +3,28 @@ import { useNavigate } from 'react-router-dom';
 import { createIdea, fundIdea, planIdea, verifyWorldIdentity, getIntegrationStatus } from '../api';
 import { useBuyerSession } from '../session';
 import { useQuery } from '@tanstack/react-query';
+import { IDKitWidget, VerificationLevel, type ISuccessResult } from '@worldcoin/idkit';
+import { useSwitchChain, useWriteContract } from 'wagmi';
+import { erc20Abi, parseUnits, type Address } from 'viem';
+import { escrowAbi, localFundingAddresses, mockUsdcAbi, toEscrowIdeaId } from '../contracts';
 
 type Step = 'form' | 'world-verify' | 'fund' | 'funding' | 'planning' | 'done' | 'error';
+
+type WorldProofShape = {
+  nullifier_hash?: string;
+  nullifierHash?: string;
+  proof: string;
+  merkle_root?: string;
+  merkleRoot?: string;
+  verification_level?: string;
+  verificationLevel?: string;
+};
 
 export function IdeaSubmission() {
   const navigate = useNavigate();
   const { buyerId, connectedAddress } = useBuyerSession();
+  const { switchChainAsync } = useSwitchChain();
+  const { writeContractAsync } = useWriteContract();
   const [step, setStep] = useState<Step>('form');
   const [error, setError] = useState<string | null>(null);
   const [ideaId, setIdeaId] = useState<string | null>(null);
@@ -23,28 +39,48 @@ export function IdeaSubmission() {
   // Demo: simulate World ID verification (in production, use @worldcoin/idkit-core)
   const [worldVerified, setWorldVerified] = useState(false);
   const [nullifierHash, setNullifierHash] = useState<string | null>(null);
+  const [worldError, setWorldError] = useState<string | null>(null);
   const { data: integrationStatus } = useQuery({
     queryKey: ['integration-status'],
     queryFn: getIntegrationStatus,
     staleTime: 30_000,
   });
 
-  async function handleWorldVerify() {
-    const demoNullifierHash = '0x' + Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
-    await verifyWorldIdentity({
+  const worldAppId = import.meta.env.VITE_WORLD_APP_ID;
+  const worldActionId = import.meta.env.VITE_WORLD_ACTION_ID;
+  const hasRealWorldConfig = Boolean(worldAppId && worldActionId);
+  const fundingAddresses = localFundingAddresses();
+
+  async function persistWorldVerification(proof: ISuccessResult | WorldProofShape) {
+    const normalized = proof as WorldProofShape;
+    const normalizedProof = {
+      nullifierHash: normalized.nullifier_hash ?? normalized.nullifierHash ?? '',
+      proof: normalized.proof,
+      merkleRoot: normalized.merkle_root ?? normalized.merkleRoot ?? '',
+      verificationLevel: normalized.verification_level ?? normalized.verificationLevel ?? 'device',
+    };
+
+    const result = await verifyWorldIdentity({
       subjectType: 'buyer',
       subjectId: buyerId,
       walletAddress: connectedAddress ?? undefined,
-      worldIdProof: {
-        nullifierHash: demoNullifierHash,
-        proof: '0xdemo-proof',
-        merkleRoot: '0xdemo-root',
-        verificationLevel: 'device',
-      },
+      worldIdProof: normalizedProof,
     });
-    setNullifierHash(demoNullifierHash);
+
+    setNullifierHash(result.nullifierHash);
     setWorldVerified(true);
     setStep('fund');
+  }
+
+  async function handleWorldVerify() {
+    const demoNullifierHash = '0x' + Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+    setWorldError(null);
+    await persistWorldVerification({
+      nullifierHash: demoNullifierHash,
+      proof: '0xdemo-proof',
+      merkleRoot: '0xdemo-root',
+      verificationLevel: 'device',
+    });
   }
 
   async function handleSubmitForm(e: React.FormEvent) {
@@ -56,6 +92,11 @@ export function IdeaSubmission() {
   async function handleFund() {
     setError(null);
     try {
+      if (!connectedAddress) {
+        throw new Error('Connect a wallet before funding the escrow.');
+      }
+      const fundingWallet = connectedAddress as Address;
+
       setStep('funding');
 
       // 1. Create idea in broker
@@ -75,10 +116,34 @@ export function IdeaSubmission() {
 
       setIdeaId(idea.ideaId);
 
-      // 2. Simulate Arc escrow funding (in production: use wagmi to call fundIdea())
-      // For demo: record a simulated tx hash
-      const demoTxHash = '0x' + Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
-      await fundIdea(idea.ideaId, demoTxHash, form.budgetUsdMax);
+      // 2. Fund Arc escrow with the connected wallet.
+      await switchChainAsync({ chainId: fundingAddresses.chainId });
+      const amount = parseUnits(form.budgetUsdMax.toFixed(2), 6);
+
+      if (fundingAddresses.localFaucet) {
+        await writeContractAsync({
+          address: fundingAddresses.usdcAddress,
+          abi: mockUsdcAbi,
+          functionName: 'mint',
+          args: [fundingWallet, amount],
+        });
+      }
+
+      await writeContractAsync({
+        address: fundingAddresses.usdcAddress,
+        abi: erc20Abi,
+        functionName: 'approve',
+        args: [fundingAddresses.escrowAddress, amount],
+      });
+
+      const escrowTxHash = await writeContractAsync({
+        address: fundingAddresses.escrowAddress,
+        abi: escrowAbi,
+        functionName: 'fundIdea',
+        args: [toEscrowIdeaId(idea.ideaId), fundingAddresses.usdcAddress, amount],
+      });
+
+      await fundIdea(idea.ideaId, escrowTxHash, form.budgetUsdMax);
 
       // 3. Generate brief (milestones + jobs)
       setStep('planning');
@@ -250,15 +315,36 @@ export function IdeaSubmission() {
             </div>
               <div className="bg-gray-900/60 border border-gray-700 rounded-lg p-3 text-left">
                 <p className="text-xs uppercase tracking-wide text-gray-500">World mode</p>
-                <p className="text-sm text-gray-300 mt-1">{integrationStatus?.world.mode ?? 'loading'}</p>
+                <p className="text-sm text-gray-300 mt-1">{hasRealWorldConfig ? 'idkit-widget' : integrationStatus?.world.mode ?? 'loading'}</p>
                 {connectedAddress && <p className="text-xs text-gray-500 mt-1">Wallet: {connectedAddress}</p>}
               </div>
-              {/* In production: IDKit component. For demo: button simulates verification. */}
-              <button className="btn-primary w-full" onClick={handleWorldVerify}>
-                Verify with World ID (Demo Mode)
-              </button>
+              {hasRealWorldConfig ? (
+                <IDKitWidget
+                  app_id={worldAppId!}
+                  action={worldActionId!}
+                  verification_level={VerificationLevel.Orb}
+                  handleVerify={async (proof: ISuccessResult) => {
+                    setWorldError(null);
+                    await persistWorldVerification(proof);
+                  }}
+                  onSuccess={() => undefined}
+                >
+                  {({ open }: { open: () => void }) => (
+                    <button className="btn-primary w-full" onClick={open}>
+                      Verify with World ID
+                    </button>
+                  )}
+                </IDKitWidget>
+              ) : (
+                <button className="btn-primary w-full" onClick={handleWorldVerify}>
+                  Verify with World ID (Demo Mode)
+                </button>
+              )}
+              {worldError && <p className="text-red-400 text-xs">{worldError}</p>}
               <p className="text-gray-600 text-xs">
-                Demo: using pre-verified operator account. In production, World ID modal appears here.
+                {hasRealWorldConfig
+                  ? 'IDKit modal enabled. Proof is verified server-side before the buyer can proceed.'
+                  : 'Demo fallback: broker records a verification entry without real World credentials.'}
               </p>
             </div>
           </div>
@@ -298,10 +384,10 @@ export function IdeaSubmission() {
                 Funds are held in Arc USDC escrow. Released only after you approve each milestone.
                 No autonomous payouts — you stay in control.
               </p>
-              {/* In production: wagmi ConnectButton + call IdeaEscrow.fundIdea() */}
               <button className="btn-primary w-full text-base py-3" onClick={handleFund}>
-                Fund ${form.budgetUsdMax} USDC via Arc Escrow (Demo)
+                Fund ${form.budgetUsdMax} USDC via Arc Escrow
               </button>
+              {!connectedAddress && <p className="text-red-400 text-xs">Connect a wallet to fund this idea.</p>}
             </div>
           </div>
         )}

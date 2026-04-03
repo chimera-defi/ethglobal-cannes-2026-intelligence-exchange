@@ -8,12 +8,15 @@ Branch baseline: `main` after PR 3 merge, continued on `codex/main-pr3-hardening
 - Fixed repo build blockers:
   - worker package now has a real `tsconfig.json`
   - contract scripts resolve `forge` reliably in this environment
-  - contract deploy script now exists and deploys both escrow and registry
+  - contract deploy script now exists and deploys escrow, registry, and local mock USDC
 - Fixed broker acceptance tests so they match actual API behavior instead of stale expectations.
 - Fixed local bootstrap race conditions by waiting for Postgres/Redis before migrating and seeding.
 - Added broker-owned World verification records and dossier writing rails so sponsor integrations now have real ownership boundaries.
+- Added local chain lifecycle scripts so the demo bootstrap now includes Anvil + contract deploy.
+- Replaced the web funding stub with a live wallet-backed escrow funding path for local/testnet configuration.
 - Verified:
   - `pnpm check`
+  - `pnpm demo:bootstrap`
   - `pnpm --filter intelligence-exchange-cannes-broker test:acceptance`
   - `pnpm --filter intelligence-exchange-cannes-contracts deploy:local`
 
@@ -29,6 +32,7 @@ Branch baseline: `main` after PR 3 merge, continued on `codex/main-pr3-hardening
   - `/buyer/review`
   - `/buyer/history`
   - `/jobs`
+- Buyer review actions now use the active buyer session identity instead of a hardcoded reviewer ID.
 - Screenshots captured from the current local stack:
   - `docs/screenshots/buyer-workspace.png`
   - `docs/screenshots/jobs-board.png`
@@ -38,13 +42,13 @@ Branch baseline: `main` after PR 3 merge, continued on `codex/main-pr3-hardening
 ## Pass 3: Demo Honesty, Edge Cases, And Slop Removal
 
 - README explicitly labels what is still simulated:
-  - World proof generation in the current UI
-  - Arc funding transaction from the web app
+  - World proof generation in the UI when no World credentials are configured
+  - review-time onchain reserve/release
   - 0G remote write unless `ZERO_G_WRITE_URL` is configured
 - Product language stays honest:
   - human review is required before payout
   - this is not an open autonomous onchain labor market
 - Remaining honest gaps:
-  - web funding still records a demo tx hash instead of using a live wallet transaction
-  - World verification still needs a production proof modal / verifier path
+  - review-time settlement is still offchain broker state, not a buyer-signed release transaction
+  - World verification is still demo fallback unless `WORLD_APP_ID` / `WORLD_ACTION_ID` and `VITE_WORLD_*` are configured
   - 0G still needs a real remote writer target configured in deployment
