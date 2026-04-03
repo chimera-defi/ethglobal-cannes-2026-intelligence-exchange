@@ -7,34 +7,17 @@ import { BuyerSessionProvider } from './session';
 import { WalletProvider } from './wallet';
 import './index.css';
 
-const BuyerWorkspace = lazy(async () => {
-  const mod = await import('./pages/BuyerWorkspace');
-  return { default: mod.BuyerWorkspace };
-});
-const IdeaSubmission = lazy(async () => {
-  const mod = await import('./pages/IdeaSubmission');
-  return { default: mod.IdeaSubmission };
-});
-const BuyerReviewQueue = lazy(async () => {
-  const mod = await import('./pages/BuyerReviewQueue');
-  return { default: mod.BuyerReviewQueue };
-});
-const BuyerHistory = lazy(async () => {
-  const mod = await import('./pages/BuyerHistory');
-  return { default: mod.BuyerHistory };
-});
-const IdeaDetail = lazy(async () => {
-  const mod = await import('./pages/IdeaDetail');
-  return { default: mod.IdeaDetail };
-});
-const JobsBoard = lazy(async () => {
-  const mod = await import('./pages/JobsBoard');
-  return { default: mod.JobsBoard };
-});
-const ReviewPanel = lazy(async () => {
-  const mod = await import('./pages/ReviewPanel');
-  return { default: mod.ReviewPanel };
-});
+function lazyPage<T extends React.ComponentType<unknown>>(loader: () => Promise<{ default: T }>) {
+  return lazy(loader);
+}
+
+const BuyerWorkspace = lazyPage(async () => ({ default: (await import('./pages/BuyerWorkspace')).BuyerWorkspace }));
+const IdeaSubmission = lazyPage(async () => ({ default: (await import('./pages/IdeaSubmission')).IdeaSubmission }));
+const BuyerReviewQueue = lazyPage(async () => ({ default: (await import('./pages/BuyerReviewQueue')).BuyerReviewQueue }));
+const BuyerHistory = lazyPage(async () => ({ default: (await import('./pages/BuyerHistory')).BuyerHistory }));
+const IdeaDetail = lazyPage(async () => ({ default: (await import('./pages/IdeaDetail')).IdeaDetail }));
+const JobsBoard = lazyPage(async () => ({ default: (await import('./pages/JobsBoard')).JobsBoard }));
+const ReviewPanel = lazyPage(async () => ({ default: (await import('./pages/ReviewPanel')).ReviewPanel }));
 
 const queryClient = new QueryClient({
   defaultOptions: {

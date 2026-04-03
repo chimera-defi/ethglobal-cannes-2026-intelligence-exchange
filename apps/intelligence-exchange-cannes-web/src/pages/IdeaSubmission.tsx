@@ -37,8 +37,6 @@ export function IdeaSubmission() {
     taskType: 'coding' as const,
   });
 
-  // Demo: simulate World ID verification (in production, use @worldcoin/idkit-core)
-  const [worldVerified, setWorldVerified] = useState(false);
   const [nullifierHash, setNullifierHash] = useState<string | null>(null);
   const [worldError, setWorldError] = useState<string | null>(null);
   const { data: integrationStatus } = useQuery({
@@ -69,7 +67,6 @@ export function IdeaSubmission() {
     });
 
     setNullifierHash(result.nullifierHash);
-    setWorldVerified(true);
     setStep('fund');
   }
 
@@ -165,8 +162,8 @@ export function IdeaSubmission() {
           <div className="text-5xl">✅</div>
           <h1 className="text-2xl font-bold text-green-400">Idea Funded & Planned!</h1>
           <p className="text-gray-400">
-            Your idea has been funded and milestone jobs have been created.
-            AI agents can now claim and execute them.
+            Your job is funded and the milestone queue is live.
+            Workers can now claim it from the job board.
           </p>
           <div className="bg-gray-800 rounded-lg p-3 text-left text-xs font-mono text-gray-300 break-all">
             Idea ID: {ideaId}
@@ -180,7 +177,7 @@ export function IdeaSubmission() {
             </button>
             <button
               className="btn-primary bg-gray-700 hover:bg-gray-600"
-              onClick={() => { setStep('form'); setIdeaId(null); setWorldVerified(false); navigate('/buyer'); }}
+              onClick={() => { setStep('form'); setIdeaId(null); navigate('/buyer'); }}
             >
               Submit Another
             </button>
@@ -209,7 +206,7 @@ export function IdeaSubmission() {
         {/* Header */}
         <div>
           <h1 className="text-3xl font-bold text-white">Intelligence Exchange</h1>
-          <p className="text-gray-400 mt-1">Post a funded idea. AI agents compete to build it.</p>
+          <p className="text-gray-400 mt-1">Post a funded task, link the repo, and review the returned PR.</p>
         </div>
 
         {/* Progress steps */}
@@ -299,8 +296,8 @@ export function IdeaSubmission() {
               <p className="font-medium text-gray-300 mb-1">How it works:</p>
               <ol className="list-decimal list-inside space-y-1">
                 <li>Verify your identity with World ID (once)</li>
-                <li>Fund your idea with Arc USDC escrow</li>
-                <li>Agents claim the repo task and build against your URL</li>
+                <li>Fund the job with Arc USDC escrow</li>
+                <li>Workers claim the task and build against your repo or spec URL</li>
                 <li>You review the returned pull request link and approve or reject</li>
               </ol>
             </div>
@@ -317,8 +314,7 @@ export function IdeaSubmission() {
               <div className="text-4xl">🌍</div>
               <h2 className="text-xl font-bold">Verify with World ID</h2>
               <p className="text-gray-400 text-sm">
-                Only verified humans can post funded ideas. This prevents spam and ensures
-                accountable buyers in the marketplace.
+                Only verified humans can post funded jobs. This keeps the review queue tied to a real buyer.
               </p>
               <div className="bg-blue-900/30 border border-blue-800 rounded-lg p-4 text-left">
               <p className="text-blue-300 text-sm font-medium">Idea to fund:</p>
@@ -370,7 +366,7 @@ export function IdeaSubmission() {
               <span>Identity verified via World ID</span>
             </div>
             <div className="bg-gray-800/50 rounded-xl p-6 space-y-4">
-              <h2 className="text-xl font-bold">Fund Your Idea with Arc</h2>
+              <h2 className="text-xl font-bold">Fund the Job with Arc</h2>
               <p className="text-sm text-gray-500">
                 Current Arc mode: {integrationStatus?.arc.mode ?? 'loading'}
               </p>
@@ -393,8 +389,8 @@ export function IdeaSubmission() {
                 </div>
               </div>
               <p className="text-gray-500 text-xs">
-                Funds are held in Arc USDC escrow. Released only after you approve each milestone.
-                No autonomous payouts — you stay in control.
+                Funds stay in Arc USDC escrow until you approve a milestone.
+                Payout only moves when you sign the settlement step.
               </p>
               <button className="btn-primary w-full text-base py-3" onClick={handleFund}>
                 Fund ${form.budgetUsdMax} USDC via Arc Escrow
@@ -417,8 +413,8 @@ export function IdeaSubmission() {
         {step === 'planning' && (
           <div className="text-center space-y-4 py-8">
             <div className="animate-pulse text-4xl">🤔</div>
-            <h2 className="text-xl font-semibold">Generating BuildBrief...</h2>
-            <p className="text-gray-400 text-sm">Breaking your idea into milestones: brief → tasks → scaffold → review</p>
+            <h2 className="text-xl font-semibold">Generating brief...</h2>
+            <p className="text-gray-400 text-sm">Splitting the job into brief → tasks → scaffold → review</p>
           </div>
         )}
       </div>
