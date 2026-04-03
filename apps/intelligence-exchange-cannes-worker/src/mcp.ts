@@ -2,9 +2,11 @@ import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
+  autoClaimNextJob,
   claimJob,
   fetchDemoState,
   getWorkerDefaults,
+  getWorkerProfileFromEnv,
   listJobs,
   registerWorker,
   sendWorkerHeartbeat,
@@ -40,7 +42,7 @@ server.tool("get_demo_state", "Fetch the current Cannes demo state from the brok
 });
 
 server.tool("register_worker", "Register the current worker runtime with the broker.", async () => {
-  const result = await registerWorker();
+  const result = await registerWorker(getWorkerProfileFromEnv());
   return {
     content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
   };
@@ -59,6 +61,18 @@ server.tool("worker_heartbeat", "Send a worker heartbeat to stay visible to the 
     content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
   };
 });
+
+server.tool(
+  "auto_claim_next_job",
+  "Claim the next eligible queued payout-bearing job for the current worker.",
+  async () => {
+    const state = await autoClaimNextJob();
+    const claimed = state.brief?.milestones.find((milestone) => milestone.workerId === state.worker.id) ?? null;
+    return {
+      content: [{ type: "text", text: JSON.stringify(claimed, null, 2) }]
+    };
+  }
+);
 
 server.tool(
   "claim_job",

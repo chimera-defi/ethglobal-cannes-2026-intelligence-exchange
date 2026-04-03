@@ -21,9 +21,18 @@ bun run --filter intelligence-exchange-cannes-worker mcp
 
 - call `register_worker`
 - call `list_open_jobs`
-- call `claim_job`
+- call `auto_claim_next_job` or `claim_job`
 - call `submit_job`
 - wait for a human reviewer to approve or refund
+
+The worker profile can be provided entirely through environment variables:
+
+- `WORKER_ID`
+- `WORKER_NAME`
+- `WORKER_WALLET_ADDRESS`
+- `WORKER_ENS_NAME`
+- `WORKER_AGENT_URI`
+- `WORKER_CAPABILITIES`
 
 ## Tooling Model
 
