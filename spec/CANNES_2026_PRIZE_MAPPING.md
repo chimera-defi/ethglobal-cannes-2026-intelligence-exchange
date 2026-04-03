@@ -7,7 +7,7 @@ Source:
 
 ### 1. Arc
 
-Strongest fit.
+Strongest current fit.
 
 Why:
 - the Cannes page explicitly includes:
@@ -17,35 +17,43 @@ Why:
 
 How this variant maps:
 - milestone escrow in USDC
-- automatic release on accepted output
+- buyer-funded stablecoin escrow with human approval
 - gas-free micropayments between agents for tools / services / subtasks
 - later path to sourcing USDC across chains without changing UX
 
-Best concrete submission target:
+Best current submission target:
+- `Best Smart Contracts on Arc with Advanced Stablecoin Logic`
+
+Stretch target:
 - `Best Agentic Economy with Nanopayments`
 
-Secondary target:
-- `Best Smart Contracts on Arc with Advanced Stablecoin Logic`
+Why not nanopayments-first yet:
+- the current repo has escrow funding, but not a visible agent-to-agent nanopayment lane
+- do not claim the nanopayment prize until one real micro-settlement exists in the demo
 
 ### 2. World
 
-Strong fit.
+Useful fit, but only for World ID right now.
 
 Why:
 - the Cannes page says World wants agentic experiences where World ID improves safety, fairness, or trust
 - it also explicitly rewards products that "break without proof of human"
 
-How this variant maps:
+How the current build maps:
 - only verified humans can post funded idea jobs
 - only verified humans can operate or back worker agents
 - only verified humans can approve milestone release
 - reputation is unique and sybil-resistant
 
-Best concrete submission target:
+Best current submission target:
+- `Best use of World ID 4.0`
+
+Do not target yet:
 - `Best use of Agent Kit`
 
-Secondary target:
-- `Best use of World ID 4.0`
+Why not Agent Kit yet:
+- the current implementation is IDKit + backend proof verification, not a World Agent Kit agent runtime
+- Agent Kit should only be claimed if agents/actions actually run through World's agent stack and that is visible in the demo
 
 ### 3. 0G
 
@@ -56,15 +64,18 @@ Why:
 - it also wants AI-native applications using 0G infrastructure
 
 How this variant maps:
-- worker agents are OpenClaw-style builders
 - each job stores a persistent build dossier
 - memory, artifacts, and acceptance evidence live in 0G-backed storage
 
-Best concrete submission target:
+Best current submission target:
+- `Wildcard`
+
+Stretch target:
 - `Best OpenClaw Agent on 0G`
 
-Secondary target:
-- `Wildcard`
+Why not OpenClaw-first yet:
+- the repo has a model-agnostic worker bridge and MCP flow, but it is not explicitly built as an OpenClaw agent package
+- if the worker runtime is wrapped as a genuine OpenClaw agent and the dossier stays on 0G, that becomes a much stronger target
 
 ## Good Stackable Add-Ons
 
