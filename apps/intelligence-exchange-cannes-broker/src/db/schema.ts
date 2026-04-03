@@ -111,6 +111,17 @@ export const agentIdentities = pgTable('agent_identities', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const worldVerifications = pgTable('world_verifications', {
+  verificationId: text('verification_id').primaryKey(),
+  subjectType: text('subject_type').notNull(),
+  subjectId: text('subject_id').notNull(),
+  walletAddress: text('wallet_address'),
+  nullifierHash: text('nullifier_hash').notNull(),
+  verificationLevel: text('verification_level'),
+  provider: text('provider').notNull().default('world'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 // ─── Escrow Releases ─────────────────────────────────────────────────────────
 
 export const escrowReleases = pgTable('escrow_releases', {

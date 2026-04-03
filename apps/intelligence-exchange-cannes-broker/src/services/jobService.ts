@@ -3,6 +3,8 @@ import { db } from '../db/client';
 import { jobs, jobEvents, claims, submissions, agentIdentities, ideas, briefs, milestones } from '../db/schema';
 import { scoreSubmission } from '../scoring/scorer';
 import { milestoneQueue } from '../queue/milestoneQueue';
+import { writeAcceptedJobDossier } from './dossierService';
+import { assertWorldVerified } from './identityService';
 import {
   DEFAULT_LEASE_DURATION_MS,
   PLATFORM_FEE_RATE,
@@ -124,6 +126,7 @@ export async function generateBrief(ideaId: string): Promise<string> {
 // ─── Job Claim ────────────────────────────────────────────────────────────────
 
 export async function claimJob(jobId: string, workerId: string, agentMeta?: Record<string, unknown>) {
+  await assertWorldVerified('worker', workerId);
   const [job] = await db.select().from(jobs).where(eq(jobs.jobId, jobId));
   if (!job) throw Object.assign(new Error('Job not found'), { status: 404 });
   if (job.status !== 'queued') throw Object.assign(new Error(`Job not claimable: status=${job.status}`), { status: 409 });
@@ -268,7 +271,12 @@ export async function acceptJob(jobId: string, reviewerId: string) {
     }
   }
 
-  return { accepted: true };
+  const dossierUri = await writeAcceptedJobDossier(jobId);
+  await db.update(briefs)
+    .set({ dossierUri })
+    .where(eq(briefs.briefId, job.briefId));
+
+  return { accepted: true, dossierUri };
 }
 
 export async function rejectJob(jobId: string, reviewerId: string, reason?: string) {

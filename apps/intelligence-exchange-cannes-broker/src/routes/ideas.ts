@@ -6,6 +6,7 @@ import { ideas, briefs, jobs, milestones } from '../db/schema';
 import { createIdea, generateBrief, acceptJob, rejectJob } from '../services/jobService';
 import { JobCreateRequestSchema } from 'intelligence-exchange-cannes-shared';
 import { z } from 'zod';
+import { assertWorldVerified } from '../services/identityService';
 
 export const ideasRouter = new Hono();
 
@@ -22,9 +23,10 @@ ideasRouter.get('/', async (c) => {
 ideasRouter.post('/', zValidator('json', JobCreateRequestSchema), async (c) => {
   const req = c.req.valid('json');
 
-  // World ID verification (simplified: check nullifier hash present for gated actions)
-  // In production: verify proof against World ID smart contract
   const worldIdVerified = Boolean(req.worldIdProof?.nullifierHash);
+  if (!worldIdVerified) {
+    await assertWorldVerified('buyer', req.buyerId);
+  }
 
   try {
     const ideaId = await createIdea(req, worldIdVerified);
@@ -88,6 +90,7 @@ ideasRouter.post('/:ideaId/accept', zValidator('json', z.object({
 })), async (c) => {
   const { jobId, reviewerId } = c.req.valid('json');
   try {
+    await assertWorldVerified('buyer', reviewerId);
     const result = await acceptJob(jobId, reviewerId);
     return c.json(result);
   } catch (err: unknown) {
@@ -117,6 +120,7 @@ ideasRouter.post('/:ideaId/reject', zValidator('json', z.object({
 })), async (c) => {
   const { jobId, reviewerId, reason } = c.req.valid('json');
   try {
+    await assertWorldVerified('buyer', reviewerId);
     const result = await rejectJob(jobId, reviewerId, reason);
     return c.json(result);
   } catch (err: unknown) {

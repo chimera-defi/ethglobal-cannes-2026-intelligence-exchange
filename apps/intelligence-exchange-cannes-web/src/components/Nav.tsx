@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import { useBuyerSession } from '../session';
 import { useState } from 'react';
+import { ConnectButton } from '../wallet';
 
 export function Nav() {
   const { buyerId, setBuyerId } = useBuyerSession();
@@ -84,6 +85,7 @@ export function Nav() {
           </button>
           <span className="text-xs text-gray-500 hidden md:inline">Active: {buyerId}</span>
         </form>
+        <ConnectButton />
       </div>
     </nav>
   );

@@ -12,6 +12,7 @@ import { BuyerSessionProvider } from './session';
 import { BuyerWorkspace } from './pages/BuyerWorkspace';
 import { BuyerReviewQueue } from './pages/BuyerReviewQueue';
 import { BuyerHistory } from './pages/BuyerHistory';
+import { WalletProvider } from './wallet';
 import './index.css';
 
 const queryClient = new QueryClient({
@@ -22,25 +23,27 @@ const queryClient = new QueryClient({
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <BuyerSessionProvider>
-        <BrowserRouter>
-          <Nav />
-          <Routes>
-            <Route path="/" element={<Navigate to="/buyer" replace />} />
-            <Route path="/submit" element={<Navigate to="/buyer/new" replace />} />
-            <Route path="/ideas" element={<Navigate to="/buyer" replace />} />
-            <Route path="/buyer" element={<BuyerWorkspace />} />
-            <Route path="/buyer/new" element={<IdeaSubmission />} />
-            <Route path="/buyer/review" element={<BuyerReviewQueue />} />
-            <Route path="/buyer/history" element={<BuyerHistory />} />
-            <Route path="/ideas/:ideaId" element={<IdeaDetail />} />
-            <Route path="/jobs" element={<JobsBoard />} />
-            <Route path="/review/:jobId" element={<ReviewPanel />} />
-            <Route path="*" element={<Navigate to="/buyer" replace />} />
-          </Routes>
-        </BrowserRouter>
-      </BuyerSessionProvider>
-    </QueryClientProvider>
+    <WalletProvider>
+      <QueryClientProvider client={queryClient}>
+        <BuyerSessionProvider>
+          <BrowserRouter>
+            <Nav />
+            <Routes>
+              <Route path="/" element={<Navigate to="/buyer" replace />} />
+              <Route path="/submit" element={<Navigate to="/buyer/new" replace />} />
+              <Route path="/ideas" element={<Navigate to="/buyer" replace />} />
+              <Route path="/buyer" element={<BuyerWorkspace />} />
+              <Route path="/buyer/new" element={<IdeaSubmission />} />
+              <Route path="/buyer/review" element={<BuyerReviewQueue />} />
+              <Route path="/buyer/history" element={<BuyerHistory />} />
+              <Route path="/ideas/:ideaId" element={<IdeaDetail />} />
+              <Route path="/jobs" element={<JobsBoard />} />
+              <Route path="/review/:jobId" element={<ReviewPanel />} />
+              <Route path="*" element={<Navigate to="/buyer" replace />} />
+            </Routes>
+          </BrowserRouter>
+        </BuyerSessionProvider>
+      </QueryClientProvider>
+    </WalletProvider>
   </React.StrictMode>
 );

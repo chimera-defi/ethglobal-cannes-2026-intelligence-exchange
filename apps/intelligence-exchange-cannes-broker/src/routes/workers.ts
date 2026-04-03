@@ -6,6 +6,7 @@ import { agentIdentities } from '../db/schema';
 import { AgentMetadataSchema } from 'intelligence-exchange-cannes-shared';
 import { computeAgentFingerprint } from '../services/jobService';
 import { z } from 'zod';
+import { assertWorldVerified } from '../services/identityService';
 
 export const workersRouter = new Hono();
 
@@ -18,6 +19,7 @@ const RegisterSchema = z.object({
 // POST /v1/cannes/workers/register — register agent capability profile
 workersRouter.post('/register', zValidator('json', RegisterSchema), async (c) => {
   const { workerId, capabilities, agentMetadata } = c.req.valid('json');
+  await assertWorldVerified('worker', workerId);
 
   const fingerprint = computeAgentFingerprint(
     agentMetadata.agentType,

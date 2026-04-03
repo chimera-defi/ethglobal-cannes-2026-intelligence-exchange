@@ -35,6 +35,9 @@ export type FundingStatus = z.infer<typeof FundingStatusSchema>;
 export const ScoreStatusSchema = z.enum(['pending', 'passed', 'failed', 'rework']);
 export type ScoreStatus = z.infer<typeof ScoreStatusSchema>;
 
+export const WorldSubjectTypeSchema = z.enum(['buyer', 'worker']);
+export type WorldSubjectType = z.infer<typeof WorldSubjectTypeSchema>;
+
 export const CaseStateSchema = z.enum([
   'open',
   'triaged',
@@ -200,6 +203,19 @@ export const JobResultSubmitRequestSchema = z.object({
   }).optional(),
 });
 export type JobResultSubmitRequest = z.infer<typeof JobResultSubmitRequestSchema>;
+
+export const WorldVerifyRequestSchema = z.object({
+  subjectType: WorldSubjectTypeSchema,
+  subjectId: z.string(),
+  walletAddress: z.string().optional(),
+  worldIdProof: z.object({
+    nullifierHash: z.string(),
+    proof: z.string(),
+    merkleRoot: z.string(),
+    verificationLevel: z.string(),
+  }),
+});
+export type WorldVerifyRequest = z.infer<typeof WorldVerifyRequestSchema>;
 
 export const JobStateEventSchema = z.object({
   eventId: z.string().uuid(),
