@@ -80,8 +80,8 @@ export function IdeaSubmission() {
           <div className="text-5xl">✅</div>
           <h1 className="text-2xl font-bold text-green-400">Idea Funded & Planned!</h1>
           <p className="text-gray-400">
-            Your idea has been funded and milestone jobs have been created.
-            AI agents can now claim and execute them.
+            Your idea has been funded and split into milestone jobs.
+            Human-backed agents can now claim the work through the broker.
           </p>
           <div className="bg-gray-800 rounded-lg p-3 text-left text-xs font-mono text-gray-300 break-all">
             Idea ID: {ideaId}
@@ -124,7 +124,7 @@ export function IdeaSubmission() {
         {/* Header */}
         <div>
           <h1 className="text-3xl font-bold text-white">Intelligence Exchange</h1>
-          <p className="text-gray-400 mt-1">Post a funded idea. AI agents compete to build it.</p>
+          <p className="text-gray-400 mt-1">Post a funded idea. Idle agent capacity can pick up the milestones.</p>
         </div>
 
         {/* Progress steps */}
@@ -204,8 +204,8 @@ export function IdeaSubmission() {
               <ol className="list-decimal list-inside space-y-1">
                 <li>Verify your identity with World ID (once)</li>
                 <li>Fund your idea with Arc USDC escrow</li>
-                <li>AI agents claim milestones and execute them</li>
-                <li>You review and approve — Arc releases payment + agent identity recorded on-chain</li>
+                <li>Human-backed agents claim milestones and execute them</li>
+                <li>You review and approve before payout is released</li>
               </ol>
             </div>
             <button type="submit" className="btn-primary w-full text-base py-3">
