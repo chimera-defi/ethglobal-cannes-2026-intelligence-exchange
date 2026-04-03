@@ -3,6 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getJob, acceptMilestone, rejectMilestone } from '../api';
 import { useBuyerSession } from '../session';
+import { escrowAbi, localFundingAddresses, toEscrowIdeaId, toEscrowMilestoneId } from '../contracts';
+import { isAddress, parseUnits, type Address } from 'viem';
+import { usePublicClient, useSwitchChain, useWriteContract } from 'wagmi';
 
 function isPullRequestUrl(uri: string) {
   return /\/pull\/\d+/.test(uri) || /\/merge_requests\/\d+/.test(uri);
@@ -12,9 +15,13 @@ export function ReviewPanel() {
   const { jobId } = useParams<{ jobId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { buyerId } = useBuyerSession();
+  const { buyerId, connectedAddress } = useBuyerSession();
+  const publicClient = usePublicClient();
+  const { switchChainAsync } = useSwitchChain();
+  const { writeContractAsync } = useWriteContract();
   const [rejectReason, setRejectReason] = useState('');
   const [showRejectForm, setShowRejectForm] = useState(false);
+  const fundingAddresses = localFundingAddresses();
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['job', jobId],
@@ -26,18 +33,112 @@ export function ReviewPanel() {
   const job = data?.job;
   const submission = data?.submission;
   const idea = data?.idea;
+  const settlement = data?.settlement;
+
+  async function waitForReceipt(hash: `0x${string}`) {
+    if (!publicClient) {
+      throw new Error('Wallet client unavailable. Refresh the page after connecting your wallet.');
+    }
+    await publicClient.waitForTransactionReceipt({ hash });
+  }
+
+  async function runEscrowSettlement(mode: 'release' | 'refund') {
+    if (!job) throw new Error('Job not loaded');
+    if (!connectedAddress || !isAddress(connectedAddress)) {
+      throw new Error('Connect the buyer wallet before settling this milestone.');
+    }
+    if (!publicClient) {
+      throw new Error('Wallet client unavailable. Refresh the page after connecting your wallet.');
+    }
+
+    await switchChainAsync({ chainId: fundingAddresses.chainId });
+
+    const ideaEscrowId = toEscrowIdeaId(job.ideaId);
+    const milestoneEscrowId = toEscrowMilestoneId(job.milestoneId);
+    const amount = parseUnits(job.budgetUsd, 6);
+    const milestoneStatus = Number(await publicClient.readContract({
+      address: fundingAddresses.escrowAddress,
+      abi: escrowAbi,
+      functionName: 'getMilestoneStatus',
+      args: [milestoneEscrowId],
+    }));
+
+    if (milestoneStatus === 0) {
+      const reserveHash = await writeContractAsync({
+        address: fundingAddresses.escrowAddress,
+        abi: escrowAbi,
+        functionName: 'reserveMilestone',
+        args: [ideaEscrowId, milestoneEscrowId, amount],
+      });
+      await waitForReceipt(reserveHash);
+    }
+
+    if (mode === 'release') {
+      const payee = submission?.agentMetadata?.operatorAddress;
+      if (!payee || !isAddress(payee)) {
+        throw new Error('Submitted worker is missing an operator wallet address, so payout cannot be released onchain.');
+      }
+      if (milestoneStatus === 2) {
+        return {
+          txHash: settlement?.txHash ?? '',
+          payer: connectedAddress,
+          payee,
+          amountUsd: Number(job.budgetUsd),
+        };
+      }
+      const releaseHash = await writeContractAsync({
+        address: fundingAddresses.escrowAddress,
+        abi: escrowAbi,
+        functionName: 'releaseMilestone',
+        args: [ideaEscrowId, milestoneEscrowId, payee as Address],
+      });
+      await waitForReceipt(releaseHash);
+      return {
+        txHash: releaseHash,
+        payer: connectedAddress,
+        payee,
+        amountUsd: Number(job.budgetUsd),
+      };
+    }
+
+    if (milestoneStatus === 1) {
+      const refundHash = await writeContractAsync({
+        address: fundingAddresses.escrowAddress,
+        abi: escrowAbi,
+        functionName: 'refundMilestone',
+        args: [ideaEscrowId, milestoneEscrowId, connectedAddress as Address],
+      });
+      await waitForReceipt(refundHash);
+      return {
+        txHash: refundHash,
+        payer: connectedAddress,
+        payee: connectedAddress,
+        amountUsd: Number(job.budgetUsd),
+      };
+    }
+
+    return undefined;
+  }
 
   const acceptMutation = useMutation({
-    mutationFn: () => acceptMilestone(job!.ideaId, job!.jobId, buyerId),
+    mutationFn: async () => {
+      const settlementRecord = await runEscrowSettlement('release');
+      return acceptMilestone(job!.ideaId, job!.jobId, buyerId, settlementRecord);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['job', jobId] });
+      queryClient.invalidateQueries({ queryKey: ['ideas'] });
     },
   });
 
   const rejectMutation = useMutation({
-    mutationFn: () => rejectMilestone(job!.ideaId, job!.jobId, buyerId, rejectReason || undefined),
+    mutationFn: async () => {
+      const settlementRecord = await runEscrowSettlement('refund');
+      return rejectMilestone(job!.ideaId, job!.jobId, buyerId, rejectReason || undefined, settlementRecord);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['job', jobId] });
+      queryClient.invalidateQueries({ queryKey: ['ideas'] });
       setShowRejectForm(false);
       setRejectReason('');
     },
@@ -195,7 +296,9 @@ export function ReviewPanel() {
             <span className="text-2xl">✅</span>
             <div>
               <p className="text-green-300 font-semibold">Milestone Accepted</p>
-              <p className="text-green-400/70 text-sm">The submission is approved and recorded in the broker. Wallet-driven Arc release is the next settlement step.</p>
+              <p className="text-green-400/70 text-sm">
+                The submission is approved, recorded in the broker, and ready for buyer-signed Arc settlement.
+              </p>
             </div>
           </div>
         )}
@@ -215,12 +318,44 @@ export function ReviewPanel() {
           <ScoreBreakdown milestoneType={job.milestoneType} status={job.status} />
         </div>
 
+        <div className="card space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-white">Settlement Rail</h2>
+            <span className={`badge ${settlement ? 'badge-accepted' : 'badge-created'}`}>
+              {settlement ? settlement.status : 'pending'}
+            </span>
+          </div>
+          <p className="text-sm text-gray-400">
+            Buyer review drives the Arc escrow action. Acceptance releases USDC to the chosen worker wallet. Rework returns the reserved amount to the buyer&apos;s escrow pool.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+            <div className="rounded-lg border border-gray-800 bg-gray-900/40 p-3">
+              <p className="text-gray-500 text-xs uppercase tracking-wide">Buyer wallet</p>
+              <p className="text-gray-300 font-mono text-xs mt-1 break-all">{connectedAddress ?? 'Connect wallet to settle'}</p>
+            </div>
+            <div className="rounded-lg border border-gray-800 bg-gray-900/40 p-3">
+              <p className="text-gray-500 text-xs uppercase tracking-wide">Worker payout wallet</p>
+              <p className="text-gray-300 font-mono text-xs mt-1 break-all">
+                {submission?.agentMetadata?.operatorAddress ?? 'Missing operatorAddress on submission'}
+              </p>
+            </div>
+            <div className="rounded-lg border border-gray-800 bg-gray-900/40 p-3">
+              <p className="text-gray-500 text-xs uppercase tracking-wide">Escrow amount</p>
+              <p className="text-gray-300 mt-1">${job.budgetUsd} USDC</p>
+            </div>
+            <div className="rounded-lg border border-gray-800 bg-gray-900/40 p-3">
+              <p className="text-gray-500 text-xs uppercase tracking-wide">Latest settlement tx</p>
+              <p className="text-gray-300 font-mono text-xs mt-1 break-all">{settlement?.txHash ?? 'Not settled yet'}</p>
+            </div>
+          </div>
+        </div>
+
         {/* Accept / Reject CTAs — always visible, sticky on desktop */}
         {isPending && (
           <div className="card space-y-4">
             <h2 className="text-lg font-semibold text-white">Your Decision</h2>
             <p className="text-gray-400 text-sm">
-              Review the score breakdown above. Accept to approve the work, or reject to send it back for rework.
+              Review the score breakdown above. Accept to approve the work and sign the Arc release transaction, or reject to send it back for rework and return the reserved amount to escrow.
             </p>
 
             {(acceptMutation.isError || rejectMutation.isError) && (
@@ -277,7 +412,7 @@ export function ReviewPanel() {
             )}
 
             <p className="text-gray-600 text-xs">
-              Human-gated: broker approval happens here; live Arc release remains a separate wallet-settlement step.
+              This action is wallet-backed. Keep the buyer wallet connected on the configured escrow chain while you review.
             </p>
           </div>
         )}
