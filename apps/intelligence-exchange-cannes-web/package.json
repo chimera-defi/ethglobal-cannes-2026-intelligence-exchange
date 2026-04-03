@@ -10,10 +10,11 @@
     "screenshot": "playwright test"
   },
   "dependencies": {
-    "@picocss/pico": "^2.1.1",
     "@iex-cannes/shared": "workspace:*",
+    "@picocss/pico": "^2.1.1",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "react-router-dom": "^7.14.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.1",

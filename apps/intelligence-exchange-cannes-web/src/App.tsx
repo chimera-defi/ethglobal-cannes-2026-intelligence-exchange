@@ -1,95 +1,51 @@
-import { useEffect, useState } from "react";
+import { type Dispatch, type SetStateAction, useEffect, useMemo, useState } from "react";
+import { Link, NavLink, Navigate, Route, Routes, useParams } from "react-router-dom";
 import { demoSeed, type Actor, type DemoState, type IdeaSubmissionInput, type Milestone } from "@iex-cannes/shared";
+import {
+  agentRoster,
+  api,
+  bucketBuyerJobs,
+  currency,
+  defaultIdeaForm,
+  deriveJobSummary,
+  getScaffoldMilestone,
+  publicJobBoard,
+  shortAddress,
+  type AgentCandidate,
+  type WorkspaceSession
+} from "./demo";
 
-const apiBase = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8787";
-
-type AgentCandidate = {
-  id: string;
-  name: string;
-  walletAddress: string;
-  ensName: string;
-  capabilities: string[];
-  trust: string;
-  pitch: string;
-  approach: string;
-  paidDependency: string;
-  outputSummary: string;
+type DemoModel = {
+  state: DemoState | null;
+  pending: string | null;
+  error: string | null;
+  ideaForm: IdeaSubmissionInput;
+  selectedAgentId: string;
+  session: WorkspaceSession | null;
+  setIdeaForm: Dispatch<SetStateAction<IdeaSubmissionInput>>;
+  setSelectedAgentId: Dispatch<SetStateAction<string>>;
+  setSession: Dispatch<SetStateAction<WorkspaceSession | null>>;
+  refresh: () => Promise<void>;
+  reset: () => Promise<void>;
+  fundIdea: () => Promise<void>;
+  runSelectedAgent: () => Promise<void>;
+  approveRelease: () => Promise<void>;
+  refundMilestone: () => Promise<void>;
+  connectInjectedWallet: (role: "buyer" | "worker") => Promise<void>;
 };
 
-const agentRoster: AgentCandidate[] = [
-  {
-    id: demoSeed.worker.id,
-    name: demoSeed.worker.name,
-    walletAddress: demoSeed.worker.walletAddress,
-    ensName: demoSeed.worker.ensName ?? "builder-one.eth",
-    capabilities: [...demoSeed.worker.capabilities],
-    trust: "Seeded signer",
-    pitch: "Balanced full-stack worker tuned for the Cannes scaffold happy path.",
-    approach: "Ships a clean React console, broker hooks, and Arc escrow proof with the fewest moving parts.",
-    paidDependency: "Arc nanopayment for package audit credits",
-    outputSummary:
-      "World-gated scaffold with milestone reservation, reviewer approval path, local 0G-style dossier, and a production-shaped operator bridge."
-  },
-  {
-    id: "studio-relay",
-    name: "Studio Relay",
-    walletAddress: "0x90f79bf6eb2c4f870365e785982e1f101e93b906",
-    ensName: "studio-relay.eth",
-    capabilities: ["typescript", "frontend", "backend", "contracts"],
-    trust: "Human-backed remote operator",
-    pitch: "Design-forward worker that optimizes for a stronger buyer-facing review experience.",
-    approach: "Focuses on a clearer intake flow, stronger visual hierarchy, and concise delivery evidence.",
-    paidDependency: "Visual regression bundle credits",
-    outputSummary:
-      "Poster-first command center with explicit escrow controls, agent comparison, and reviewer-ready acceptance evidence."
-  },
-  {
-    id: "protocol-scribe",
-    name: "Protocol Scribe",
-    walletAddress: "0x15d34aaf54267db7d7c367839aaf71a00a2c6a65",
-    ensName: "protocol-scribe.eth",
-    capabilities: ["typescript", "frontend", "backend", "contracts"],
-    trust: "Proof-ready operator",
-    pitch: "Documentation-heavy worker with stronger audit logging and delivery trace emphasis.",
-    approach: "Produces a more conservative implementation with extra dossier detail and release evidence.",
-    paidDependency: "Spec parsing credits for acceptance trace export",
-    outputSummary:
-      "Trace-first submission with stronger audit evidence, deterministic reviewer checkpoints, and payout release artifacts."
-  }
-];
-
-async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const headers = new Headers(init?.headers ?? {});
-  if (init?.body) {
-    headers.set("Content-Type", "application/json");
-  }
-
-  const response = await fetch(`${apiBase}${path}`, {
-    headers,
-    ...init
-  });
-
-  if (!response.ok) {
-    throw new Error(await response.text());
-  }
-
-  return response.json();
-}
-
-function currency(value: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0
-  }).format(value);
-}
-
-function shortAddress(value: string) {
-  return `${value.slice(0, 6)}...${value.slice(-4)}`;
-}
-
 function StatusPill({ status }: { status: string }) {
-  return <span className={`status status-${status.replaceAll("_", "-")}`}>{status}</span>;
+  return <span className={`status status-${status.replaceAll("_", "-")}`}>{status.replaceAll("_", " ")}</span>;
+}
+
+function SectionHeading({ eyebrow, title, detail }: { eyebrow: string; title: string; detail?: string }) {
+  return (
+    <div className="section-heading">
+      <p className="eyebrow">{eyebrow}</p>
+      <h2>{title}</h2>
+      {detail ? <p className="muted-copy">{detail}</p> : null}
+    </div>
+  );
 }
 
 function ActorCard({ actor, title }: { actor: Actor; title: string }) {
@@ -100,7 +56,7 @@ function ActorCard({ actor, title }: { actor: Actor; title: string }) {
         <StatusPill status={actor.verified ? "verified" : "unverified"} />
       </div>
       <h3>{actor.name}</h3>
-      <p>{actor.role} operator for the currently active flow.</p>
+      <p>{actor.role} operator in the current local demo flow.</p>
       <dl className="detail-grid">
         <div>
           <dt>Wallet</dt>
@@ -123,9 +79,9 @@ function ActorCard({ actor, title }: { actor: Actor; title: string }) {
   );
 }
 
-function MilestoneLine({ milestone }: { milestone: Milestone }) {
+function MilestoneCard({ milestone }: { milestone: Milestone }) {
   return (
-    <article className="surface-card milestone-line">
+    <article className="surface-card milestone-card">
       <div className="milestone-head">
         <div>
           <p className="eyebrow">{milestone.milestoneType}</p>
@@ -158,14 +114,520 @@ function MilestoneLine({ milestone }: { milestone: Milestone }) {
   );
 }
 
+function JobSummaryCard({
+  job,
+  action
+}: {
+  job: NonNullable<ReturnType<typeof deriveJobSummary>>;
+  action?: React.ReactNode;
+}) {
+  return (
+    <article className="surface-card workspace-card">
+      <div className="milestone-head">
+        <div>
+          <p className="eyebrow">{job.ideaId}</p>
+          <h3>{job.title}</h3>
+        </div>
+        <StatusPill status={job.status} />
+      </div>
+      <p className="muted-copy">{job.targetArtifact}</p>
+      <dl className="detail-grid">
+        <div>
+          <dt>Payout</dt>
+          <dd>{currency(job.payoutUsd)}</dd>
+        </div>
+        <div>
+          <dt>Escrow</dt>
+          <dd>{currency(job.escrowUsd)}</dd>
+        </div>
+        <div>
+          <dt>Worker</dt>
+          <dd>{job.workerId ?? "not yet selected"}</dd>
+        </div>
+        <div>
+          <dt>Dossier</dt>
+          <dd>{job.dossierStatus}</dd>
+        </div>
+      </dl>
+      {action ? <div className="card-actions">{action}</div> : null}
+    </article>
+  );
+}
+
+function EmptyState({ title, detail }: { title: string; detail: string }) {
+  return (
+    <article className="surface-card empty-card">
+      <h3>{title}</h3>
+      <p className="muted-copy">{detail}</p>
+    </article>
+  );
+}
+
+function LandingPage({ model }: { model: DemoModel }) {
+  return (
+    <section className="page-grid">
+      <article className="hero-panel">
+        <div>
+          <p className="eyebrow">Cannes variant</p>
+          <h1>Buyer workspace, public job board, worker console, and review queue.</h1>
+          <p className="lead-copy">
+            This app should behave like an operating system for the marketplace, not a one-screen storyboard.
+            Buyers post jobs, workers browse and claim from the board, and reviewers accept or reject in a dedicated queue.
+          </p>
+        </div>
+        <div className="ticket-strip">
+          <span>Wallet entry</span>
+          <span>Post jobs</span>
+          <span>Review submissions</span>
+          <span>Track history</span>
+        </div>
+      </article>
+
+      <div className="two-column">
+        <article className="surface-card">
+          <SectionHeading
+            eyebrow="Sign in"
+            title="Use a wallet or local demo identity"
+            detail="Injected wallet support is available when a browser wallet exists. Demo identities keep the local flow usable without extra setup."
+          />
+          <div className="action-grid">
+            <button onClick={() => void model.connectInjectedWallet("buyer")}>Connect buyer wallet</button>
+            <button className="secondary" onClick={() => void model.connectInjectedWallet("worker")}>
+              Connect worker wallet
+            </button>
+            <button
+              className="secondary"
+              onClick={() =>
+                model.setSession({
+                  role: "buyer",
+                  address: demoSeed.poster.walletAddress,
+                  label: demoSeed.poster.name,
+                  source: "demo"
+                })
+              }
+            >
+              Continue as demo buyer
+            </button>
+            <button
+              className="secondary"
+              onClick={() =>
+                model.setSession({
+                  role: "worker",
+                  address: demoSeed.worker.walletAddress,
+                  label: demoSeed.worker.name,
+                  source: "demo"
+                })
+              }
+            >
+              Continue as demo worker
+            </button>
+          </div>
+        </article>
+
+        <article className="surface-card">
+          <SectionHeading eyebrow="Current state" title="What the local MVP already proves" />
+          <ul className="feature-list">
+            <li>Single payout-bearing scaffold milestone with onchain reserve, release, and refund.</li>
+            <li>Public job-board style claim path for the active milestone.</li>
+            <li>Dedicated buyer pages for posted jobs, review queue, and history in this refactor.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+  );
+}
+
+function BuyerWorkspacePage({ model }: { model: DemoModel }) {
+  const buckets = bucketBuyerJobs(model.state);
+
+  return (
+    <section className="page-grid">
+      <article className="surface-card composer-panel">
+        <SectionHeading
+          eyebrow="Buyer workspace"
+          title="Post a new job"
+          detail="Prompt, payout, and escrow live on their own route now so the buyer workspace behaves like a real operator surface."
+        />
+        <div className="composer-grid">
+          <label className="prompt-field">
+            <span>Task title</span>
+            <input
+              value={model.ideaForm.title}
+              disabled={Boolean(model.state?.idea)}
+              onChange={(event) => model.setIdeaForm((current) => ({ ...current, title: event.target.value }))}
+            />
+          </label>
+
+          <label className="prompt-field prompt-field-wide">
+            <span>Prompt</span>
+            <textarea
+              rows={7}
+              value={model.ideaForm.prompt}
+              disabled={Boolean(model.state?.idea)}
+              onChange={(event) => model.setIdeaForm((current) => ({ ...current, prompt: event.target.value }))}
+            />
+          </label>
+
+          <label className="prompt-field">
+            <span>Deliverable</span>
+            <input
+              value={model.ideaForm.targetArtifact}
+              disabled={Boolean(model.state?.idea)}
+              onChange={(event) =>
+                model.setIdeaForm((current) => ({ ...current, targetArtifact: event.target.value }))
+              }
+            />
+          </label>
+
+          <div className="money-stack">
+            <label className="money-meter">
+              <span>Worker payout</span>
+              <strong>{currency(model.ideaForm.budgetUsd)}</strong>
+              <input
+                type="range"
+                min="150"
+                max="1500"
+                step="50"
+                value={model.ideaForm.budgetUsd}
+                disabled={Boolean(model.state?.idea)}
+                onChange={(event) => {
+                  const budgetUsd = Number(event.target.value);
+                  model.setIdeaForm((current) => ({
+                    ...current,
+                    budgetUsd,
+                    escrowUsd: Math.max(current.escrowUsd, budgetUsd)
+                  }));
+                }}
+              />
+            </label>
+
+            <label className="money-meter">
+              <span>Escrow deposit</span>
+              <strong>{currency(model.ideaForm.escrowUsd)}</strong>
+              <input
+                type="range"
+                min={model.ideaForm.budgetUsd}
+                max="2000"
+                step="50"
+                value={model.ideaForm.escrowUsd}
+                disabled={Boolean(model.state?.idea)}
+                onChange={(event) =>
+                  model.setIdeaForm((current) => ({ ...current, escrowUsd: Number(event.target.value) }))
+                }
+              />
+            </label>
+          </div>
+        </div>
+
+        <div className="composer-footer">
+          <div className="summary-chip">
+            <span>Payout</span>
+            <strong>{currency(model.ideaForm.budgetUsd)}</strong>
+          </div>
+          <div className="summary-chip">
+            <span>Escrow</span>
+            <strong>{currency(model.ideaForm.escrowUsd)}</strong>
+          </div>
+          <div className="summary-chip">
+            <span>Buffer</span>
+            <strong>{currency(model.ideaForm.escrowUsd - model.ideaForm.budgetUsd)}</strong>
+          </div>
+          <button disabled={Boolean(model.state?.idea) || model.pending !== null} onClick={() => void model.fundIdea()}>
+            {model.pending === "Fund idea" ? "Funding..." : "Post and fund job"}
+          </button>
+        </div>
+      </article>
+
+      <article className="surface-card">
+        <SectionHeading eyebrow="Posted jobs" title="Open and in-progress jobs you posted" />
+        <div className="stack-list">
+          {buckets.posted.length > 0 ? (
+            buckets.posted.map((job) => (
+              <JobSummaryCard
+                key={job.ideaId}
+                job={job}
+                action={<Link className="link-button" to={`/jobs/${job.jobId}`}>Open job detail</Link>}
+              />
+            ))
+          ) : (
+            <EmptyState
+              title="No active jobs yet"
+              detail="Fund a job to populate the buyer workspace and the public job board."
+            />
+          )}
+        </div>
+      </article>
+    </section>
+  );
+}
+
+function BuyerReviewPage({ model }: { model: DemoModel }) {
+  const buckets = bucketBuyerJobs(model.state);
+  const scaffold = getScaffoldMilestone(model.state);
+
+  return (
+    <section className="page-grid">
+      <article className="surface-card">
+        <SectionHeading
+          eyebrow="Review queue"
+          title="Outstanding submissions that need your decision"
+          detail="This page is intentionally separate from job creation so the buyer can focus on approval, refund, and evidence."
+        />
+        <div className="stack-list">
+          {buckets.awaitingReview.length > 0 && scaffold ? (
+            buckets.awaitingReview.map((job) => (
+              <JobSummaryCard
+                key={job.ideaId}
+                job={job}
+                action={
+                  <div className="card-actions">
+                    <button disabled={model.pending !== null} onClick={() => void model.approveRelease()}>
+                      {model.pending === "Approve release" ? "Releasing..." : "Approve and release"}
+                    </button>
+                    <button className="secondary" disabled={model.pending !== null} onClick={() => void model.refundMilestone()}>
+                      {model.pending === "Refund milestone" ? "Refunding..." : "Refund"}
+                    </button>
+                  </div>
+                }
+              />
+            ))
+          ) : (
+            <EmptyState
+              title="Nothing is awaiting review"
+              detail="When a worker submits the scaffold milestone, it will appear here for approval or refund."
+            />
+          )}
+        </div>
+      </article>
+
+      <article className="surface-card">
+        <SectionHeading eyebrow="Evidence" title="Artifact, trace, spend, and payout state" />
+        {scaffold ? <MilestoneCard milestone={scaffold} /> : <EmptyState title="No submitted work yet" detail="Fund and run a worker to generate review evidence." />}
+      </article>
+    </section>
+  );
+}
+
+function BuyerHistoryPage({ model }: { model: DemoModel }) {
+  const buckets = bucketBuyerJobs(model.state);
+
+  return (
+    <section className="page-grid">
+      <article className="surface-card">
+        <SectionHeading
+          eyebrow="History"
+          title="Completed and cancelled jobs"
+          detail="Closed work moves here after payout release or refund."
+        />
+        <div className="stack-list">
+          {buckets.history.length > 0 ? (
+            buckets.history.map((job) => <JobSummaryCard key={job.ideaId} job={job} />)
+          ) : (
+            <EmptyState
+              title="No completed or cancelled jobs yet"
+              detail="Release or refund the current job to populate buyer history."
+            />
+          )}
+        </div>
+      </article>
+    </section>
+  );
+}
+
+function JobBoardPage({ model }: { model: DemoModel }) {
+  const jobs = publicJobBoard(model.state);
+
+  return (
+    <section className="page-grid">
+      <article className="surface-card">
+        <SectionHeading
+          eyebrow="Public job board"
+          title="Open work that agents can claim"
+          detail="This is the worker-facing discovery surface. Only claimable jobs belong here."
+        />
+        <div className="stack-list">
+          {jobs.length > 0 ? (
+            jobs.map((job) => (
+              <article key={job.jobId} className="surface-card board-card">
+                <div className="milestone-head">
+                  <div>
+                    <p className="eyebrow">{job.jobId}</p>
+                    <h3>{job.title}</h3>
+                  </div>
+                  <StatusPill status={job.status} />
+                </div>
+                <p className="muted-copy">{job.description}</p>
+                <dl className="detail-grid">
+                  <div>
+                    <dt>Payout</dt>
+                    <dd>{currency(job.budgetUsd)}</dd>
+                  </div>
+                  <div>
+                    <dt>Capabilities</dt>
+                    <dd>{job.requiredCapabilities.join(", ")}</dd>
+                  </div>
+                </dl>
+                <div className="card-actions">
+                  <Link className="link-button" to={`/jobs/${job.jobId}`}>Inspect job</Link>
+                  <Link className="link-button" to="/worker">Open worker console</Link>
+                </div>
+              </article>
+            ))
+          ) : (
+            <EmptyState
+              title="No open jobs on the board"
+              detail="Fund a new job first. Once the scaffold milestone is queued, it appears here for workers."
+            />
+          )}
+        </div>
+      </article>
+    </section>
+  );
+}
+
+function WorkerConsolePage({ model }: { model: DemoModel }) {
+  const selectedAgent = agentRoster.find((agent) => agent.id === model.selectedAgentId) ?? agentRoster[0];
+  const scaffold = getScaffoldMilestone(model.state);
+
+  return (
+    <section className="page-grid">
+      <article className="surface-card">
+        <SectionHeading
+          eyebrow="Worker console"
+          title="Pick an operator profile and fulfil the active job"
+          detail="This is distinct from the buyer workspace. The worker sees eligible work and claims it from the job board."
+        />
+        <div className="agent-grid">
+          {agentRoster.map((agent) => {
+            const selected = agent.id === selectedAgent.id;
+            return (
+              <button
+                key={agent.id}
+                type="button"
+                className={`agent-card${selected ? " agent-card-selected" : ""}`}
+                onClick={() => model.setSelectedAgentId(agent.id)}
+              >
+                <div className="section-topline">
+                  <span>{agent.trust}</span>
+                  <strong>{selected ? "selected" : "available"}</strong>
+                </div>
+                <h3>{agent.name}</h3>
+                <p>{agent.pitch}</p>
+                <dl className="detail-grid">
+                  <div>
+                    <dt>ENS</dt>
+                    <dd>{agent.ensName}</dd>
+                  </div>
+                  <div>
+                    <dt>Wallet</dt>
+                    <dd>{shortAddress(agent.walletAddress)}</dd>
+                  </div>
+                </dl>
+              </button>
+            );
+          })}
+        </div>
+        <div className="proposal-band">
+          <div>
+            <p className="eyebrow">Selected operator</p>
+            <h3>{selectedAgent.name}</h3>
+            <p className="muted-copy">{selectedAgent.approach}</p>
+          </div>
+          <button
+            disabled={!model.state?.idea || scaffold?.status !== "queued" || model.pending !== null}
+            onClick={() => void model.runSelectedAgent()}
+          >
+            {model.pending === "Run selected agent" ? "Running..." : "Claim and submit"}
+          </button>
+        </div>
+      </article>
+
+      <article className="surface-card">
+        <SectionHeading eyebrow="Current actors" title="Live participants in the active demo" />
+        <div className="stack-list">
+          {model.state ? (
+            <>
+              <ActorCard actor={model.state.poster} title="Poster" />
+              <ActorCard actor={model.state.worker} title="Worker" />
+              <ActorCard actor={model.state.reviewer} title="Reviewer" />
+            </>
+          ) : null}
+        </div>
+      </article>
+    </section>
+  );
+}
+
+function JobDetailPage({ model }: { model: DemoModel }) {
+  const { jobId } = useParams();
+  const milestones = model.state?.brief?.milestones ?? [];
+  const milestone = milestones.find((item) => item.jobId === jobId) ?? null;
+
+  if (!milestone) {
+    return (
+      <section className="page-grid">
+        <EmptyState title="Job not found" detail="The requested milestone is not available in the current local demo state." />
+      </section>
+    );
+  }
+
+  return (
+    <section className="page-grid">
+      <article className="surface-card">
+        <SectionHeading eyebrow="Job detail" title={milestone.title} detail={milestone.jobId} />
+        <MilestoneCard milestone={milestone} />
+      </article>
+      <article className="surface-card">
+        <SectionHeading eyebrow="Lifecycle" title="Milestone timeline" />
+        <div className="stack-list">
+          {milestones.map((item) => (
+            <MilestoneCard key={item.jobId} milestone={item} />
+          ))}
+        </div>
+      </article>
+    </section>
+  );
+}
+
+function AppRoutes({ model }: { model: DemoModel }) {
+  return (
+    <Routes>
+      <Route path="/" element={<LandingPage model={model} />} />
+      <Route path="/jobs" element={<JobBoardPage model={model} />} />
+      <Route path="/buyer" element={<BuyerWorkspacePage model={model} />} />
+      <Route path="/buyer/new" element={<Navigate to="/buyer" replace />} />
+      <Route path="/buyer/review" element={<BuyerReviewPage model={model} />} />
+      <Route path="/buyer/history" element={<BuyerHistoryPage model={model} />} />
+      <Route path="/worker" element={<WorkerConsolePage model={model} />} />
+      <Route path="/jobs/:jobId" element={<JobDetailPage model={model} />} />
+    </Routes>
+  );
+}
+
 export function App() {
   const [state, setState] = useState<DemoState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<string | null>(null);
+  const [ideaForm, setIdeaForm] = useState<IdeaSubmissionInput>({ ...defaultIdeaForm });
   const [selectedAgentId, setSelectedAgentId] = useState<string>(agentRoster[0].id);
-  const [ideaForm, setIdeaForm] = useState<IdeaSubmissionInput>({
-    ...demoSeed.ideaInput
-  });
+  const [session, setSession] = useState<WorkspaceSession | null>(null);
+
+  useEffect(() => {
+    const raw = window.localStorage.getItem("iex-cannes-session");
+    if (raw) {
+      try {
+        setSession(JSON.parse(raw) as WorkspaceSession);
+      } catch {}
+    }
+  }, []);
+
+  useEffect(() => {
+    if (session) {
+      window.localStorage.setItem("iex-cannes-session", JSON.stringify(session));
+    } else {
+      window.localStorage.removeItem("iex-cannes-session");
+    }
+  }, [session]);
 
   async function refresh() {
     const next = await api<DemoState>("/api/demo-state");
@@ -185,12 +647,12 @@ export function App() {
     void refresh().catch((err) => setError(String(err)));
   }, []);
 
-  async function runAction(label: string, action: () => Promise<DemoState>) {
+  async function runAction(label: string, action: () => Promise<void>) {
     setPending(label);
     setError(null);
     try {
-      const next = await action();
-      setState(next);
+      await action();
+      await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -198,390 +660,175 @@ export function App() {
     }
   }
 
-  const selectedAgent = agentRoster.find((agent) => agent.id === selectedAgentId) ?? agentRoster[0];
-  const scaffold = state?.brief?.milestones.find((milestone) => milestone.milestoneType === "scaffold");
-  const canFund = !state?.idea;
-  const canRunSelectedAgent = scaffold?.status === "queued";
-  const canApprove = scaffold?.status === "submitted";
-  const canRefund = scaffold ? ["claimed", "rework", "expired"].includes(scaffold.status) : false;
-  const totalMilestoneBudget = state?.brief?.milestones.reduce((sum, milestone) => sum + milestone.budgetUsd, 0) ?? 0;
-  const escrowCoverage = ideaForm.escrowUsd - ideaForm.budgetUsd;
+  async function connectInjectedWallet(role: "buyer" | "worker") {
+    const ethereum = (window as Window & { ethereum?: { request: (request: { method: string }) => Promise<string[]> } })
+      .ethereum;
+    if (!ethereum) {
+      throw new Error("No injected wallet detected. Use a demo identity or install a browser wallet.");
+    }
+    const accounts = await ethereum.request({ method: "eth_requestAccounts" });
+    const address = accounts[0];
+    if (!address) {
+      throw new Error("Wallet returned no accounts.");
+    }
+    setSession({
+      role,
+      address,
+      label: role === "buyer" ? "Connected buyer" : "Connected worker",
+      source: "injected"
+    });
+  }
+
+  const model = useMemo<DemoModel>(
+    () => ({
+      state,
+      pending,
+      error,
+      ideaForm,
+      selectedAgentId,
+      session,
+      setIdeaForm,
+      setSelectedAgentId,
+      setSession,
+      refresh,
+      reset: () => runAction("Reset demo", async () => void (await api("/api/demo/reset", { method: "POST" }))),
+      fundIdea: () =>
+        runAction("Fund idea", async () => {
+          await api("/api/ideas/fund", {
+            method: "POST",
+            body: JSON.stringify(ideaForm)
+          });
+        }),
+      runSelectedAgent: () =>
+        runAction("Run selected agent", async () => {
+          const selectedAgent = agentRoster.find((agent) => agent.id === selectedAgentId) ?? agentRoster[0];
+          const scaffold = getScaffoldMilestone(state);
+          await api("/v1/cannes/workers/register", {
+            method: "POST",
+            body: JSON.stringify({
+              id: selectedAgent.id,
+              name: selectedAgent.name,
+              walletAddress: selectedAgent.walletAddress,
+              ensName: selectedAgent.ensName,
+              agentUri: `https://agents.intelligence.exchange/${selectedAgent.id}`,
+              capabilities: selectedAgent.capabilities
+            })
+          });
+          await api(`/v1/cannes/jobs/${scaffold?.jobId ?? "idea-cannes-001-scaffold"}/claim`, { method: "POST" });
+          await api(`/v1/cannes/jobs/${scaffold?.jobId ?? "idea-cannes-001-scaffold"}/submit`, {
+            method: "POST",
+            body: JSON.stringify({
+              workerId: selectedAgent.id,
+              artifactUri: `https://example.com/${selectedAgent.id}/delivery`,
+              traceSummary: selectedAgent.approach,
+              paidDependency: selectedAgent.paidDependency,
+              outputSummary: selectedAgent.outputSummary
+            })
+          });
+        }),
+      approveRelease: () =>
+        runAction("Approve release", async () => {
+          const scaffold = getScaffoldMilestone(state);
+          await api(`/v1/cannes/jobs/${scaffold?.jobId ?? "idea-cannes-001-scaffold"}/approve`, { method: "POST" });
+        }),
+      refundMilestone: () =>
+        runAction("Refund milestone", async () => {
+          const scaffold = getScaffoldMilestone(state);
+          await api(`/v1/cannes/jobs/${scaffold?.jobId ?? "idea-cannes-001-scaffold"}/refund`, { method: "POST" });
+        }),
+      connectInjectedWallet
+    }),
+    [error, ideaForm, pending, selectedAgentId, session, state]
+  );
+
+  const jobSummary = deriveJobSummary(state);
 
   return (
-    <main className="studio-shell container-fluid">
-      <section className="hero-rail">
-        <div className="hero-copy">
+    <main className="app-shell">
+      <header className="topbar">
+        <div>
           <p className="eyebrow">ETHGlobal Cannes 2026</p>
-          <h1>Agent work board with human pick, escrow lock, and payout release.</h1>
-          <p className="lead-copy">
-            The buyer submits a prompt, sets the worker payout and escrow amount, compares eligible
-            agents, picks a favorite, and only then lets that agent claim the payout-bearing job.
-          </p>
-          <div className="ticket-strip">
-            <span>1. Post task</span>
-            <span>2. Compare agents</span>
-            <span>3. Select favorite</span>
-            <span>4. Approve or refund</span>
-          </div>
+          <h1>Intelligence Exchange</h1>
         </div>
-        <aside className="hero-stack">
-          <article className="hero-stat">
-            <span>Escrow rail</span>
-            <strong>{state?.support.targetStack.escrow ?? "Arc Testnet"}</strong>
-          </article>
-          <article className="hero-stat">
-            <span>Identity rail</span>
-            <strong>{state?.support.targetStack.identity ?? "World ID"}</strong>
-          </article>
-          <article className="hero-stat">
-            <span>Dossier rail</span>
-            <strong>{state?.support.targetStack.dossier ?? "0G Galileo"}</strong>
-          </article>
-        </aside>
+        <div className="session-box">
+          {session ? (
+            <>
+              <span>{session.role}</span>
+              <strong>{session.label}</strong>
+              <small>{shortAddress(session.address)}</small>
+            </>
+          ) : (
+            <>
+              <span>session</span>
+              <strong>not connected</strong>
+              <small>use wallet or demo identity</small>
+            </>
+          )}
+        </div>
+      </header>
+
+      <nav className="route-nav">
+        <NavLink to="/">Overview</NavLink>
+        <NavLink to="/jobs">Job Board</NavLink>
+        <NavLink to="/buyer">Buyer</NavLink>
+        <NavLink to="/buyer/review">Review</NavLink>
+        <NavLink to="/buyer/history">History</NavLink>
+        <NavLink to="/worker">Worker</NavLink>
+        {jobSummary ? <NavLink to={`/jobs/${jobSummary.jobId}`}>Job Detail</NavLink> : null}
+      </nav>
+
+      <section className="status-ribbon">
+        <article className="hero-stat">
+          <span>Escrow rail</span>
+          <strong>{state?.support.targetStack.escrow ?? "Arc Testnet"}</strong>
+        </article>
+        <article className="hero-stat">
+          <span>Identity rail</span>
+          <strong>{state?.support.targetStack.identity ?? "World ID"}</strong>
+        </article>
+        <article className="hero-stat">
+          <span>Dossier rail</span>
+          <strong>{state?.support.targetStack.dossier ?? "0G Galileo"}</strong>
+        </article>
+        <article className="hero-stat">
+          <span>Reset local demo</span>
+          <button className="secondary" onClick={() => void model.reset()}>
+            Reset
+          </button>
+        </article>
       </section>
 
-      <section className="experience-grid">
-        <div className="primary-stack">
-          <article className="surface-card composer-panel">
-            <div className="panel-headline">
-              <div>
-                <p className="eyebrow">Poster Console</p>
-                <h2>Submit the task and lock the payout</h2>
-              </div>
-              <button
-                className="secondary outline"
-                onClick={() => runAction("Reset demo", () => api("/api/demo/reset", { method: "POST" }))}
-              >
-                Reset demo
-              </button>
-            </div>
+      <AppRoutes model={model} />
 
-            <div className="composer-grid">
-              <label className="prompt-field">
-                <span>Task title</span>
-                <input
-                  value={ideaForm.title}
-                  disabled={!canFund}
-                  onChange={(event) => setIdeaForm((current) => ({ ...current, title: event.target.value }))}
-                />
-              </label>
-
-              <label className="prompt-field prompt-field-wide">
-                <span>Prompt</span>
-                <textarea
-                  rows={7}
-                  value={ideaForm.prompt}
-                  disabled={!canFund}
-                  onChange={(event) => setIdeaForm((current) => ({ ...current, prompt: event.target.value }))}
-                />
-              </label>
-
-              <label className="prompt-field">
-                <span>Deliverable</span>
-                <input
-                  value={ideaForm.targetArtifact}
-                  disabled={!canFund}
-                  onChange={(event) =>
-                    setIdeaForm((current) => ({ ...current, targetArtifact: event.target.value }))
-                  }
-                />
-              </label>
-
-              <div className="money-stack">
-                <label className="money-meter">
-                  <span>Worker payout</span>
-                  <strong>{currency(ideaForm.budgetUsd)}</strong>
-                  <input
-                    type="range"
-                    min="150"
-                    max="1500"
-                    step="50"
-                    value={ideaForm.budgetUsd}
-                    disabled={!canFund}
-                    onChange={(event) => {
-                      const budgetUsd = Number(event.target.value);
-                      setIdeaForm((current) => ({
-                        ...current,
-                        budgetUsd,
-                        escrowUsd: Math.max(current.escrowUsd, budgetUsd)
-                      }));
-                    }}
-                  />
-                </label>
-
-                <label className="money-meter">
-                  <span>Escrow deposit</span>
-                  <strong>{currency(ideaForm.escrowUsd)}</strong>
-                  <input
-                    type="range"
-                    min={ideaForm.budgetUsd}
-                    max="2000"
-                    step="50"
-                    value={ideaForm.escrowUsd}
-                    disabled={!canFund}
-                    onChange={(event) =>
-                      setIdeaForm((current) => ({ ...current, escrowUsd: Number(event.target.value) }))
-                    }
-                  />
-                </label>
-              </div>
-            </div>
-
-            <div className="composer-footer">
-              <div className="summary-chip">
-                <span>Payout-bearing milestone</span>
-                <strong>{currency(ideaForm.budgetUsd)}</strong>
-              </div>
-              <div className="summary-chip">
-                <span>Escrow buffer</span>
-                <strong>{currency(Math.max(escrowCoverage, 0))}</strong>
-              </div>
-              <div className="summary-chip">
-                <span>Status</span>
-                <strong>{state?.idea?.fundingStatus ?? "draft"}</strong>
-              </div>
-              <button
-                disabled={!canFund || pending !== null}
-                onClick={() =>
-                  runAction("Fund idea", () =>
-                    api("/api/ideas/fund", {
-                      method: "POST",
-                      body: JSON.stringify(ideaForm)
-                    })
-                  )
-                }
-              >
-                {pending === "Fund idea" ? "Funding escrow..." : "Fund task"}
-              </button>
-            </div>
-          </article>
-
-          <article className="surface-card arena-panel">
-            <div className="panel-headline">
-              <div>
-                <p className="eyebrow">Agent Arena</p>
-                <h2>Compare eligible agents and pick the favorite</h2>
-              </div>
-              <StatusPill status={scaffold?.status ?? "queued"} />
-            </div>
-            <div className="agent-grid">
-              {agentRoster.map((agent) => {
-                const selected = agent.id === selectedAgent.id;
-                return (
-                  <button
-                    key={agent.id}
-                    type="button"
-                    className={`agent-card${selected ? " agent-card-selected" : ""}`}
-                    onClick={() => setSelectedAgentId(agent.id)}
-                  >
-                    <div className="section-topline">
-                      <span>{agent.trust}</span>
-                      {selected ? <strong>Selected</strong> : <strong>Pick</strong>}
-                    </div>
-                    <h3>{agent.name}</h3>
-                    <p>{agent.pitch}</p>
-                    <dl className="detail-grid">
-                      <div>
-                        <dt>ENS</dt>
-                        <dd>{agent.ensName}</dd>
-                      </div>
-                      <div>
-                        <dt>Wallet</dt>
-                        <dd>{shortAddress(agent.walletAddress)}</dd>
-                      </div>
-                      <div>
-                        <dt>Skills</dt>
-                        <dd>{agent.capabilities.join(", ")}</dd>
-                      </div>
-                      <div>
-                        <dt>Paid tool</dt>
-                        <dd>{agent.paidDependency}</dd>
-                      </div>
-                    </dl>
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="proposal-band">
-              <div>
-                <p className="eyebrow">Selected approach</p>
-                <h3>{selectedAgent.name}</h3>
-                <p className="muted-copy">{selectedAgent.approach}</p>
-              </div>
-              <button
-                disabled={!canRunSelectedAgent || pending !== null || !state?.idea}
-                onClick={() =>
-                  runAction("Run selected agent", async () => {
-                    await api("/v1/cannes/workers/register", {
-                      method: "POST",
-                      body: JSON.stringify({
-                        id: selectedAgent.id,
-                        name: selectedAgent.name,
-                        walletAddress: selectedAgent.walletAddress,
-                        ensName: selectedAgent.ensName,
-                        agentUri: `https://agents.intelligence.exchange/${selectedAgent.id}`,
-                        capabilities: selectedAgent.capabilities
-                      })
-                    });
-                    await api(`/v1/cannes/jobs/${scaffold?.jobId ?? "idea-cannes-001-scaffold"}/claim`, {
-                      method: "POST"
-                    });
-                    return api(`/v1/cannes/jobs/${scaffold?.jobId ?? "idea-cannes-001-scaffold"}/submit`, {
-                      method: "POST",
-                      body: JSON.stringify({
-                        workerId: selectedAgent.id,
-                        artifactUri: `https://example.com/${selectedAgent.id}/delivery`,
-                        traceSummary: selectedAgent.approach,
-                        paidDependency: selectedAgent.paidDependency,
-                        outputSummary: selectedAgent.outputSummary
-                      })
-                    });
-                  })
-                }
-              >
-                {pending === "Run selected agent" ? "Running selected agent..." : "Run selected agent"}
-              </button>
-            </div>
-          </article>
-
-          <div className="compact-grid">
-            <article className="surface-card spotlight-panel">
-              <p className="eyebrow">Review & release</p>
-              <h2>Approve the favorite or return funds</h2>
-              <p className="muted-copy">
-                The selected agent is the only worker that touches the payout-bearing milestone. The
-                other candidates stay visible as alternatives, not fake onchain claims.
-              </p>
-              <ul className="feature-list">
-                <li>Submission includes artifact URI, trace summary, and one paid dependency event.</li>
-                <li>Release remains human-approved.</li>
-                <li>Refund path stays open for failed or unsatisfactory work.</li>
-              </ul>
-              <div className="action-bar">
-                <button
-                  disabled={!canApprove || pending !== null}
-                  onClick={() =>
-                    runAction("Approve release", () =>
-                      api(`/v1/cannes/jobs/${scaffold?.jobId ?? "idea-cannes-001-scaffold"}/approve`, {
-                        method: "POST"
-                      })
-                    )
-                  }
-                >
-                  {pending === "Approve release" ? "Releasing..." : "Approve and release"}
-                </button>
-                <button
-                  className="secondary"
-                  disabled={!canRefund || pending !== null}
-                  onClick={() =>
-                    runAction("Refund milestone", () =>
-                      api(`/v1/cannes/jobs/${scaffold?.jobId ?? "idea-cannes-001-scaffold"}/refund`, {
-                        method: "POST"
-                      })
-                    )
-                  }
-                >
-                  {pending === "Refund milestone" ? "Refunding..." : "Refund"}
-                </button>
-              </div>
-            </article>
-
-            <article className="surface-card spotlight-panel">
-              <p className="eyebrow">Escrow ledger</p>
-              <h2>Budget, lock, release</h2>
-              <dl className="detail-grid">
-                <div>
-                  <dt>Worker payout</dt>
-                  <dd>{currency(state?.idea?.budgetUsd ?? ideaForm.budgetUsd)}</dd>
-                </div>
-                <div>
-                  <dt>Escrow funded</dt>
-                  <dd>{currency(state?.payout.fundedAmountUsd ?? 0)}</dd>
-                </div>
-                <div>
-                  <dt>Released</dt>
-                  <dd>{currency(state?.payout.releasedAmountUsd ?? 0)}</dd>
-                </div>
-                <div>
-                  <dt>Refunded</dt>
-                  <dd>{currency(state?.payout.refundedAmountUsd ?? 0)}</dd>
-                </div>
-                <div>
-                  <dt>Reserved</dt>
-                  <dd>{currency(state?.payout.reservedAmountUsd ?? 0)}</dd>
-                </div>
-                <div>
-                  <dt>Live escrow balance</dt>
-                  <dd>{currency(state?.payout.escrowBalanceUsd ?? 0)}</dd>
-                </div>
-                <div>
-                  <dt>Milestone budget total</dt>
-                  <dd>{currency(totalMilestoneBudget)}</dd>
-                </div>
-                <div>
-                  <dt>Settlement</dt>
-                  <dd>{state?.payout.settlementStatus ?? "uninitialized"}</dd>
-                </div>
-              </dl>
-            </article>
+      <section className="footer-grid">
+        <article className="surface-card">
+          <SectionHeading eyebrow="Live actors" title="Poster, worker, reviewer" />
+          <div className="three-up">
+            {state ? (
+              <>
+                <ActorCard actor={state.poster} title="Poster" />
+                <ActorCard actor={state.worker} title="Worker" />
+                <ActorCard actor={state.reviewer} title="Reviewer" />
+              </>
+            ) : null}
           </div>
+        </article>
 
-          <article className="surface-card">
-            <div className="panel-headline">
-              <div>
-                <p className="eyebrow">Milestone State</p>
-                <h2>Planner and payout milestones</h2>
-              </div>
-            </div>
-            <div className="milestone-stack">
-              {state?.brief?.milestones.map((milestone) => <MilestoneLine key={milestone.jobId} milestone={milestone} />)}
-            </div>
+        <article className="surface-card">
+          <SectionHeading eyebrow="Audit trail" title="Replayable activity log" />
+          <ol className="timeline-list">
+            {(state?.activityLog ?? []).slice().reverse().map((entry, index) => (
+              <li key={`${entry}-${index}`}>{entry}</li>
+            ))}
+          </ol>
+        </article>
+
+        {error ? (
+          <article className="surface-card error-panel">
+            <SectionHeading eyebrow="Error" title="Action failed" />
+            <p>{error}</p>
           </article>
-        </div>
-
-        <aside className="side-stack">
-          <article className="surface-card">
-            <p className="eyebrow">Live actors</p>
-            <h2>Current participants</h2>
-            <div className="actor-stack">
-              {state ? (
-                <>
-                  <ActorCard actor={state.poster} title="Poster" />
-                  <ActorCard actor={state.worker} title="Worker" />
-                  <ActorCard actor={state.reviewer} title="Reviewer" />
-                </>
-              ) : null}
-            </div>
-          </article>
-
-          <article className="surface-card">
-            <p className="eyebrow">Operator rail</p>
-            <h2>MCP-compatible worker path</h2>
-            <ul className="feature-list">
-              <li>Any external agent can register capabilities through the worker MCP bridge.</li>
-              <li>The broker only grants the payout-bearing claim to the selected active worker.</li>
-              <li>World and 0G remain explicitly labeled as configured or stubbed.</li>
-            </ul>
-          </article>
-
-          <article className="surface-card">
-            <p className="eyebrow">Audit trail</p>
-            <h2>Replayable activity log</h2>
-            <ol className="timeline-list">
-              {(state?.activityLog ?? []).slice().reverse().map((entry, index) => (
-                <li key={`${entry}-${index}`}>{entry}</li>
-              ))}
-            </ol>
-          </article>
-
-          {error ? (
-            <article className="surface-card error-panel">
-              <p className="eyebrow">Error</p>
-              <p>{error}</p>
-            </article>
-          ) : null}
-        </aside>
+        ) : null}
       </section>
     </main>
   );
