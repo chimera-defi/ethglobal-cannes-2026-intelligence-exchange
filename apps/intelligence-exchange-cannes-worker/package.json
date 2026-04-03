@@ -1,0 +1,24 @@
+{
+  "name": "intelligence-exchange-cannes-worker",
+  "version": "0.1.0",
+  "private": true,
+  "bin": {
+    "iex-bridge": "./src/cli.ts"
+  },
+  "scripts": {
+    "dev": "bun run --watch src/cli.ts",
+    "build": "bun build src/cli.ts --outfile dist/iex-bridge --target bun",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "commander": "^12.1.0",
+    "zod": "^3.22.4",
+    "dotenv": "^16.4.5",
+    "intelligence-exchange-cannes-shared": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5",
+    "@types/bun": "latest"
+  }
+}

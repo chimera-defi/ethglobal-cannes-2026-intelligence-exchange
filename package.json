@@ -1,0 +1,19 @@
+{
+  "name": "intelligence-exchange-cannes-2026",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.33.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:cannes": "pnpm --filter '*cannes*' --parallel run dev",
+    "build": "pnpm --filter '*cannes*' run build",
+    "test": "pnpm --filter '*cannes*' run test",
+    "test:acceptance": "pnpm --filter 'intelligence-exchange-cannes-broker' run test:acceptance",
+    "contracts:validate": "pnpm --filter 'intelligence-exchange-cannes-contracts' run test",
+    "seed:cannes": "pnpm --filter 'intelligence-exchange-cannes-broker' run seed",
+    "typecheck": "pnpm --filter '*cannes*' run typecheck"
+  }
+}
