@@ -93,8 +93,9 @@ function buildMilestones(ideaId: string, payoutUsd: number): Milestone[] {
 
 export function createIdeaAndBrief(input: IdeaSubmissionInput, state: DemoState): DemoState {
   const createdAt = new Date().toISOString();
-  const ideaId = "idea-cannes-001";
-  const briefId = "brief-cannes-001";
+  const sequence = String(state.archivedJobs.length + 1).padStart(3, "0");
+  const ideaId = `idea-cannes-${sequence}`;
+  const briefId = `brief-cannes-${sequence}`;
   const milestones = buildMilestones(ideaId, input.budgetUsd);
 
   state.idea = {

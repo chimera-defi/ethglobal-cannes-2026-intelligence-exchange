@@ -140,6 +140,30 @@ void (async () => {
     const released = await post("/v1/cannes/jobs/idea-cannes-001-scaffold/approve");
     assert.equal(released.payout.settlementStatus, "released");
     assert.equal(released.payout.releasedAmountUsd, 400);
+
+    if (filter === "iex-cannes:archive-history") {
+      assert.equal(Array.isArray(released.archivedJobs), true);
+      assert.equal(released.archivedJobs.length, 1);
+      assert.equal(released.archivedJobs[0].idea.ideaId, "idea-cannes-001");
+
+      const refundedOrReleasedAgain = await post("/api/ideas/fund", {
+        title: "Second Cannes follow-up build",
+        prompt:
+          "Create a second funded job after the first one has already closed so the buyer workspace proves archived history and sequential funding without a full reset.",
+        targetArtifact: "Follow-up implementation board",
+        budgetUsd: 250,
+        escrowUsd: 300
+      });
+
+      assert.equal(refundedOrReleasedAgain.idea.ideaId, "idea-cannes-002");
+      assert.equal(refundedOrReleasedAgain.archivedJobs.length, 1);
+      const buyerWorkspace = await fetch(`${base}/v1/cannes/buyer/workspace`).then((res) => res.json());
+      assert.equal(buyerWorkspace.buckets.history.length, 1);
+      assert.equal(buyerWorkspace.buckets.posted.length, 1);
+      console.log("archive-history passed");
+      return;
+    }
+
     console.log("release passed");
   } finally {
     chain.kill("SIGTERM");
