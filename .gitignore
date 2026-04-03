@@ -21,7 +21,6 @@ packages/intelligence-exchange-cannes-contracts/out/
 packages/intelligence-exchange-cannes-contracts/cache/
 packages/intelligence-exchange-cannes-contracts/broadcast/
 packages/intelligence-exchange-cannes-contracts/.cache/
-packages/intelligence-exchange-cannes-contracts/deployments/*.json
 
 # Bun
 .bun/
@@ -46,23 +45,7 @@ pnpm-debug.log*
 # Test coverage
 coverage/
 .nyc_output/
-playwright-report/
-test-results/
-artifacts/
-
-# E2E test output
-output/
 
 # Temp
 *.tmp
 *.temp
-.gstack/
-.gstack-designs/
-
-# Agent/IDE local state
-.context/
-.claude/
-
-# External symlinks (environment-specific, not portable)
-skills/devin-delegate
-kimi-delegate-skill/

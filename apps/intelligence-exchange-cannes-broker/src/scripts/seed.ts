@@ -6,10 +6,9 @@
 
 import { migrate } from '../db/migrate';
 import { db } from '../db/client';
-import { agentIdentities, ideas, jobs } from '../db/schema';
+import { ideas, agentIdentities } from '../db/schema';
 import { eq } from 'drizzle-orm';
 import { generateBrief } from '../services/jobService';
-import { syncMilestoneReservation } from '../services/chainService';
 import {
   DEMO_IDEA_ID,
   DEMO_BUYER_ID,
@@ -27,7 +26,6 @@ async function seed() {
     .from(ideas)
     .where(eq(ideas.ideaId, DEMO_IDEA_ID));
 
-  let briefId: string;
   if (existing.length > 0) {
     console.log(`ℹ Demo idea already exists: ${DEMO_IDEA_ID} — skipping insert`);
   } else {
@@ -55,29 +53,11 @@ async function seed() {
       })
       .where(eq(ideas.ideaId, DEMO_IDEA_ID));
     console.log('✓ Demo idea funded (demo escrow tx)');
-  }
 
-  // 5. Generate brief + milestone jobs
-  briefId = await generateBrief(DEMO_IDEA_ID, DEMO_BUYER_ID);
-  console.log(`✓ Brief generated: ${briefId}`);
-
-  const demoJobs = await db.select({
-    jobId: jobs.jobId,
-    status: jobs.status,
-  }).from(jobs).where(eq(jobs.ideaId, DEMO_IDEA_ID));
-
-  const claimableSeedJobs = demoJobs.filter(job => job.status === 'created').map(job => job.jobId);
-  if (claimableSeedJobs.length > 0) {
-    await syncMilestoneReservation({
-      eventType: 'milestone_reserved',
-      txHash: `0x${briefId.replace(/-/g, '').padEnd(64, 'd').slice(0, 64)}`,
-      subjectId: DEMO_IDEA_ID,
-      payload: { jobIds: claimableSeedJobs },
-      status: 'confirmed',
-    });
-    console.log(`✓ ${claimableSeedJobs.length} demo jobs queued and claimable`);
-  } else {
-    console.log('ℹ Demo jobs already claimable or in progress');
+    // 5. Generate brief + milestone jobs
+    const briefId = await generateBrief(DEMO_IDEA_ID);
+    console.log(`✓ Brief generated: ${briefId}`);
+    console.log('✓ 4 milestone jobs queued (brief, tasks, scaffold, review)');
   }
 
   // 6. Seed demo agent identities

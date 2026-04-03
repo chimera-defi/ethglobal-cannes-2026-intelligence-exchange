@@ -68,7 +68,7 @@ def main():
     out += "\n\n"
     out += VM_SAFE_DOC
     vm_safe = Cheatcodes(
-        # NOTE: Custom errors were introduced in 0.8.4
+        # TODO: Custom errors were introduced in 0.8.4
         errors=[],  # contract.errors
         events=contract.events,
         enums=contract.enums,

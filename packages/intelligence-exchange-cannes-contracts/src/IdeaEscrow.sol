@@ -4,27 +4,13 @@ pragma solidity ^0.8.24;
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 
 /// @title IdeaEscrow
-/// @notice DEPRECATED. This contract is legacy and not wired to the current settlement path.
-///         Use the broker settlement service (tokenomicsService) for task payments.
-/// @custom:deprecated true
-///
-/// Holds ERC-20 funds for ideas and releases them milestone by milestone.
-/// Payment token address is passed per-idea at fund time.
+/// @notice Holds USDC funds for ideas and releases them milestone by milestone.
+///         Used with Arc stablecoin on the Arc network.
 ///
 /// State machine per milestone:
 ///   funded → reserved → released
 ///                    → refunded
 contract IdeaEscrow {
-    // ─── Settlement split constants ──────────────────────────────────────────
-    // worker 81%, staker yield 9%, treasury 10%
-    uint256 public constant WORKER_BPS = 8100;
-    uint256 public constant STAKER_BPS = 900;
-    uint256 public constant TREASURY_BPS = 1000;
-    uint256 public constant BPS_DENOMINATOR = 10000;
-
-    address public immutable stakerYieldReceiver;
-    address public immutable treasuryReceiver;
-    address public immutable owner;
     // ─── Errors ──────────────────────────────────────────────────────────────
 
     error Unauthorized();
@@ -34,7 +20,6 @@ contract IdeaEscrow {
     error MilestoneAlreadyReserved(bytes32 milestoneId);
     error MilestoneNotReserved(bytes32 milestoneId);
     error MilestoneAlreadySettled(bytes32 milestoneId);
-    error ArrayLengthMismatch();
     error ZeroAmount();
     error TransferFailed();
 
@@ -43,11 +28,7 @@ contract IdeaEscrow {
     event IdeaFunded(bytes32 indexed ideaId, address indexed poster, address token, uint256 amount);
     event MilestoneReserved(bytes32 indexed ideaId, bytes32 indexed milestoneId, uint256 amount);
     event MilestoneReleased(bytes32 indexed ideaId, bytes32 indexed milestoneId, address indexed worker, uint256 amount);
-    event StakerYieldPaid(bytes32 indexed ideaId, bytes32 indexed milestoneId, address indexed receiver, uint256 amount);
-    event TreasuryPaid(bytes32 indexed ideaId, bytes32 indexed milestoneId, address indexed receiver, uint256 amount);
     event MilestoneRefunded(bytes32 indexed ideaId, bytes32 indexed milestoneId, address indexed poster, uint256 amount);
-    event FundsWithdrawn(bytes32 indexed ideaId, address indexed poster, uint256 amount);
-    event EmergencyRescue(bytes32 indexed ideaId, address indexed recipient, uint256 amount);
 
     // ─── Storage ──────────────────────────────────────────────────────────────
 
@@ -71,14 +52,6 @@ contract IdeaEscrow {
     // milestoneId → ideaId (for lookups)
     mapping(bytes32 milestoneId => bytes32) public milestoneIdea;
 
-    // ─── Constructor ──────────────────────────────────────────────────────────
-
-    constructor(address _stakerYieldReceiver, address _treasuryReceiver, address _owner) {
-        stakerYieldReceiver = _stakerYieldReceiver;
-        treasuryReceiver = _treasuryReceiver;
-        owner = _owner;
-    }
-
     // ─── Functions ────────────────────────────────────────────────────────────
 
     /// @notice Poster funds an idea by depositing tokens into escrow.
@@ -89,6 +62,9 @@ contract IdeaEscrow {
         if (amount == 0) revert ZeroAmount();
         if (ideas[ideaId].exists) revert IdeaAlreadyFunded(ideaId);
 
+        bool ok = IERC20(token).transferFrom(msg.sender, address(this), amount);
+        if (!ok) revert TransferFailed();
+
         ideas[ideaId] = IdeaFund({
             poster: msg.sender,
             token: token,
@@ -96,9 +72,6 @@ contract IdeaEscrow {
             available: amount,
             exists: true
         });
-
-        bool ok = IERC20(token).transferFrom(msg.sender, address(this), amount);
-        if (!ok) revert TransferFailed();
 
         emit IdeaFunded(ideaId, msg.sender, token, amount);
     }
@@ -121,52 +94,12 @@ contract IdeaEscrow {
         emit MilestoneReserved(ideaId, milestoneId, amount);
     }
 
-    /// @notice Reserve multiple milestones in one poster-approved transaction.
-    function reserveMilestones(
-        bytes32 ideaId,
-        bytes32[] calldata milestoneIds,
-        uint256[] calldata amounts
-    ) external {
-        IdeaFund storage fund = ideas[ideaId];
-        if (!fund.exists) revert IdeaNotFunded(ideaId);
-        if (msg.sender != fund.poster) revert Unauthorized();
-        if (milestoneIds.length != amounts.length) revert ArrayLengthMismatch();
-
-        uint256 totalRequired = 0;
-        for (uint256 i = 0; i < milestoneIds.length; i++) {
-            if (amounts[i] == 0) revert ZeroAmount();
-            totalRequired += amounts[i];
-        }
-
-        if (fund.available < totalRequired) revert InsufficientBalance(ideaId, totalRequired, fund.available);
-
-        fund.available -= totalRequired;
-        for (uint256 i = 0; i < milestoneIds.length; i++) {
-            bytes32 milestoneId = milestoneIds[i];
-            uint256 amount = amounts[i];
-            // Check here (after deduction) catches both pre-existing milestones AND intra-batch
-            // duplicates: the second occurrence of a duplicate milestoneId will find status==Reserved
-            // (set by the first iteration) and revert, rolling back the entire transaction including
-            // the fund.available deduction above.
-            if (milestones[milestoneId].status != MilestoneStatus.None) {
-                revert MilestoneAlreadyReserved(milestoneId);
-            }
-            milestones[milestoneId] = MilestoneFund({ amount: amount, status: MilestoneStatus.Reserved });
-            milestoneIdea[milestoneId] = ideaId;
-
-            emit MilestoneReserved(ideaId, milestoneId, amount);
-        }
-    }
-
     /// @notice Release reserved funds to a worker after accepted output.
     /// @dev Only the poster can call this (human approval gate).
-    ///      Splits: 81% worker, 9% staker yield, 10% treasury.
     function releaseMilestone(bytes32 ideaId, bytes32 milestoneId, address worker) external {
         IdeaFund storage fund = ideas[ideaId];
         if (!fund.exists) revert IdeaNotFunded(ideaId);
         if (msg.sender != fund.poster) revert Unauthorized();
-        // Binding check: milestoneId must belong to ideaId (prevents cross-idea release)
-        if (milestoneIdea[milestoneId] != ideaId) revert Unauthorized();
 
         MilestoneFund storage m = milestones[milestoneId];
         if (m.status != MilestoneStatus.Reserved) {
@@ -177,22 +110,10 @@ contract IdeaEscrow {
         uint256 amount = m.amount;
         m.status = MilestoneStatus.Released;
 
-        uint256 workerAmount = amount * WORKER_BPS / BPS_DENOMINATOR;
-        uint256 stakerAmount = amount * STAKER_BPS / BPS_DENOMINATOR;
-        uint256 treasuryAmount = amount * TREASURY_BPS / BPS_DENOMINATOR;
+        bool ok = IERC20(fund.token).transfer(worker, amount);
+        if (!ok) revert TransferFailed();
 
-        bool ok1 = IERC20(fund.token).transfer(worker, workerAmount);
-        if (!ok1) revert TransferFailed();
-
-        bool ok2 = IERC20(fund.token).transfer(stakerYieldReceiver, stakerAmount);
-        if (!ok2) revert TransferFailed();
-
-        bool ok3 = IERC20(fund.token).transfer(treasuryReceiver, treasuryAmount);
-        if (!ok3) revert TransferFailed();
-
-        emit MilestoneReleased(ideaId, milestoneId, worker, workerAmount);
-        emit StakerYieldPaid(ideaId, milestoneId, stakerYieldReceiver, stakerAmount);
-        emit TreasuryPaid(ideaId, milestoneId, treasuryReceiver, treasuryAmount);
+        emit MilestoneReleased(ideaId, milestoneId, worker, amount);
     }
 
     /// @notice Refund reserved funds back to the poster (on rejection or expiry).
@@ -201,8 +122,6 @@ contract IdeaEscrow {
         if (!fund.exists) revert IdeaNotFunded(ideaId);
         if (msg.sender != fund.poster) revert Unauthorized();
         if (poster != fund.poster) revert Unauthorized();
-        // Binding check: milestoneId must belong to ideaId (prevents cross-idea refund exploit)
-        if (milestoneIdea[milestoneId] != ideaId) revert Unauthorized();
 
         MilestoneFund storage m = milestones[milestoneId];
         if (m.status != MilestoneStatus.Reserved) {
@@ -218,35 +137,6 @@ contract IdeaEscrow {
         // To withdraw back to wallet, poster calls withdrawIdea() (future feature).
 
         emit MilestoneRefunded(ideaId, milestoneId, poster, amount);
-    }
-
-    /// @notice Withdraw unreserved funds back to poster.
-    /// @param ideaId Idea to withdraw available funds from.
-    function withdrawAvailable(bytes32 ideaId) external {
-        IdeaFund storage fund = ideas[ideaId];
-        if (fund.poster != msg.sender) revert Unauthorized();
-        uint256 amount = fund.available;
-        if (amount == 0) revert InsufficientBalance(ideaId, 0, 0);
-        fund.available = 0;
-        fund.totalFunded -= amount;
-        bool ok = IERC20(fund.token).transfer(msg.sender, amount);
-        if (!ok) revert TransferFailed();
-        emit FundsWithdrawn(ideaId, msg.sender, amount);
-    }
-
-    /// @notice Emergency rescue function for owner to recover funds from deprecated contract.
-    /// @custom:access owner only
-    /// @param ideaId    Idea to rescue funds from.
-    /// @param recipient Address to receive rescued funds.
-    function rescueFunds(bytes32 ideaId, address recipient) external {
-        if (msg.sender != owner) revert Unauthorized();
-        IdeaFund storage fund = ideas[ideaId];
-        if (!fund.exists) revert IdeaNotFunded(ideaId);
-        uint256 amount = fund.available;
-        fund.available = 0;
-        bool ok = IERC20(fund.token).transfer(recipient, amount);
-        if (!ok) revert TransferFailed();
-        emit EmergencyRescue(ideaId, recipient, amount);
     }
 
     // ─── View helpers ─────────────────────────────────────────────────────────

@@ -2,44 +2,18 @@
   "name": "intelligence-exchange-cannes-2026",
   "private": true,
   "version": "0.1.0",
-  "packageManager": "pnpm@11.0.8",
+  "packageManager": "pnpm@10.33.0",
   "workspaces": [
     "apps/*",
     "packages/*"
   ],
   "scripts": {
-    "hooks:install": "bash scripts/tooling/install-git-hooks.sh",
-    "tooling:install": "bash scripts/tooling/ensure-foundry.sh",
     "dev:cannes": "pnpm --filter '*cannes*' --parallel run dev",
-    "build": "pnpm tooling:install && pnpm --filter '*cannes*' run build",
-    "test": "pnpm tooling:install && ./scripts/tooling/run-with-test-infra.sh pnpm --filter '*cannes*' run test && pnpm test:infra-security",
-    "test:infra-security": "bash tests/infra-security/verify-infra-hardening.sh",
-    "test:infra-security:ci": "REQUIRE_DOCKER=1 bash tests/infra-security/verify-infra-hardening.sh",
-    "test:acceptance": "./scripts/tooling/run-with-test-infra.sh pnpm --filter 'intelligence-exchange-cannes-broker' run test:acceptance",
-    "contracts:validate": "pnpm tooling:install && pnpm --filter 'intelligence-exchange-cannes-contracts' run test",
-    "fork:mainnet": "pnpm --filter 'intelligence-exchange-cannes-contracts' run mainnet:fork",
-    "fork:mainnet:smoke": "pnpm --filter 'intelligence-exchange-cannes-contracts' run smoke:intel-liquidity:mainnet-fork",
-    "demo:tokenomics:actors": "pnpm --filter 'intelligence-exchange-cannes-tokenomics' run demo:intel:actors",
+    "build": "pnpm --filter '*cannes*' run build",
+    "test": "pnpm --filter '*cannes*' run test",
+    "test:acceptance": "pnpm --filter 'intelligence-exchange-cannes-broker' run test:acceptance",
+    "contracts:validate": "pnpm --filter 'intelligence-exchange-cannes-contracts' run test",
     "seed:cannes": "pnpm --filter 'intelligence-exchange-cannes-broker' run seed",
-    "typecheck": "pnpm --filter '*cannes*' run typecheck",
-    "validate:all": "pnpm tooling:install && pnpm typecheck && pnpm build && pnpm test && pnpm test:acceptance && pnpm test:infra-security:ci"
-  },
-  "devDependencies": {
-    "playwright": "^1.59.1"
-  },
-  "pnpm": {
-    "overrides": {
-      "axios": "^1.8.2",
-      "ws": "8.20.1",
-      "uuid": "11.1.1"
-    },
-    "onlyBuiltDependencies": [
-      "bufferutil",
-      "es5-ext",
-      "esbuild",
-      "keccak",
-      "msgpackr-extract",
-      "utf-8-validate"
-    ]
+    "typecheck": "pnpm --filter '*cannes*' run typecheck"
   }
 }

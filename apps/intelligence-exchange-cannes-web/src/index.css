@@ -2,80 +2,38 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  :root {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 47.4% 11.2%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 63% 31%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 221.2 83.2% 53.3%;
-    --radius: 0.75rem;
-    --review: 271 91% 65%;
-    --review-foreground: 0 0% 100%;
-  }
+body {
+  @apply bg-gray-950 text-gray-100 font-sans;
 }
 
-@layer base {
-  * {
-    border-color: hsl(var(--border));
-  }
-  body {
-    @apply bg-background text-foreground font-sans;
-  }
-}
-
-/* Layout */
-.page {
-  @apply min-h-screen p-4 md:p-8;
-}
-
-/* Cards */
 .card {
-  @apply bg-slate-900/40 backdrop-blur-md border border-slate-800 rounded-xl p-6;
+  @apply bg-gray-900 border border-gray-800 rounded-xl p-6;
 }
 
-/* Inputs */
+.btn-primary {
+  @apply bg-blue-600 hover:bg-blue-500 text-white font-semibold px-6 py-2.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+.btn-success {
+  @apply bg-green-700 hover:bg-green-600 text-white font-semibold px-6 py-2.5 rounded-lg transition-colors disabled:opacity-50;
+}
+
+.btn-danger {
+  @apply bg-red-700 hover:bg-red-600 text-white font-semibold px-6 py-2.5 rounded-lg transition-colors disabled:opacity-50;
+}
+
 .input {
   @apply bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-gray-100 w-full focus:outline-none focus:ring-2 focus:ring-blue-500;
 }
 
-/* Badges */
 .badge {
   @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
 }
 
-.badge-queued { @apply badge bg-emerald-950 text-emerald-400; }
-.badge-claimed { @apply badge bg-blue-950 text-blue-400; }
-.badge-submitted { @apply badge bg-blue-900 text-blue-300; }
-.badge-accepted { @apply badge bg-slate-800 text-slate-300; }
+.badge-queued { @apply badge bg-yellow-900 text-yellow-200; }
+.badge-claimed { @apply badge bg-blue-900 text-blue-200; }
+.badge-submitted { @apply badge bg-purple-900 text-purple-200; }
+.badge-accepted { @apply badge bg-green-900 text-green-200; }
 .badge-rejected, .badge-rework { @apply badge bg-red-900 text-red-200; }
-.badge-funded { @apply badge bg-slate-800 text-slate-300; }
+.badge-funded { @apply badge bg-emerald-900 text-emerald-200; }
 .badge-unfunded { @apply badge bg-gray-800 text-gray-400; }
-.badge-created { @apply badge bg-gray-800 text-gray-300; }
-.badge-settled { @apply badge bg-slate-800 text-slate-300; }
-.badge-warning { @apply badge bg-amber-950 text-amber-400; }
-
-/* Loading spinner - CSS animation, not emoji */
-.spinner {
-  @apply w-8 h-8 border-2 border-blue-500 rounded-full animate-spin mx-auto;
-  border-top-color: transparent;
-}
-
-/* Typography */
-.section-label {
-  @apply text-xs font-semibold text-gray-400 uppercase tracking-wider;
-}

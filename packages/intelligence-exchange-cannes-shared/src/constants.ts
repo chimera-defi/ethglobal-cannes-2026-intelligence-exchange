@@ -27,15 +27,6 @@ export const DEMO_BUYER_ID = 'buyer-demo-100';
 export const DEMO_WORKER_ID = 'agent-demo-77';
 export const DEMO_BRIEF_ID = 'brief-demo-cannes-2026';
 
-// Supported chain IDs
-export const CHAIN_IDS = {
-  ETHEREUM_MAINNET: 1,
-  BASE_MAINNET: 8453,
-  SEPOLIA: 11155111,
-  BASE_SEPOLIA: 84532,
-} as const;
-
+// Chain IDs
+export const ARC_CHAIN_ID = 60808; // Arc mainnet
 export const LOCAL_CHAIN_ID = 31337; // Anvil
-
-// Optional: Arc chain constants (future integration)
-// export const ARC_CHAIN_ID = 60808; // Arc mainnet (chain ID 60808)

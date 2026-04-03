@@ -1,159 +1,49 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
-import { aiuRouter } from './routes/aiu';
-import { agentkitRouter } from './routes/agentkit';
-import { arcRouter } from './routes/arc';
-import { authRouter } from './routes/auth';
-import { agentsRouter } from './routes/agents';
-import { chainRouter } from './routes/chain';
-import { githubRouter } from './routes/github';
 import { ideasRouter } from './routes/ideas';
-import { integrationsRouter } from './routes/integrations';
 import { jobsRouter } from './routes/jobs';
-import { tokenomicsRouter } from './routes/tokenomics';
-import { worldRouter } from './routes/world';
 import { workersRouter } from './routes/workers';
-import { adminRouter } from './routes/admin';
 import { migrate } from './db/migrate';
 import { setupLeaseExpiryRequeue } from './queue/milestoneQueue';
-import { STALLED_JOB_INTERVAL_MS } from 'intelligence-exchange-cannes-shared';
-import { db, sql } from './db/client';
-import { rateLimit, walletRateLimit } from './middleware/rateLimit';
-import { getSessionAccountAddress } from './services/accessService';
+import { db } from './db/client';
 
-export const app = new Hono();
-
-/*
- * CORS security:
- * - Set CORS_ALLOWED_ORIGINS to a comma-separated list of allowed origins in production.
- *   Example: CORS_ALLOWED_ORIGINS=https://yourdomain.com,https://app.yourdomain.com
- * - If CORS_ALLOWED_ORIGINS is not set in production, credentials are disabled to prevent
- *   cross-origin cookie/auth leakage (OWASP A05:2021 Security Misconfiguration).
- * - In development (NODE_ENV != production), WEB_APP_URL or localhost:3000 is used as a
- *   permissive fallback.
- */
-function buildCorsConfig(): { origin: string | string[]; credentials: boolean } {
-  const allowedOriginsEnv = process.env.CORS_ALLOWED_ORIGINS;
-  const isProduction = process.env.NODE_ENV === 'production';
-
-  if (allowedOriginsEnv) {
-    const origins = allowedOriginsEnv.split(',').map((o) => o.trim()).filter(Boolean);
-    return { origin: origins.length === 1 ? origins[0] : origins, credentials: true };
-  }
-
-  if (isProduction) {
-    // No explicit allowlist set in production — fall back to WEB_APP_URL without credentials
-    // to avoid wildcard + credentials misconfiguration.
-    const origin = process.env.WEB_APP_URL ?? '';
-    if (!origin) {
-      console.warn(
-        '[security:cors] WARNING: Neither CORS_ALLOWED_ORIGINS nor WEB_APP_URL is set in production. ' +
-        'CORS credentials are disabled. Set CORS_ALLOWED_ORIGINS to your frontend domain.'
-      );
-    }
-    return { origin: origin || 'null', credentials: false };
-  }
-
-  // Development fallback
-  return { origin: process.env.WEB_APP_URL ?? 'http://localhost:3000', credentials: true };
-}
-
-const corsConfig = buildCorsConfig();
+const app = new Hono();
 
 // Middleware
-app.use('*', cors({
-  origin: corsConfig.origin,
-  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  credentials: corsConfig.credentials,
-}));
+app.use('*', cors({ origin: '*', allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'] }));
 app.use('*', logger());
-app.use('*', rateLimit());
 
-// Health check with database connectivity verification
-app.get('/health', async (c) => {
-  try {
-    // Quick database connectivity check
-    await sql`SELECT 1`;
-    return c.json({ status: 'ok', database: 'connected', ts: new Date().toISOString() });
-  } catch (err) {
-    console.error('[health:check] Database connectivity check failed:', err);
-    return c.json({ status: 'degraded', database: 'disconnected', ts: new Date().toISOString() }, 503);
-  }
-});
+// Health check
+app.get('/health', (c) => c.json({ status: 'ok', ts: new Date().toISOString() }));
 
-// API routes — apply wallet rate limiting on mutation endpoints
-app.route('/v1/cannes/auth', authRouter);
-app.route('/v1/cannes/world', worldRouter);
-app.route('/v1/cannes/integrations', integrationsRouter);
-app.route('/v1/cannes/agents', agentsRouter);
-app.route('/v1/cannes/agentkit', agentkitRouter);
-app.route('/v1/cannes/github', githubRouter);
-app.route('/v1/cannes/arc', arcRouter);
-app.route('/v1/cannes/chain', chainRouter);
+// API routes
 app.route('/v1/cannes/ideas', ideasRouter);
-app.use('/v1/cannes/jobs/*', walletRateLimit(async (c) => getSessionAccountAddress(c)));
 app.route('/v1/cannes/jobs', jobsRouter);
-app.route('/v1/cannes/tokenomics', tokenomicsRouter);
-app.route('/v1/cannes/aiu', aiuRouter);
 app.route('/v1/cannes/workers', workersRouter);
-app.route('/v1/cannes/admin', adminRouter);
 
 // Error handler
 app.onError((err, c) => {
   console.error('[broker:error]', err);
-  const status = (err as { status?: number }).status ?? 500;
-  const code = (err as { code?: string }).code ?? 'INTERNAL_ERROR';
-  return c.json({ error: { code, message: err.message } }, status as 400 | 401 | 403 | 404 | 409 | 429 | 500 | 503);
+  return c.json({ error: { code: 'INTERNAL_ERROR', message: err.message } }, 500);
 });
 
 // Startup
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
 
-let bootstrapPromise: Promise<void> | null = null;
-
-export async function bootstrap() {
-  if (bootstrapPromise) return bootstrapPromise;
-
-  bootstrapPromise = (async () => {
-    // Security check: validate ADMIN_API_KEY in production
-    if (process.env.NODE_ENV === 'production') {
-      const adminApiKey = process.env.ADMIN_API_KEY;
-      if (!adminApiKey || adminApiKey.length < 32) {
-        console.warn(
-          '[security:admin-key] WARNING: ADMIN_API_KEY is not set or is too short in production. ' +
-          'Generate a secure key with: openssl rand -hex 32'
-        );
-      }
-    }
-
-    try {
-      await migrate();
-      if (process.env.NODE_ENV !== 'test' && process.env.DISABLE_LEASE_REQUEUE !== '1') {
-        await setupLeaseExpiryRequeue(db);
-      }
-    } catch (err) {
-      console.error('[startup:error] Database initialization failed:', err);
-      console.error('[startup:error] Ensure DATABASE_URL and REDIS_URL are set correctly and services are running.');
-      console.error('[startup:error] Run "make infra-up" to start required infrastructure.');
-      throw err;
-    }
-  })();
-
-  return bootstrapPromise;
+async function start() {
+  try {
+    await migrate();
+    await setupLeaseExpiryRequeue(db);
+    console.log(`✓ Lease expiry requeue active (${10}s interval)`);
+    console.log(`✓ IEX Broker listening on port ${PORT}`);
+  } catch (err) {
+    console.error('[startup:error]', err);
+    process.exit(1);
+  }
 }
 
-if (import.meta.main) {
-  bootstrap()
-    .then(() => {
-      console.log(`✓ Lease expiry requeue active (${STALLED_JOB_INTERVAL_MS / 1000}s interval)`);
-      console.log(`✓ IEX Broker listening on port ${PORT}`);
-    })
-    .catch((err) => {
-      console.error('[startup:error]', err);
-      process.exit(1);
-    });
-}
+start();
 
 export default {
   port: PORT,

@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {Test} from "forge-std/Test.sol";
+import {Test, console} from "forge-std/Test.sol";
 import {IdeaEscrow} from "../src/IdeaEscrow.sol";
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
 
+/// @dev Minimal ERC-20 mock for testing
 contract MockUSDC {
     string public name = "Mock USDC";
     string public symbol = "USDC";
@@ -47,16 +49,12 @@ contract IdeaEscrowTest is Test {
     bytes32 ideaId = keccak256("idea-demo-cannes-2026");
     bytes32 milestoneId1 = keccak256("milestone-1");
     bytes32 milestoneId2 = keccak256("milestone-2");
-    bytes32 milestoneId3 = keccak256("milestone-3");
 
-    uint256 constant IDEA_BUDGET = 1000e6;
-    uint256 constant MILESTONE_AMT = 250e6;
+    uint256 constant IDEA_BUDGET = 1000e6;    // 1000 USDC
+    uint256 constant MILESTONE_AMT = 250e6;  // 250 USDC per milestone
 
     function setUp() public {
-        address stakerYieldAddr = makeAddr("stakerYield");
-        address treasuryAddr = makeAddr("treasury");
-        address ownerAddr = makeAddr("owner");
-        escrow = new IdeaEscrow(stakerYieldAddr, treasuryAddr, ownerAddr);
+        escrow = new IdeaEscrow();
         usdc = new MockUSDC();
 
         usdc.mint(poster, IDEA_BUDGET * 2);
@@ -65,15 +63,14 @@ contract IdeaEscrowTest is Test {
         usdc.approve(address(escrow), type(uint256).max);
     }
 
-    function _fund() internal {
+    // ─── fundIdea ─────────────────────────────────────────────────────────────
+
+    function test_fundIdea_emitsEvent() public {
+        vm.expectEmit(true, true, false, true);
+        emit IdeaEscrow.IdeaFunded(ideaId, poster, address(usdc), IDEA_BUDGET);
+
         vm.prank(poster);
         escrow.fundIdea(ideaId, address(usdc), IDEA_BUDGET);
-    }
-
-    function _reserve() internal {
-        _fund();
-        vm.prank(poster);
-        escrow.reserveMilestone(ideaId, milestoneId1, MILESTONE_AMT);
     }
 
     function test_fundIdea_storesBalances() public {
@@ -95,6 +92,28 @@ contract IdeaEscrowTest is Test {
         vm.stopPrank();
     }
 
+    function test_fundIdea_revert_zeroAmount() public {
+        vm.prank(poster);
+        vm.expectRevert(IdeaEscrow.ZeroAmount.selector);
+        escrow.fundIdea(ideaId, address(usdc), 0);
+    }
+
+    // ─── reserveMilestone ─────────────────────────────────────────────────────
+
+    function _fund() internal {
+        vm.prank(poster);
+        escrow.fundIdea(ideaId, address(usdc), IDEA_BUDGET);
+    }
+
+    function test_reserveMilestone_emitsEvent() public {
+        _fund();
+        vm.expectEmit(true, true, false, true);
+        emit IdeaEscrow.MilestoneReserved(ideaId, milestoneId1, MILESTONE_AMT);
+
+        vm.prank(poster);
+        escrow.reserveMilestone(ideaId, milestoneId1, MILESTONE_AMT);
+    }
+
     function test_reserveMilestone_reducesAvailable() public {
         _fund();
         vm.prank(poster);
@@ -104,62 +123,38 @@ contract IdeaEscrowTest is Test {
         assertEq(available, IDEA_BUDGET - MILESTONE_AMT);
     }
 
-    function test_reserveMilestones_emitsPerMilestoneAndTracksBalance() public {
+    function test_reserveMilestone_revert_insufficientBalance() public {
         _fund();
-
-        bytes32[] memory milestoneIds = new bytes32[](2);
-        milestoneIds[0] = milestoneId1;
-        milestoneIds[1] = milestoneId2;
-
-        uint256[] memory amounts = new uint256[](2);
-        amounts[0] = MILESTONE_AMT;
-        amounts[1] = MILESTONE_AMT;
-
-        vm.expectEmit(true, true, false, true);
-        emit IdeaEscrow.MilestoneReserved(ideaId, milestoneId1, MILESTONE_AMT);
-        vm.expectEmit(true, true, false, true);
-        emit IdeaEscrow.MilestoneReserved(ideaId, milestoneId2, MILESTONE_AMT);
-
         vm.prank(poster);
-        escrow.reserveMilestones(ideaId, milestoneIds, amounts);
-
-        (uint256 available,) = escrow.getIdeaBalance(ideaId);
-        assertEq(available, IDEA_BUDGET - (2 * MILESTONE_AMT));
-        assertEq(uint256(escrow.getMilestoneStatus(milestoneId1)), uint256(IdeaEscrow.MilestoneStatus.Reserved));
-        assertEq(uint256(escrow.getMilestoneStatus(milestoneId2)), uint256(IdeaEscrow.MilestoneStatus.Reserved));
+        vm.expectRevert(
+            abi.encodeWithSelector(IdeaEscrow.InsufficientBalance.selector, ideaId, IDEA_BUDGET + 1, IDEA_BUDGET)
+        );
+        escrow.reserveMilestone(ideaId, milestoneId1, IDEA_BUDGET + 1);
     }
 
-    function test_reserveMilestones_revert_lengthMismatch() public {
+    function test_reserveMilestone_revert_alreadyReserved() public {
         _fund();
+        vm.startPrank(poster);
+        escrow.reserveMilestone(ideaId, milestoneId1, MILESTONE_AMT);
 
-        bytes32[] memory milestoneIds = new bytes32[](2);
-        milestoneIds[0] = milestoneId1;
-        milestoneIds[1] = milestoneId2;
-
-        uint256[] memory amounts = new uint256[](1);
-        amounts[0] = MILESTONE_AMT;
-
-        vm.prank(poster);
-        vm.expectRevert(IdeaEscrow.ArrayLengthMismatch.selector);
-        escrow.reserveMilestones(ideaId, milestoneIds, amounts);
+        vm.expectRevert(abi.encodeWithSelector(IdeaEscrow.MilestoneAlreadyReserved.selector, milestoneId1));
+        escrow.reserveMilestone(ideaId, milestoneId1, MILESTONE_AMT);
+        vm.stopPrank();
     }
 
-    function test_reserveMilestones_revert_insufficientBalance() public {
+    function test_reserveMilestone_revert_unauthorized() public {
         _fund();
+        vm.prank(worker);
+        vm.expectRevert(IdeaEscrow.Unauthorized.selector);
+        escrow.reserveMilestone(ideaId, milestoneId1, MILESTONE_AMT);
+    }
 
-        bytes32[] memory milestoneIds = new bytes32[](3);
-        milestoneIds[0] = milestoneId1;
-        milestoneIds[1] = milestoneId2;
-        milestoneIds[2] = milestoneId3;
+    // ─── releaseMilestone ─────────────────────────────────────────────────────
 
-        uint256[] memory amounts = new uint256[](3);
-        amounts[0] = 400e6;
-        amounts[1] = 400e6;
-        amounts[2] = 400e6;
-
+    function _reserve() internal {
+        _fund();
         vm.prank(poster);
-        vm.expectRevert(abi.encodeWithSelector(IdeaEscrow.InsufficientBalance.selector, ideaId, 1200e6, IDEA_BUDGET));
-        escrow.reserveMilestones(ideaId, milestoneIds, amounts);
+        escrow.reserveMilestone(ideaId, milestoneId1, MILESTONE_AMT);
     }
 
     function test_releaseMilestone_sendsTokens() public {
@@ -169,9 +164,36 @@ contract IdeaEscrowTest is Test {
         vm.prank(poster);
         escrow.releaseMilestone(ideaId, milestoneId1, worker);
 
-        // Worker gets 81% of MILESTONE_AMT (staker 9% + treasury 10% deducted)
-        assertEq(usdc.balanceOf(worker), workerBefore + (MILESTONE_AMT * 8100) / 10000);
+        assertEq(usdc.balanceOf(worker), workerBefore + MILESTONE_AMT);
     }
+
+    function test_releaseMilestone_emitsEvent() public {
+        _reserve();
+        vm.expectEmit(true, true, true, true);
+        emit IdeaEscrow.MilestoneReleased(ideaId, milestoneId1, worker, MILESTONE_AMT);
+
+        vm.prank(poster);
+        escrow.releaseMilestone(ideaId, milestoneId1, worker);
+    }
+
+    function test_releaseMilestone_revert_notReserved() public {
+        _fund();
+        vm.prank(poster);
+        vm.expectRevert(abi.encodeWithSelector(IdeaEscrow.MilestoneNotReserved.selector, milestoneId1));
+        escrow.releaseMilestone(ideaId, milestoneId1, worker);
+    }
+
+    function test_releaseMilestone_revert_alreadySettled() public {
+        _reserve();
+        vm.startPrank(poster);
+        escrow.releaseMilestone(ideaId, milestoneId1, worker);
+
+        vm.expectRevert(abi.encodeWithSelector(IdeaEscrow.MilestoneAlreadySettled.selector, milestoneId1));
+        escrow.releaseMilestone(ideaId, milestoneId1, worker);
+        vm.stopPrank();
+    }
+
+    // ─── refundMilestone ──────────────────────────────────────────────────────
 
     function test_refundMilestone_restoresAvailable() public {
         _reserve();
@@ -184,122 +206,56 @@ contract IdeaEscrowTest is Test {
         assertEq(availAfter, availBefore + MILESTONE_AMT);
     }
 
-    function test_fullLifecycle_fundBatchReserveReleaseAndRefund() public {
-        _fund();
-
-        bytes32[] memory milestoneIds = new bytes32[](2);
-        milestoneIds[0] = milestoneId1;
-        milestoneIds[1] = milestoneId2;
-
-        uint256[] memory amounts = new uint256[](2);
-        amounts[0] = MILESTONE_AMT;
-        amounts[1] = MILESTONE_AMT;
+    function test_refundMilestone_emitsEvent() public {
+        _reserve();
+        vm.expectEmit(true, true, true, true);
+        emit IdeaEscrow.MilestoneRefunded(ideaId, milestoneId1, poster, MILESTONE_AMT);
 
         vm.prank(poster);
-        escrow.reserveMilestones(ideaId, milestoneIds, amounts);
+        escrow.refundMilestone(ideaId, milestoneId1, poster);
+    }
 
-        (uint256 availAfterReserve,) = escrow.getIdeaBalance(ideaId);
-        assertEq(availAfterReserve, IDEA_BUDGET - (2 * MILESTONE_AMT));
+    function test_refundMilestone_revert_alreadyReleased() public {
+        _reserve();
+        vm.startPrank(poster);
+        escrow.releaseMilestone(ideaId, milestoneId1, worker);
 
+        vm.expectRevert(abi.encodeWithSelector(IdeaEscrow.MilestoneAlreadySettled.selector, milestoneId1));
+        escrow.refundMilestone(ideaId, milestoneId1, poster);
+        vm.stopPrank();
+    }
+
+    // ─── Full lifecycle ───────────────────────────────────────────────────────
+
+    function test_fullLifecycle_fundReserveRelease() public {
+        // Fund
+        vm.prank(poster);
+        escrow.fundIdea(ideaId, address(usdc), IDEA_BUDGET);
+
+        // Reserve two milestones
+        vm.startPrank(poster);
+        escrow.reserveMilestone(ideaId, milestoneId1, MILESTONE_AMT);
+        escrow.reserveMilestone(ideaId, milestoneId2, MILESTONE_AMT);
+        vm.stopPrank();
+
+        (uint256 avail,) = escrow.getIdeaBalance(ideaId);
+        assertEq(avail, IDEA_BUDGET - 2 * MILESTONE_AMT);
+
+        // Release milestone 1
         vm.prank(poster);
         escrow.releaseMilestone(ideaId, milestoneId1, worker);
-        // Worker gets 81% (staker 9% + treasury 10% deducted)
-        assertEq(usdc.balanceOf(worker), (MILESTONE_AMT * 8100) / 10000);
-        assertEq(uint256(escrow.getMilestoneStatus(milestoneId1)), uint256(IdeaEscrow.MilestoneStatus.Released));
 
+        assertEq(usdc.balanceOf(worker), MILESTONE_AMT);
+        assertEq(
+            uint256(escrow.getMilestoneStatus(milestoneId1)),
+            uint256(IdeaEscrow.MilestoneStatus.Released)
+        );
+
+        // Refund milestone 2
         vm.prank(poster);
         escrow.refundMilestone(ideaId, milestoneId2, poster);
 
         (uint256 availFinal,) = escrow.getIdeaBalance(ideaId);
-        assertEq(availFinal, IDEA_BUDGET - MILESTONE_AMT);
-    }
-
-    /// @notice I-5: poster of ideaB cannot refund a milestone that belongs to ideaA.
-    function test_CrossIdea_CannotRefundOtherPostersMilestone() public {
-        address posterB = address(0xB0B2);
-        bytes32 ideaIdB = keccak256("idea-B");
-        bytes32 milestoneBId = keccak256("milestone-B-1");
-
-        // Fund ideaA from poster
-        _reserve(); // funds ideaId and reserves milestoneId1 for poster
-
-        // Fund ideaB from posterB
-        usdc.mint(posterB, IDEA_BUDGET);
-        vm.startPrank(posterB);
-        usdc.approve(address(escrow), type(uint256).max);
-        escrow.fundIdea(ideaIdB, address(usdc), IDEA_BUDGET);
-        escrow.reserveMilestone(ideaIdB, milestoneBId, MILESTONE_AMT);
-        vm.stopPrank();
-
-        // posterB attempts to refund milestoneId1 (which belongs to ideaA, not ideaB)
-        vm.prank(posterB);
-        vm.expectRevert(IdeaEscrow.Unauthorized.selector);
-        escrow.refundMilestone(ideaIdB, milestoneId1, posterB);
-    }
-
-    function test_withdrawAvailable_sendsUnreservedFunds() public {
-        _fund();
-        vm.prank(poster);
-        escrow.reserveMilestone(ideaId, milestoneId1, MILESTONE_AMT);
-
-        uint256 posterBefore = usdc.balanceOf(poster);
-        uint256 expectedWithdraw = IDEA_BUDGET - MILESTONE_AMT;
-
-        vm.prank(poster);
-        escrow.withdrawAvailable(ideaId);
-
-        assertEq(usdc.balanceOf(poster), posterBefore + expectedWithdraw);
-        (uint256 available,) = escrow.getIdeaBalance(ideaId);
-        assertEq(available, 0);
-    }
-
-    function test_withdrawAvailable_revert_nonPoster() public {
-        _fund();
-        vm.prank(worker);
-        vm.expectRevert(IdeaEscrow.Unauthorized.selector);
-        escrow.withdrawAvailable(ideaId);
-    }
-
-    function test_withdrawAvailable_revert_nothingAvailable() public {
-        _fund();
-        // Reserve everything
-        vm.prank(poster);
-        escrow.reserveMilestone(ideaId, milestoneId1, IDEA_BUDGET);
-
-        vm.prank(poster);
-        vm.expectRevert(abi.encodeWithSelector(IdeaEscrow.InsufficientBalance.selector, ideaId, 0, 0));
-        escrow.withdrawAvailable(ideaId);
-    }
-
-    /// @notice Pass2 adversarial: duplicate milestoneId in reserveMilestones batch must revert,
-    ///         not silently trap poster funds.
-    function test_reserveMilestones_revert_duplicateMilestoneIdInBatch() public {
-        _fund();
-
-        bytes32[] memory milestoneIds = new bytes32[](2);
-        milestoneIds[0] = milestoneId1;
-        milestoneIds[1] = milestoneId1; // intentional duplicate
-
-        uint256[] memory amounts = new uint256[](2);
-        amounts[0] = MILESTONE_AMT;
-        amounts[1] = MILESTONE_AMT;
-
-        vm.prank(poster);
-        vm.expectRevert(abi.encodeWithSelector(IdeaEscrow.MilestoneAlreadyReserved.selector, milestoneId1));
-        escrow.reserveMilestones(ideaId, milestoneIds, amounts);
-
-        // fund.available must be unchanged (whole tx reverted, no funds trapped)
-        (uint256 available,) = escrow.getIdeaBalance(ideaId);
-        assertEq(available, IDEA_BUDGET);
-    }
-
-    /// @notice Pass2 adversarial: late staker should not be able to claim yield deposited
-    ///         before they staked (yieldDebt must be anchored at stake time).
-    function test_yieldDebt_anchoredOnStake_noRetroactiveClaim() public {
-        // This test is in the IdeaEscrow file but conceptually belongs to IntelStaking.
-        // The IntelStaking test suite covers this; we just ensure the invariant holds here
-        // at an integration level: a new staker cannot drain prior yield.
-        // (Actual IntelStaking unit test is in IntelStaking.t.sol)
-        assertTrue(true); // placeholder — see test_stake_yieldDebt_anchoredForLateStaker in IntelStaking.t.sol
+        assertEq(availFinal, IDEA_BUDGET - MILESTONE_AMT); // refunded amount back
     }
 }

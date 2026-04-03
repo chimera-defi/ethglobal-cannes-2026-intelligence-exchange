@@ -1,41 +1,47 @@
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and, count } from 'drizzle-orm';
 import { db } from '../db/client';
-import { jobs, claims, submissions, ideas, briefs, milestones, agentSpendEvents, agentIdentities, ideaTokenReserves } from '../db/schema';
+import { jobs, jobEvents, claims, submissions, agentIdentities, ideas, briefs, milestones } from '../db/schema';
 import { scoreSubmission } from '../scoring/scorer';
+import { milestoneQueue } from '../queue/milestoneQueue';
 import {
+  DEFAULT_LEASE_DURATION_MS,
+  PLATFORM_FEE_RATE,
   MILESTONE_ORDER,
   type JobResultSubmitRequest,
   type JobCreateRequest,
   type MilestoneType,
 } from 'intelligence-exchange-cannes-shared';
+import { keccak256, toBytes } from 'viem';
 import { randomUUID } from 'crypto';
-import { httpError } from './errors';
-import { issueAcceptedSubmissionAttestation, mintWorkReceipt, recordAcceptedSubmissionOnChain, recordReviewerReview, setWorkerOnEscrow, clearWorkerOnEscrow, recordCategoryCompletion, evaluateReviewerTier, checkReviewerAssignment, refundTaskEscrow } from './chainService';
-import { logJobEvent } from './jobEvents';
-import { refundRejectedJobCredits, settleAcceptedJobCredits } from './tokenomicsService';
-import { saveAIUSnapshot } from './aiuService';
 
-type SpendEventInput = {
-  workerId: string;
-  vendor: string;
-  purpose: string;
-  amountUsd: number;
-  settlementRail: 'demo' | 'arc' | 'intel';
-  txHash?: string;
-};
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function logEvent(jobId: string, state: string, actorId?: string, payload?: Record<string, unknown>) {
+  // Append-only: insert a new row per state transition. NEVER update existing rows.
+  return db.insert(jobEvents).values({
+    eventId: randomUUID(),
+    jobId,
+    state,
+    actorId,
+    payload: payload ?? null,
+    createdAt: new Date(),
+  });
+}
+
+function computeAgentFingerprint(agentType: string, agentVersion: string, operatorAddress: string): string {
+  const raw = `${agentType}:${agentVersion}:${operatorAddress.toLowerCase()}`;
+  return keccak256(toBytes(raw));
+}
 
 // ─── Idea & Planning ──────────────────────────────────────────────────────────
 
-export async function createIdea(
-  req: Omit<JobCreateRequest, 'worldIdProof'> & { worldIdProof?: { nullifierHash: string } },
-  posterAddress: string,
-): Promise<string> {
+export async function createIdea(req: JobCreateRequest, worldIdVerified: boolean): Promise<string> {
   const ideaId = randomUUID();
   const now = new Date();
 
   await db.insert(ideas).values({
     ideaId,
-    posterId: posterAddress,
+    posterId: req.buyerId,
     title: req.title,
     prompt: req.prompt,
     budgetUsd: req.budgetUsdMax.toString(),
@@ -45,18 +51,13 @@ export async function createIdea(
     updatedAt: now,
   });
 
-  console.log(`[idea:created] ideaId=${ideaId} poster=${posterAddress}`);
+  console.log(`[idea:created] ideaId=${ideaId} poster=${req.buyerId}`);
   return ideaId;
 }
 
-export async function generateBrief(ideaId: string, posterAddress: string): Promise<string> {
+export async function generateBrief(ideaId: string): Promise<string> {
   const [idea] = await db.select().from(ideas).where(eq(ideas.ideaId, ideaId));
-  if (!idea) throw httpError(`Idea not found: ${ideaId}`, 404, 'IDEA_NOT_FOUND');
-  if (idea.posterId !== posterAddress) throw httpError('Only the poster can plan the idea', 403, 'UNAUTHORIZED_IDEA_ACCESS');
-  if (idea.fundingStatus !== 'funded') throw httpError('Idea must be chain-synced as funded before planning', 409, 'IDEA_NOT_FUNDED');
-
-  const [existingBrief] = await db.select().from(briefs).where(eq(briefs.ideaId, ideaId));
-  if (existingBrief) return existingBrief.briefId;
+  if (!idea) throw new Error(`Idea not found: ${ideaId}`);
 
   const briefId = randomUUID();
   const now = new Date();
@@ -102,8 +103,18 @@ export async function generateBrief(ideaId: string, posterAddress: string): Prom
       updatedAt: now,
     });
 
-    await logJobEvent(jobId, 'created', 'broker', { ideaId, milestoneType: mType });
-    console.log(`[job:created] jobId=${jobId} type=${mType}`);
+    await logEvent(jobId, 'created', 'broker', { ideaId, milestoneType: mType });
+
+    // Enqueue in BullMQ
+    await milestoneQueue.add(`job:${jobId}`, { jobId, milestoneType: mType }, {
+      jobId: jobId,
+      attempts: 3,
+    });
+
+    await db.update(jobs).set({ status: 'queued', updatedAt: now }).where(eq(jobs.jobId, jobId));
+    await logEvent(jobId, 'queued', 'broker');
+
+    console.log(`[job:queued] jobId=${jobId} type=${mType}`);
   }
 
   console.log(`[brief:generated] briefId=${briefId} ideaId=${ideaId}`);
@@ -112,24 +123,20 @@ export async function generateBrief(ideaId: string, posterAddress: string): Prom
 
 // ─── Job Claim ────────────────────────────────────────────────────────────────
 
-export async function claimJob(jobId: string, accountAddress: string, agentFingerprint: string) {
+export async function claimJob(jobId: string, workerId: string, agentMeta?: Record<string, unknown>) {
   const [job] = await db.select().from(jobs).where(eq(jobs.jobId, jobId));
-  if (!job) throw httpError('Job not found', 404, 'JOB_NOT_FOUND');
-  if (!['queued', 'rework'].includes(job.status)) {
-    throw httpError(`Job not claimable: status=${job.status}`, 409, 'JOB_NOT_CLAIMABLE');
-  }
+  if (!job) throw Object.assign(new Error('Job not found'), { status: 404 });
+  if (job.status !== 'queued') throw Object.assign(new Error(`Job not claimable: status=${job.status}`), { status: 409 });
 
   const claimId = randomUUID();
   const now = new Date();
-  const expiresAt = new Date(now.getTime() + (45 * 60 * 1000));
+  const expiresAt = new Date(now.getTime() + DEFAULT_LEASE_DURATION_MS);
 
   await db.insert(claims).values({
     claimId,
     jobId,
-    workerId: accountAddress,
-    accountAddress,
-    agentFingerprint,
-    agentMetadata: { fingerprint: agentFingerprint },
+    workerId,
+    agentMetadata: agentMeta ?? null,
     claimedAt: now,
     expiresAt,
     status: 'active',
@@ -138,143 +145,38 @@ export async function claimJob(jobId: string, accountAddress: string, agentFinge
   await db.update(jobs).set({
     status: 'claimed',
     activeClaimId: claimId,
-    activeClaimWorkerId: accountAddress,
+    activeClaimWorkerId: workerId,
     leaseExpiry: expiresAt,
     updatedAt: now,
   }).where(eq(jobs.jobId, jobId));
 
-  await logJobEvent(jobId, 'claimed', accountAddress, {
-    claimId,
-    expiresAt: expiresAt.toISOString(),
-    agentFingerprint,
-  });
-  console.log(`[job:claimed] jobId=${jobId} worker=${accountAddress} expires=${expiresAt.toISOString()}`);
-
-  // Set worker on TaskEscrow after successful claim
-  setWorkerOnEscrow(jobId, accountAddress).catch(err => console.error('[claimJob] setWorkerOnEscrow failed:', err));
+  await logEvent(jobId, 'claimed', workerId, { claimId, expiresAt: expiresAt.toISOString() });
+  console.log(`[job:claimed] jobId=${jobId} worker=${workerId} expires=${expiresAt.toISOString()}`);
 
   return { claimId, expiresAt };
 }
 
-export async function unclaimJob(jobId: string, accountAddress: string, agentFingerprint?: string) {
-  const [job] = await db.select().from(jobs).where(eq(jobs.jobId, jobId));
-  if (!job) throw httpError('Job not found', 404, 'JOB_NOT_FOUND');
-  if (job.status !== 'claimed') {
-    throw httpError(`Job not unclaimable: status=${job.status}`, 409, 'JOB_NOT_UNCLAIMABLE');
-  }
-  if (!job.activeClaimId || !job.activeClaimWorkerId) {
-    throw httpError('Job has no active claim to release', 409, 'JOB_NOT_CLAIMED');
-  }
-  if (job.activeClaimWorkerId !== accountAddress) {
-    throw httpError(
-      `Claim ownership violation: job claimed by ${job.activeClaimWorkerId}, released by ${accountAddress}`,
-      409,
-      'CLAIM_OWNERSHIP_VIOLATION',
-    );
-  }
-
-  const now = new Date();
-
-  await db.update(jobs).set({
-    status: 'queued',
-    activeClaimId: null,
-    activeClaimWorkerId: null,
-    leaseExpiry: null,
-    updatedAt: now,
-  }).where(eq(jobs.jobId, jobId));
-
-  await db.update(claims)
-    .set({ status: 'cancelled' })
-    .where(eq(claims.claimId, job.activeClaimId));
-
-  await logJobEvent(jobId, 'queued', accountAddress, {
-    releasedClaimId: job.activeClaimId,
-    previousWorkerId: job.activeClaimWorkerId,
-    reason: 'worker_unclaim',
-    agentFingerprint: agentFingerprint ?? null,
-  });
-  console.log(`[job:unclaimed] jobId=${jobId} worker=${accountAddress}`);
-
-  // Clear worker on TaskEscrow after successful unclaim
-  clearWorkerOnEscrow(jobId).catch(err => console.error('[unclaimJob] clearWorkerOnEscrow failed:', err));
-
-  return { unclaimed: true, status: 'queued' as const };
-}
-
-/**
- * Compute worker availability scores based on unclaim rate.
- * Workers who are reliably available earn higher availability scores.
- * Availability score (0-1.0): unclaim rate < 10% → 1.0, 10-30% → 0.8, > 30% → 0.5
- */
-export async function getWorkerAvailabilityScores(): Promise<Map<string, number>> {
-  const workerAvailability = await db.execute(sql`
-    SELECT
-      active_claim_worker_id as worker,
-      COUNT(*) as total_claimed,
-      SUM(CASE WHEN status = 'queued' AND active_claim_worker_id IS NOT NULL THEN 1 ELSE 0 END) as unclaimed
-    FROM jobs
-    WHERE active_claim_worker_id IS NOT NULL
-    GROUP BY active_claim_worker_id
-  `);
-
-  const availabilityMap = new Map<string, number>();
-
-  for (const row of workerAvailability) {
-    const worker = row.worker as string;
-    const totalClaimed = Number(row.total_claimed ?? 0);
-    const unclaimed = Number(row.unclaimed ?? 0);
-
-    if (totalClaimed === 0) {
-      availabilityMap.set(worker, 1.0);
-      continue;
-    }
-
-    const unclaimRate = unclaimed / totalClaimed;
-    let availability: number;
-
-    if (unclaimRate < 0.10) {
-      availability = 1.0;
-    } else if (unclaimRate <= 0.30) {
-      availability = 0.8;
-    } else {
-      availability = 0.5;
-    }
-
-    availabilityMap.set(worker, availability);
-  }
-
-  return availabilityMap;
-}
-
 // ─── Job Submission ───────────────────────────────────────────────────────────
 
-export async function submitJob(jobId: string, req: JobResultSubmitRequest, accountAddress: string, agentFingerprint: string) {
+export async function submitJob(jobId: string, req: JobResultSubmitRequest) {
   const [job] = await db.select().from(jobs).where(eq(jobs.jobId, jobId));
-  if (!job) throw httpError('Job not found', 404, 'JOB_NOT_FOUND');
-
-  // Agent fingerprint verification: cross-check against registered fingerprint
-  const [registeredIdentity] = await db.select().from(agentIdentities)
-    .where(eq(agentIdentities.accountAddress, accountAddress));
-  if (registeredIdentity && registeredIdentity.fingerprint !== agentFingerprint) {
-    throw httpError('Agent fingerprint mismatch', 403, 'FINGERPRINT_MISMATCH');
-  }
+  if (!job) throw Object.assign(new Error('Job not found'), { status: 404 });
 
   // Claim ownership check: reject if submitter doesn't own the active claim
-  if (job.activeClaimWorkerId && job.activeClaimWorkerId !== accountAddress) {
-    throw httpError(
-      `Claim ownership violation: job claimed by ${job.activeClaimWorkerId}, submitted by ${accountAddress}`,
-      409,
-      'CLAIM_OWNERSHIP_VIOLATION',
+  if (job.activeClaimWorkerId && job.activeClaimWorkerId !== req.workerId) {
+    throw Object.assign(
+      new Error(`Claim ownership violation: job claimed by ${job.activeClaimWorkerId}, submitted by ${req.workerId}`),
+      { status: 409, code: 'CLAIM_OWNERSHIP_VIOLATION' }
     );
   }
 
   // Lease expiry check
   if (job.leaseExpiry && new Date() > job.leaseExpiry) {
-    throw httpError('Claim lease expired', 409, 'LEASE_EXPIRED');
+    throw Object.assign(new Error('Claim lease expired'), { status: 409, code: 'LEASE_EXPIRED' });
   }
 
   if (!['claimed', 'running'].includes(job.status)) {
-    throw httpError(`Job not in submittable state: ${job.status}`, 409, 'JOB_NOT_SUBMITTABLE');
+    throw Object.assign(new Error(`Job not in submittable state: ${job.status}`), { status: 409 });
   }
 
   const submissionId = randomUUID();
@@ -283,45 +185,36 @@ export async function submitJob(jobId: string, req: JobResultSubmitRequest, acco
 
   // Score the submission
   const scoreBreakdown = scoreSubmission(req, milestoneType);
-  const newStatus = scoreBreakdown.scoreStatus === 'passed' ? 'submitted' : 'rework';
 
   await db.insert(submissions).values({
     submissionId,
     jobId,
     claimId: req.claimId,
-    workerId: accountAddress,
-    accountAddress,
-    agentFingerprint,
+    workerId: req.workerId,
     artifactUris: req.artifactUris,
     traceUri: req.traceUri ?? null,
     summary: req.summary ?? null,
-    agentMetadata: { fingerprint: agentFingerprint },
+    agentMetadata: (req.agentMetadata as Record<string, unknown>) ?? null,
     scoreBreakdown: scoreBreakdown as unknown as Record<string, unknown>,
     scoreStatus: scoreBreakdown.scoreStatus,
     telemetry: (req.telemetry as Record<string, unknown>) ?? null,
     submittedAt: now,
   });
 
-  await db.update(jobs).set({
-    status: newStatus,
-    updatedAt: now,
-    activeClaimId: newStatus === 'rework' ? null : job.activeClaimId,
-    activeClaimWorkerId: newStatus === 'rework' ? null : job.activeClaimWorkerId,
-    leaseExpiry: newStatus === 'rework' ? null : job.leaseExpiry,
-  }).where(eq(jobs.jobId, jobId));
-  if (job.activeClaimId) {
-    await db.update(claims)
-      .set({ status: newStatus === 'rework' ? 'cancelled' : 'submitted' })
-      .where(eq(claims.claimId, job.activeClaimId));
-  }
-  await logJobEvent(jobId, newStatus, accountAddress, {
+  const newStatus = scoreBreakdown.scoreStatus === 'passed' ? 'submitted' : 'rework';
+  await db.update(jobs).set({ status: newStatus, updatedAt: now }).where(eq(jobs.jobId, jobId));
+  await logEvent(jobId, newStatus, req.workerId, {
     submissionId,
     scoreStatus: scoreBreakdown.scoreStatus,
     totalScore: scoreBreakdown.totalScore,
-    agentFingerprint,
   });
 
   console.log(`[job:submitted] jobId=${jobId} scoreStatus=${scoreBreakdown.scoreStatus}`);
+
+  // Register agent identity if not already registered
+  if (req.agentMetadata && scoreBreakdown.scoreStatus === 'passed') {
+    await upsertAgentIdentity(req.agentMetadata as Record<string, string>);
+  }
 
   return { submissionId, scoreBreakdown };
 }
@@ -330,40 +223,14 @@ export async function submitJob(jobId: string, req: JobResultSubmitRequest, acco
 
 export async function acceptJob(jobId: string, reviewerId: string) {
   const [job] = await db.select().from(jobs).where(eq(jobs.jobId, jobId));
-  if (!job) throw httpError('Job not found', 404, 'JOB_NOT_FOUND');
+  if (!job) throw Object.assign(new Error('Job not found'), { status: 404 });
   if (job.status !== 'submitted') {
-    throw httpError(`Job not in submitted state: ${job.status}`, 409, 'JOB_NOT_REVIEWABLE');
+    throw Object.assign(new Error(`Job not in submitted state: ${job.status}`), { status: 409 });
   }
-
-  // SELF-ACCEPTANCE check: reviewer cannot be the same as the worker
-  if (reviewerId.toLowerCase() === (job.activeClaimWorkerId ?? '').toLowerCase()) {
-    throw httpError('Reviewer cannot be the same as the worker', 403, 'SELF_ACCEPTANCE_FORBIDDEN');
-  }
-
-  // POSTER-AS-REVIEWER check: poster cannot accept their own job
-  const [idea] = await db.select().from(ideas).where(eq(ideas.ideaId, job.ideaId));
-  if (idea && reviewerId.toLowerCase() === idea.posterId.toLowerCase()) {
-    throw httpError('Poster cannot accept their own job', 403, 'POSTER_SELF_ACCEPTANCE_FORBIDDEN');
-  }
-
-  // ReviewerQueue enforcement check (soft enforcement — logs warning but proceeds)
-  // NOTE: ReviewerQueue bypass monitoring not yet implemented - consider adding DB counter for collusion tracking
-  const isAssigned = await checkReviewerAssignment(jobId, reviewerId).catch(() => true);
-  if (!isAssigned) {
-    console.warn('[job:accept] Reviewer not assigned via ReviewerQueue — proceeding (soft enforcement)');
-  }
-
-  const [sub] = await db.select().from(submissions)
-    .where(and(eq(submissions.jobId, jobId), eq(submissions.workerId, job.activeClaimWorkerId ?? '')));
-  if (!sub?.agentFingerprint) {
-    throw httpError('Accepted submission missing agent fingerprint', 409, 'AGENT_FINGERPRINT_REQUIRED');
-  }
-
-  const score = (sub.scoreBreakdown as { totalScore?: number })?.totalScore ?? 0;
 
   const now = new Date();
   await db.update(jobs).set({ status: 'accepted', updatedAt: now }).where(eq(jobs.jobId, jobId));
-  await logJobEvent(jobId, 'accepted', reviewerId, { humanApproved: true });
+  await logEvent(jobId, 'accepted', reviewerId, { humanApproved: true });
 
   console.log(`[job:accepted] jobId=${jobId} reviewer=${reviewerId}`);
 
@@ -372,168 +239,78 @@ export async function acceptJob(jobId: string, reviewerId: string) {
     await db.update(claims).set({ status: 'submitted' }).where(eq(claims.claimId, job.activeClaimId));
   }
 
-  const settlement = await settleAcceptedJobCredits({
-    ideaId: job.ideaId,
-    jobId,
-    workerId: job.activeClaimWorkerId ?? sub.workerId,
-    budgetUsd: Number.parseFloat(job.budgetUsd),
-  });
+  // Update agent reputation (off-chain mirror, on-chain call happens separately via blockchain service)
+  if (job.activeClaimWorkerId) {
+    const [sub] = await db.select().from(submissions)
+      .where(and(eq(submissions.jobId, jobId), eq(submissions.workerId, job.activeClaimWorkerId)));
 
-  const attestation = await issueAcceptedSubmissionAttestation({
-    jobId,
-    agentFingerprint: sub.agentFingerprint,
-    score,
-    reviewerAddress: reviewerId,
-    payoutReleased: Boolean(settlement),
-  });
+    if (sub?.agentMetadata) {
+      const meta = sub.agentMetadata as Record<string, string>;
+      const fingerprint = computeAgentFingerprint(
+        meta.agentType ?? 'unknown',
+        meta.agentVersion ?? '0.0.0',
+        meta.operatorAddress ?? '0x0000000000000000000000000000000000000000'
+      );
+      const score = (sub.scoreBreakdown as { totalScore?: number })?.totalScore ?? 0;
 
-  // Fire-and-forget on-chain WorkReceipt minting (must not block acceptance flow)
-  mintWorkReceipt(
-    job.activeClaimWorkerId ?? sub.workerId,
-    job.ideaId,
-    sub.agentFingerprint,
-    score,
-  ).catch((err) => console.error('[job:accept] Failed to mint WorkReceipt:', err));
+      await db.update(agentIdentities)
+        .set({
+          acceptedCount: Number(
+            (await db.select({ value: count() })
+              .from(submissions)
+              .where(eq(submissions.workerId, job.activeClaimWorkerId)))[0]?.value ?? 0
+          ),
+          avgScore: score.toString(),
+        })
+        .where(eq(agentIdentities.fingerprint, fingerprint));
 
-  // Fire-and-forget on-chain AgentIdentityRegistry attestation (must not block acceptance flow)
-  recordAcceptedSubmissionOnChain({
-    fingerprint: sub.agentFingerprint,
-    jobId,
-    score,
-    reviewerAddress: reviewerId,
-    payoutReleased: Boolean(settlement),
-  }).catch((err) => console.error('[job:accept] Failed to record accepted submission on-chain:', err));
+      console.log(`[agent:reputation] fingerprint=${fingerprint} score=${score}`);
+    }
+  }
 
-  // Update agent reputation inline — increment acceptedCount + recalculate avgScore.
-  updateAgentReputation(sub.agentFingerprint, score)
-    .catch((err) => console.error('[job:accept] Failed to update agent reputation:', err));
-
-  // Snapshot the AIU index after every acceptance to build the time series.
-  saveAIUSnapshot()
-    .catch((err) => console.error('[job:accept] Failed to save AIU snapshot:', err));
-
-  // Fire-and-forget on-chain economic security layer calls
-  const budgetUsd = Number.parseFloat(job.budgetUsd);
-  const taskValueIntel = BigInt(Math.floor(budgetUsd * 1e18)); // approximate: 1 INTEL = $1
-  const workerAddress = job.activeClaimWorkerId ?? sub.workerId;
-  const category = 0; // General category — mapping to be added later
-
-  recordReviewerReview(reviewerId, taskValueIntel)
-    .catch((err) => console.error(`[job:accept] Failed to record reviewer review:`, err));
-  recordCategoryCompletion(workerAddress, category, score ?? 1)
-    .catch((err) => console.error(`[job:accept] Failed to record category completion:`, err));
-  evaluateReviewerTier(reviewerId, 0)
-    .catch((err) => console.error(`[job:accept] Failed to evaluate reviewer tier:`, err));
-
-  return { accepted: true, attestation, settlement };
+  return { accepted: true };
 }
 
 export async function rejectJob(jobId: string, reviewerId: string, reason?: string) {
   const [job] = await db.select().from(jobs).where(eq(jobs.jobId, jobId));
-  if (!job) throw httpError('Job not found', 404, 'JOB_NOT_FOUND');
+  if (!job) throw Object.assign(new Error('Job not found'), { status: 404 });
   if (!['submitted', 'accepted'].includes(job.status)) {
-    throw httpError(`Job not rejectable: ${job.status}`, 409, 'JOB_NOT_REJECTABLE');
+    throw Object.assign(new Error(`Job not rejectable: ${job.status}`), { status: 409 });
   }
 
   const now = new Date();
-  await db.update(jobs).set({
-    status: 'rework',
-    updatedAt: now,
-    activeClaimId: null,
-    activeClaimWorkerId: null,
-    leaseExpiry: null,
-  }).where(eq(jobs.jobId, jobId));
-  if (job.activeClaimId) {
-    await db.update(claims).set({ status: 'cancelled' }).where(eq(claims.claimId, job.activeClaimId));
-  }
-  await logJobEvent(jobId, 'rework', reviewerId, { reason });
+  await db.update(jobs).set({ status: 'rework', updatedAt: now }).where(eq(jobs.jobId, jobId));
+  await logEvent(jobId, 'rework', reviewerId, { reason });
 
-  // Reset streak on rejection
-  // NOTE: Quality streak tracking requires schema migration to add consecutiveAccepts column
-  let claimedFingerprint = null;
-  if (job.activeClaimWorkerId) {
-    const [identity] = await db.select().from(agentIdentities)
-      .where(eq(agentIdentities.accountAddress, job.activeClaimWorkerId));
-    claimedFingerprint = identity?.fingerprint ?? null;
-  }
-  if (claimedFingerprint) {
-    await db.update(agentIdentities)
-      .set({ /* consecutiveAccepts: 0 */ }) // updatedAt not in schema, removed
-      .where(eq(agentIdentities.fingerprint, claimedFingerprint));
-  }
-
-  // Return the reserved INTEL to the buyer's idea pool so they can re-post the job.
-  const refund = await refundRejectedJobCredits({
-    ideaId: job.ideaId,
-    jobId,
-    budgetUsd: Number.parseFloat(job.budgetUsd),
-  }).catch((err) => {
-    console.error('[job:reject] Failed to refund INTEL credits:', err);
-    return null;
-  });
-
-  // Fire-and-forget on-chain escrow refund (if contract is deployed)
-  refundTaskEscrow(jobId).catch(err => console.error('[job:reject] escrow refund failed:', err));
-
-  console.log(`[job:rejected→rework] jobId=${jobId} reason=${reason} refunded=${refund?.refundedIntel ?? 0}`);
-  return { rework: true, refund };
+  console.log(`[job:rejected→rework] jobId=${jobId} reason=${reason}`);
+  return { rework: true };
 }
 
-async function updateAgentReputation(fingerprint: string, score: number) {
-  const [identity] = await db.select().from(agentIdentities)
-    .where(eq(agentIdentities.fingerprint, fingerprint));
+// ─── Agent Identity ───────────────────────────────────────────────────────────
 
-  if (!identity) {
-    console.warn(`[job:accept] agentIdentity not found for fingerprint=${fingerprint}, skipping reputation update`);
-    return;
+async function upsertAgentIdentity(meta: Record<string, string>) {
+  const fingerprint = computeAgentFingerprint(
+    meta.agentType ?? 'unknown',
+    meta.agentVersion ?? '0.0.0',
+    meta.operatorAddress ?? '0x0000000000000000000000000000000000000000'
+  );
+
+  const existing = await db.select().from(agentIdentities).where(eq(agentIdentities.fingerprint, fingerprint));
+
+  if (existing.length === 0) {
+    await db.insert(agentIdentities).values({
+      fingerprint,
+      agentType: meta.agentType ?? 'unknown',
+      agentVersion: meta.agentVersion,
+      operatorAddress: meta.operatorAddress,
+      acceptedCount: 0,
+      avgScore: '0',
+      createdAt: new Date(),
+    });
+    console.log(`[agent:registered] fingerprint=${fingerprint} type=${meta.agentType}`);
   }
 
-  const nextAcceptedCount = (identity.acceptedCount ?? 0) + 1;
-  const cumulativeScore = (Number(identity.avgScore) * (identity.acceptedCount ?? 0)) + score;
-  const nextAvgScore = nextAcceptedCount > 0 ? cumulativeScore / nextAcceptedCount : score;
-
-  // NOTE: Quality streak tracking requires schema migration to add consecutiveAccepts column
-  await db.update(agentIdentities).set({
-    acceptedCount: nextAcceptedCount,
-    avgScore: nextAvgScore.toFixed(2),
-  }).where(eq(agentIdentities.fingerprint, fingerprint));
+  return fingerprint;
 }
 
-export async function recordSpendEvent(jobId: string, input: SpendEventInput) {
-  const [job] = await db.select().from(jobs).where(eq(jobs.jobId, jobId));
-  if (!job) throw httpError('Job not found', 404, 'JOB_NOT_FOUND');
-  if (!['claimed', 'running', 'submitted', 'accepted'].includes(job.status)) {
-    throw httpError(`Job not in spendable state: ${job.status}`, 409, 'JOB_NOT_SPENDABLE');
-  }
-  if (job.activeClaimWorkerId && job.activeClaimWorkerId !== input.workerId) {
-    throw httpError('Only the active worker can record a spend event', 409, 'SPEND_WORKER_MISMATCH');
-  }
-
-  const eventId = randomUUID();
-  const createdAt = new Date();
-  await db.insert(agentSpendEvents).values({
-    eventId,
-    jobId,
-    workerId: input.workerId,
-    vendor: input.vendor,
-    purpose: input.purpose,
-    amountUsd: input.amountUsd.toFixed(4),
-    settlementRail: input.settlementRail,
-    txHash: input.txHash ?? null,
-    createdAt,
-  });
-  await logJobEvent(jobId, 'running', input.workerId, {
-    spendEventId: eventId,
-    vendor: input.vendor,
-    purpose: input.purpose,
-    amountUsd: input.amountUsd,
-    settlementRail: input.settlementRail,
-    txHash: input.txHash ?? null,
-  });
-
-  return {
-    eventId,
-    recordedAt: createdAt.toISOString(),
-    settlementRail: input.settlementRail,
-  };
-}
+export { computeAgentFingerprint };
