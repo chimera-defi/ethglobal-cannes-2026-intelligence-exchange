@@ -116,15 +116,82 @@ function summarizeWorkspace(state: DemoState) {
     summary: {
       activeJobs: currentJob && ["open", "in_progress"].includes(currentJob.status) ? 1 : 0,
       awaitingReview: currentJob?.status === "awaiting_review" ? 1 : 0,
-      closedJobs: currentJob && ["completed", "cancelled"].includes(currentJob.status) ? 1 : 0,
+      closedJobs:
+        state.archivedJobs.length +
+        (currentJob && ["completed", "cancelled"].includes(currentJob.status)
+          ? state.archivedJobs.some((job) => job.idea.ideaId === currentJob.ideaId)
+            ? 0
+            : 1
+          : 0),
       acceptanceRate: state.payout.releasedAmountUsd > 0 ? 100 : 0
     },
     buckets: {
       posted: currentJob && ["open", "in_progress"].includes(currentJob.status) ? [currentJob] : [],
       awaitingReview: currentJob?.status === "awaiting_review" ? [currentJob] : [],
-      history: currentJob && ["completed", "cancelled"].includes(currentJob.status) ? [currentJob] : []
+      history: [
+        ...state.archivedJobs.map((job) => ({
+          ideaId: job.idea.ideaId,
+          jobId: job.brief.milestones.find((milestone) => milestone.milestoneType === "scaffold")?.jobId ?? job.idea.ideaId,
+          title: job.idea.title,
+          targetArtifact: job.idea.targetArtifact,
+          payoutUsd: job.idea.budgetUsd,
+          escrowUsd: job.idea.escrowUsd,
+          status: job.finalStatus,
+          workerId: job.brief.milestones.find((milestone) => milestone.milestoneType === "scaffold")?.workerId ?? null,
+          dossierStatus: job.brief.dossierStatus,
+          settlementStatus: job.payout.settlementStatus
+        })),
+        ...(currentJob && ["completed", "cancelled"].includes(currentJob.status)
+          ? state.archivedJobs.some((job) => job.idea.ideaId === currentJob.ideaId)
+            ? []
+            : [currentJob]
+          : [])
+      ]
     },
     currentJob
+  };
+}
+
+function archiveCurrentJobIfClosed(state: DemoState) {
+  if (!state.idea || !state.brief) {
+    return;
+  }
+  if (!["released", "refunded"].includes(state.payout.settlementStatus)) {
+    return;
+  }
+  if (state.archivedJobs.some((job) => job.idea.ideaId === state.idea?.ideaId)) {
+    return;
+  }
+
+  state.archivedJobs.push({
+    idea: structuredClone(state.idea),
+    brief: structuredClone(state.brief),
+    payout: structuredClone(state.payout),
+    activityLog: [...state.activityLog],
+    closedAt: new Date().toISOString(),
+    finalStatus: state.payout.settlementStatus === "released" ? "completed" : "cancelled"
+  });
+}
+
+function clearClosedCurrentJob(state: DemoState) {
+  if (!["released", "refunded"].includes(state.payout.settlementStatus)) {
+    return;
+  }
+  state.idea = null;
+  state.brief = null;
+  state.payout = {
+    contractAddress: null,
+    identityRegistryAddress: null,
+    chainId: state.payout.chainId,
+    escrowBalanceUsd: 0,
+    fundedAmountUsd: 0,
+    reservedAmountUsd: 0,
+    releasedAmountUsd: 0,
+    refundedAmountUsd: 0,
+    settlementStatus: "uninitialized",
+    releaseTxHashes: [],
+    refundTxHashes: [],
+    reserveTxHashes: []
   };
 }
 
@@ -258,9 +325,11 @@ app.post("/v1/cannes/workers/heartbeat", async (request) => {
 
 app.post("/api/ideas/fund", async (request) => {
   const state = await ensureState();
-  if (state.idea) {
+  if (state.idea && !["released", "refunded"].includes(state.payout.settlementStatus)) {
     throw app.httpErrors.conflict("Idea is already funded in the current demo state.");
   }
+  archiveCurrentJobIfClosed(state);
+  clearClosedCurrentJob(state);
 
   const input = ideaSubmissionInputSchema.parse(request.body ?? {});
   const next = createIdeaAndBrief(input, state);
@@ -353,6 +422,7 @@ async function approveJob(request: FastifyRequest<{ Params: { jobId: string } }>
   state.payout.settlementStatus = "released";
   state.payout.releaseTxHashes.push(release.releaseTxHash);
   state.activityLog.push(`Release tx confirmed: ${release.releaseTxHash}.`);
+  archiveCurrentJobIfClosed(state);
   await writeDossier(state);
   await persistState(state);
   return state;
@@ -379,6 +449,7 @@ async function refundJob(request: FastifyRequest<{ Params: { jobId: string } }>)
   state.payout.settlementStatus = "refunded";
   state.payout.refundTxHashes.push(refund.refundTxHash);
   state.activityLog.push(`Refund tx confirmed: ${refund.refundTxHash}.`);
+  archiveCurrentJobIfClosed(state);
   await writeDossier(state);
   await persistState(state);
   return state;

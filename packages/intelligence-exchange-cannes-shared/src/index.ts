@@ -139,6 +139,15 @@ export const payoutStateSchema = z.object({
   reserveTxHashes: z.array(z.string())
 });
 
+export const archivedJobSchema = z.object({
+  idea: ideaSubmissionSchema,
+  brief: buildBriefSchema,
+  payout: payoutStateSchema,
+  activityLog: z.array(z.string()),
+  closedAt: z.string(),
+  finalStatus: z.enum(["completed", "cancelled"])
+});
+
 export const demoStateSchema = z.object({
   poster: actorSchema,
   worker: actorSchema,
@@ -146,6 +155,7 @@ export const demoStateSchema = z.object({
   idea: ideaSubmissionSchema.nullable(),
   brief: buildBriefSchema.nullable(),
   payout: payoutStateSchema,
+  archivedJobs: z.array(archivedJobSchema).default([]),
   activityLog: z.array(z.string()),
   support: z.object({
     chainMode: z.enum(["local", "fork", "testnet", "mainnet"]),
@@ -166,6 +176,7 @@ export type IdeaSubmission = z.infer<typeof ideaSubmissionSchema>;
 export type IdeaSubmissionInput = z.infer<typeof ideaSubmissionInputSchema>;
 export type JobBoardItem = z.infer<typeof jobBoardItemSchema>;
 export type Milestone = z.infer<typeof milestoneSchema>;
+export type ArchivedJob = z.infer<typeof archivedJobSchema>;
 export type ScoreResult = z.infer<typeof scoreResultSchema>;
 export type WorkerRegistrationInput = z.infer<typeof workerRegistrationInputSchema>;
 
@@ -242,6 +253,7 @@ export function makeInitialDemoState(chainMode: "local" | "fork" | "testnet" | "
       refundTxHashes: [],
       reserveTxHashes: []
     },
+    archivedJobs: [],
     activityLog: [...demoSeed.activityLog],
     support: {
       chainMode,

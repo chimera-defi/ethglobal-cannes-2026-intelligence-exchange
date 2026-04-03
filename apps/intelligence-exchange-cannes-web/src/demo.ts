@@ -159,7 +159,18 @@ export function bucketBuyerJobs(state: DemoState | null) {
   const buckets = {
     posted: [] as JobSummary[],
     awaitingReview: [] as JobSummary[],
-    history: [] as JobSummary[]
+    history: (state?.archivedJobs ?? []).map((job): JobSummary => ({
+      ideaId: job.idea.ideaId,
+      title: job.idea.title,
+      targetArtifact: job.idea.targetArtifact,
+      payoutUsd: job.idea.budgetUsd,
+      escrowUsd: job.idea.escrowUsd,
+      status: job.finalStatus,
+      settlementStatus: job.payout.settlementStatus,
+      dossierStatus: job.brief.dossierStatus,
+      jobId: job.brief.milestones.find((milestone) => milestone.milestoneType === "scaffold")?.jobId ?? job.idea.ideaId,
+      workerId: job.brief.milestones.find((milestone) => milestone.milestoneType === "scaffold")?.workerId ?? null
+    })) as JobSummary[]
   };
 
   if (!summary) {
@@ -169,7 +180,9 @@ export function bucketBuyerJobs(state: DemoState | null) {
   if (summary.status === "awaiting_review") {
     buckets.awaitingReview.push(summary);
   } else if (["completed", "cancelled"].includes(summary.status)) {
-    buckets.history.push(summary);
+    if (!buckets.history.some((job) => job.ideaId === summary.ideaId)) {
+      buckets.history.push(summary);
+    }
   } else {
     buckets.posted.push(summary);
   }
@@ -187,15 +200,22 @@ export function publicJobBoard(state: DemoState | null): Milestone[] {
 export function buyerKpis(state: DemoState | null) {
   const buckets = bucketBuyerJobs(state);
   const scaffold = getScaffoldMilestone(state);
+  const history = state?.archivedJobs ?? [];
+  const completed = history.filter((job) => job.finalStatus === "completed").length;
+  const cancelled = history.filter((job) => job.finalStatus === "cancelled").length;
   const released = state?.payout.releasedAmountUsd ?? 0;
   const refunded = state?.payout.refundedAmountUsd ?? 0;
-  const closed = released + refunded > 0 ? 1 : 0;
+  const liveCompleted = released > 0 ? 1 : 0;
+  const liveCancelled = refunded > 0 ? 1 : 0;
+  const totalCompleted = completed + liveCompleted;
+  const totalCancelled = cancelled + liveCancelled;
+  const closed = totalCompleted + totalCancelled;
 
   return {
     activeJobs: buckets.posted.length,
     awaitingReview: buckets.awaitingReview.length,
     closedJobs: buckets.history.length,
-    acceptanceRate: closed > 0 && refunded === 0 ? 100 : released > 0 ? Math.round((released / (released + refunded)) * 100) : 0,
+    acceptanceRate: closed > 0 ? Math.round((totalCompleted / closed) * 100) : 0,
     alerts: scaffold?.status === "rework" ? 1 : 0
   };
 }

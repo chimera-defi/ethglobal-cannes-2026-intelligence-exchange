@@ -250,6 +250,7 @@ function LandingPage({ model }: { model: DemoModel }) {
 function BuyerWorkspacePage({ model }: { model: DemoModel }) {
   const buckets = bucketBuyerJobs(model.state);
   const kpis = buyerKpis(model.state);
+  const canFund = !model.state?.idea || ["released", "refunded"].includes(model.state.payout.settlementStatus);
 
   return (
     <section className="page-grid">
@@ -268,32 +269,32 @@ function BuyerWorkspacePage({ model }: { model: DemoModel }) {
         />
         <div className="composer-grid">
           <label className="prompt-field">
-            <span>Task title</span>
-            <input
-              value={model.ideaForm.title}
-              disabled={Boolean(model.state?.idea)}
-              onChange={(event) => model.setIdeaForm((current) => ({ ...current, title: event.target.value }))}
-            />
-          </label>
+              <span>Task title</span>
+              <input
+                value={model.ideaForm.title}
+                disabled={!canFund}
+                onChange={(event) => model.setIdeaForm((current) => ({ ...current, title: event.target.value }))}
+              />
+            </label>
 
           <label className="prompt-field prompt-field-wide">
             <span>Prompt</span>
-            <textarea
-              rows={7}
-              value={model.ideaForm.prompt}
-              disabled={Boolean(model.state?.idea)}
-              onChange={(event) => model.setIdeaForm((current) => ({ ...current, prompt: event.target.value }))}
-            />
-          </label>
+              <textarea
+                rows={7}
+                value={model.ideaForm.prompt}
+                disabled={!canFund}
+                onChange={(event) => model.setIdeaForm((current) => ({ ...current, prompt: event.target.value }))}
+              />
+            </label>
 
           <label className="prompt-field">
-            <span>Deliverable</span>
-            <input
-              value={model.ideaForm.targetArtifact}
-              disabled={Boolean(model.state?.idea)}
-              onChange={(event) =>
-                model.setIdeaForm((current) => ({ ...current, targetArtifact: event.target.value }))
-              }
+              <span>Deliverable</span>
+              <input
+                value={model.ideaForm.targetArtifact}
+                disabled={!canFund}
+                onChange={(event) =>
+                  model.setIdeaForm((current) => ({ ...current, targetArtifact: event.target.value }))
+                }
             />
           </label>
 
@@ -307,7 +308,7 @@ function BuyerWorkspacePage({ model }: { model: DemoModel }) {
                 max="1500"
                 step="50"
                 value={model.ideaForm.budgetUsd}
-                disabled={Boolean(model.state?.idea)}
+                disabled={!canFund}
                 onChange={(event) => {
                   const budgetUsd = Number(event.target.value);
                   model.setIdeaForm((current) => ({
@@ -328,7 +329,7 @@ function BuyerWorkspacePage({ model }: { model: DemoModel }) {
                 max="2000"
                 step="50"
                 value={model.ideaForm.escrowUsd}
-                disabled={Boolean(model.state?.idea)}
+                disabled={!canFund}
                 onChange={(event) =>
                   model.setIdeaForm((current) => ({ ...current, escrowUsd: Number(event.target.value) }))
                 }
@@ -350,7 +351,7 @@ function BuyerWorkspacePage({ model }: { model: DemoModel }) {
             <span>Buffer</span>
             <strong>{currency(model.ideaForm.escrowUsd - model.ideaForm.budgetUsd)}</strong>
           </div>
-          <button disabled={Boolean(model.state?.idea) || model.pending !== null} onClick={() => void model.fundIdea()}>
+          <button disabled={!canFund || model.pending !== null} onClick={() => void model.fundIdea()}>
             {model.pending === "Fund idea" ? "Funding..." : "Post and fund job"}
           </button>
         </div>
