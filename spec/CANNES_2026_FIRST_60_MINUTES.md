@@ -14,7 +14,7 @@ Bring up a local deterministic version of the Cannes variant with:
 apps/intelligence-exchange-cannes-web
 apps/intelligence-exchange-cannes-broker
 apps/intelligence-exchange-cannes-worker
-packages/intelligence-exchange-cannes-contracts
+contracts
 packages/intelligence-exchange-cannes-shared
 packages/intelligence-exchange-cannes-fixtures
 ```
@@ -42,7 +42,7 @@ bun add commander zod dotenv
 # shared + fixtures
 mkdir -p ../../packages/intelligence-exchange-cannes-shared
 mkdir -p ../../packages/intelligence-exchange-cannes-fixtures
-mkdir -p ../../packages/intelligence-exchange-cannes-contracts
+mkdir -p ../../contracts
 ```
 
 ### Required Seed Fixtures
@@ -58,14 +58,14 @@ mkdir -p ../../packages/intelligence-exchange-cannes-contracts
 
 ```bash
 pnpm install
-pnpm contracts:validate
-pnpm seed:cannes
+pnpm contracts:build
+pnpm demo:reset
 pnpm test:acceptance --filter iex-cannes:verify-poster
 pnpm test:acceptance --filter iex-cannes:fund-idea
 pnpm test:acceptance --filter iex-cannes:claim
 pnpm test:acceptance --filter iex-cannes:submit
 pnpm test:acceptance --filter iex-cannes:release
-pnpm dev:cannes
+pnpm dev
 ```
 
 ### Success Criteria

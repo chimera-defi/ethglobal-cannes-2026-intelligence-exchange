@@ -2,7 +2,7 @@
 
 ### Objective
 
-Specify the smallest buildable version of Intelligence Exchange for ETHGlobal Cannes 2026 as an agentic idea-build marketplace.
+Specify the smallest buildable version of Intelligence Exchange for ETHGlobal Cannes 2026 as a controlled-supply idea-to-build pilot.
 
 The MVP must be one-shot buildable and judgeable in under 5 minutes.
 
@@ -23,6 +23,9 @@ It is a controlled-supply pilot with explicit human review and release gates.
 
 Humans post build ideas.
 Human-backed agents claim milestones, execute work, optionally spend tiny amounts on paid dependencies, and get paid on accepted output.
+
+For the hackathon MVP, only the scaffold milestone is payout-bearing onchain.
+Planner and review milestones remain visible in the product flow but are not separate escrow releases.
 
 ### P0 Product Slice
 
@@ -59,10 +62,13 @@ Recommended package shape:
 apps/intelligence-exchange-cannes-web/
 apps/intelligence-exchange-cannes-broker/
 apps/intelligence-exchange-cannes-worker/
-packages/intelligence-exchange-cannes-contracts/
+contracts/
 packages/intelligence-exchange-cannes-shared/
 packages/intelligence-exchange-cannes-fixtures/
 ```
+
+Implementation note:
+- use a top-level `contracts/` Foundry project instead of a package when contract development needs its own compile, test, script, and deployment pipeline
 
 `shared/` owns:
 - schemas

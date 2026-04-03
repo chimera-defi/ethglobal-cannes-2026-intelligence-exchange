@@ -15,12 +15,11 @@ import {
 import { mnemonicToAccount } from "viem/accounts";
 
 const rootDir = path.resolve(import.meta.dirname, "../../..");
-const contractsDir = path.join(rootDir, "packages", "intelligence-exchange-cannes-contracts");
-const artifactsDir = path.join(contractsDir, "artifacts");
+const contractsDir = path.join(rootDir, "contracts");
 
 const mnemonic =
   process.env.GANACHE_MNEMONIC ??
-  "myth like bonus scare over problem client lizard pioneer submit female collect";
+  "test test test test test test test test test test test junk";
 const posterAccount = mnemonicToAccount(mnemonic, { addressIndex: 0 });
 const workerAccount = mnemonicToAccount(mnemonic, { addressIndex: 1 });
 
@@ -37,7 +36,9 @@ export const seededAccounts = {
 
 type Artifact = {
   abi: readonly unknown[];
-  bytecode: string;
+  bytecode: {
+    object: string;
+  };
 };
 
 function getChainConfig(): {
@@ -65,10 +66,16 @@ function getChainConfig(): {
 
 async function ensureArtifacts() {
   try {
-    await readFile(path.join(artifactsDir, "CannesMilestoneEscrow.json"), "utf8");
-    await readFile(path.join(artifactsDir, "CannesAgentIdentityRegistry.json"), "utf8");
+    await readFile(
+      path.join(contractsDir, "out", "CannesMilestoneEscrow.sol", "CannesMilestoneEscrow.json"),
+      "utf8"
+    );
+    await readFile(
+      path.join(contractsDir, "out", "CannesAgentIdentityRegistry.sol", "CannesAgentIdentityRegistry.json"),
+      "utf8"
+    );
   } catch {
-    execFileSync("pnpm", ["--filter", "intelligence-exchange-cannes-contracts", "build"], {
+    execFileSync("pnpm", ["contracts:build"], {
       cwd: rootDir,
       stdio: "inherit"
     });
@@ -77,7 +84,7 @@ async function ensureArtifacts() {
 
 async function loadArtifact(name: string): Promise<Artifact> {
   await ensureArtifacts();
-  return JSON.parse(await readFile(path.join(artifactsDir, `${name}.json`), "utf8")) as Artifact;
+  return JSON.parse(await readFile(path.join(contractsDir, "out", `${name}.sol`, `${name}.json`), "utf8")) as Artifact;
 }
 
 function createClients() {
@@ -112,12 +119,16 @@ export function milestoneKey(jobId: string) {
   return keccak256(stringToHex(jobId));
 }
 
+function bytecodeHex(bytecodeObject: string) {
+  return (bytecodeObject.startsWith("0x") ? bytecodeObject : `0x${bytecodeObject}`) as `0x${string}`;
+}
+
 export async function deployAgentRegistry() {
   const { chain, chainId, chainMode, rpcUrl, publicClient, posterWalletClient } = createClients();
   const artifact = await loadArtifact("CannesAgentIdentityRegistry");
   const deployHash = await posterWalletClient.deployContract({
     abi: artifact.abi as any,
-    bytecode: `0x${artifact.bytecode}` as `0x${string}`,
+    bytecode: bytecodeHex(artifact.bytecode.object),
     args: [],
     chain
   });
@@ -169,7 +180,7 @@ export async function deployAndFundEscrow(budgetUsd: number) {
 
   const deployHash = await posterWalletClient.deployContract({
     abi: artifact.abi as any,
-    bytecode: `0x${artifact.bytecode}` as `0x${string}`,
+    bytecode: bytecodeHex(artifact.bytecode.object),
     args: [seededAccounts.poster.address, BigInt(budgetUsd)],
     chain
   });

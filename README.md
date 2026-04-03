@@ -1,67 +1,59 @@
-# ETHGlobal Cannes 2026 Intelligence Exchange
+# Intelligence Exchange Cannes MVP
 
-Standalone repository for the Cannes 2026 variant of the Intelligence Exchange idea.
+Intelligence Exchange is a controlled pilot for paying human-backed AI workers to turn funded ideas into concrete build output.
 
-This repo is an extracted spec-first project for:
-- an agentic idea-build marketplace
-- human-backed worker agents
-- milestone escrow and payout
-- sponsor-aligned integrations around Arc, World, and 0G
+The product loop is simple:
 
-## What Is In This Repo
+1. A poster submits an idea and funds one job.
+2. The platform converts that idea into a short build brief and fixed milestone types.
+3. A verified worker claims the payout-bearing scaffold milestone and submits artifact plus trace.
+4. A reviewer accepts or rejects the result.
+5. Escrow releases or refunds the milestone payment.
+6. A dossier preserves what happened for replay and review.
 
-- `spec/`
-  - the full Intelligence Exchange idea pack
-  - the Cannes 2026 variant docs
-  - base product docs, technical spec, tasks, acceptance tests, edge cases, deployment notes, and review materials
+This Cannes variant is intentionally narrow. It is not trying to prove open marketplace liquidity. It is trying to prove a credible end-to-end flow for:
 
-## Intended Outcome
+- funded idea intake
+- human-backed worker execution
+- milestone-aware escrow for the worker deliverable
+- visible review evidence
+- sponsor-aligned identity and dossier rails
 
-The current intended build target is a hybrid full-stack app with:
-- a frontend for idea posting, review, and payout status
-- backend services for planning, brokering, scoring, and dossier writing
-- worker runtime for agent execution
-- onchain escrow and payout contracts
-- local deterministic mode plus public demo deployment
-
-## Key Cannes Docs
-
-Start here inside `spec/`:
-- `CANNES_2026_VARIANT.md`
-- `CANNES_2026_PRIZE_MAPPING.md`
-- `CANNES_2026_MVP_SPEC.md`
-- `CANNES_2026_TASKS.md`
-- `CANNES_2026_ACCEPTANCE_TEST_MATRIX.md`
-- `CANNES_2026_EDGE_CASES.md`
-- `CANNES_2026_DEPLOYMENT_AND_DEMO.md`
-- `CANNES_2026_ADVERSARIAL_REVIEW.md`
-
-## Scope
-
-This repo is the standalone spec-first home for the Intelligence Exchange Cannes 2026 work.
-
-## Local MVP Demo
-
-This repo now includes a runnable Cannes-specific MVP in a pnpm workspace:
+## Repo Layout
 
 - `apps/intelligence-exchange-cannes-web`
+  - frontend product UI
 - `apps/intelligence-exchange-cannes-broker`
+  - planner, broker, scoring, dossier, and API
 - `apps/intelligence-exchange-cannes-worker`
-- `packages/intelligence-exchange-cannes-contracts`
+  - worker runtime client for claim and submission
+- `contracts`
+  - dedicated Foundry contract repo
 - `packages/intelligence-exchange-cannes-shared`
+  - shared schemas and types
+- `packages/intelligence-exchange-cannes-fixtures`
+  - seeded demo and acceptance fixtures
+- `spec`
+  - product and implementation specs
+- `docs`
+  - implementation review notes and archived working docs
 
-### What the demo covers
+## What Works Now
 
-- World-style verified poster and worker gating via explicit local stubs
-- idea funding and deterministic `BuildBrief` generation
-- fixed milestone board with a claimable `scaffold` job
-- worker artifact + trace + paid dependency submission
-- deterministic scoring and human approval
-- onchain escrow deploy, fund, reserve, release, and refund on a local chain
-- ERC-8004-inspired agent identity registration for the poster and worker
-- 0G-style dossier persistence to a local mirror file
+- poster -> worker -> reviewer product flow in the web app
+- worker runtime package that can claim and submit the scaffold milestone
+- milestone-aware escrow with reserve, release, refund, and explicit close-out for unused balance
+- ERC-8004-inspired local agent identity registry for poster and worker
+- deterministic dossier mirror for local replay
+- local acceptance harness for the seeded Cannes flow
 
-### Run it
+## What Is Still Stubbed
+
+- World proof verification is still a labeled local stub
+- 0G writes are still a labeled local dossier mirror
+- Arc public testnet remains optional instead of the default path
+
+## Run Locally
 
 ```bash
 pnpm install
@@ -74,52 +66,36 @@ Open:
 - broker API: `http://127.0.0.1:8787`
 - chain RPC: `http://127.0.0.1:8545`
 
-Optional worker runtime:
+Runtime demo state is written under `apps/intelligence-exchange-cannes-broker/.runtime/` and is not committed.
+
+Run the worker runtime:
 
 ```bash
 pnpm --filter intelligence-exchange-cannes-worker claim-and-submit
 ```
 
-### Optional chain modes
+## Contracts
 
-Local deterministic mode is the default.
+The contract project is now a dedicated Foundry repo in `contracts`.
 
-To use a forked RPC when credentials are available:
-
-```bash
-CHAIN_MODE=fork FORK_RPC_URL=https://... pnpm dev
-```
-
-To point the broker at Arc Testnet with the official default RPC:
+Key commands:
 
 ```bash
-CHAIN_MODE=testnet pnpm dev
+pnpm contracts:build
+pnpm contracts:lint
+pnpm contracts:test
+pnpm contracts:deploy
 ```
 
-Override the RPC or chain ID only if needed:
+## Acceptance And Screenshots
+
+Acceptance path:
 
 ```bash
-CHAIN_MODE=testnet RPC_URL=https://... CHAIN_ID=5042002 pnpm dev
+pnpm test:acceptance --filter iex-cannes:release
 ```
 
-### Current public-network targets
-
-The intended sponsor-grade targets for this Cannes variant are:
-
-- Arc Testnet for escrow deployment and payout rehearsal
-- World ID 4.0 / AgentKit for proof-of-human gating
-- 0G Galileo Testnet for dossier persistence
-
-The current codebase runs fully in local deterministic mode by default, with Arc Testnet wiring available through env config. World remains an explicit verification stub unless app credentials are provided. 0G remains a labeled local dossier mirror until the live write path is wired.
-
-See:
-
-- `IMPLEMENTATION_STATUS.md`
-- `IMPLEMENTATION_MULTIPASS_REVIEW.md`
-
-### Screenshots
-
-Generate review screenshots while the demo is running:
+Screenshots:
 
 ```bash
 pnpm demo:screenshot
@@ -129,3 +105,18 @@ Outputs:
 
 - `apps/intelligence-exchange-cannes-web/screenshots/cannes-dashboard.png`
 - `apps/intelligence-exchange-cannes-web/screenshots/cannes-dashboard-mobile.png`
+
+## Relevant Docs
+
+Start with:
+
+- `spec/CANNES_2026_VARIANT.md`
+- `spec/CANNES_2026_MVP_SPEC.md`
+- `spec/CANNES_2026_TASKS.md`
+- `spec/CANNES_2026_ACCEPTANCE_TEST_MATRIX.md`
+- `spec/CANNES_2026_ADVERSARIAL_REVIEW.md`
+
+Implementation notes:
+
+- `docs/implementation/status.md`
+- `docs/implementation/multi-pass-review.md`

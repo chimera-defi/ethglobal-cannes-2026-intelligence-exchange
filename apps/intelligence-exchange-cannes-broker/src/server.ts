@@ -21,14 +21,13 @@ import {
   resetDemoState,
   submitScaffoldMilestone
 } from "./demo.js";
+import { brokerRuntimePaths } from "./runtime-paths.js";
 
 const app = Fastify({ logger: false });
 await app.register(cors, { origin: true });
 await app.register(sensible);
 
-const dataDir = path.resolve(import.meta.dirname, "..", "data");
-const dossierDir = path.resolve(import.meta.dirname, "..", "dossiers");
-const statePath = path.join(dataDir, "demo-state.json");
+const { dataDir, dossierDir, statePath } = brokerRuntimePaths;
 const chainMode =
   process.env.CHAIN_MODE === "fork" ? "fork" : process.env.CHAIN_MODE === "testnet" ? "testnet" : "local";
 const appBaseUrl = process.env.APP_BASE_URL ?? "http://127.0.0.1:4173";
@@ -47,6 +46,7 @@ async function ensureState(): Promise<DemoState> {
 }
 
 async function persistState(state: DemoState) {
+  await mkdir(dataDir, { recursive: true });
   await writeFile(statePath, JSON.stringify(state, null, 2));
 }
 
@@ -54,6 +54,7 @@ async function writeDossier(state: DemoState) {
   if (!state.idea || !state.brief) {
     return;
   }
+  await mkdir(dossierDir, { recursive: true });
   const dossier = {
     idea: state.idea,
     brief: state.brief,

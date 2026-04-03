@@ -23,6 +23,10 @@
 - one 0G dossier link
 - one World-gated poster and worker flow
 
+Current MVP simplification:
+- planner and review milestones remain visible in the flow
+- only the scaffold milestone is payout-bearing onchain
+
 ### Workstream 1: Contracts
 
 - implement escrow contract
@@ -46,7 +50,7 @@ Done criteria:
 - create `apps/intelligence-exchange-cannes-web`
 - create `apps/intelligence-exchange-cannes-broker`
 - create `apps/intelligence-exchange-cannes-worker`
-- create `packages/intelligence-exchange-cannes-contracts`
+- create `contracts/` as a dedicated Foundry project
 - create `packages/intelligence-exchange-cannes-shared`
 - create `packages/intelligence-exchange-cannes-fixtures`
 

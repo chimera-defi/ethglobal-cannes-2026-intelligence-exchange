@@ -1,7 +1,7 @@
 {
   "fundedAmountUsd": 400,
-  "reservedAmountUsd": 160,
-  "releasedAmountUsd": 160,
+  "reservedAmountUsd": 400,
+  "releasedAmountUsd": 400,
   "refundedAmountUsd": 0,
   "settlementStatus": "released"
 }

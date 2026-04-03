@@ -109,7 +109,7 @@ void (async () => {
 
     const released = await post("/api/milestones/idea-cannes-001-scaffold/approve");
     assert.equal(released.payout.settlementStatus, "released");
-    assert.equal(released.payout.releasedAmountUsd, 160);
+    assert.equal(released.payout.releasedAmountUsd, 400);
     console.log("release passed");
   } finally {
     chain.kill("SIGTERM");

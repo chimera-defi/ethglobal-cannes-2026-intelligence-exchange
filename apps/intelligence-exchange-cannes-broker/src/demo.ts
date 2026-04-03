@@ -42,12 +42,12 @@ function buildMilestones(ideaId: string): Milestone[] {
     {
       ...createMilestone(
         `${ideaId}-brief`,
-        "brief",
-        "Planner synthesizes the build brief",
-        "System converts the funded idea into a shallow but actionable brief and keeps exploitably detailed planning gated behind funding.",
-        80,
-        ["planning", "product"],
-        "accepted"
+      "brief",
+      "Planner synthesizes the build brief",
+      "System converts the funded idea into a shallow but actionable brief and keeps exploitably detailed planning gated behind funding.",
+      0,
+      ["planning", "product"],
+      "accepted"
       ),
       artifactUri: "dossier://brief",
       traceSummary: "Planner produced a concise brief and acceptance rubric.",
@@ -56,12 +56,12 @@ function buildMilestones(ideaId: string): Milestone[] {
     {
       ...createMilestone(
         `${ideaId}-tasks`,
-        "tasks",
-        "Task decomposition and acceptance pack",
-        "System generates fixed milestone types and deterministic checks for the worker path.",
-        80,
-        ["planning", "decomposition"],
-        "accepted"
+      "tasks",
+      "Task decomposition and acceptance pack",
+      "System generates fixed milestone types and deterministic checks for the worker path.",
+      0,
+      ["planning", "decomposition"],
+      "accepted"
       ),
       artifactUri: "dossier://tasks",
       traceSummary: "Task decomposition completed deterministically from the funded idea.",
@@ -72,7 +72,7 @@ function buildMilestones(ideaId: string): Milestone[] {
       "scaffold",
       "Worker builds the scaffold milestone",
       "Worker claims the milestone, emits a paid dependency event, and submits artifact plus trace for review.",
-      160,
+      400,
       ["typescript", "frontend", "backend", "contracts"],
       "queued"
     ),
@@ -81,7 +81,7 @@ function buildMilestones(ideaId: string): Milestone[] {
       "review",
       "Reviewer signs off on payout evidence",
       "Human review confirms the artifact quality, the dossier usefulness, and the payout evidence before settlement.",
-      80,
+      0,
       ["review", "qa"],
       "queued"
     )

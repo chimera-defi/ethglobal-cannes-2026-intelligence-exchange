@@ -54,7 +54,7 @@ export const milestoneSchema = z.object({
   milestoneType: z.enum(milestoneTypes),
   title: z.string(),
   description: z.string(),
-  budgetUsd: z.number().positive(),
+  budgetUsd: z.number().nonnegative(),
   requiredCapabilities: z.array(z.string()).min(1),
   status: milestoneStatusSchema,
   leaseExpiry: z.string().nullable(),
@@ -140,7 +140,7 @@ export const demoSeed = {
     role: "poster",
     verified: true,
     verificationMode: "world-stub",
-    walletAddress: "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1",
+    walletAddress: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
     ensName: "poster-cannes.eth",
     agentId: null,
     agentUri: null
@@ -151,7 +151,7 @@ export const demoSeed = {
     role: "worker",
     verified: true,
     verificationMode: "world-stub",
-    walletAddress: "0xFFcf8FDEE72ac11b5c542428B35EEF5769C409f0",
+    walletAddress: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
     ensName: "builder-one.eth",
     agentId: null,
     agentUri: null
@@ -162,7 +162,7 @@ export const demoSeed = {
     role: "reviewer",
     verified: true,
     verificationMode: "preverified",
-    walletAddress: "0x22d491Bde2303f2f43325b2108D26f1eAbA1e32b",
+    walletAddress: "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
     ensName: "reviewer-cannes.eth",
     agentId: null,
     agentUri: null
