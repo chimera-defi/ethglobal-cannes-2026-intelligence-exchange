@@ -3,9 +3,10 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getJob, acceptMilestone, rejectMilestone } from '../api';
 import { useBuyerSession } from '../session';
-import { escrowAbi, localFundingAddresses, toEscrowIdeaId, toEscrowMilestoneId } from '../contracts';
-import { isAddress, parseUnits, type Address } from 'viem';
+import { escrowAbi, localFundingAddresses } from '../contracts';
+import type { Address } from 'viem';
 import { usePublicClient, useSwitchChain, useWriteContract } from 'wagmi';
+import { settleReviewAction } from '../reviewSettlement';
 
 function isPullRequestUrl(uri: string) {
   return /\/pull\/\d+/.test(uri) || /\/merge_requests\/\d+/.test(uri);
@@ -23,6 +24,18 @@ export function ReviewPanel() {
   const [showRejectForm, setShowRejectForm] = useState(false);
   const fundingAddresses = localFundingAddresses();
 
+  function writeEscrowAction(
+    functionName: 'reserveMilestone' | 'releaseMilestone' | 'refundMilestone',
+    args: readonly [Address, Address, bigint] | readonly [Address, Address, Address],
+  ) {
+    return writeContractAsync({
+      address: fundingAddresses.escrowAddress,
+      abi: escrowAbi,
+      functionName,
+      args,
+    });
+  }
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['job', jobId],
     queryFn: () => getJob(jobId!),
@@ -35,94 +48,24 @@ export function ReviewPanel() {
   const idea = data?.idea;
   const settlement = data?.settlement;
 
-  async function waitForReceipt(hash: `0x${string}`) {
-    if (!publicClient) {
-      throw new Error('Wallet client unavailable. Refresh the page after connecting your wallet.');
-    }
-    await publicClient.waitForTransactionReceipt({ hash });
-  }
-
-  async function runEscrowSettlement(mode: 'release' | 'refund') {
-    if (!job) throw new Error('Job not loaded');
-    if (!connectedAddress || !isAddress(connectedAddress)) {
-      throw new Error('Connect the buyer wallet before settling this milestone.');
-    }
-    if (!publicClient) {
-      throw new Error('Wallet client unavailable. Refresh the page after connecting your wallet.');
-    }
-
-    await switchChainAsync({ chainId: fundingAddresses.chainId });
-
-    const ideaEscrowId = toEscrowIdeaId(job.ideaId);
-    const milestoneEscrowId = toEscrowMilestoneId(job.milestoneId);
-    const amount = parseUnits(job.budgetUsd, 6);
-    const milestoneStatus = Number(await publicClient.readContract({
-      address: fundingAddresses.escrowAddress,
-      abi: escrowAbi,
-      functionName: 'getMilestoneStatus',
-      args: [milestoneEscrowId],
-    }));
-
-    if (milestoneStatus === 0) {
-      const reserveHash = await writeContractAsync({
-        address: fundingAddresses.escrowAddress,
-        abi: escrowAbi,
-        functionName: 'reserveMilestone',
-        args: [ideaEscrowId, milestoneEscrowId, amount],
-      });
-      await waitForReceipt(reserveHash);
-    }
-
-    if (mode === 'release') {
-      const payee = submission?.agentMetadata?.operatorAddress;
-      if (!payee || !isAddress(payee)) {
-        throw new Error('Submitted worker is missing an operator wallet address, so payout cannot be released onchain.');
-      }
-      if (milestoneStatus === 2) {
-        return {
-          txHash: settlement?.txHash ?? '',
-          payer: connectedAddress,
-          payee,
-          amountUsd: Number(job.budgetUsd),
-        };
-      }
-      const releaseHash = await writeContractAsync({
-        address: fundingAddresses.escrowAddress,
-        abi: escrowAbi,
-        functionName: 'releaseMilestone',
-        args: [ideaEscrowId, milestoneEscrowId, payee as Address],
-      });
-      await waitForReceipt(releaseHash);
-      return {
-        txHash: releaseHash,
-        payer: connectedAddress,
-        payee,
-        amountUsd: Number(job.budgetUsd),
-      };
-    }
-
-    if (milestoneStatus === 1) {
-      const refundHash = await writeContractAsync({
-        address: fundingAddresses.escrowAddress,
-        abi: escrowAbi,
-        functionName: 'refundMilestone',
-        args: [ideaEscrowId, milestoneEscrowId, connectedAddress as Address],
-      });
-      await waitForReceipt(refundHash);
-      return {
-        txHash: refundHash,
-        payer: connectedAddress,
-        payee: connectedAddress,
-        amountUsd: Number(job.budgetUsd),
-      };
-    }
-
-    return undefined;
-  }
-
   const acceptMutation = useMutation({
     mutationFn: async () => {
-      const settlementRecord = await runEscrowSettlement('release');
+      const settlementRecord = await settleReviewAction({
+        mode: 'release',
+        job: job!,
+        submission,
+        settlement,
+        connectedAddress,
+        fundingAddresses,
+        publicClient,
+        switchChainAsync,
+        reserveMilestone: ({ ideaId, milestoneId, amount }) =>
+          writeEscrowAction('reserveMilestone', [ideaId, milestoneId, amount]),
+        releaseMilestone: ({ ideaId, milestoneId, worker }) =>
+          writeEscrowAction('releaseMilestone', [ideaId, milestoneId, worker]),
+        refundMilestone: ({ ideaId, milestoneId, poster }) =>
+          writeEscrowAction('refundMilestone', [ideaId, milestoneId, poster]),
+      });
       return acceptMilestone(job!.ideaId, job!.jobId, buyerId, settlementRecord);
     },
     onSuccess: () => {
@@ -133,7 +76,22 @@ export function ReviewPanel() {
 
   const rejectMutation = useMutation({
     mutationFn: async () => {
-      const settlementRecord = await runEscrowSettlement('refund');
+      const settlementRecord = await settleReviewAction({
+        mode: 'refund',
+        job: job!,
+        submission,
+        settlement,
+        connectedAddress,
+        fundingAddresses,
+        publicClient,
+        switchChainAsync,
+        reserveMilestone: ({ ideaId, milestoneId, amount }) =>
+          writeEscrowAction('reserveMilestone', [ideaId, milestoneId, amount]),
+        releaseMilestone: ({ ideaId, milestoneId, worker }) =>
+          writeEscrowAction('releaseMilestone', [ideaId, milestoneId, worker]),
+        refundMilestone: ({ ideaId, milestoneId, poster }) =>
+          writeEscrowAction('refundMilestone', [ideaId, milestoneId, poster]),
+      });
       return rejectMilestone(job!.ideaId, job!.jobId, buyerId, rejectReason || undefined, settlementRecord);
     },
     onSuccess: () => {
