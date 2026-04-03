@@ -190,14 +190,14 @@ export async function registerAgentIdentity(
   };
 }
 
-export async function deployAndFundEscrow(budgetUsd: number) {
+export async function deployAndFundEscrow(totalBudgetUsd: number, fundedAmountUsd: number = totalBudgetUsd) {
   const { chain, chainId, chainMode, rpcUrl, publicClient, posterWalletClient } = createClients();
   const artifact = await loadArtifact("CannesMilestoneEscrow");
 
   const deployHash = await posterWalletClient.deployContract({
     abi: artifact.abi as any,
     bytecode: bytecodeHex(artifact.bytecode.object),
-    args: [seededAccounts.poster.address, BigInt(budgetUsd)],
+    args: [seededAccounts.poster.address, BigInt(totalBudgetUsd)],
     chain
   });
   const deployReceipt = await publicClient.waitForTransactionReceipt({ hash: deployHash });
@@ -215,7 +215,7 @@ export async function deployAndFundEscrow(budgetUsd: number) {
     }),
     account: seededAccounts.poster.account,
     chain,
-    value: parseEther("0.25")
+    value: parseEther(String(Math.max(fundedAmountUsd / 1600, 0.01)))
   });
   const fundReceipt = await publicClient.waitForTransactionReceipt({ hash: fundHash });
   const balance = await publicClient.getBalance({ address: contractAddress });
@@ -227,7 +227,7 @@ export async function deployAndFundEscrow(budgetUsd: number) {
     deployTxHash: deployReceipt.transactionHash,
     escrowBalanceUsd: Number(formatEther(balance)) * 1600,
     fundTxHash: fundReceipt.transactionHash,
-    fundedAmountUsd: budgetUsd,
+    fundedAmountUsd,
     rpcUrl
   };
 }
@@ -296,6 +296,27 @@ export async function refundEscrow(contractAddress: `0x${string}`, jobId: string
 
   return {
     refundTxHash: receipt.transactionHash,
+    remainingEscrowUsd: Number(formatEther(balance)) * 1600
+  };
+}
+
+export async function closeEscrow(contractAddress: `0x${string}`) {
+  const { chain, publicClient, posterWalletClient } = createClients();
+  const artifact = await loadArtifact("CannesMilestoneEscrow");
+  const hash = await posterWalletClient.sendTransaction({
+    to: contractAddress,
+    data: encodeFunctionData({
+      abi: artifact.abi as any,
+      functionName: "closeEscrow"
+    }),
+    account: seededAccounts.poster.account,
+    chain
+  });
+  const receipt = await publicClient.waitForTransactionReceipt({ hash });
+  const balance = await publicClient.getBalance({ address: contractAddress });
+
+  return {
+    closeTxHash: receipt.transactionHash,
     remainingEscrowUsd: Number(formatEther(balance)) * 1600
   };
 }

@@ -5,6 +5,7 @@ import cors from "@fastify/cors";
 import sensible from "@fastify/sensible";
 import { ideaSubmissionInputSchema, type DemoState } from "@iex-cannes/shared";
 import {
+  closeEscrow,
   deployAgentRegistry,
   deployAndFundEscrow,
   refundEscrow,
@@ -187,7 +188,7 @@ app.post("/api/ideas/fund", async (request) => {
   next.activityLog.push(`Poster registered in ERC-8004-inspired registry as agent ${posterRegistration.agentId}.`);
   next.activityLog.push("Worker agent registry entry will be created when the active worker profile is registered.");
 
-  const onchain = await deployAndFundEscrow(input.budgetUsd);
+  const onchain = await deployAndFundEscrow(input.escrowUsd, input.escrowUsd);
   next.payout = {
     ...next.payout,
     contractAddress: onchain.contractAddress,
@@ -250,8 +251,14 @@ async function approveJob(request: FastifyRequest<{ Params: { jobId: string } }>
     throw app.httpErrors.failedDependency("Escrow contract is not initialized.");
   }
   const release = await releaseEscrow(state.payout.contractAddress as `0x${string}`, approved.jobId);
+  let remainingEscrowUsd = release.remainingEscrowUsd;
+  if (remainingEscrowUsd > 0) {
+    const close = await closeEscrow(state.payout.contractAddress as `0x${string}`);
+    remainingEscrowUsd = close.remainingEscrowUsd;
+    state.activityLog.push(`Escrow closeout tx confirmed: ${close.closeTxHash}.`);
+  }
   approved.status = "released";
-  state.payout.escrowBalanceUsd = release.remainingEscrowUsd;
+  state.payout.escrowBalanceUsd = remainingEscrowUsd;
   state.payout.releasedAmountUsd += approved.budgetUsd;
   state.payout.settlementStatus = "released";
   state.payout.releaseTxHashes.push(release.releaseTxHash);
@@ -271,7 +278,13 @@ async function refundJob(request: FastifyRequest<{ Params: { jobId: string } }>)
     throw app.httpErrors.failedDependency("Escrow contract is not initialized.");
   }
   const refund = await refundEscrow(state.payout.contractAddress as `0x${string}`, refunded.jobId);
-  state.payout.escrowBalanceUsd = refund.remainingEscrowUsd;
+  let remainingEscrowUsd = refund.remainingEscrowUsd;
+  if (remainingEscrowUsd > 0) {
+    const close = await closeEscrow(state.payout.contractAddress as `0x${string}`);
+    remainingEscrowUsd = close.remainingEscrowUsd;
+    state.activityLog.push(`Escrow closeout tx confirmed: ${close.closeTxHash}.`);
+  }
+  state.payout.escrowBalanceUsd = remainingEscrowUsd;
   state.payout.refundedAmountUsd += refunded.budgetUsd;
   state.payout.settlementStatus = "refunded";
   state.payout.refundTxHashes.push(refund.refundTxHash);

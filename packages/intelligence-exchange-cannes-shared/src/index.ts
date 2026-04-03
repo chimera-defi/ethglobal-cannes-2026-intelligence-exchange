@@ -52,14 +52,26 @@ export const jobBoardItemSchema = z.object({
   eligibleForWorker: z.boolean()
 });
 
-export const ideaSubmissionInputSchema = z.object({
+const ideaSubmissionBaseSchema = z.object({
   title: z.string().min(5),
   prompt: z.string().min(20),
   targetArtifact: z.string().min(3),
-  budgetUsd: z.number().positive()
+  budgetUsd: z.number().positive(),
+  escrowUsd: z.number().positive().optional().default(0)
 });
 
-export const ideaSubmissionSchema = ideaSubmissionInputSchema.extend({
+export const ideaSubmissionInputSchema = ideaSubmissionBaseSchema.transform((input) => ({
+  ...input,
+  escrowUsd: input.escrowUsd > 0 ? input.escrowUsd : input.budgetUsd
+})).pipe(ideaSubmissionBaseSchema.extend({
+  escrowUsd: z.number().positive()
+}).refine((input) => input.escrowUsd >= input.budgetUsd, {
+  message: "Escrow must cover the selected payout budget.",
+  path: ["escrowUsd"]
+}));
+
+export const ideaSubmissionSchema = ideaSubmissionBaseSchema.extend({
+  escrowUsd: z.number().positive(),
   ideaId: z.string(),
   posterId: z.string(),
   fundingStatus: fundingStatusSchema,
@@ -199,7 +211,8 @@ export const demoSeed = {
     prompt:
       "Turn this repo into a judgeable Cannes demo where a verified poster funds an idea, a human-backed worker agent claims a milestone, submits a scaffold with one paid dependency event, and gets paid after approval.",
     targetArtifact: "Prototype scaffold + review dossier",
-    budgetUsd: 400
+    budgetUsd: 400,
+    escrowUsd: 500
   } satisfies IdeaSubmissionInput,
   activityLog: [
     "Repo bootstrapped in deterministic local mode.",

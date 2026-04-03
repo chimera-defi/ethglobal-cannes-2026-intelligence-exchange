@@ -79,12 +79,13 @@ void (async () => {
       prompt:
         "Turn this repo into a judgeable Cannes demo where a verified poster funds an idea, a human-backed worker agent claims a milestone, submits a scaffold with one paid dependency event, and gets paid after approval.",
       targetArtifact: "Prototype scaffold + review dossier",
-      budgetUsd: 400
+      budgetUsd: 400,
+      escrowUsd: 500
     });
 
     if (filter === "iex-cannes:fund-idea") {
       assert.ok(funded.payout.contractAddress);
-      assert.equal(funded.payout.fundedAmountUsd, 400);
+      assert.equal(funded.payout.fundedAmountUsd, 500);
       console.log("fund-idea passed");
       return;
     }

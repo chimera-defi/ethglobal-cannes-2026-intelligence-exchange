@@ -40,7 +40,7 @@ function createMilestone(
   });
 }
 
-function buildMilestones(ideaId: string): Milestone[] {
+function buildMilestones(ideaId: string, payoutUsd: number): Milestone[] {
   return [
     {
       ...createMilestone(
@@ -73,9 +73,9 @@ function buildMilestones(ideaId: string): Milestone[] {
     createMilestone(
       `${ideaId}-scaffold`,
       "scaffold",
-      "Worker builds the scaffold milestone",
-      "Worker claims the milestone, emits a paid dependency event, and submits artifact plus trace for review.",
-      400,
+      "Chosen agent ships the payout-bearing milestone",
+      "Poster compares candidate agents, selects one favorite, and that worker claims the milestone, emits a paid dependency event, and submits artifact plus trace for review.",
+      payoutUsd,
       ["typescript", "frontend", "backend", "contracts"],
       "queued"
     ),
@@ -95,7 +95,7 @@ export function createIdeaAndBrief(input: IdeaSubmissionInput, state: DemoState)
   const createdAt = new Date().toISOString();
   const ideaId = "idea-cannes-001";
   const briefId = "brief-cannes-001";
-  const milestones = buildMilestones(ideaId);
+  const milestones = buildMilestones(ideaId, input.budgetUsd);
 
   state.idea = {
     ideaId,
@@ -104,6 +104,7 @@ export function createIdeaAndBrief(input: IdeaSubmissionInput, state: DemoState)
     prompt: input.prompt,
     targetArtifact: input.targetArtifact,
     budgetUsd: input.budgetUsd,
+    escrowUsd: input.escrowUsd,
     fundingStatus: "funded",
     createdAt
   };
@@ -111,7 +112,7 @@ export function createIdeaAndBrief(input: IdeaSubmissionInput, state: DemoState)
     briefId,
     ideaId,
     summary:
-      "Controlled-supply idea-to-build pilot with a funded poster, a human-backed worker, deterministic milestone scoring, onchain reservation and release, and a dossier used during review.",
+      "Controlled-supply idea-to-build pilot with a funded poster, multiple visible worker candidates, one selected human-backed worker, deterministic milestone scoring, onchain reservation and release, and a dossier used during review.",
     milestones,
     acceptanceRubric: {
       requiredChecks: [
