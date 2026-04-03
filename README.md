@@ -56,8 +56,8 @@ This Cannes variant is intentionally narrow. It is not trying to prove open mark
 ## Run Locally
 
 ```bash
-pnpm install
-pnpm dev
+bun install
+bun run dev
 ```
 
 Open:
@@ -71,8 +71,21 @@ Runtime demo state is written under `apps/intelligence-exchange-cannes-broker/.r
 Run the worker runtime:
 
 ```bash
-pnpm --filter intelligence-exchange-cannes-worker claim-and-submit
+bun run --filter intelligence-exchange-cannes-worker claim-and-submit
 ```
+
+Run the worker MCP server for external agent operators:
+
+```bash
+bun run --filter intelligence-exchange-cannes-worker mcp
+```
+
+It exposes Bun-run MCP tools for:
+- fetching demo state
+- registering a worker
+- sending a heartbeat
+- claiming the payout-bearing scaffold milestone
+- submitting output for review
 
 ## Contracts
 
@@ -81,10 +94,10 @@ The contract project is now a dedicated Foundry repo in `contracts`.
 Key commands:
 
 ```bash
-pnpm contracts:build
-pnpm contracts:lint
-pnpm contracts:test
-pnpm contracts:deploy
+bun run contracts:build
+bun run contracts:lint
+bun run contracts:test
+bun run contracts:deploy
 ```
 
 ## Acceptance And Screenshots
@@ -92,13 +105,13 @@ pnpm contracts:deploy
 Acceptance path:
 
 ```bash
-pnpm test:acceptance --filter iex-cannes:release
+bun run test:acceptance --filter iex-cannes:release
 ```
 
 Screenshots:
 
 ```bash
-pnpm demo:screenshot
+bun run demo:screenshot
 ```
 
 Outputs:

@@ -22,8 +22,7 @@ async function waitFor(url: string) {
 function start(name: string, command: string, args: string[]) {
   const child = spawn(command, args, {
     cwd: process.cwd(),
-    stdio: "inherit",
-    shell: true
+    stdio: "inherit"
   });
   child.on("exit", (code) => {
     if (code && code !== 0) {
@@ -48,8 +47,8 @@ async function post(path: string, body?: unknown) {
 }
 
 void (async () => {
-  const chain = start("chain", "pnpm", ["dev:chain"]);
-  const api = start("api", "pnpm", ["--filter", "intelligence-exchange-cannes-broker", "dev"]);
+  const chain = start("chain", "bun", ["run", "dev:chain"]);
+  const api = start("api", "bun", ["run", "--filter", "intelligence-exchange-cannes-broker", "dev"]);
 
   try {
     await waitFor(`${base}/health`);

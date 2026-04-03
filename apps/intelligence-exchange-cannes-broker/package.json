@@ -6,8 +6,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "check": "tsc -p tsconfig.json --noEmit",
-    "demo:reset": "tsx src/reset.ts",
-    "dev": "tsx watch src/server.ts"
+    "demo:reset": "bun src/reset.ts",
+    "dev": "bun --watch src/server.ts"
   },
   "dependencies": {
     "@fastify/cors": "^11.1.0",
@@ -18,7 +18,6 @@
     "zod": "^4.1.11"
   },
   "devDependencies": {
-    "@types/node": "^24.6.2",
-    "tsx": "^4.20.6"
+    "@types/node": "^24.6.2"
   }
 }

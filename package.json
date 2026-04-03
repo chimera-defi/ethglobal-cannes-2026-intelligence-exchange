@@ -2,23 +2,26 @@
   "name": "ethglobal-cannes-2026-intelligence-exchange",
   "private": true,
   "version": "0.1.0",
-  "packageManager": "pnpm@10.32.1",
+  "packageManager": "bun@1.3.9",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "build": "pnpm -r build && pnpm contracts:build",
-    "check": "pnpm -r check && pnpm contracts:lint && pnpm contracts:test",
+    "build": "bun run --workspaces --if-present build && bun run contracts:build",
+    "check": "bun run --workspaces --if-present check && bun run contracts:lint && bun run contracts:test",
     "contracts:build": "cd contracts && /root/.foundry/bin/forge build",
     "contracts:deploy": "cd contracts && /root/.foundry/bin/forge script script/DeployCannes.s.sol:DeployCannes --rpc-url ${RPC_URL:-http://127.0.0.1:8545} --broadcast",
     "contracts:lint": "cd contracts && /root/.foundry/bin/forge fmt --check",
     "contracts:test": "cd contracts && /root/.foundry/bin/forge test",
-    "dev": "concurrently -n chain,api,web -c blue,green,yellow \"pnpm dev:chain\" \"pnpm --filter intelligence-exchange-cannes-broker dev\" \"pnpm --filter intelligence-exchange-cannes-web dev\"",
+    "dev": "concurrently -n chain,api,web -c blue,green,yellow \"bun run dev:chain\" \"bun run --filter intelligence-exchange-cannes-broker dev\" \"bun run --filter intelligence-exchange-cannes-web dev\"",
     "dev:chain": "bash contracts/scripts/run-anvil.sh",
-    "demo:reset": "pnpm --filter intelligence-exchange-cannes-broker demo:reset",
-    "demo:screenshot": "pnpm --filter intelligence-exchange-cannes-web screenshot",
-    "test:acceptance": "tsx scripts/acceptance.ts"
+    "demo:reset": "bun run --filter intelligence-exchange-cannes-broker demo:reset",
+    "demo:screenshot": "bun run --filter intelligence-exchange-cannes-web screenshot",
+    "test:acceptance": "bun run scripts/acceptance.ts"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",
-    "tsx": "^4.20.6",
     "typescript": "^5.9.3"
   }
 }

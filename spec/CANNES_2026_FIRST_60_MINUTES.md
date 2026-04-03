@@ -57,15 +57,15 @@ mkdir -p ../../contracts
 ### Local Commands
 
 ```bash
-pnpm install
-pnpm contracts:build
-pnpm demo:reset
-pnpm test:acceptance --filter iex-cannes:verify-poster
-pnpm test:acceptance --filter iex-cannes:fund-idea
-pnpm test:acceptance --filter iex-cannes:claim
-pnpm test:acceptance --filter iex-cannes:submit
-pnpm test:acceptance --filter iex-cannes:release
-pnpm dev
+bun install
+bun run contracts:build
+bun run demo:reset
+bun run test:acceptance --filter iex-cannes:verify-poster
+bun run test:acceptance --filter iex-cannes:fund-idea
+bun run test:acceptance --filter iex-cannes:claim
+bun run test:acceptance --filter iex-cannes:submit
+bun run test:acceptance --filter iex-cannes:release
+bun run dev
 ```
 
 ### Success Criteria

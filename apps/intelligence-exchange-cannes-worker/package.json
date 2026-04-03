@@ -6,10 +6,13 @@
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit",
     "check": "tsc -p tsconfig.json --noEmit",
-    "claim-and-submit": "tsx src/worker.ts"
+    "claim-and-submit": "bun src/worker.ts",
+    "mcp": "bun src/mcp.ts"
   },
   "dependencies": {
-    "@iex-cannes/shared": "workspace:*"
+    "@iex-cannes/shared": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.18.0",
+    "zod": "^4.1.11"
   },
   "devDependencies": {
     "@types/node": "^24.6.2"
