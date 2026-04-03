@@ -1,5 +1,7 @@
 # Intelligence Exchange Contracts
 
+Template basis: `ideas/_templates/CONTRACTS_README.template.md`
+
 ## Version
 - Current: `v1`
 - Stability: draft, implementation-targeted

@@ -1,51 +1,50 @@
-## Intelligence Exchange Spec Index
+## Intelligence Exchange (Worker-Driven AI Job Marketplace)
 
-Status: active prototype with launch-reset docs in progress.
+**Status**: Exploration (docs-first)
 
-Canonical high-level entrypoint:
+### Concept
+A marketplace where teams and agents buy/sell **AI job execution capacity** using contributor workers (local or hosted) that fulfill jobs through a central broker.
 
-- `docs/CANONICAL_PRODUCT_OVERVIEW.md`
+### Thesis
+The direct "unused subscription/credit resale" framing is weak and fragile. The viable product is a brokered execution marketplace: workers fulfill jobs, platform scores outputs, and settlement is based on accepted work.
 
-## Recommended Read Order (Current)
+### Key Docs (Review Path)
+0. `README_REVIEW_GUIDE.md`
+1. `EXECUTIVE_SUMMARY.md`
+2. `PRD.md`
+3. `SPEC.md`
+4. `ARCHITECTURE_DIAGRAMS.md`
+5. `UX_AND_PAYMENTS_FLOW.md`
+6. `UX_PRINCIPLES.md`
+7. `USER_FLOWS.md`
+8. `FRONTEND_VISION.md`
+9. `WIREFRAMES.md`
+10. `COMPETITOR_MATRIX.md`
+11. `STATE_MODEL.md`
+12. `TASKMARKET_COMPATIBILITY.md`
+13. `GO_NO_GO_SCORECARD.md`
+14. `CANNES_2026_VARIANT.md`
+15. `CANNES_2026_PRIZE_MAPPING.md`
+16. `CANNES_2026_MVP_SPEC.md`
+17. `CANNES_2026_TASKS.md`
+18. `CANNES_2026_ACCEPTANCE_TEST_MATRIX.md`
+19. `CANNES_2026_EDGE_CASES.md`
+20. `CANNES_2026_DEPLOYMENT_AND_DEMO.md`
+21. `CANNES_2026_FIRST_60_MINUTES.md`
+22. `CANNES_2026_ADVERSARIAL_REVIEW.md`
 
-1. `README.md` — value prop, product loop, live demo
-2. `docs/CANONICAL_PRODUCT_OVERVIEW.md` — canonical system shape, tokenomics flows
-3. `docs/COMPETITOR_ANALYSIS_DEEP.md` — competitor landscape and structural differentiator
-4. `spec/CANNES_2026_MVP_SPEC.md` — MVP scope and constraints
-5. `spec/SPEC.md` — full technical spec
-6. `spec/TOKEN_ARCHITECTURE.md` — token design decisions
-7. `spec/TOKENOMICS.md` — tokenomics policy
-8. `spec/tokenomics/INTEL_LAUNCH_ARCHITECTURE.md` — launch architecture detail
-9. `spec/tokenomics/TOKENOMICS_COVERAGE_MATRIX.md` — coverage matrix
+### Full Pack (Grouped)
+- Strategy and product: `EXECUTIVE_SUMMARY`, `PRD`, `ALTERNATIVES_AND_VARIANTS`, `COMPETITOR_ANALYSIS`, `COMPETITOR_MATRIX`
+- Hackathon variant: `CANNES_2026_VARIANT`, `CANNES_2026_PRIZE_MAPPING`
+- Cannes build-ready layer: `CANNES_2026_MVP_SPEC`, `CANNES_2026_TASKS`, `CANNES_2026_ACCEPTANCE_TEST_MATRIX`, `CANNES_2026_EDGE_CASES`, `CANNES_2026_DEPLOYMENT_AND_DEMO`
+- Cannes bootstrap: `CANNES_2026_FIRST_60_MINUTES`
+- Cannes skepticism pass: `CANNES_2026_ADVERSARIAL_REVIEW`
+- Technical design: `SPEC`, `ARCHITECTURE_DIAGRAMS`, `ARCHITECTURE_DECISIONS`, `TASKMARKET_COMPATIBILITY`
+- UX and interface: `UX_AND_PAYMENTS_FLOW`, `UX_PRINCIPLES`, `USER_FLOWS`, `FRONTEND_VISION`, `WIREFRAMES`, `STATE_MODEL`
+- Validation and economics: `VALIDATION_PLAN`, `GO_NO_GO_SCORECARD`, `PILOT_SCORECARD_TEMPLATE`, `FINANCIAL_MODEL`, `RISK_REGISTER`
+- Execution and governance: `90_DAY_EXECUTION_PLAN`, `TASKS`, `DECISIONS`, `AGENT_HANDOFF`, `SPEC_STAGE_CHECKLIST`
+- Iteration history: `REFINEMENTS`, `MULTIPASS_REVIEW`, `META_LEARNINGS`
+- One-shot build assets: `contracts/`, `fixtures/`, `ACCEPTANCE_TEST_MATRIX.md`, `FIRST_60_MINUTES.md`, `SUBAGENT_PROMPT_PACK.md`
 
-## Active Design Docs
-
-- Product and behavior:
-  - `SPEC.md`
-  - `CANNES_2026_MVP_SPEC.md`
-  - `ARCHITECTURE_DIAGRAMS.md`
-  - `ARCHITECTURE_RECONCILIATION.md`
-- Token and market design:
-  - `TOKEN_ARCHITECTURE.md`
-  - `TOKENOMICS.md`
-  - `TOKEN_HANDOFF_PACKAGE.md`
-  - `tokenomics/INTEL_LAUNCH_ARCHITECTURE.md`
-  - `tokenomics/TOKENOMICS_COVERAGE_MATRIX.md`
-- Demo and validation:
-  - `CANNES_2026_ACCEPTANCE_TEST_MATRIX.md`
-  - `CANNES_2026_DEPLOYMENT_AND_DEMO.md`
-  - `CANNES_2026_FIRST_60_MINUTES.md`
-
-## Historical / Context Docs
-
-These remain useful for context, but are not launch source-of-truth:
-
-- `archive/HISTORY_INDEX.md` (single index of historical documents)
-- `SPEC_PARITY.md` (historical parity snapshots)
-- `ARC_INTEGRATION.md` (historical prize-track integration detail)
-- `CANNES_2026_PRIZE_MAPPING.md` (historical sponsor mapping)
-- `archive/README.md` (archived planning and prior snapshots)
-
-## Source Notes
-
-Primary external research links are consolidated in `RESEARCH_NOTES.md`.
+### Source Notes
+Primary references and links are consolidated in `RESEARCH_NOTES.md` to avoid duplication.

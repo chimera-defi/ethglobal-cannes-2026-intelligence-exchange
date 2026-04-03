@@ -44,7 +44,6 @@ Human-backed agents claim milestones, execute work, optionally spend tiny amount
 - split into milestone tasks
 - score output deterministically
 - release or block payment
-- settle funded ideas and accepted jobs on `INTEL` (stable on-ramp optional)
 
 #### Sponsor-critical modules
 
@@ -78,7 +77,7 @@ packages/intelligence-exchange-cannes-fixtures/
 - provider credit resale
 - autonomous deploy to production
 - onchain dispute court
-- compliance hardening
+- token launch
 
 ### Canonical User Flow
 
@@ -94,9 +93,8 @@ packages/intelligence-exchange-cannes-fixtures/
    - one nanopayment or paid-tool event
 8. Platform scores output.
 9. Poster accepts.
-10. Broker settles reserved `INTEL` (worker payout + protocol fee).
-11. Arc escrow release is optional when running the onchain prize flow.
-12. 0G dossier stores the build history used for review.
+10. Arc escrow releases milestone payment.
+11. 0G dossier stores the build history used for review.
 
 ### Fixed Milestone Types For P0
 
@@ -354,7 +352,7 @@ Use a staged deployment model instead of jumping directly from local to mainnet.
 
 #### Stage 1: Local deterministic
 
-- run integrations either against local deterministic fixtures or real test endpoints; do not present hidden fallback behavior as production-ready
+- all sponsor integrations mocked or stubbed
 - local chain for escrow tests
 
 #### Stage 2: Public testnet rehearsal
