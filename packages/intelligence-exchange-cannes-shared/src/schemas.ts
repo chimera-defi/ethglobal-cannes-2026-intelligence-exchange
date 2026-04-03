@@ -166,6 +166,7 @@ export const JobCreateRequestSchema = z.object({
   prompt: z.string().min(10).max(10_000),
   title: z.string().min(1).max(200),
   budgetUsdMax: z.number().positive(),
+  targetArtifact: z.string().url().optional(),
   slaMins: z.number().int().positive().default(45),
   attachments: z.array(z.object({
     uri: z.string(),

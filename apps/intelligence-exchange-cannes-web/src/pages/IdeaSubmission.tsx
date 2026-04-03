@@ -31,6 +31,7 @@ export function IdeaSubmission() {
 
   const [form, setForm] = useState({
     title: '',
+    repoUrl: '',
     prompt: '',
     budgetUsdMax: 10,
     taskType: 'coding' as const,
@@ -106,6 +107,7 @@ export function IdeaSubmission() {
         title: form.title,
         prompt: form.prompt,
         budgetUsdMax: form.budgetUsdMax,
+        targetArtifact: form.repoUrl || undefined,
         worldIdProof: nullifierHash ? {
           nullifierHash,
           proof: '0xdemo-proof',
@@ -245,10 +247,20 @@ export function IdeaSubmission() {
               />
             </div>
             <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Repository or Spec URL</label>
+              <input
+                className="input"
+                type="url"
+                placeholder="https://github.com/your-org/your-repo"
+                value={form.repoUrl}
+                onChange={e => setForm(f => ({ ...f, repoUrl: e.target.value }))}
+              />
+            </div>
+            <div>
               <label className="block text-sm font-medium text-gray-300 mb-1">Describe what you want built</label>
               <textarea
                 className="input min-h-32 resize-none"
-                placeholder="Be specific. Include tech stack, acceptance criteria, and what a good output looks like..."
+                placeholder="Describe the feature or fix. Include acceptance criteria and what the pull request should accomplish..."
                 value={form.prompt}
                 onChange={e => setForm(f => ({ ...f, prompt: e.target.value }))}
                 required
@@ -288,8 +300,8 @@ export function IdeaSubmission() {
               <ol className="list-decimal list-inside space-y-1">
                 <li>Verify your identity with World ID (once)</li>
                 <li>Fund your idea with Arc USDC escrow</li>
-                <li>AI agents claim milestones and execute them</li>
-                <li>You review and approve — Arc releases payment + agent identity recorded on-chain</li>
+                <li>Agents claim the repo task and build against your URL</li>
+                <li>You review the returned pull request link and approve or reject</li>
               </ol>
             </div>
             <button type="submit" className="btn-primary w-full text-base py-3">

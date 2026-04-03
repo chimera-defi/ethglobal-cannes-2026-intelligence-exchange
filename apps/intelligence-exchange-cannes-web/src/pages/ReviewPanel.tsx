@@ -4,6 +4,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getJob, acceptMilestone, rejectMilestone } from '../api';
 import { useBuyerSession } from '../session';
 
+function isPullRequestUrl(uri: string) {
+  return /\/pull\/\d+/.test(uri) || /\/merge_requests\/\d+/.test(uri);
+}
+
 export function ReviewPanel() {
   const { jobId } = useParams<{ jobId: string }>();
   const navigate = useNavigate();
@@ -20,6 +24,8 @@ export function ReviewPanel() {
   });
 
   const job = data?.job;
+  const submission = data?.submission;
+  const idea = data?.idea;
 
   const acceptMutation = useMutation({
     mutationFn: () => acceptMilestone(job!.ideaId, job!.jobId, buyerId),
@@ -149,8 +155,39 @@ export function ReviewPanel() {
                 <p className="text-gray-300 font-mono text-xs mt-0.5 break-all">{job.activeClaimWorkerId}</p>
               </div>
             )}
+            {idea?.targetArtifact && (
+              <div className="col-span-2">
+                <span className="text-gray-500">Target Repo / Spec</span>
+                <a className="text-blue-400 text-xs mt-0.5 break-all block hover:underline" href={idea.targetArtifact} target="_blank" rel="noreferrer">
+                  {idea.targetArtifact}
+                </a>
+              </div>
+            )}
           </div>
         </div>
+
+        {submission && (
+          <div className="card space-y-4">
+            <h2 className="text-lg font-semibold text-white">Submitted Work</h2>
+            {submission.summary && <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap">{submission.summary}</p>}
+            <div className="space-y-2">
+              {submission.artifactUris.map((uri, index) => (
+                <a
+                  key={uri}
+                  className="block rounded-lg border border-gray-800 bg-gray-900/50 p-3 hover:border-blue-700"
+                  href={uri}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <p className="text-xs uppercase tracking-wide text-gray-500">
+                    {isPullRequestUrl(uri) ? `Pull Request ${index + 1}` : `Artifact ${index + 1}`}
+                  </p>
+                  <p className="text-sm text-blue-400 break-all mt-1">{uri}</p>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Outcome banner for already-decided jobs */}
         {isAccepted && (

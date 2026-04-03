@@ -46,6 +46,7 @@ export async function createIdea(req: JobCreateRequest, worldIdVerified: boolean
     posterId: req.buyerId,
     title: req.title,
     prompt: req.prompt,
+    targetArtifact: req.targetArtifact ?? null,
     budgetUsd: req.budgetUsdMax.toString(),
     fundingStatus: 'unfunded',
     worldIdNullifierHash: req.worldIdProof?.nullifierHash ?? null,
@@ -71,7 +72,13 @@ export async function generateBrief(ideaId: string): Promise<string> {
   await db.insert(briefs).values({
     briefId,
     ideaId,
-    summary: `Build: ${idea.title}. Budget: $${idea.budgetUsd}. Milestones: ${MILESTONE_ORDER.join(', ')}.`,
+    summary: [
+      `Build: ${idea.title}.`,
+      idea.targetArtifact ? `Target repo/spec: ${idea.targetArtifact}.` : null,
+      `Budget: $${idea.budgetUsd}.`,
+      `Milestones: ${MILESTONE_ORDER.join(', ')}.`,
+      'Expected delivery for implementation work: a reviewable pull request URL.',
+    ].filter(Boolean).join(' '),
     acceptanceRubric: { milestoneTypes: MILESTONE_ORDER, scoringMode: 'deterministic' },
     generatedAt: now,
   });
@@ -86,7 +93,13 @@ export async function generateBrief(ideaId: string): Promise<string> {
       ideaId,
       milestoneType: mType,
       title: `${mType.charAt(0).toUpperCase() + mType.slice(1)} milestone`,
-      description: `Complete the ${mType} deliverable for: ${idea.title}`,
+      description: [
+        `Complete the ${mType} deliverable for: ${idea.title}.`,
+        idea.targetArtifact ? `Work against: ${idea.targetArtifact}.` : null,
+        mType === 'scaffold' || mType === 'review'
+          ? 'Return a reviewable pull request URL as the primary artifact when possible.'
+          : null,
+      ].filter(Boolean).join(' '),
       budgetUsd: milestoneBudget,
       order: i,
     });

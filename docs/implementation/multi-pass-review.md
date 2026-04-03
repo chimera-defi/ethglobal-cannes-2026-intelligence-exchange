@@ -33,6 +33,8 @@ Branch baseline: `main` after PR 3 merge, continued on `codex/main-pr3-hardening
   - `/buyer/history`
   - `/jobs`
 - Buyer review actions now use the active buyer session identity instead of a hardcoded reviewer ID.
+- Repo/spec URLs now flow from idea creation into the brief, job skill file, idea detail, and review panel.
+- Submission/review now treats pull request links as first-class artifacts instead of generic opaque blobs.
 - Screenshots captured from the current local stack:
   - `docs/screenshots/buyer-workspace.png`
   - `docs/screenshots/jobs-board.png`

@@ -44,6 +44,7 @@ export interface IdeaDetailResponse {
     ideaId: string;
     title: string;
     prompt: string;
+    targetArtifact?: string | null;
     budgetUsd: string;
     fundingStatus: string;
     posterId: string;
@@ -97,6 +98,7 @@ export function createIdea(body: {
   title: string;
   prompt: string;
   budgetUsdMax: number;
+  targetArtifact?: string;
   worldIdProof?: { nullifierHash: string; proof: string; merkleRoot: string; verificationLevel: string };
 }) {
   return post<IdeaResponse>('/ideas', body);
@@ -190,6 +192,19 @@ export interface JobResponse {
     briefId: string;
     ideaId: string;
   };
+  idea?: {
+    ideaId: string;
+    title: string;
+    targetArtifact?: string | null;
+  } | null;
+  submission?: {
+    submissionId: string;
+    workerId: string;
+    artifactUris: string[];
+    traceUri?: string | null;
+    summary?: string | null;
+    submittedAt: string;
+  } | null;
 }
 
 export interface SubmissionResponse {
