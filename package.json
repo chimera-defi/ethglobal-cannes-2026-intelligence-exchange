@@ -9,6 +9,9 @@
   ],
   "scripts": {
     "check": "pnpm typecheck && pnpm build && pnpm contracts:validate",
+    "chain:up": "bash ./scripts/start-local-chain.sh",
+    "chain:down": "bash ./scripts/stop-local-chain.sh",
+    "chain:reset": "pnpm chain:down && pnpm chain:up",
     "deps:up": "docker-compose up -d",
     "deps:down": "docker-compose down",
     "deps:reset": "docker-compose down -v && docker-compose up -d",
@@ -18,8 +21,9 @@
     "test": "pnpm --filter '*cannes*' run test",
     "test:acceptance": "pnpm --filter 'intelligence-exchange-cannes-broker' run test:acceptance",
     "contracts:validate": "pnpm --filter 'intelligence-exchange-cannes-contracts' run test",
+    "contracts:deploy:local": "pnpm --filter intelligence-exchange-cannes-contracts deploy:local",
     "seed:cannes": "pnpm --filter 'intelligence-exchange-cannes-broker' run seed",
     "typecheck": "pnpm --filter '*cannes*' run typecheck",
-    "demo:bootstrap": "pnpm deps:reset && pnpm deps:wait && pnpm --filter intelligence-exchange-cannes-broker db:migrate && SKIP_MIGRATE=1 pnpm seed:cannes"
+    "demo:bootstrap": "pnpm deps:reset && pnpm deps:wait && pnpm chain:reset && pnpm --filter intelligence-exchange-cannes-broker db:migrate && pnpm contracts:deploy:local && SKIP_MIGRATE=1 pnpm seed:cannes"
   }
 }

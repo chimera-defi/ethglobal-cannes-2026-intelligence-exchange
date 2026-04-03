@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getJob, acceptMilestone, rejectMilestone } from '../api';
+import { useBuyerSession } from '../session';
 
 export function ReviewPanel() {
   const { jobId } = useParams<{ jobId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { buyerId } = useBuyerSession();
   const [rejectReason, setRejectReason] = useState('');
   const [showRejectForm, setShowRejectForm] = useState(false);
 
@@ -20,14 +22,14 @@ export function ReviewPanel() {
   const job = data?.job;
 
   const acceptMutation = useMutation({
-    mutationFn: () => acceptMilestone(job!.ideaId, job!.jobId, 'demo-reviewer'),
+    mutationFn: () => acceptMilestone(job!.ideaId, job!.jobId, buyerId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['job', jobId] });
     },
   });
 
   const rejectMutation = useMutation({
-    mutationFn: () => rejectMilestone(job!.ideaId, job!.jobId, 'demo-reviewer', rejectReason || undefined),
+    mutationFn: () => rejectMilestone(job!.ideaId, job!.jobId, buyerId, rejectReason || undefined),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['job', jobId] });
       setShowRejectForm(false);

@@ -26,13 +26,17 @@ app.route('/v1/cannes/identity', identityRouter);
 app.get('/v1/cannes/integrations/status', () => new Response(JSON.stringify({
   world: {
     enforced: process.env.WORLD_ENFORCE_VERIFIED === '1',
-    mode: process.env.WORLD_ENFORCE_VERIFIED === '1' ? 'required' : 'demo-fallback',
+    mode: process.env.WORLD_APP_ID && process.env.WORLD_ACTION_ID ? 'idkit-cloud-verify' : 'demo-fallback',
   },
   zeroG: {
     mode: process.env.ZERO_G_WRITE_URL ? 'remote-writer' : 'local-dossier-fallback',
   },
   arc: {
-    mode: 'contract-ready-web-funding-demo',
+    mode: 'wallet-contract-funding',
+    chainId: Number(process.env.ESCROW_CHAIN_ID ?? 31337),
+    escrowAddress: process.env.ESCROW_ADDRESS ?? '0x5FbDB2315678afecb367f032d93F642f64180aa3',
+    usdcAddress: process.env.USDC_ADDRESS ?? '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
+    localFaucet: (process.env.LOCAL_USDC_FAUCET ?? '1') === '1',
   },
 }), { headers: { 'content-type': 'application/json' } }));
 

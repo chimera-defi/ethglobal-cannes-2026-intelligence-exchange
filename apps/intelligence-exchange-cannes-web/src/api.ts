@@ -36,6 +36,7 @@ export interface WorldVerificationResponse {
   verificationLevel: string | null;
   verified: boolean;
   enforced: boolean;
+  mode: string;
 }
 
 export interface IdeaDetailResponse {
@@ -119,7 +120,7 @@ export function getIntegrationStatus() {
   return get<{
     world: { enforced: boolean; mode: string };
     zeroG: { mode: string };
-    arc: { mode: string };
+    arc: { mode: string; chainId: number; escrowAddress: string; usdcAddress: string; localFaucet: boolean };
   }>('/integrations/status');
 }
 
