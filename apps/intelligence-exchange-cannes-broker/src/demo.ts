@@ -1,11 +1,14 @@
 import {
   artifactSubmissionInputSchema,
   demoSeed,
+  jobBoardItemSchema,
   makeInitialDemoState,
   milestoneSchema,
   scoreResultSchema,
+  workerRegistrationInputSchema,
   type DemoState,
   type IdeaSubmissionInput,
+  type JobBoardItem,
   type Milestone
 } from "@iex-cannes/shared";
 import { seededAccounts } from "./chain.js";
@@ -131,22 +134,79 @@ export function createIdeaAndBrief(input: IdeaSubmissionInput, state: DemoState)
   return state;
 }
 
-export function claimScaffoldMilestone(state: DemoState) {
+function findMilestone(state: DemoState, jobId: string) {
+  return state.brief?.milestones.find((item) => item.jobId === jobId) ?? null;
+}
+
+export function listJobBoard(state: DemoState): JobBoardItem[] {
+  return (
+    state.brief?.milestones.map((milestone) =>
+      jobBoardItemSchema.parse({
+        jobId: milestone.jobId,
+        title: milestone.title,
+        description: milestone.description,
+        milestoneType: milestone.milestoneType,
+        budgetUsd: milestone.budgetUsd,
+        requiredCapabilities: milestone.requiredCapabilities,
+        status: milestone.status,
+        workerId: milestone.workerId,
+        eligibleForWorker: milestone.requiredCapabilities.every((capability) =>
+          state.worker.capabilities.includes(capability)
+        )
+      })
+    ) ?? []
+  );
+}
+
+export function registerWorkerProfile(
+  state: DemoState,
+  payload: Parameters<typeof workerRegistrationInputSchema.parse>[0] | undefined
+) {
+  const input = workerRegistrationInputSchema.parse(payload ?? {
+    id: demoSeed.worker.id,
+    name: demoSeed.worker.name,
+    walletAddress: demoSeed.worker.walletAddress,
+    ensName: demoSeed.worker.ensName,
+    agentUri: demoSeed.worker.agentUri,
+    capabilities: demoSeed.worker.capabilities
+  });
+  state.worker = {
+    ...state.worker,
+    id: input.id,
+    name: input.name,
+    walletAddress: input.walletAddress,
+    ensName: input.ensName,
+    agentUri: input.agentUri,
+    capabilities: input.capabilities
+  };
+  state.activityLog.push(
+    `${state.worker.name} registered with capabilities: ${state.worker.capabilities.join(", ")}.`
+  );
+  return state.worker;
+}
+
+export function claimMilestone(state: DemoState, jobId: string) {
   if (!state.worker.verified) {
     throw new Error("Worker is not verified.");
   }
-  const milestone = state.brief?.milestones.find((item) => item.milestoneType === "scaffold");
+  const milestone = findMilestone(state, jobId);
   if (!milestone) {
-    throw new Error("Scaffold milestone is unavailable.");
+    throw new Error("Milestone is unavailable.");
   }
   if (milestone.status !== "queued") {
-    throw new Error("Scaffold milestone is not claimable.");
+    throw new Error("Milestone is not claimable.");
+  }
+  if (milestone.milestoneType !== "scaffold") {
+    throw new Error("Only scaffold milestones are worker-claimable in the Cannes MVP.");
+  }
+  if (!milestone.requiredCapabilities.every((capability) => state.worker.capabilities.includes(capability))) {
+    throw new Error("Worker capabilities do not match the milestone requirements.");
   }
   milestone.status = "claimed";
   milestone.workerId = state.worker.id;
   milestone.reservedOnchain = true;
   milestone.leaseExpiry = new Date(Date.now() + 20 * 60 * 1000).toISOString();
-  state.activityLog.push(`${state.worker.name} claimed scaffold milestone ${milestone.jobId}.`);
+  state.activityLog.push(`${state.worker.name} claimed milestone ${milestone.jobId}.`);
   return milestone;
 }
 
@@ -177,14 +237,15 @@ export function scoreSubmission(outputSummary: string) {
   });
 }
 
-export function submitScaffoldMilestone(
+export function submitMilestone(
   state: DemoState,
+  jobId: string,
   payload: Parameters<typeof artifactSubmissionInputSchema.parse>[0]
 ) {
   const parsed = artifactSubmissionInputSchema.parse(payload);
-  const milestone = state.brief?.milestones.find((item) => item.milestoneType === "scaffold");
+  const milestone = findMilestone(state, jobId);
   if (!milestone || milestone.status !== "claimed") {
-    throw new Error("No claimed scaffold milestone exists.");
+    throw new Error("No claimed milestone exists for submission.");
   }
   if (milestone.workerId !== parsed.workerId) {
     throw new Error("Only the lease holder can submit this milestone.");
@@ -211,11 +272,11 @@ export function submitScaffoldMilestone(
   return { milestone, result };
 }
 
-export function approveScaffold(state: DemoState) {
-  const milestone = state.brief?.milestones.find((item) => item.milestoneType === "scaffold");
+export function approveMilestone(state: DemoState, jobId: string) {
+  const milestone = findMilestone(state, jobId);
   const reviewMilestone = state.brief?.milestones.find((item) => item.milestoneType === "review");
   if (!milestone || milestone.status !== "submitted") {
-    throw new Error("Scaffold milestone is not pending approval.");
+    throw new Error("Milestone is not pending approval.");
   }
   milestone.status = "accepted";
   if (reviewMilestone && reviewMilestone.status === "queued") {
@@ -224,21 +285,21 @@ export function approveScaffold(state: DemoState) {
     reviewMilestone.traceSummary = "Human reviewer approved the scaffold, dossier, and release evidence.";
     reviewMilestone.artifactUri = "dossier://review";
   }
-  state.activityLog.push(`${state.reviewer.name} approved scaffold milestone ${milestone.jobId}.`);
+  state.activityLog.push(`${state.reviewer.name} approved milestone ${milestone.jobId}.`);
   return milestone;
 }
 
-export function refundScaffold(state: DemoState) {
-  const milestone = state.brief?.milestones.find((item) => item.milestoneType === "scaffold");
+export function refundMilestone(state: DemoState, jobId: string) {
+  const milestone = findMilestone(state, jobId);
   if (!milestone || !["claimed", "rework", "expired"].includes(milestone.status)) {
-    throw new Error("Scaffold milestone cannot be refunded from its current state.");
+    throw new Error("Milestone cannot be refunded from its current state.");
   }
   milestone.status = "refunded";
-  state.activityLog.push(`${state.poster.name} refunded scaffold milestone ${milestone.jobId}.`);
+  state.activityLog.push(`${state.poster.name} refunded milestone ${milestone.jobId}.`);
   return milestone;
 }
 
-export function resetDemoState(chainMode: "local" | "fork" | "testnet" = "local") {
+export function resetDemoState(chainMode: "local" | "fork" | "testnet" | "mainnet" = "local") {
   const state = makeInitialDemoState(chainMode);
   state.poster.walletAddress = seededAccounts.poster.address;
   state.worker.walletAddress = seededAccounts.worker.address;

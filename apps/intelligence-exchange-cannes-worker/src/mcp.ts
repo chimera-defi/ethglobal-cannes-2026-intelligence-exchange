@@ -2,12 +2,13 @@ import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
-  claimScaffold,
+  claimJob,
   fetchDemoState,
   getWorkerDefaults,
+  listJobs,
   registerWorker,
   sendWorkerHeartbeat,
-  submitScaffold
+  submitJob
 } from "./client.js";
 
 const server = new McpServer({
@@ -45,6 +46,13 @@ server.tool("register_worker", "Register the current worker runtime with the bro
   };
 });
 
+server.tool("list_open_jobs", "List the current Cannes job board and worker eligibility.", async () => {
+  const result = await listJobs();
+  return {
+    content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
+  };
+});
+
 server.tool("worker_heartbeat", "Send a worker heartbeat to stay visible to the broker.", async () => {
   const result = await sendWorkerHeartbeat();
   return {
@@ -53,13 +61,13 @@ server.tool("worker_heartbeat", "Send a worker heartbeat to stay visible to the 
 });
 
 server.tool(
-  "claim_scaffold",
-  "Claim the payout-bearing scaffold milestone for the current worker.",
+  "claim_job",
+  "Claim a payout-bearing job for the current worker.",
   {
     jobId: z.string().default(getWorkerDefaults().jobId)
   },
   async ({ jobId }) => {
-    const state = await claimScaffold(jobId);
+    const state = await claimJob(jobId);
     const scaffold = state.brief?.milestones.find((milestone) => milestone.jobId === jobId) ?? null;
     return {
       content: [{ type: "text", text: JSON.stringify(scaffold, null, 2) }]
@@ -68,8 +76,8 @@ server.tool(
 );
 
 server.tool(
-  "submit_scaffold",
-  "Submit scaffold output, trace, and a paid dependency event for review.",
+  "submit_job",
+  "Submit job output, trace, and a paid dependency event for review.",
   {
     jobId: z.string().default(getWorkerDefaults().jobId),
     workerId: z.string().default(getWorkerDefaults().workerId),
@@ -79,7 +87,7 @@ server.tool(
     outputSummary: z.string().min(20)
   },
   async (input) => {
-    const state = await submitScaffold(input);
+    const state = await submitJob(input);
     const scaffold = state.brief?.milestones.find((milestone) => milestone.jobId === input.jobId) ?? null;
     return {
       content: [{ type: "text", text: JSON.stringify(scaffold, null, 2) }]

@@ -27,7 +27,29 @@ export const actorSchema = z.object({
   walletAddress: z.string(),
   ensName: z.string().nullable(),
   agentId: z.number().nullable(),
-  agentUri: z.string().nullable()
+  agentUri: z.string().nullable(),
+  capabilities: z.array(z.string())
+});
+
+export const workerRegistrationInputSchema = z.object({
+  id: z.string().min(3),
+  name: z.string().min(3),
+  walletAddress: z.string().min(8),
+  ensName: z.string().nullable().default(null),
+  agentUri: z.string().nullable().default(null),
+  capabilities: z.array(z.string()).min(1)
+});
+
+export const jobBoardItemSchema = z.object({
+  jobId: z.string(),
+  title: z.string(),
+  description: z.string(),
+  milestoneType: z.enum(milestoneTypes),
+  budgetUsd: z.number().nonnegative(),
+  requiredCapabilities: z.array(z.string()).min(1),
+  status: milestoneStatusSchema,
+  workerId: z.string().nullable(),
+  eligibleForWorker: z.boolean()
 });
 
 export const ideaSubmissionInputSchema = z.object({
@@ -114,7 +136,7 @@ export const demoStateSchema = z.object({
   payout: payoutStateSchema,
   activityLog: z.array(z.string()),
   support: z.object({
-    chainMode: z.enum(["local", "fork", "testnet"]),
+    chainMode: z.enum(["local", "fork", "testnet", "mainnet"]),
     worldMode: verificationModeSchema,
     dossierMode: z.enum(["local-0g-mirror", "queued"]),
     targetStack: z.object({
@@ -130,8 +152,10 @@ export type BuildBrief = z.infer<typeof buildBriefSchema>;
 export type DemoState = z.infer<typeof demoStateSchema>;
 export type IdeaSubmission = z.infer<typeof ideaSubmissionSchema>;
 export type IdeaSubmissionInput = z.infer<typeof ideaSubmissionInputSchema>;
+export type JobBoardItem = z.infer<typeof jobBoardItemSchema>;
 export type Milestone = z.infer<typeof milestoneSchema>;
 export type ScoreResult = z.infer<typeof scoreResultSchema>;
+export type WorkerRegistrationInput = z.infer<typeof workerRegistrationInputSchema>;
 
 export const demoSeed = {
   poster: {
@@ -143,7 +167,8 @@ export const demoSeed = {
     walletAddress: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
     ensName: "poster-cannes.eth",
     agentId: null,
-    agentUri: null
+    agentUri: null,
+    capabilities: []
   },
   worker: {
     id: "worker-cannes",
@@ -154,7 +179,8 @@ export const demoSeed = {
     walletAddress: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
     ensName: "builder-one.eth",
     agentId: null,
-    agentUri: null
+    agentUri: null,
+    capabilities: ["typescript", "frontend", "backend", "contracts"]
   },
   reviewer: {
     id: "reviewer-cannes",
@@ -165,7 +191,8 @@ export const demoSeed = {
     walletAddress: "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
     ensName: "reviewer-cannes.eth",
     agentId: null,
-    agentUri: null
+    agentUri: null,
+    capabilities: ["review", "qa"]
   },
   ideaInput: {
     title: "Cannes-ready agentic marketplace demo",
@@ -181,7 +208,7 @@ export const demoSeed = {
   ]
 } as const;
 
-export function makeInitialDemoState(chainMode: "local" | "fork" | "testnet" = "local"): DemoState {
+export function makeInitialDemoState(chainMode: "local" | "fork" | "testnet" | "mainnet" = "local"): DemoState {
   return demoStateSchema.parse({
     poster: demoSeed.poster,
     worker: demoSeed.worker,

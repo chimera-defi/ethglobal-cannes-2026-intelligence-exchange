@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 
-const base = "http://127.0.0.1:8787";
 const filter = process.argv.includes("--filter")
   ? process.argv[process.argv.indexOf("--filter") + 1]
   : "iex-cannes:release";
+const portSeed = Number(process.env.ACCEPTANCE_PORT_SEED ?? String(Date.now() % 1000));
+const apiPort = Number(process.env.PORT ?? 8700 + (portSeed % 200));
+const chainPort = Number(process.env.CHAIN_PORT ?? 9500 + (portSeed % 200));
+const base = `http://127.0.0.1:${apiPort}`;
 
 async function waitFor(url: string) {
   for (let attempt = 0; attempt < 60; attempt += 1) {
@@ -19,10 +22,14 @@ async function waitFor(url: string) {
   throw new Error(`Timed out waiting for ${url}`);
 }
 
-function start(name: string, command: string, args: string[]) {
+function start(name: string, command: string, args: string[], extraEnv: Record<string, string> = {}) {
   const child = spawn(command, args, {
     cwd: process.cwd(),
-    stdio: "inherit"
+    stdio: "inherit",
+    env: {
+      ...process.env,
+      ...extraEnv
+    }
   });
   child.on("exit", (code) => {
     if (code && code !== 0) {
@@ -47,8 +54,14 @@ async function post(path: string, body?: unknown) {
 }
 
 void (async () => {
-  const chain = start("chain", "bun", ["run", "dev:chain"]);
-  const api = start("api", "bun", ["run", "--filter", "intelligence-exchange-cannes-broker", "dev"]);
+  const chain = start("chain", "bun", ["run", "dev:chain"], {
+    CHAIN_PORT: String(chainPort)
+  });
+  const api = start("api", "bun", ["run", "--filter", "intelligence-exchange-cannes-broker", "dev"], {
+    PORT: String(apiPort),
+    RPC_URL: `http://127.0.0.1:${chainPort}`,
+    CHAIN_PORT: String(chainPort)
+  });
 
   try {
     await waitFor(`${base}/health`);
@@ -77,7 +90,16 @@ void (async () => {
     }
 
     await post("/v1/cannes/workers/register");
-    await post("/api/milestones/idea-cannes-001-scaffold/claim");
+    const jobBoard = await fetch(`${base}/v1/cannes/jobs`).then((res) => res.json());
+
+    if (filter === "iex-cannes:list-jobs") {
+      assert.equal(Array.isArray(jobBoard.jobs), true);
+      assert.equal(jobBoard.jobs.some((item: any) => item.jobId === "idea-cannes-001-scaffold"), true);
+      console.log("list-jobs passed");
+      return;
+    }
+
+    await post("/v1/cannes/jobs/idea-cannes-001-scaffold/claim");
 
     if (filter === "iex-cannes:claim") {
       const state = await fetch(`${base}/api/demo-state`).then((res) => res.json());
@@ -88,7 +110,15 @@ void (async () => {
       return;
     }
 
-    await post("/api/milestones/idea-cannes-001-scaffold/submit", {
+    if (filter === "iex-cannes:refund") {
+      const refunded = await post("/v1/cannes/jobs/idea-cannes-001-scaffold/refund");
+      assert.equal(refunded.payout.settlementStatus, "refunded");
+      assert.equal(refunded.payout.refundedAmountUsd, 400);
+      console.log("refund passed");
+      return;
+    }
+
+    await post("/v1/cannes/jobs/idea-cannes-001-scaffold/submit", {
       workerId: "worker-cannes",
       artifactUri: "https://example.com/cannes-demo-screenshot",
       traceSummary:
@@ -106,7 +136,7 @@ void (async () => {
       return;
     }
 
-    const released = await post("/api/milestones/idea-cannes-001-scaffold/approve");
+    const released = await post("/v1/cannes/jobs/idea-cannes-001-scaffold/approve");
     assert.equal(released.payout.settlementStatus, "released");
     assert.equal(released.payout.releasedAmountUsd, 400);
     console.log("release passed");

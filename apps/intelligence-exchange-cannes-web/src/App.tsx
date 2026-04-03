@@ -379,13 +379,14 @@ export function App() {
               </div>
             </div>
             <p className="muted">
-              The repo now includes a worker runtime package that can claim and submit the scaffold
-              milestone through the broker without clicking the UI.
+              The repo now includes a Bun worker runtime and MCP bridge so external agents can
+              discover work, claim jobs, and submit results through the broker without clicking the UI.
             </p>
             <div className="rubric">
-              <h3>Command</h3>
+              <h3>Commands</h3>
               <ul>
-                <li>`pnpm --filter intelligence-exchange-cannes-worker claim-and-submit`</li>
+                <li>`bun run --filter intelligence-exchange-cannes-worker claim-and-submit`</li>
+                <li>`bun run --filter intelligence-exchange-cannes-worker mcp`</li>
               </ul>
             </div>
           </article>

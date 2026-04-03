@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import Fastify from "fastify";
+import Fastify, { type FastifyRequest } from "fastify";
 import cors from "@fastify/cors";
 import sensible from "@fastify/sensible";
 import { ideaSubmissionInputSchema, type DemoState } from "@iex-cannes/shared";
@@ -13,13 +13,15 @@ import {
   reserveMilestoneEscrow
 } from "./chain.js";
 import {
-  approveScaffold,
+  approveMilestone,
   buildAgentRegistrationUri,
-  claimScaffoldMilestone,
+  claimMilestone,
   createIdeaAndBrief,
-  refundScaffold,
+  listJobBoard,
+  refundMilestone,
+  registerWorkerProfile,
   resetDemoState,
-  submitScaffoldMilestone
+  submitMilestone
 } from "./demo.js";
 import { brokerRuntimePaths } from "./runtime-paths.js";
 
@@ -29,7 +31,13 @@ await app.register(sensible);
 
 const { dataDir, dossierDir, statePath } = brokerRuntimePaths;
 const chainMode =
-  process.env.CHAIN_MODE === "fork" ? "fork" : process.env.CHAIN_MODE === "testnet" ? "testnet" : "local";
+  process.env.CHAIN_MODE === "fork"
+    ? "fork"
+    : process.env.CHAIN_MODE === "testnet"
+      ? "testnet"
+      : process.env.CHAIN_MODE === "mainnet"
+        ? "mainnet"
+        : "local";
 const appBaseUrl = process.env.APP_BASE_URL ?? "http://127.0.0.1:4173";
 
 async function ensureState(): Promise<DemoState> {
@@ -73,6 +81,13 @@ async function writeDossier(state: DemoState) {
 
 app.get("/health", async () => ({ ok: true }));
 app.get("/api/demo-state", async () => ensureState());
+app.get("/v1/cannes/jobs", async () => {
+  const state = await ensureState();
+  return {
+    workerId: state.worker.id,
+    jobs: listJobBoard(state)
+  };
+});
 
 app.post("/api/demo/reset", async () => {
   const next = resetDemoState(chainMode);
@@ -80,19 +95,26 @@ app.post("/api/demo/reset", async () => {
   return next;
 });
 
-app.post("/v1/cannes/workers/register", async () => {
+app.post("/v1/cannes/workers/register", async (request) => {
   const state = await ensureState();
-  state.activityLog.push(`${state.worker.name} sent worker runtime registration heartbeat.`);
+  registerWorkerProfile(state, request.body ?? undefined);
   await persistState(state);
   return {
     workerId: state.worker.id,
     verified: state.worker.verified,
-    capabilities: state.brief?.milestones.find((item) => item.milestoneType === "scaffold")?.requiredCapabilities ?? []
+    capabilities: state.worker.capabilities
   };
 });
 
-app.post("/v1/cannes/workers/heartbeat", async () => {
+app.post("/v1/cannes/workers/heartbeat", async (request) => {
   const state = await ensureState();
+  const requestedWorkerId =
+    typeof request.body === "object" && request.body && "workerId" in request.body
+      ? String((request.body as Record<string, unknown>).workerId)
+      : state.worker.id;
+  if (requestedWorkerId !== state.worker.id) {
+    throw app.httpErrors.conflict("Worker heartbeat does not match the active registered worker.");
+  }
   state.activityLog.push(`${state.worker.name} heartbeat accepted by broker.`);
   await persistState(state);
   return { ok: true, workerId: state.worker.id };
@@ -147,13 +169,19 @@ app.post("/api/ideas/fund", async (request) => {
   return next;
 });
 
-app.post("/api/milestones/:jobId/claim", async (request) => {
+async function claimJob(request: FastifyRequest<{ Params: { jobId: string } }>) {
   const state = await ensureState();
-  const milestone = claimScaffoldMilestone(state);
+  const { jobId } = request.params;
+  const milestone = claimMilestone(state, jobId);
   if (!state.payout.contractAddress) {
     throw app.httpErrors.failedDependency("Escrow contract is not initialized.");
   }
-  const reserve = await reserveMilestoneEscrow(state.payout.contractAddress as `0x${string}`, milestone.jobId, milestone.budgetUsd);
+  const reserve = await reserveMilestoneEscrow(
+    state.payout.contractAddress as `0x${string}`,
+    milestone.jobId,
+    milestone.budgetUsd,
+    state.worker.walletAddress as `0x${string}`
+  );
   state.payout.reservedAmountUsd += milestone.budgetUsd;
   state.payout.settlementStatus = "reserved";
   state.payout.reserveTxHashes.push(reserve.reserveTxHash);
@@ -161,19 +189,25 @@ app.post("/api/milestones/:jobId/claim", async (request) => {
   await writeDossier(state);
   await persistState(state);
   return state;
-});
+}
 
-app.post("/api/milestones/:jobId/submit", async (request) => {
+app.post("/v1/cannes/jobs/:jobId/claim", claimJob);
+app.post("/api/milestones/:jobId/claim", claimJob);
+
+async function submitJob(request: FastifyRequest<{ Params: { jobId: string } }>) {
   const state = await ensureState();
-  submitScaffoldMilestone(state, request.body ?? {});
+  submitMilestone(state, request.params.jobId, request.body ?? {});
   await writeDossier(state);
   await persistState(state);
   return state;
-});
+}
 
-app.post("/api/milestones/:jobId/approve", async () => {
+app.post("/v1/cannes/jobs/:jobId/submit", submitJob);
+app.post("/api/milestones/:jobId/submit", submitJob);
+
+async function approveJob(request: FastifyRequest<{ Params: { jobId: string } }>) {
   const state = await ensureState();
-  const approved = approveScaffold(state);
+  const approved = approveMilestone(state, request.params.jobId);
   if (!state.payout.contractAddress) {
     throw app.httpErrors.failedDependency("Escrow contract is not initialized.");
   }
@@ -187,11 +221,14 @@ app.post("/api/milestones/:jobId/approve", async () => {
   await writeDossier(state);
   await persistState(state);
   return state;
-});
+}
 
-app.post("/api/milestones/:jobId/refund", async () => {
+app.post("/v1/cannes/jobs/:jobId/approve", approveJob);
+app.post("/api/milestones/:jobId/approve", approveJob);
+
+async function refundJob(request: FastifyRequest<{ Params: { jobId: string } }>) {
   const state = await ensureState();
-  const refunded = refundScaffold(state);
+  const refunded = refundMilestone(state, request.params.jobId);
   if (!state.payout.contractAddress) {
     throw app.httpErrors.failedDependency("Escrow contract is not initialized.");
   }
@@ -204,7 +241,10 @@ app.post("/api/milestones/:jobId/refund", async () => {
   await writeDossier(state);
   await persistState(state);
   return state;
-});
+}
+
+app.post("/v1/cannes/jobs/:jobId/refund", refundJob);
+app.post("/api/milestones/:jobId/refund", refundJob);
 
 const port = Number(process.env.PORT ?? "8787");
 await app.listen({ host: "0.0.0.0", port });

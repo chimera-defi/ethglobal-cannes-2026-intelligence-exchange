@@ -1,4 +1,4 @@
-import { demoSeed, type DemoState } from "@iex-cannes/shared";
+import { demoSeed, type DemoState, type JobBoardItem, type WorkerRegistrationInput } from "@iex-cannes/shared";
 
 const apiBase = process.env.API_BASE_URL ?? "http://127.0.0.1:8787";
 const scaffoldJobId = "idea-cannes-001-scaffold";
@@ -30,24 +30,39 @@ export async function fetchDemoState() {
   return request<DemoState>("/api/demo-state");
 }
 
-export async function registerWorker() {
+export async function listJobs() {
+  return request<{ workerId: string; jobs: JobBoardItem[] }>("/v1/cannes/jobs");
+}
+
+export async function registerWorker(input?: Partial<WorkerRegistrationInput>) {
   return request<{ workerId: string; verified: boolean; capabilities: string[] }>(
     "/v1/cannes/workers/register",
-    { method: "POST" }
+    {
+      method: "POST",
+      body: JSON.stringify({
+        id: input?.id ?? demoSeed.worker.id,
+        name: input?.name ?? demoSeed.worker.name,
+        walletAddress: input?.walletAddress ?? demoSeed.worker.walletAddress,
+        ensName: input?.ensName ?? demoSeed.worker.ensName,
+        agentUri: input?.agentUri ?? demoSeed.worker.agentUri,
+        capabilities: input?.capabilities ?? demoSeed.worker.capabilities
+      })
+    }
   );
 }
 
-export async function sendWorkerHeartbeat() {
+export async function sendWorkerHeartbeat(workerId = getWorkerDefaults().workerId) {
   return request<{ ok: true; workerId: string }>("/v1/cannes/workers/heartbeat", {
-    method: "POST"
+    method: "POST",
+    body: JSON.stringify({ workerId })
   });
 }
 
-export async function claimScaffold(jobId = scaffoldJobId) {
-  return request<DemoState>(`/api/milestones/${jobId}/claim`, { method: "POST" });
+export async function claimJob(jobId = scaffoldJobId) {
+  return request<DemoState>(`/v1/cannes/jobs/${jobId}/claim`, { method: "POST" });
 }
 
-export async function submitScaffold(input?: {
+export async function submitJob(input?: {
   jobId?: string;
   workerId?: string;
   artifactUri?: string;
@@ -56,7 +71,7 @@ export async function submitScaffold(input?: {
   outputSummary?: string;
 }) {
   const defaults = getWorkerDefaults();
-  return request<DemoState>(`/api/milestones/${input?.jobId ?? defaults.jobId}/submit`, {
+  return request<DemoState>(`/v1/cannes/jobs/${input?.jobId ?? defaults.jobId}/submit`, {
     method: "POST",
     body: JSON.stringify({
       workerId: input?.workerId ?? defaults.workerId,
@@ -75,6 +90,6 @@ export async function submitScaffold(input?: {
 export async function claimAndSubmitScaffold() {
   await registerWorker();
   await sendWorkerHeartbeat();
-  await claimScaffold();
-  return submitScaffold();
+  await claimJob();
+  return submitJob();
 }

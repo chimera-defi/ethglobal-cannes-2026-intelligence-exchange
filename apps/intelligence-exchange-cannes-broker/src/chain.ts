@@ -12,7 +12,7 @@ import {
   parseEther,
   stringToHex
 } from "viem";
-import { mnemonicToAccount } from "viem/accounts";
+import { mnemonicToAccount, privateKeyToAccount } from "viem/accounts";
 
 const rootDir = path.resolve(import.meta.dirname, "../../..");
 const contractsDir = path.join(rootDir, "contracts");
@@ -20,8 +20,12 @@ const contractsDir = path.join(rootDir, "contracts");
 const mnemonic =
   process.env.GANACHE_MNEMONIC ??
   "test test test test test test test test test test test junk";
-const posterAccount = mnemonicToAccount(mnemonic, { addressIndex: 0 });
-const workerAccount = mnemonicToAccount(mnemonic, { addressIndex: 1 });
+const posterAccount = process.env.POSTER_PRIVATE_KEY
+  ? privateKeyToAccount(process.env.POSTER_PRIVATE_KEY as `0x${string}`)
+  : mnemonicToAccount(mnemonic, { addressIndex: 0 });
+const workerAccount = process.env.WORKER_PRIVATE_KEY
+  ? privateKeyToAccount(process.env.WORKER_PRIVATE_KEY as `0x${string}`)
+  : mnemonicToAccount(mnemonic, { addressIndex: 1 });
 
 export const seededAccounts = {
   poster: {
@@ -44,15 +48,27 @@ type Artifact = {
 function getChainConfig(): {
   chain: ReturnType<typeof defineChain>;
   chainId: number;
-  chainMode: "local" | "fork" | "testnet";
+  chainMode: "local" | "fork" | "testnet" | "mainnet";
   rpcUrl: string;
 } {
   const chainMode =
-    process.env.CHAIN_MODE === "fork" ? "fork" : process.env.CHAIN_MODE === "testnet" ? "testnet" : "local";
+    process.env.CHAIN_MODE === "fork"
+      ? "fork"
+      : process.env.CHAIN_MODE === "testnet"
+        ? "testnet"
+        : process.env.CHAIN_MODE === "mainnet"
+          ? "mainnet"
+          : "local";
   const rpcUrl =
     process.env.RPC_URL ??
-    (chainMode === "testnet" ? "https://rpc.testnet.arc.network" : "http://127.0.0.1:8545");
-  const chainId = Number(process.env.CHAIN_ID ?? (chainMode === "testnet" ? "5042002" : "31337"));
+    (chainMode === "testnet"
+      ? "https://rpc.testnet.arc.network"
+      : chainMode === "mainnet"
+        ? "https://rpc.arc.network"
+        : "http://127.0.0.1:8545");
+  const chainId = Number(
+    process.env.CHAIN_ID ?? (chainMode === "testnet" ? "5042002" : chainMode === "mainnet" ? "360" : "31337")
+  );
 
   const chain = defineChain({
     id: chainId,
@@ -75,7 +91,7 @@ async function ensureArtifacts() {
       "utf8"
     );
   } catch {
-    execFileSync("pnpm", ["contracts:build"], {
+    execFileSync("bun", ["run", "contracts:build"], {
       cwd: rootDir,
       stdio: "inherit"
     });
@@ -219,7 +235,8 @@ export async function deployAndFundEscrow(budgetUsd: number) {
 export async function reserveMilestoneEscrow(
   contractAddress: `0x${string}`,
   jobId: string,
-  budgetUsd: number
+  budgetUsd: number,
+  workerAddress: `0x${string}`
 ) {
   const { chain, publicClient, posterWalletClient } = createClients();
   const artifact = await loadArtifact("CannesMilestoneEscrow");
@@ -228,7 +245,7 @@ export async function reserveMilestoneEscrow(
     data: encodeFunctionData({
       abi: artifact.abi as any,
       functionName: "reserveMilestone",
-      args: [milestoneKey(jobId), seededAccounts.worker.address, BigInt(budgetUsd)]
+      args: [milestoneKey(jobId), workerAddress, BigInt(budgetUsd)]
     }),
     account: seededAccounts.poster.account,
     chain

@@ -83,9 +83,12 @@ bun run --filter intelligence-exchange-cannes-worker mcp
 It exposes Bun-run MCP tools for:
 - fetching demo state
 - registering a worker
+- listing open jobs
 - sending a heartbeat
-- claiming the payout-bearing scaffold milestone
+- claiming a payout-bearing job
 - submitting output for review
+
+Operator handoff is documented in `docs/agent-operators.md`.
 
 ## Contracts
 
