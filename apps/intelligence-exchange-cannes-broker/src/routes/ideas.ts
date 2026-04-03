@@ -2,13 +2,20 @@ import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { eq, desc } from 'drizzle-orm';
 import { db } from '../db/client';
-import { ideas, briefs, jobs, milestones } from '../db/schema';
+import { ideas, briefs, jobs, milestones, escrowReleases } from '../db/schema';
 import { createIdea, generateBrief, acceptJob, rejectJob } from '../services/jobService';
 import { JobCreateRequestSchema } from 'intelligence-exchange-cannes-shared';
 import { z } from 'zod';
 import { assertWorldVerified } from '../services/identityService';
+import { randomUUID } from 'node:crypto';
 
 export const ideasRouter = new Hono();
+const SettlementRecordSchema = z.object({
+  txHash: z.string(),
+  payer: z.string(),
+  payee: z.string(),
+  amountUsd: z.number().positive(),
+});
 
 // GET /v1/cannes/ideas — list all ideas (most recent first)
 ideasRouter.get('/', async (c) => {
@@ -87,11 +94,29 @@ ideasRouter.post('/:ideaId/fund', zValidator('json', z.object({
 ideasRouter.post('/:ideaId/accept', zValidator('json', z.object({
   jobId: z.string(),
   reviewerId: z.string(),
+  settlement: SettlementRecordSchema.optional(),
 })), async (c) => {
-  const { jobId, reviewerId } = c.req.valid('json');
+  const { jobId, reviewerId, settlement } = c.req.valid('json');
   try {
     await assertWorldVerified('buyer', reviewerId);
     const result = await acceptJob(jobId, reviewerId);
+    if (settlement) {
+      const [job] = await db.select().from(jobs).where(eq(jobs.jobId, jobId));
+      if (job) {
+        await db.insert(escrowReleases).values({
+          releaseId: randomUUID(),
+          jobId,
+          ideaId: job.ideaId,
+          milestoneId: job.milestoneId,
+          payer: settlement.payer,
+          payee: settlement.payee,
+          amountUsd: settlement.amountUsd.toFixed(2),
+          txHash: settlement.txHash,
+          status: 'confirmed',
+          releasedAt: new Date(),
+        });
+      }
+    }
     return c.json(result);
   } catch (err: unknown) {
     const status = (err as { status?: number }).status ?? 500;
@@ -117,11 +142,29 @@ ideasRouter.post('/:ideaId/reject', zValidator('json', z.object({
   jobId: z.string(),
   reviewerId: z.string(),
   reason: z.string().optional(),
+  settlement: SettlementRecordSchema.optional(),
 })), async (c) => {
-  const { jobId, reviewerId, reason } = c.req.valid('json');
+  const { jobId, reviewerId, reason, settlement } = c.req.valid('json');
   try {
     await assertWorldVerified('buyer', reviewerId);
     const result = await rejectJob(jobId, reviewerId, reason);
+    if (settlement) {
+      const [job] = await db.select().from(jobs).where(eq(jobs.jobId, jobId));
+      if (job) {
+        await db.insert(escrowReleases).values({
+          releaseId: randomUUID(),
+          jobId,
+          ideaId: job.ideaId,
+          milestoneId: job.milestoneId,
+          payer: settlement.payer,
+          payee: settlement.payee,
+          amountUsd: settlement.amountUsd.toFixed(2),
+          txHash: settlement.txHash,
+          status: 'confirmed',
+          releasedAt: new Date(),
+        });
+      }
+    }
     return c.json(result);
   } catch (err: unknown) {
     const status = (err as { status?: number }).status ?? 500;

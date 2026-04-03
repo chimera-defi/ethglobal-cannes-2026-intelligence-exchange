@@ -114,7 +114,7 @@ pnpm --filter intelligence-exchange-cannes-contracts deploy:testnet
 
 ## Sponsor Honesty
 
-- Arc: local wallet funding is now live against the deployed escrow + mock USDC. Review-time reserve/release is still not driven by wallet transactions yet.
+- Arc: local wallet funding and buyer-signed review settlement are now live against the deployed escrow + mock USDC. Acceptance signs reserve/release when needed; rework signs refund when a milestone was already reserved.
 - World: the broker now stores verification records and can enforce them, and the web flow can use the real IDKit modal when `VITE_WORLD_APP_ID` and `VITE_WORLD_ACTION_ID` are configured. Without those credentials it falls back to demo mode.
 - 0G: the broker now owns dossier writing and can POST to a configured remote writer, but without `ZERO_G_WRITE_URL` it falls back to local dossier files
 

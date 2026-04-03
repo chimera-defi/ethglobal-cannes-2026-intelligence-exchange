@@ -14,6 +14,7 @@ Branch baseline: `main` after PR 3 merge, continued on `codex/main-pr3-hardening
 - Added broker-owned World verification records and dossier writing rails so sponsor integrations now have real ownership boundaries.
 - Added local chain lifecycle scripts so the demo bootstrap now includes Anvil + contract deploy.
 - Replaced the web funding stub with a live wallet-backed escrow funding path for local/testnet configuration.
+- Wired buyer review actions to the escrow contract so local review now signs reserve/release or refund from the connected wallet before the broker records the outcome.
 - Verified:
   - `pnpm check`
   - `pnpm demo:bootstrap`
@@ -40,12 +41,12 @@ Branch baseline: `main` after PR 3 merge, continued on `codex/main-pr3-hardening
   - `docs/screenshots/jobs-board.png`
   - `docs/screenshots/buyer-review-mobile.png`
 - Wallet connection is now wired into the web shell via RainbowKit/wagmi, and the broker exposes `/v1/cannes/integrations/status`.
+- Review payloads now carry settlement metadata back to the broker, and job detail includes the latest settlement record for UI/status display.
 
 ## Pass 3: Demo Honesty, Edge Cases, And Slop Removal
 
 - README explicitly labels what is still simulated:
   - World proof generation in the UI when no World credentials are configured
-  - review-time onchain reserve/release
   - 0G remote write unless `ZERO_G_WRITE_URL` is configured
 - Prize mapping was corrected to match the actual integration depth:
   - World ID 4.0 is the real current World target
@@ -56,6 +57,5 @@ Branch baseline: `main` after PR 3 merge, continued on `codex/main-pr3-hardening
   - human review is required before payout
   - this is not an open autonomous onchain labor market
 - Remaining honest gaps:
-  - review-time settlement is still offchain broker state, not a buyer-signed release transaction
   - World verification is still demo fallback unless `WORLD_APP_ID` / `WORLD_ACTION_ID` and `VITE_WORLD_*` are configured
   - 0G still needs a real remote writer target configured in deployment

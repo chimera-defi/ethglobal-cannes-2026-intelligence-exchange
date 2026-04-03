@@ -58,6 +58,7 @@ export interface IdeaDetailResponse {
   } | null;
   jobs: Array<{
     jobId: string;
+    milestoneId: string;
     milestoneType: string;
     status: string;
     budgetUsd: string;
@@ -184,6 +185,7 @@ export async function getBuyerWorkspace(posterId: string) {
 export interface JobResponse {
   job: {
     jobId: string;
+    milestoneId: string;
     milestoneType: string;
     status: string;
     budgetUsd: string;
@@ -204,6 +206,20 @@ export interface JobResponse {
     traceUri?: string | null;
     summary?: string | null;
     submittedAt: string;
+    agentMetadata?: {
+      agentType?: string;
+      agentVersion?: string;
+      operatorAddress?: string;
+    } | null;
+  } | null;
+  settlement?: {
+    releaseId: string;
+    txHash?: string | null;
+    status: string;
+    payee: string;
+    payer: string;
+    amountUsd: string;
+    releasedAt?: string | null;
   } | null;
 }
 
@@ -227,10 +243,31 @@ export function getJobs(status = 'queued') {
 
 // ─── Review ───────────────────────────────────────────────────────���────────
 
-export function acceptMilestone(ideaId: string, jobId: string, reviewerId: string) {
-  return post<{ accepted: boolean }>(`/ideas/${ideaId}/accept`, { jobId, reviewerId });
+export function acceptMilestone(
+  ideaId: string,
+  jobId: string,
+  reviewerId: string,
+  settlement?: {
+    txHash: string;
+    payer: string;
+    payee: string;
+    amountUsd: number;
+  },
+) {
+  return post<{ accepted: boolean; dossierUri?: string }>(`/ideas/${ideaId}/accept`, { jobId, reviewerId, settlement });
 }
 
-export function rejectMilestone(ideaId: string, jobId: string, reviewerId: string, reason?: string) {
-  return post<{ rework: boolean }>(`/ideas/${ideaId}/reject`, { jobId, reviewerId, reason });
+export function rejectMilestone(
+  ideaId: string,
+  jobId: string,
+  reviewerId: string,
+  reason?: string,
+  settlement?: {
+    txHash: string;
+    payer: string;
+    payee: string;
+    amountUsd: number;
+  },
+) {
+  return post<{ rework: boolean }>(`/ideas/${ideaId}/reject`, { jobId, reviewerId, reason, settlement });
 }

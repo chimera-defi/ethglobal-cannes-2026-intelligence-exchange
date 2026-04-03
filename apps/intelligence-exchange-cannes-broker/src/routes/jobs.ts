@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { desc, eq } from 'drizzle-orm';
 import { db } from '../db/client';
-import { jobs, milestones, briefs, submissions, ideas } from '../db/schema';
+import { jobs, milestones, briefs, submissions, ideas, escrowReleases } from '../db/schema';
 import { claimJob, submitJob } from '../services/jobService';
 import { JobClaimRequestSchema, JobResultSubmitRequestSchema } from 'intelligence-exchange-cannes-shared';
 import { MILESTONE_ORDER } from 'intelligence-exchange-cannes-shared';
@@ -25,7 +25,10 @@ jobsRouter.get('/:jobId', async (c) => {
     .where(eq(submissions.jobId, jobId))
     .orderBy(desc(submissions.submittedAt));
   const [idea] = await db.select().from(ideas).where(eq(ideas.ideaId, job.ideaId));
-  return c.json({ job, submission: submission ?? null, idea: idea ?? null });
+  const [settlement] = await db.select().from(escrowReleases)
+    .where(eq(escrowReleases.jobId, jobId))
+    .orderBy(desc(escrowReleases.createdAt));
+  return c.json({ job, submission: submission ?? null, idea: idea ?? null, settlement: settlement ?? null });
 });
 
 // GET /v1/cannes/jobs/:jobId/skill.md — serve skill.md task file for agents
