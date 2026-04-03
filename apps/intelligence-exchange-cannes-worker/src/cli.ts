@@ -47,6 +47,29 @@ async function brokerGet(path: string) {
 // ─── Commands ────────────────────────────────────────────────────────────────
 
 program
+  .command('verify')
+  .description('Register a worker operator as World-verified with the broker')
+  .option('--worker-id <id>', 'Worker/agent ID', WORKER_ID)
+  .option('--wallet-address <addr>', 'Operator wallet address')
+  .action(async (opts) => {
+    const nullifierHash = '0x' + Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+    const result = await brokerPost('/v1/cannes/identity/world/verify', {
+      subjectType: 'worker',
+      subjectId: opts.workerId,
+      walletAddress: opts.walletAddress,
+      worldIdProof: {
+        nullifierHash,
+        proof: '0xdemo-proof',
+        merkleRoot: '0xdemo-root',
+        verificationLevel: 'device',
+      },
+    }) as { subjectId: string; verified: boolean; nullifierHash: string };
+
+    console.log(`✓ Worker verified: ${result.subjectId}`);
+    console.log(`  Nullifier: ${result.nullifierHash}`);
+  });
+
+program
   .name('iex-bridge')
   .description('Intelligence Exchange agent bridge — claim and submit milestone jobs')
   .version('0.1.0');

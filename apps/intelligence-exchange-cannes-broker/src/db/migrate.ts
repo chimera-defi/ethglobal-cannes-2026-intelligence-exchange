@@ -116,6 +116,19 @@ export async function migrate() {
   `;
 
   await sql`
+    CREATE TABLE IF NOT EXISTS world_verifications (
+      verification_id TEXT PRIMARY KEY,
+      subject_type TEXT NOT NULL,
+      subject_id TEXT NOT NULL,
+      wallet_address TEXT,
+      nullifier_hash TEXT NOT NULL UNIQUE,
+      verification_level TEXT,
+      provider TEXT NOT NULL DEFAULT 'world',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+
+  await sql`
     CREATE TABLE IF NOT EXISTS escrow_releases (
       release_id TEXT PRIMARY KEY,
       job_id TEXT NOT NULL REFERENCES jobs(job_id),

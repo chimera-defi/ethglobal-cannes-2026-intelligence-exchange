@@ -28,6 +28,16 @@ export interface IdeaResponse {
   worldIdVerified: boolean;
 }
 
+export interface WorldVerificationResponse {
+  subjectType: 'buyer' | 'worker';
+  subjectId: string;
+  walletAddress: string | null;
+  nullifierHash: string | null;
+  verificationLevel: string | null;
+  verified: boolean;
+  enforced: boolean;
+}
+
 export interface IdeaDetailResponse {
   idea: {
     ideaId: string;
@@ -89,6 +99,28 @@ export function createIdea(body: {
   worldIdProof?: { nullifierHash: string; proof: string; merkleRoot: string; verificationLevel: string };
 }) {
   return post<IdeaResponse>('/ideas', body);
+}
+
+export function verifyWorldIdentity(body: {
+  subjectType: 'buyer' | 'worker';
+  subjectId: string;
+  walletAddress?: string;
+  worldIdProof: { nullifierHash: string; proof: string; merkleRoot: string; verificationLevel: string };
+}) {
+  return post<WorldVerificationResponse>('/identity/world/verify', body);
+}
+
+export function getWorldIdentityStatus(subjectType: 'buyer' | 'worker', subjectId: string) {
+  const qs = new URLSearchParams({ subjectType, subjectId }).toString();
+  return get<WorldVerificationResponse>(`/identity/world/status?${qs}`);
+}
+
+export function getIntegrationStatus() {
+  return get<{
+    world: { enforced: boolean; mode: string };
+    zeroG: { mode: string };
+    arc: { mode: string };
+  }>('/integrations/status');
 }
 
 export function fundIdea(ideaId: string, txHash: string, amountUsd: number) {

@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { createIdea, fundIdea, planIdea } from '../api';
+import { createIdea, fundIdea, planIdea, verifyWorldIdentity, getIntegrationStatus } from '../api';
 import { useBuyerSession } from '../session';
+import { useQuery } from '@tanstack/react-query';
 
 type Step = 'form' | 'world-verify' | 'fund' | 'funding' | 'planning' | 'done' | 'error';
 
 export function IdeaSubmission() {
   const navigate = useNavigate();
-  const { buyerId } = useBuyerSession();
+  const { buyerId, connectedAddress } = useBuyerSession();
   const [step, setStep] = useState<Step>('form');
   const [error, setError] = useState<string | null>(null);
   const [ideaId, setIdeaId] = useState<string | null>(null);
@@ -22,10 +23,25 @@ export function IdeaSubmission() {
   // Demo: simulate World ID verification (in production, use @worldcoin/idkit-core)
   const [worldVerified, setWorldVerified] = useState(false);
   const [nullifierHash, setNullifierHash] = useState<string | null>(null);
+  const { data: integrationStatus } = useQuery({
+    queryKey: ['integration-status'],
+    queryFn: getIntegrationStatus,
+    staleTime: 30_000,
+  });
 
   async function handleWorldVerify() {
-    // Demo: use a pre-seeded nullifier hash (represents "verified human")
     const demoNullifierHash = '0x' + Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+    await verifyWorldIdentity({
+      subjectType: 'buyer',
+      subjectId: buyerId,
+      walletAddress: connectedAddress ?? undefined,
+      worldIdProof: {
+        nullifierHash: demoNullifierHash,
+        proof: '0xdemo-proof',
+        merkleRoot: '0xdemo-root',
+        verificationLevel: 'device',
+      },
+    });
     setNullifierHash(demoNullifierHash);
     setWorldVerified(true);
     setStep('fund');
@@ -228,9 +244,14 @@ export function IdeaSubmission() {
                 accountable buyers in the marketplace.
               </p>
               <div className="bg-blue-900/30 border border-blue-800 rounded-lg p-4 text-left">
-                <p className="text-blue-300 text-sm font-medium">Idea to fund:</p>
-                <p className="text-white font-semibold mt-1">{form.title}</p>
-                <p className="text-gray-400 text-xs mt-1">Budget: ${form.budgetUsdMax} USDC</p>
+              <p className="text-blue-300 text-sm font-medium">Idea to fund:</p>
+              <p className="text-white font-semibold mt-1">{form.title}</p>
+              <p className="text-gray-400 text-xs mt-1">Budget: ${form.budgetUsdMax} USDC</p>
+            </div>
+              <div className="bg-gray-900/60 border border-gray-700 rounded-lg p-3 text-left">
+                <p className="text-xs uppercase tracking-wide text-gray-500">World mode</p>
+                <p className="text-sm text-gray-300 mt-1">{integrationStatus?.world.mode ?? 'loading'}</p>
+                {connectedAddress && <p className="text-xs text-gray-500 mt-1">Wallet: {connectedAddress}</p>}
               </div>
               {/* In production: IDKit component. For demo: button simulates verification. */}
               <button className="btn-primary w-full" onClick={handleWorldVerify}>
@@ -252,6 +273,9 @@ export function IdeaSubmission() {
             </div>
             <div className="bg-gray-800/50 rounded-xl p-6 space-y-4">
               <h2 className="text-xl font-bold">Fund Your Idea with Arc</h2>
+              <p className="text-sm text-gray-500">
+                Current Arc mode: {integrationStatus?.arc.mode ?? 'loading'}
+              </p>
               <div className="space-y-3">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-400">Idea</span>
