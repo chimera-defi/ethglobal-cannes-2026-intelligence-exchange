@@ -1,0 +1,6 @@
+{
+  "title": "Cannes-ready agentic marketplace demo",
+  "prompt": "Turn this repo into a judgeable Cannes demo where a verified poster funds an idea, a human-backed worker agent claims a milestone, submits a scaffold with one paid dependency event, and gets paid after approval.",
+  "targetArtifact": "Prototype scaffold + review dossier",
+  "budgetUsd": 400
+}

@@ -1,0 +1,17 @@
+{
+  "name": "intelligence-exchange-cannes-worker",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "claim-and-submit": "tsx src/worker.ts"
+  },
+  "dependencies": {
+    "@iex-cannes/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.6.2"
+  }
+}

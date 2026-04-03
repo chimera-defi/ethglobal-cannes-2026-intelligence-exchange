@@ -1,0 +1,7 @@
+{
+  "workerId": "worker-cannes",
+  "artifactUri": "https://example.com/cannes-demo-screenshot",
+  "traceSummary": "Worker generated a repo scaffold, wired local World gating, recorded a paid dependency, and wrote a dossier snapshot.",
+  "paidDependency": "Arc nanopayment for package audit credits",
+  "outputSummary": "World-gated scaffold with escrow release flow, local 0G-style dossier, and reviewer approval path."
+}

@@ -1,0 +1,24 @@
+{
+  "name": "intelligence-exchange-cannes-broker",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "demo:reset": "tsx src/reset.ts",
+    "dev": "tsx watch src/server.ts"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.1.0",
+    "@fastify/sensible": "^6.0.3",
+    "@iex-cannes/shared": "workspace:*",
+    "fastify": "^5.6.1",
+    "viem": "^2.38.2",
+    "zod": "^4.1.11"
+  },
+  "devDependencies": {
+    "@types/node": "^24.6.2",
+    "tsx": "^4.20.6"
+  }
+}

@@ -1,0 +1,9 @@
+node_modules
+dist
+.pnpm-store
+.vite
+coverage
+test-results
+.worktrees
+packages/intelligence-exchange-cannes-contracts/artifacts
+packages/intelligence-exchange-cannes-contracts/cache

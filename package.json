@@ -1,0 +1,20 @@
+{
+  "name": "ethglobal-cannes-2026-intelligence-exchange",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.32.1",
+  "scripts": {
+    "build": "pnpm -r build",
+    "check": "pnpm -r check",
+    "dev": "concurrently -n chain,api,web -c blue,green,yellow \"pnpm dev:chain\" \"pnpm --filter intelligence-exchange-cannes-broker dev\" \"pnpm --filter intelligence-exchange-cannes-web dev\"",
+    "dev:chain": "pnpm --filter intelligence-exchange-cannes-contracts chain",
+    "demo:reset": "pnpm --filter intelligence-exchange-cannes-broker demo:reset",
+    "demo:screenshot": "pnpm --filter intelligence-exchange-cannes-web screenshot",
+    "test:acceptance": "tsx scripts/acceptance.ts"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  }
+}

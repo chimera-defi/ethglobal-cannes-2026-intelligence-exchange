@@ -1,0 +1,21 @@
+{
+  "name": "intelligence-exchange-cannes-contracts",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsx scripts/compile.ts",
+    "chain": "tsx scripts/chain.ts",
+    "check": "tsx scripts/compile.ts --check",
+    "deploy": "tsx scripts/deploy.ts"
+  },
+  "dependencies": {
+    "ganache": "^7.9.2",
+    "solc": "^0.8.30",
+    "viem": "^2.38.2"
+  },
+  "devDependencies": {
+    "@types/node": "^24.6.2",
+    "tsx": "^4.20.6"
+  }
+}

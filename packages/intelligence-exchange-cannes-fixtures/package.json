@@ -1,0 +1,10 @@
+{
+  "name": "intelligence-exchange-cannes-fixtures",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "echo fixtures-ready",
+    "check": "echo fixtures-checked"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "workerId": "worker-cannes",
+  "artifactUri": "bad",
+  "traceSummary": "too short",
+  "paidDependency": "none",
+  "outputSummary": "missing the actual required details"
+}
