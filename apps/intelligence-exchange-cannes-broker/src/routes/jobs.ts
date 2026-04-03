@@ -1,8 +1,8 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
-import { eq } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 import { db } from '../db/client';
-import { jobs, milestones, briefs } from '../db/schema';
+import { jobs, milestones, briefs, submissions, ideas } from '../db/schema';
 import { claimJob, submitJob } from '../services/jobService';
 import { JobClaimRequestSchema, JobResultSubmitRequestSchema } from 'intelligence-exchange-cannes-shared';
 import { MILESTONE_ORDER } from 'intelligence-exchange-cannes-shared';
@@ -21,7 +21,11 @@ jobsRouter.get('/:jobId', async (c) => {
   const { jobId } = c.req.param();
   const [job] = await db.select().from(jobs).where(eq(jobs.jobId, jobId));
   if (!job) return c.json({ error: { code: 'NOT_FOUND', message: 'Job not found' } }, 404);
-  return c.json({ job });
+  const [submission] = await db.select().from(submissions)
+    .where(eq(submissions.jobId, jobId))
+    .orderBy(desc(submissions.submittedAt));
+  const [idea] = await db.select().from(ideas).where(eq(ideas.ideaId, job.ideaId));
+  return c.json({ job, submission: submission ?? null, idea: idea ?? null });
 });
 
 // GET /v1/cannes/jobs/:jobId/skill.md — serve skill.md task file for agents
@@ -35,6 +39,7 @@ jobsRouter.get('/:jobId/skill.md', async (c) => {
 
   const [milestone] = await db.select().from(milestones).where(eq(milestones.milestoneId, job.milestoneId));
   const [brief] = await db.select().from(briefs).where(eq(briefs.briefId, job.briefId));
+  const [idea] = await db.select().from(ideas).where(eq(ideas.ideaId, job.ideaId));
 
   const milestoneIdx = MILESTONE_ORDER.indexOf(job.milestoneType as typeof MILESTONE_ORDER[number]);
   const leaseDeadline = new Date(Date.now() + 45 * 60 * 1000).toISOString();
@@ -51,6 +56,7 @@ submission_endpoint: POST ${process.env.BROKER_URL ?? 'http://localhost:3001'}/v
 
 ## Context
 ${brief?.summary ?? 'Build the requested deliverable.'}
+${idea?.targetArtifact ? `\nTarget repo/spec: ${idea.targetArtifact}` : ''}
 
 ## Your Task
 Complete the **${job.milestoneType}** milestone (step ${milestoneIdx + 1} of ${MILESTONE_ORDER.length}).
@@ -59,6 +65,7 @@ ${milestone?.description ?? ''}
 
 ## Acceptance Criteria
 - Provide at least one artifact URI (file URL, GitHub gist, or data URI)
+- For implementation work, prefer a GitHub pull request URL as the first artifact
 - Include a summary (≥50 chars for review milestones, ≥20 chars for others)
 - Submit with status: "completed"
 
@@ -77,7 +84,7 @@ Content-Type: application/json
   "workerId": "<your-worker-id>",
   "claimId": "<claim-id-from-claim-response>",
   "status": "completed",
-  "artifactUris": ["<your-artifact-url>"],
+  "artifactUris": ["<your-pull-request-or-artifact-url>"],
   "summary": "<what you built and why>",
   "agentMetadata": {
     "agentType": "claude-code",

@@ -86,6 +86,19 @@ export function IdeaDetail() {
         <div className="card space-y-3">
           <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">Prompt</h2>
           <p className="text-gray-200 text-sm leading-relaxed whitespace-pre-wrap">{idea.prompt}</p>
+          {idea.targetArtifact && (
+            <div className="pt-2 border-t border-gray-800">
+              <p className="text-gray-500 text-xs">Target Repo / Spec</p>
+              <a
+                className="text-blue-400 text-sm break-all hover:underline"
+                href={idea.targetArtifact}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {idea.targetArtifact}
+              </a>
+            </div>
+          )}
           {idea.escrowTxHash && (
             <div className="pt-2 border-t border-gray-800">
               <p className="text-gray-500 text-xs">Arc Escrow TX</p>
