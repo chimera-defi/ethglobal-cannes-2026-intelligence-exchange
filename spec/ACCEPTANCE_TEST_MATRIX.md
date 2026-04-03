@@ -1,7 +1,5 @@
 # Intelligence Exchange Acceptance Test Matrix
 
-Template basis: `ideas/_templates/ACCEPTANCE_TEST_MATRIX.template.md`
-
 | Flow | Fixture(s) | Contract(s) | Verification Command | Pass Condition |
 |---|---|---|---|---|
 | Submit job | `fixtures/jobs.seed.jsonl` | `contracts/v1/job_create.request.schema.json` | `pnpm test:acceptance --filter iex:submit-job` | Job accepted with deterministic ID |

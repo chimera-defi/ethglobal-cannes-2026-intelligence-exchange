@@ -1,7 +1,5 @@
 # Intelligence Exchange Fixtures
 
-Template basis: `ideas/_templates/FIXTURES_README.template.md`
-
 ## Files
 - `jobs.seed.jsonl`: canonical job submissions.
 - `workers.seed.json`: worker capability registry seed.
