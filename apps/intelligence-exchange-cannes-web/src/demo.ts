@@ -39,6 +39,56 @@ export type JobSummary = {
   workerId: string | null;
 };
 
+export type BuyerWorkspaceView = {
+  summary: {
+    activeJobs: number;
+    awaitingReview: number;
+    closedJobs: number;
+    acceptanceRate: number;
+  };
+  buckets: {
+    posted: JobSummary[];
+    awaitingReview: JobSummary[];
+    history: JobSummary[];
+  };
+  currentJob: JobSummary | null;
+  payout: DemoState["payout"];
+  dossierUri: string | null;
+};
+
+export type WorkerWorkspaceView = {
+  worker: DemoState["worker"];
+  summary: {
+    eligibleJobs: number;
+    claimedJobs: number;
+    completedJobs: number;
+    refundedJobs: number;
+    earningsUsd: number;
+    qualityScore: number;
+  };
+  jobs: Array<{
+    jobId: string;
+    title: string;
+    description: string;
+    milestoneType: string;
+    budgetUsd: number;
+    requiredCapabilities: string[];
+    status: string;
+    workerId: string | null;
+    eligibleForWorker: boolean;
+  }>;
+};
+
+export type JobDetailView = {
+  idea: DemoState["idea"];
+  milestone: Milestone;
+  brief: DemoState["brief"];
+  payout: DemoState["payout"];
+  poster: DemoState["poster"];
+  worker: DemoState["worker"];
+  reviewer: DemoState["reviewer"];
+};
+
 export const agentRoster: AgentCandidate[] = [
   {
     id: demoSeed.worker.id,

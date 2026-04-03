@@ -4,14 +4,17 @@ import { demoSeed, type Actor, type DemoState, type IdeaSubmissionInput, type Mi
 import {
   agentRoster,
   api,
+  type BuyerWorkspaceView,
   buyerKpis,
   bucketBuyerJobs,
   currency,
   defaultIdeaForm,
   deriveJobSummary,
   getScaffoldMilestone,
+  type JobDetailView,
   publicJobBoard,
   shortAddress,
+  type WorkerWorkspaceView,
   workerKpis,
   type WorkspaceSession
 } from "./demo";
@@ -164,6 +167,46 @@ function EmptyState({ title, detail }: { title: string; detail: string }) {
   );
 }
 
+function useBuyerWorkspace(state: DemoState | null) {
+  const [workspace, setWorkspace] = useState<BuyerWorkspaceView | null>(null);
+
+  useEffect(() => {
+    void api<BuyerWorkspaceView>("/v1/cannes/buyer/workspace")
+      .then(setWorkspace)
+      .catch(() => setWorkspace(null));
+  }, [state]);
+
+  return workspace;
+}
+
+function useWorkerWorkspace(state: DemoState | null) {
+  const [workspace, setWorkspace] = useState<WorkerWorkspaceView | null>(null);
+
+  useEffect(() => {
+    void api<WorkerWorkspaceView>("/v1/cannes/worker/workspace")
+      .then(setWorkspace)
+      .catch(() => setWorkspace(null));
+  }, [state]);
+
+  return workspace;
+}
+
+function useJobDetail(state: DemoState | null, jobId: string | undefined) {
+  const [detail, setDetail] = useState<JobDetailView | null>(null);
+
+  useEffect(() => {
+    if (!jobId) {
+      setDetail(null);
+      return;
+    }
+    void api<JobDetailView>(`/v1/cannes/jobs/${jobId}`)
+      .then(setDetail)
+      .catch(() => setDetail(null));
+  }, [jobId, state]);
+
+  return detail;
+}
+
 function MetricCard({ label, value }: { label: string; value: string | number }) {
   return (
     <article className="metric-card">
@@ -248,7 +291,8 @@ function LandingPage({ model }: { model: DemoModel }) {
 }
 
 function BuyerWorkspacePage({ model }: { model: DemoModel }) {
-  const buckets = bucketBuyerJobs(model.state);
+  const workspace = useBuyerWorkspace(model.state);
+  const buckets = workspace?.buckets ?? bucketBuyerJobs(model.state);
   const kpis = buyerKpis(model.state);
   const canFund = !model.state?.idea || ["released", "refunded"].includes(model.state.payout.settlementStatus);
 
@@ -379,26 +423,26 @@ function BuyerWorkspacePage({ model }: { model: DemoModel }) {
 
       <article className="surface-card">
         <SectionHeading eyebrow="Controls" title="Spend and evidence" />
-        <div className="detail-grid">
-          <div>
-            <dt>Escrow funded</dt>
-            <dd>{currency(model.state?.payout.fundedAmountUsd ?? 0)}</dd>
-          </div>
-          <div>
-            <dt>Reserved</dt>
-            <dd>{currency(model.state?.payout.reservedAmountUsd ?? 0)}</dd>
-          </div>
-          <div>
-            <dt>Released</dt>
-            <dd>{currency(model.state?.payout.releasedAmountUsd ?? 0)}</dd>
-          </div>
-          <div>
-            <dt>Alerts</dt>
+          <div className="detail-grid">
+            <div>
+              <dt>Escrow funded</dt>
+              <dd>{currency(workspace?.payout.fundedAmountUsd ?? model.state?.payout.fundedAmountUsd ?? 0)}</dd>
+            </div>
+            <div>
+              <dt>Reserved</dt>
+              <dd>{currency(workspace?.payout.reservedAmountUsd ?? model.state?.payout.reservedAmountUsd ?? 0)}</dd>
+            </div>
+            <div>
+              <dt>Released</dt>
+              <dd>{currency(workspace?.payout.releasedAmountUsd ?? model.state?.payout.releasedAmountUsd ?? 0)}</dd>
+            </div>
+            <div>
+              <dt>Alerts</dt>
             <dd>{kpis.alerts}</dd>
           </div>
         </div>
         <p className="muted-copy dossier-copy">
-          Dossier: {model.state?.brief?.dossierUri ?? "The dossier link appears after funding and is refreshed on each major transition."}
+          Dossier: {workspace?.dossierUri ?? model.state?.brief?.dossierUri ?? "The dossier link appears after funding and is refreshed on each major transition."}
         </p>
       </article>
     </section>
@@ -406,7 +450,8 @@ function BuyerWorkspacePage({ model }: { model: DemoModel }) {
 }
 
 function BuyerReviewPage({ model }: { model: DemoModel }) {
-  const buckets = bucketBuyerJobs(model.state);
+  const workspace = useBuyerWorkspace(model.state);
+  const buckets = workspace?.buckets ?? bucketBuyerJobs(model.state);
   const scaffold = getScaffoldMilestone(model.state);
 
   return (
@@ -477,7 +522,8 @@ function BuyerReviewPage({ model }: { model: DemoModel }) {
 }
 
 function BuyerHistoryPage({ model }: { model: DemoModel }) {
-  const buckets = bucketBuyerJobs(model.state);
+  const workspace = useBuyerWorkspace(model.state);
+  const buckets = workspace?.buckets ?? bucketBuyerJobs(model.state);
 
   return (
     <section className="page-grid">
@@ -554,6 +600,7 @@ function JobBoardPage({ model }: { model: DemoModel }) {
 }
 
 function WorkerConsolePage({ model }: { model: DemoModel }) {
+  const workspace = useWorkerWorkspace(model.state);
   const selectedAgent = agentRoster.find((agent) => agent.id === model.selectedAgentId) ?? agentRoster[0];
   const scaffold = getScaffoldMilestone(model.state);
   const kpis = workerKpis(model.state);
@@ -561,10 +608,13 @@ function WorkerConsolePage({ model }: { model: DemoModel }) {
   return (
     <section className="page-grid">
       <div className="metric-grid">
-        <MetricCard label="Eligible jobs" value={kpis.eligibleJobs} />
-        <MetricCard label="Claimed jobs" value={kpis.claimedJobs} />
-        <MetricCard label="Completed" value={kpis.completedJobs} />
-        <MetricCard label="Quality score" value={kpis.qualityScore} />
+        <MetricCard label="Eligible jobs" value={workspace?.summary.eligibleJobs ?? kpis.eligibleJobs} />
+        <MetricCard label="Claimed jobs" value={workspace?.summary.claimedJobs ?? kpis.claimedJobs} />
+        <MetricCard label="Completed" value={workspace?.summary.completedJobs ?? kpis.completedJobs} />
+        <MetricCard
+          label="Quality score"
+          value={(workspace?.summary.qualityScore ? (workspace.summary.qualityScore / 100).toFixed(2) : kpis.qualityScore)}
+        />
       </div>
 
       <article className="surface-card">
@@ -635,11 +685,11 @@ function WorkerConsolePage({ model }: { model: DemoModel }) {
           </div>
           <div>
             <dt>Earnings</dt>
-            <dd>{currency(kpis.earningsUsd)}</dd>
+            <dd>{currency(workspace?.summary.earningsUsd ?? kpis.earningsUsd)}</dd>
           </div>
           <div>
             <dt>Rejected jobs</dt>
-            <dd>{kpis.rejectedJobs}</dd>
+            <dd>{workspace?.summary.refundedJobs ?? kpis.rejectedJobs}</dd>
           </div>
           <div>
             <dt>Kill switch</dt>
@@ -654,7 +704,8 @@ function WorkerConsolePage({ model }: { model: DemoModel }) {
 function JobDetailPage({ model }: { model: DemoModel }) {
   const { jobId } = useParams();
   const milestones = model.state?.brief?.milestones ?? [];
-  const milestone = milestones.find((item) => item.jobId === jobId) ?? null;
+  const detail = useJobDetail(model.state, jobId);
+  const milestone = detail?.milestone ?? milestones.find((item) => item.jobId === jobId) ?? null;
 
   if (!milestone) {
     return (
