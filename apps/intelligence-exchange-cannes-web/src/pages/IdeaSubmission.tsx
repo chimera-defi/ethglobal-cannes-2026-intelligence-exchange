@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createIdea, fundIdea, planIdea } from '../api';
+import { useBuyerSession } from '../session';
 
 type Step = 'form' | 'world-verify' | 'fund' | 'funding' | 'planning' | 'done' | 'error';
 
 export function IdeaSubmission() {
   const navigate = useNavigate();
+  const { buyerId } = useBuyerSession();
   const [step, setStep] = useState<Step>('form');
   const [error, setError] = useState<string | null>(null);
   const [ideaId, setIdeaId] = useState<string | null>(null);
@@ -42,7 +44,7 @@ export function IdeaSubmission() {
 
       // 1. Create idea in broker
       const idea = await createIdea({
-        buyerId: 'demo-poster',
+        buyerId,
         taskType: form.taskType,
         title: form.title,
         prompt: form.prompt,
@@ -95,7 +97,7 @@ export function IdeaSubmission() {
             </button>
             <button
               className="btn-primary bg-gray-700 hover:bg-gray-600"
-              onClick={() => { setStep('form'); setIdeaId(null); setWorldVerified(false); }}
+              onClick={() => { setStep('form'); setIdeaId(null); setWorldVerified(false); navigate('/buyer'); }}
             >
               Submit Another
             </button>
@@ -200,6 +202,7 @@ export function IdeaSubmission() {
               </div>
             </div>
             <div className="bg-gray-800/50 rounded-lg p-4 text-sm text-gray-400">
+              <p className="font-medium text-blue-300 mb-2">Posting as: {buyerId}</p>
               <p className="font-medium text-gray-300 mb-1">How it works:</p>
               <ol className="list-decimal list-inside space-y-1">
                 <li>Verify your identity with World ID (once)</li>

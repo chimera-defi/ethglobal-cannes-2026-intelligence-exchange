@@ -1,136 +1,129 @@
-# Intelligence Exchange Cannes 2026
+# ETHGlobal Cannes 2026 Intelligence Exchange
 
-ETHGlobal Cannes 2026 hackathon submission for a controlled-supply marketplace where humans post AI work, verified operators run agents, and the platform releases escrow only after human review.
+Intelligence Exchange is a Cannes-specific marketplace for agent-delivered work with human approval and milestone escrow.
 
-## What We Built
+The product flow is intentionally narrow:
+- a buyer posts a prompt, budget, and optional repo/spec URL
+- the system turns that prompt into fixed milestone jobs
+- any agent operator can claim a milestone from the public jobs board
+- the agent submits artifacts, ideally a reviewable pull request URL for implementation work, plus a trace
+- the buyer accepts or rejects
+- payout only happens after explicit human approval
 
-Intelligence Exchange is a brokered execution marketplace for AI jobs, not an open freelance board and not a token resale scheme.
+This is not an autonomous onchain labor market. It is a controlled pilot with offchain planning/scoring and human-gated releases.
 
-The current build includes:
+## What Is Working
 
-- a React frontend for posting ideas, tracking milestone jobs, and reviewing output
-- a Hono broker API that plans ideas into briefs, creates milestone jobs, handles claims, and scores submissions
-- a worker CLI entrypoint for agent operators
-- Postgres-backed state with Redis-backed lease handling
-- deterministic demo data for a repeatable judge flow
-- local stand-ins for Arc escrow, World ID gating, and 0G dossier storage
+- routed buyer workspace with active jobs, review queue, and history
+- public jobs board for agent operators
+- broker service with Postgres persistence, claim leases, scoring, and review actions
+- worker CLI bridge for claim/list/submit flows
+- broker-owned World verification records and dossier-writing integration rails
+- wallet connection via RainbowKit/wagmi for buyer identity
+- Foundry contracts for idea escrow and agent identity registry
+- deterministic local demo bootstrap with local chain + contract deploy
+- green acceptance tests for the broker happy path
 
-## Why This Exists
+## Repo Layout
 
-The product thesis is simple:
-
-1. Buyers want a way to turn a prompt into shipped work without hiring a full team.
-2. Workers want paid, scoped milestones instead of vague one-off gigs.
-3. The platform should take a fee only when work is accepted, not when people just browse.
-
-## How It Works
-
-1. A buyer verifies as human and posts an idea with a budget.
-2. The broker turns that idea into a `BuildBrief`.
-3. The brief is split into four fixed milestone types: `brief`, `tasks`, `scaffold`, and `review`.
-4. A worker operator claims one milestone with the worker app or CLI.
-5. The worker submits artifacts, a summary, and execution metadata.
-6. The broker scores the submission deterministically.
-7. A human reviewer accepts or rejects the milestone.
-8. Accepted work releases payout from escrow and records the agent identity / dossier trail.
-
-The demo uses deterministic seeded data so the same flow can be replayed every time.
-
-## Demo Flow
-
-The seeded demo story is:
-
-1. Open the submit screen and create a funded idea.
-2. Verify with the demo World ID gate.
-3. Fund the idea and generate the brief.
-4. Open the ideas board to inspect the brief and milestone state.
-5. Open the jobs board to see queued milestones.
-6. Open the review panel for the submitted milestone.
-7. Accept the milestone to release payout.
-
-Current demo data includes the seeded idea `idea-demo-cannes-2026` and four milestone jobs.
-
-## Screenshots
-
-All screenshots below were captured from the running local stack in `output/playwright/cannes-demo/`.
-
-### Submit
-
-![Submit flow](output/playwright/cannes-demo/submit.png)
-
-### Ideas
-
-![Ideas list](output/playwright/cannes-demo/ideas.png)
-
-### Idea Detail
-
-![Idea detail](output/playwright/cannes-demo/idea-detail.png)
-
-### Jobs Board
-
-![Jobs board](output/playwright/cannes-demo/jobs.png)
-
-### Review Panel
-
-![Review panel](output/playwright/cannes-demo/review.png)
-
-## Money
-
-### How We Make Money
-
-- Platform take rate on accepted GMV: 10% in the current build.
-- Optional enterprise fee for hosted broker, audit logs, and private deployment.
-- Optional support / integration fee for teams that want their own broker configuration.
-
-### How Users Make Money
-
-- Workers earn milestone payouts in USDC when their submissions are accepted.
-- Workers also build reputation, which can unlock better jobs and higher-value milestones.
-- Buyers save money by paying only for accepted work instead of staffing the whole execution layer in-house.
-
-## Local Run
-
-Prereqs:
-
-- Node.js 20+
-- Docker
-- `corepack` enabled, or `pnpm` available
-
-Run the demo locally:
-
-```bash
-corepack pnpm install
-docker compose up -d
-
-DATABASE_URL=postgres://iex:iex@localhost:5432/iex_cannes \
-REDIS_URL=redis://localhost:6379 \
-corepack pnpm --filter intelligence-exchange-cannes-broker dev
-
-DATABASE_URL=postgres://iex:iex@localhost:5432/iex_cannes \
-REDIS_URL=redis://localhost:6379 \
-corepack pnpm --filter intelligence-exchange-cannes-broker seed
-
-corepack pnpm --filter intelligence-exchange-cannes-web dev
+```text
+apps/intelligence-exchange-cannes-broker/
+apps/intelligence-exchange-cannes-web/
+apps/intelligence-exchange-cannes-worker/
+packages/intelligence-exchange-cannes-contracts/
+packages/intelligence-exchange-cannes-fixtures/
+packages/intelligence-exchange-cannes-shared/
+spec/
 ```
 
-Then open:
+## Local Demo
 
-- `http://localhost:3000`
+1. Install dependencies:
 
-The browser frontend proxies API calls to `http://localhost:3001`.
+```bash
+pnpm install
+```
 
-## Validation
+2. Reset local Postgres/Redis, boot the local chain, deploy contracts, and seed a deterministic demo state:
 
-What I verified locally:
+```bash
+pnpm demo:bootstrap
+```
 
-- the web app production build succeeds
-- the broker starts against the local Postgres and Redis services
-- the seeded demo data loads and exposes the full milestone flow
-- the broker acceptance suite passes against the live local stack
-- browser screenshots were captured from the live app
+3. Start the local app stack:
 
-## Scope Notes
+```bash
+pnpm dev:cannes
+```
 
-- Payouts are still human-gated in this build.
-- World ID, Arc escrow, and 0G are represented by demo wiring where the real integration is not needed for the hackathon flow.
-- This is a local deterministic demo, not an open marketplace with live liquidity.
+4. Open:
+
+- buyer workspace: `http://localhost:3000/buyer`
+- new job submission: `http://localhost:3000/buyer/new`
+- public jobs board: `http://localhost:3000/jobs`
+
+The nav includes wallet connect plus a persistent buyer session field. For real local escrow funding, connect an Anvil account on `http://127.0.0.1:8545` / chain `31337`. The default deploy uses:
+- escrow: `0x5FbDB2315678afecb367f032d93F642f64180aa3`
+- mock USDC: `0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0`
+- default Anvil key: `0xac0974...f2ff80`
+
+## Verification
+
+Repo build and contract checks:
+
+```bash
+pnpm check
+```
+
+Broker acceptance flow:
+
+```bash
+pnpm demo:bootstrap
+pnpm --filter intelligence-exchange-cannes-broker start
+pnpm --filter intelligence-exchange-cannes-broker test:acceptance
+```
+
+Contracts only:
+
+```bash
+pnpm contracts:validate
+```
+
+## Testnet Rehearsal
+
+The codebase is structured for a public rehearsal, but sponsor integrations are still partly demo-mode unless you supply real credentials and RPCs.
+
+Required env:
+- `DATABASE_URL`
+- `REDIS_URL`
+- `BROKER_URL`
+- `VITE_BROKER_URL`
+- `VITE_WALLETCONNECT_PROJECT_ID` for non-injected wallets
+- `VITE_ARC_RPC_URL` and `VITE_ARC_EXPLORER_URL` if you want the wallet UI pointed at Arc endpoints
+- `VITE_ESCROW_CHAIN_ID`, `VITE_ESCROW_ADDRESS`, `VITE_USDC_ADDRESS`
+- `ESCROW_CHAIN_ID`, `ESCROW_ADDRESS`, `USDC_ADDRESS`
+- `RPC_URL` for contract deploys
+- `WORLD_ENFORCE_VERIFIED=1` to require broker-side World verification records before protected actions
+- `ZERO_G_WRITE_URL` and optional `ZERO_G_API_KEY` for remote dossier writes
+
+Contract deploy:
+
+```bash
+pnpm --filter intelligence-exchange-cannes-contracts deploy:testnet
+```
+
+## Sponsor Honesty
+
+- Arc: local wallet funding is now live against the deployed escrow + mock USDC. Review-time reserve/release is still not driven by wallet transactions yet.
+- World: the broker now stores verification records and can enforce them, and the web flow can use the real IDKit modal when `VITE_WORLD_APP_ID` and `VITE_WORLD_ACTION_ID` are configured. Without those credentials it falls back to demo mode.
+- 0G: the broker now owns dossier writing and can POST to a configured remote writer, but without `ZERO_G_WRITE_URL` it falls back to local dossier files
+
+Do not claim otherwise in demos or submissions.
+
+## Key Docs
+
+- [spec/CANNES_2026_VARIANT.md](spec/CANNES_2026_VARIANT.md)
+- [spec/CANNES_2026_MVP_SPEC.md](spec/CANNES_2026_MVP_SPEC.md)
+- [spec/CANNES_2026_TASKS.md](spec/CANNES_2026_TASKS.md)
+- [spec/CANNES_2026_ACCEPTANCE_TEST_MATRIX.md](spec/CANNES_2026_ACCEPTANCE_TEST_MATRIX.md)
+- [spec/CANNES_2026_DEPLOYMENT_AND_DEMO.md](spec/CANNES_2026_DEPLOYMENT_AND_DEMO.md)

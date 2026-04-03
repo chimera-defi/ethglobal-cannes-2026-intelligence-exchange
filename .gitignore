@@ -49,3 +49,8 @@ coverage/
 # Temp
 *.tmp
 *.temp
+
+# Local demo/runtime state
+apps/intelligence-exchange-cannes-broker/.runtime/
+apps/intelligence-exchange-cannes-web/test-results/
+artifacts/

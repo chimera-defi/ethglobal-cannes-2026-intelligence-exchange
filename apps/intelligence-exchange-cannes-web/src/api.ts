@@ -53,6 +53,12 @@ export interface IdeaDetailResponse {
   }>;
 }
 
+export interface BuyerIdeaDetail extends IdeaDetailResponse {
+  idea: IdeaDetailResponse['idea'] & {
+    statusBucket: 'active' | 'review' | 'completed' | 'cancelled';
+  };
+}
+
 export interface IdeaListResponse {
   ideas: Array<{
     ideaId: string;
@@ -95,6 +101,47 @@ export function planIdea(ideaId: string) {
 
 export function getIdea(ideaId: string) {
   return get<IdeaDetailResponse>(`/ideas/${ideaId}`);
+}
+
+function classifyIdea(detail: IdeaDetailResponse): BuyerIdeaDetail['idea']['statusBucket'] {
+  if (detail.idea.fundingStatus === 'cancelled') return 'cancelled';
+  if (detail.jobs.some((job) => job.status === 'submitted')) return 'review';
+  if (detail.jobs.length > 0 && detail.jobs.every((job) => job.status === 'accepted')) return 'completed';
+  return 'active';
+}
+
+export async function getBuyerWorkspace(posterId: string) {
+  const list = await getIdeas(posterId);
+  const details = await Promise.all(
+    list.ideas.map(async (idea) => {
+      const detail = await getIdea(idea.ideaId);
+      return {
+        ...detail,
+        idea: {
+          ...detail.idea,
+          statusBucket: classifyIdea(detail),
+        },
+      } satisfies BuyerIdeaDetail;
+    }),
+  );
+
+  const activeIdeas = details.filter((detail) => detail.idea.statusBucket === 'active');
+  const reviewIdeas = details.filter((detail) => detail.idea.statusBucket === 'review');
+  const historyIdeas = details.filter((detail) => ['completed', 'cancelled'].includes(detail.idea.statusBucket));
+
+  return {
+    buyerId: posterId,
+    activeIdeas,
+    reviewIdeas,
+    historyIdeas,
+    metrics: {
+      totalIdeas: details.length,
+      activeIdeas: activeIdeas.length,
+      reviewIdeas: reviewIdeas.length,
+      completedIdeas: details.filter((detail) => detail.idea.statusBucket === 'completed').length,
+      cancelledIdeas: details.filter((detail) => detail.idea.statusBucket === 'cancelled').length,
+    },
+  };
 }
 
 // ─── Jobs ──────────────────────────────────────────────────────────────────

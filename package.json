@@ -8,12 +8,18 @@
     "packages/*"
   ],
   "scripts": {
+    "check": "pnpm typecheck && pnpm build && pnpm contracts:validate",
+    "deps:up": "docker-compose up -d",
+    "deps:down": "docker-compose down",
+    "deps:reset": "docker-compose down -v && docker-compose up -d",
+    "deps:wait": "bash ./scripts/wait-for-services.sh",
     "dev:cannes": "pnpm --filter '*cannes*' --parallel run dev",
     "build": "pnpm --filter '*cannes*' run build",
     "test": "pnpm --filter '*cannes*' run test",
     "test:acceptance": "pnpm --filter 'intelligence-exchange-cannes-broker' run test:acceptance",
     "contracts:validate": "pnpm --filter 'intelligence-exchange-cannes-contracts' run test",
     "seed:cannes": "pnpm --filter 'intelligence-exchange-cannes-broker' run seed",
-    "typecheck": "pnpm --filter '*cannes*' run typecheck"
+    "typecheck": "pnpm --filter '*cannes*' run typecheck",
+    "demo:bootstrap": "pnpm deps:reset && pnpm deps:wait && pnpm --filter intelligence-exchange-cannes-broker db:migrate && SKIP_MIGRATE=1 pnpm seed:cannes"
   }
 }
