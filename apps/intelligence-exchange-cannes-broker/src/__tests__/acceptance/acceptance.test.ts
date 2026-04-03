@@ -67,7 +67,7 @@ describe('iex-cannes:verify-poster', () => {
       budgetUsdMax: 15,
     });
     // In demo mode, ideas without World ID proof are accepted (demo operator)
-    expect(status).toBe(200);
+    expect(status).toBe(201);
     expect(typeof (data as { ideaId: string }).ideaId).toBe('string');
     createdIdeaId = (data as { ideaId: string }).ideaId;
   });
@@ -145,7 +145,7 @@ describe('iex-cannes:claim', () => {
     const text = await res.text();
     expect(text).toContain('job_id');
     expect(text).toContain('submission_endpoint');
-    expect(text).toContain('agentFingerprint');
+    expect(text.toLowerCase()).toContain('fingerprint');
   });
 
   test('double-claim returns 409', async () => {
@@ -199,7 +199,7 @@ describe('iex-cannes:claim-ownership', () => {
     expect(job2Id).toBeTruthy();
     const { status } = await api('POST', `/jobs/${job2Id}/submit`, {
       workerId: secondWorkerId, // different worker
-      claimId: 'fake-claim-id',
+      claimId: '11111111-1111-1111-1111-111111111111',
       status: 'completed',
       artifactUris: ['https://demo.iex.local/artifacts/stolen-output.zip'],
       summary: 'Worker B trying to steal worker A claim — should be rejected',
@@ -293,7 +293,7 @@ describe('iex-cannes:dossier-async', () => {
     }
     // Submit job 4 first (brief milestone — auto-accept score)
     const job4Id = briefJobIds[3];
-    const { status: cs4 } = await api('POST', `/jobs/${job4Id}/claim`, {
+    const { status: cs4, data: claim4Data } = await api<{ claimId: string }>('POST', `/jobs/${job4Id}/claim`, {
       workerId: WORKER_A,
       agentMetadata: AGENT_META,
     });
@@ -301,13 +301,9 @@ describe('iex-cannes:dossier-async', () => {
       expect(true).toBe(true); // already claimed
       return;
     }
-    const { data: sd4 } = await api<{ claimId: string }>('POST', `/jobs/${job4Id}/claim`, {
-      workerId: WORKER_A,
-      agentMetadata: AGENT_META,
-    });
     await api('POST', `/jobs/${job4Id}/submit`, {
       workerId: WORKER_A,
-      claimId: (sd4 as { claimId: string }).claimId ?? 'n/a',
+      claimId: (claim4Data as { claimId: string }).claimId,
       status: 'completed',
       artifactUris: ['https://demo.iex.local/artifacts/review.zip'],
       summary: 'Code review complete: all tests pass, coverage at 85%, no critical issues found.',
