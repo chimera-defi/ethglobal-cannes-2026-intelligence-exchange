@@ -1,0 +1,51 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+build/
+out/
+.next/
+.nuxt/
+
+# Environment variables — NEVER commit secrets
+.env
+.env.local
+.env.*.local
+.env.production
+
+# Foundry build artifacts
+packages/intelligence-exchange-cannes-contracts/out/
+packages/intelligence-exchange-cannes-contracts/cache/
+packages/intelligence-exchange-cannes-contracts/broadcast/
+packages/intelligence-exchange-cannes-contracts/.cache/
+
+# Bun
+.bun/
+bun.lockb
+
+# IDE
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Temp
+*.tmp
+*.temp
