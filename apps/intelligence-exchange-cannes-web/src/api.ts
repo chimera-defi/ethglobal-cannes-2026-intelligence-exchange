@@ -223,6 +223,13 @@ export interface JobResponse {
   } | null;
 }
 
+export interface SettlementRecordInput {
+  txHash: string;
+  payer: string;
+  payee: string;
+  amountUsd: number;
+}
+
 export interface SubmissionResponse {
   submissionId: string;
   scoreBreakdown: {
@@ -247,12 +254,7 @@ export function acceptMilestone(
   ideaId: string,
   jobId: string,
   reviewerId: string,
-  settlement?: {
-    txHash: string;
-    payer: string;
-    payee: string;
-    amountUsd: number;
-  },
+  settlement?: SettlementRecordInput,
 ) {
   return post<{ accepted: boolean; dossierUri?: string }>(`/ideas/${ideaId}/accept`, { jobId, reviewerId, settlement });
 }
@@ -262,12 +264,7 @@ export function rejectMilestone(
   jobId: string,
   reviewerId: string,
   reason?: string,
-  settlement?: {
-    txHash: string;
-    payer: string;
-    payee: string;
-    amountUsd: number;
-  },
+  settlement?: SettlementRecordInput,
 ) {
   return post<{ rework: boolean }>(`/ideas/${ideaId}/reject`, { jobId, reviewerId, reason, settlement });
 }
