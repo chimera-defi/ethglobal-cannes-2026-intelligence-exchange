@@ -82,6 +82,52 @@ async function writeDossier(state: DemoState) {
   state.brief.dossierStatus = "stored";
 }
 
+function summarizeWorkspace(state: DemoState) {
+  const scaffold = state.brief?.milestones.find((milestone) => milestone.milestoneType === "scaffold") ?? null;
+  const status =
+    state.payout.settlementStatus === "released"
+      ? "completed"
+      : state.payout.settlementStatus === "refunded"
+        ? "cancelled"
+        : scaffold?.status === "submitted"
+          ? "awaiting_review"
+          : scaffold?.status === "claimed" || scaffold?.status === "rework"
+            ? "in_progress"
+            : state.idea
+              ? "open"
+              : "draft";
+
+  const currentJob = state.idea && scaffold
+    ? {
+        ideaId: state.idea.ideaId,
+        jobId: scaffold.jobId,
+        title: state.idea.title,
+        targetArtifact: state.idea.targetArtifact,
+        payoutUsd: state.idea.budgetUsd,
+        escrowUsd: state.idea.escrowUsd,
+        status,
+        workerId: scaffold.workerId,
+        dossierStatus: state.brief?.dossierStatus ?? "pending",
+        settlementStatus: state.payout.settlementStatus
+      }
+    : null;
+
+  return {
+    summary: {
+      activeJobs: currentJob && ["open", "in_progress"].includes(currentJob.status) ? 1 : 0,
+      awaitingReview: currentJob?.status === "awaiting_review" ? 1 : 0,
+      closedJobs: currentJob && ["completed", "cancelled"].includes(currentJob.status) ? 1 : 0,
+      acceptanceRate: state.payout.releasedAmountUsd > 0 ? 100 : 0
+    },
+    buckets: {
+      posted: currentJob && ["open", "in_progress"].includes(currentJob.status) ? [currentJob] : [],
+      awaitingReview: currentJob?.status === "awaiting_review" ? [currentJob] : [],
+      history: currentJob && ["completed", "cancelled"].includes(currentJob.status) ? [currentJob] : []
+    },
+    currentJob
+  };
+}
+
 app.get("/health", async () => ({ ok: true }));
 app.get("/api/demo-state", async () => ensureState());
 app.get("/v1/cannes/integrations/status", async () => getIntegrationStatus());
@@ -89,6 +135,50 @@ app.get("/v1/cannes/jobs", async () => {
   const state = await ensureState();
   return {
     workerId: state.worker.id,
+    jobs: listJobBoard(state)
+  };
+});
+
+app.get("/v1/cannes/jobs/:jobId", async (request) => {
+  const state = await ensureState();
+  const jobId = String((request.params as Record<string, unknown>).jobId);
+  const milestone = state.brief?.milestones.find((item) => item.jobId === jobId) ?? null;
+  if (!milestone) {
+    throw app.httpErrors.notFound("Job not found.");
+  }
+  return {
+    idea: state.idea,
+    milestone,
+    brief: state.brief,
+    payout: state.payout,
+    poster: state.poster,
+    worker: state.worker,
+    reviewer: state.reviewer
+  };
+});
+
+app.get("/v1/cannes/buyer/workspace", async () => {
+  const state = await ensureState();
+  return {
+    ...summarizeWorkspace(state),
+    payout: state.payout,
+    dossierUri: state.brief?.dossierUri ?? null
+  };
+});
+
+app.get("/v1/cannes/worker/workspace", async () => {
+  const state = await ensureState();
+  const scaffold = state.brief?.milestones.find((milestone) => milestone.milestoneType === "scaffold") ?? null;
+  return {
+    worker: state.worker,
+    summary: {
+      eligibleJobs: listJobBoard(state).filter((job) => job.eligibleForWorker && job.status === "queued").length,
+      claimedJobs: scaffold?.status === "claimed" ? 1 : 0,
+      completedJobs: state.payout.settlementStatus === "released" ? 1 : 0,
+      refundedJobs: state.payout.settlementStatus === "refunded" ? 1 : 0,
+      earningsUsd: state.payout.releasedAmountUsd,
+      qualityScore: scaffold?.score ?? 0
+    },
     jobs: listJobBoard(state)
   };
 });

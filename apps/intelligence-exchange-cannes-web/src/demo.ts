@@ -183,3 +183,33 @@ export function publicJobBoard(state: DemoState | null): Milestone[] {
     []
   );
 }
+
+export function buyerKpis(state: DemoState | null) {
+  const buckets = bucketBuyerJobs(state);
+  const scaffold = getScaffoldMilestone(state);
+  const released = state?.payout.releasedAmountUsd ?? 0;
+  const refunded = state?.payout.refundedAmountUsd ?? 0;
+  const closed = released + refunded > 0 ? 1 : 0;
+
+  return {
+    activeJobs: buckets.posted.length,
+    awaitingReview: buckets.awaitingReview.length,
+    closedJobs: buckets.history.length,
+    acceptanceRate: closed > 0 && refunded === 0 ? 100 : released > 0 ? Math.round((released / (released + refunded)) * 100) : 0,
+    alerts: scaffold?.status === "rework" ? 1 : 0
+  };
+}
+
+export function workerKpis(state: DemoState | null) {
+  const scaffold = getScaffoldMilestone(state);
+  const score = scaffold?.score ?? 0;
+
+  return {
+    eligibleJobs: publicJobBoard(state).length,
+    claimedJobs: scaffold?.status === "claimed" ? 1 : 0,
+    completedJobs: state?.payout.settlementStatus === "released" ? 1 : 0,
+    rejectedJobs: state?.payout.settlementStatus === "refunded" ? 1 : 0,
+    qualityScore: score > 0 ? (score / 100).toFixed(2) : "0.00",
+    earningsUsd: state?.payout.releasedAmountUsd ?? 0
+  };
+}

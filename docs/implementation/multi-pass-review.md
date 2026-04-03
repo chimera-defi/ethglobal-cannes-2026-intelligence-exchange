@@ -15,6 +15,7 @@
   - Bun is now the primary runtime and the docs were updated accordingly
   - acceptance coverage now includes `list-jobs`, `refund`, and `release`
   - screenshot assets were refreshed and reposted to the PR comment
+  - the web app now follows a routed page model more closely aligned with `FRONTEND_VISION`, `WIREFRAMES`, and the Cannes MVP docs
 
 ## Pass 3: Demo Honesty And “AI Slop” Removal
 
@@ -64,6 +65,7 @@
   - live World verification is still not exercised end-to-end because no credentials are present here
   - live 0G upload is still not exercised end-to-end because no writer key is present here
   - public-network Arc rehearsal still depends on funded deployer credentials
+  - backend state is still single-live-job oriented, so the multi-page frontend is structurally correct before the broker is truly multi-job
 
 ## Overall
 

@@ -71,6 +71,7 @@ button.secondary,
 .topbar,
 .route-nav,
 .status-ribbon,
+.metric-grid,
 .page-grid,
 .footer-grid,
 .two-column,
@@ -190,6 +191,10 @@ button.secondary,
   margin-top: 1rem;
 }
 
+.metric-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .ticket-strip {
   grid-template-columns: repeat(4, max-content);
   gap: 0.75rem;
@@ -265,10 +270,32 @@ button.secondary,
 .detail-grid dd,
 .session-box strong,
 .status,
-.hero-stat strong {
+.hero-stat strong,
+.metric-card strong {
   margin: 0;
   font-family: "IBM Plex Mono", monospace;
   font-size: 0.92rem;
+}
+
+.metric-card {
+  padding: 1rem 1.05rem;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: var(--shadow);
+}
+
+.metric-card span {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.metric-card strong {
+  font-size: 1.4rem;
 }
 
 .stack-list {
@@ -386,6 +413,10 @@ button.secondary,
   border-top: 1px solid var(--line);
 }
 
+.dossier-copy {
+  margin-top: 1rem;
+}
+
 .timeline-list,
 .feature-list {
   margin: 1rem 0 0;
@@ -407,6 +438,7 @@ button.secondary,
 }
 
 @media (max-width: 1100px) {
+  .metric-grid,
   .status-ribbon,
   .two-column,
   .three-up,

@@ -4,6 +4,7 @@ import { demoSeed, type Actor, type DemoState, type IdeaSubmissionInput, type Mi
 import {
   agentRoster,
   api,
+  buyerKpis,
   bucketBuyerJobs,
   currency,
   defaultIdeaForm,
@@ -11,7 +12,7 @@ import {
   getScaffoldMilestone,
   publicJobBoard,
   shortAddress,
-  type AgentCandidate,
+  workerKpis,
   type WorkspaceSession
 } from "./demo";
 
@@ -163,6 +164,15 @@ function EmptyState({ title, detail }: { title: string; detail: string }) {
   );
 }
 
+function MetricCard({ label, value }: { label: string; value: string | number }) {
+  return (
+    <article className="metric-card">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </article>
+  );
+}
+
 function LandingPage({ model }: { model: DemoModel }) {
   return (
     <section className="page-grid">
@@ -239,9 +249,17 @@ function LandingPage({ model }: { model: DemoModel }) {
 
 function BuyerWorkspacePage({ model }: { model: DemoModel }) {
   const buckets = bucketBuyerJobs(model.state);
+  const kpis = buyerKpis(model.state);
 
   return (
     <section className="page-grid">
+      <div className="metric-grid">
+        <MetricCard label="Active jobs" value={kpis.activeJobs} />
+        <MetricCard label="Awaiting review" value={kpis.awaitingReview} />
+        <MetricCard label="Closed jobs" value={kpis.closedJobs} />
+        <MetricCard label="Acceptance rate" value={`${kpis.acceptanceRate}%`} />
+      </div>
+
       <article className="surface-card composer-panel">
         <SectionHeading
           eyebrow="Buyer workspace"
@@ -357,6 +375,31 @@ function BuyerWorkspacePage({ model }: { model: DemoModel }) {
           )}
         </div>
       </article>
+
+      <article className="surface-card">
+        <SectionHeading eyebrow="Controls" title="Spend and evidence" />
+        <div className="detail-grid">
+          <div>
+            <dt>Escrow funded</dt>
+            <dd>{currency(model.state?.payout.fundedAmountUsd ?? 0)}</dd>
+          </div>
+          <div>
+            <dt>Reserved</dt>
+            <dd>{currency(model.state?.payout.reservedAmountUsd ?? 0)}</dd>
+          </div>
+          <div>
+            <dt>Released</dt>
+            <dd>{currency(model.state?.payout.releasedAmountUsd ?? 0)}</dd>
+          </div>
+          <div>
+            <dt>Alerts</dt>
+            <dd>{kpis.alerts}</dd>
+          </div>
+        </div>
+        <p className="muted-copy dossier-copy">
+          Dossier: {model.state?.brief?.dossierUri ?? "The dossier link appears after funding and is refreshed on each major transition."}
+        </p>
+      </article>
     </section>
   );
 }
@@ -402,7 +445,31 @@ function BuyerReviewPage({ model }: { model: DemoModel }) {
 
       <article className="surface-card">
         <SectionHeading eyebrow="Evidence" title="Artifact, trace, spend, and payout state" />
-        {scaffold ? <MilestoneCard milestone={scaffold} /> : <EmptyState title="No submitted work yet" detail="Fund and run a worker to generate review evidence." />}
+        {scaffold ? (
+          <>
+            <MilestoneCard milestone={scaffold} />
+            <div className="detail-grid review-grid">
+              <div>
+                <dt>Escrow status</dt>
+                <dd>{model.state?.payout.settlementStatus ?? "uninitialized"}</dd>
+              </div>
+              <div>
+                <dt>Released amount</dt>
+                <dd>{currency(model.state?.payout.releasedAmountUsd ?? 0)}</dd>
+              </div>
+              <div>
+                <dt>Refunded amount</dt>
+                <dd>{currency(model.state?.payout.refundedAmountUsd ?? 0)}</dd>
+              </div>
+              <div>
+                <dt>Dossier status</dt>
+                <dd>{model.state?.brief?.dossierStatus ?? "pending"}</dd>
+              </div>
+            </div>
+          </>
+        ) : (
+          <EmptyState title="No submitted work yet" detail="Fund and run a worker to generate review evidence." />
+        )}
       </article>
     </section>
   );
@@ -488,9 +555,17 @@ function JobBoardPage({ model }: { model: DemoModel }) {
 function WorkerConsolePage({ model }: { model: DemoModel }) {
   const selectedAgent = agentRoster.find((agent) => agent.id === model.selectedAgentId) ?? agentRoster[0];
   const scaffold = getScaffoldMilestone(model.state);
+  const kpis = workerKpis(model.state);
 
   return (
     <section className="page-grid">
+      <div className="metric-grid">
+        <MetricCard label="Eligible jobs" value={kpis.eligibleJobs} />
+        <MetricCard label="Claimed jobs" value={kpis.claimedJobs} />
+        <MetricCard label="Completed" value={kpis.completedJobs} />
+        <MetricCard label="Quality score" value={kpis.qualityScore} />
+      </div>
+
       <article className="surface-card">
         <SectionHeading
           eyebrow="Worker console"
@@ -543,15 +618,32 @@ function WorkerConsolePage({ model }: { model: DemoModel }) {
       </article>
 
       <article className="surface-card">
-        <SectionHeading eyebrow="Current actors" title="Live participants in the active demo" />
-        <div className="stack-list">
-          {model.state ? (
-            <>
-              <ActorCard actor={model.state.poster} title="Poster" />
-              <ActorCard actor={model.state.worker} title="Worker" />
-              <ActorCard actor={model.state.reviewer} title="Reviewer" />
-            </>
-          ) : null}
+        <SectionHeading eyebrow="Runtime" title="Guardrails and outcome summary" />
+        <div className="detail-grid">
+          <div>
+            <dt>Mode</dt>
+            <dd>manual</dd>
+          </div>
+          <div>
+            <dt>Task classes</dt>
+            <dd>frontend, backend, contracts</dd>
+          </div>
+          <div>
+            <dt>Daily spend cap</dt>
+            <dd>{currency(model.state?.idea?.escrowUsd ?? 0)}</dd>
+          </div>
+          <div>
+            <dt>Earnings</dt>
+            <dd>{currency(kpis.earningsUsd)}</dd>
+          </div>
+          <div>
+            <dt>Rejected jobs</dt>
+            <dd>{kpis.rejectedJobs}</dd>
+          </div>
+          <div>
+            <dt>Kill switch</dt>
+            <dd>off</dd>
+          </div>
         </div>
       </article>
     </section>
