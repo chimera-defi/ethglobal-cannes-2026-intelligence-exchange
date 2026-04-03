@@ -10,7 +10,8 @@ import {
   refundEscrow,
   registerAgentIdentity,
   releaseEscrow,
-  reserveMilestoneEscrow
+  reserveMilestoneEscrow,
+  seededAccounts
 } from "./chain.js";
 import {
   approveMilestone,
@@ -98,6 +99,23 @@ app.post("/api/demo/reset", async () => {
 app.post("/v1/cannes/workers/register", async (request) => {
   const state = await ensureState();
   registerWorkerProfile(state, request.body ?? undefined);
+  if (state.payout.identityRegistryAddress && !state.worker.agentId) {
+    if (state.worker.walletAddress.toLowerCase() === seededAccounts.worker.address.toLowerCase()) {
+      const workerRegistration = await registerAgentIdentity(
+        state.payout.identityRegistryAddress as `0x${string}`,
+        "worker",
+        buildAgentRegistrationUri(state.worker, appBaseUrl, "worker")
+      );
+      state.worker.agentId = workerRegistration.agentId;
+      state.activityLog.push(
+        `Worker registered in ERC-8004-inspired registry as agent ${workerRegistration.agentId}.`
+      );
+    } else {
+      state.activityLog.push(
+        `Worker ${state.worker.name} is active offchain; onchain registry registration requires a matching worker private key.`
+      );
+    }
+  }
   await persistState(state);
   return {
     workerId: state.worker.id,
@@ -137,17 +155,10 @@ app.post("/api/ideas/fund", async (request) => {
     "poster",
     buildAgentRegistrationUri(next.poster, appBaseUrl, "poster")
   );
-  const workerRegistration = await registerAgentIdentity(
-    registry.address as `0x${string}`,
-    "worker",
-    buildAgentRegistrationUri(next.worker, appBaseUrl, "worker")
-  );
   next.poster.agentId = posterRegistration.agentId;
   next.poster.agentUri = buildAgentRegistrationUri(next.poster, appBaseUrl, "poster");
-  next.worker.agentId = workerRegistration.agentId;
-  next.worker.agentUri = buildAgentRegistrationUri(next.worker, appBaseUrl, "worker");
   next.activityLog.push(`Poster registered in ERC-8004-inspired registry as agent ${posterRegistration.agentId}.`);
-  next.activityLog.push(`Worker registered in ERC-8004-inspired registry as agent ${workerRegistration.agentId}.`);
+  next.activityLog.push("Worker agent registry entry will be created when the active worker profile is registered.");
 
   const onchain = await deployAndFundEscrow(input.budgetUsd);
   next.payout = {

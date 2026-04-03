@@ -1,34 +1,44 @@
 # Implementation Multi-Pass Review
 
-## Pass 1: Scope Honesty
+## Pass 1: Correctness And Contract Fit
 
-- Result: acceptable
+- Result: pass with one explicit honesty constraint
 - Notes:
-  - the app is presented as a controlled-supply pilot, not an open marketplace
-  - World and 0G are labeled as fallback or stubbed where they are not yet live
+  - the escrow, refund, and close-out paths are tested locally
+  - the job board is now generic at the API and MCP layer
+  - worker onchain identity is only registered when the active worker profile matches a signing key the repo actually has
 
-## Pass 2: End-to-End Buildability
+## Pass 2: Consistency Across Docs, Specs, And Tests
 
 - Result: pass
 - Notes:
-  - `pnpm install`, `pnpm check`, `pnpm build`, and `pnpm dev` work
-  - the local demo completes funding, claim, submit, approve, and release
+  - Bun is now the primary runtime and the docs were updated accordingly
+  - acceptance coverage now includes `list-jobs`, `refund`, and `release`
+  - screenshot assets were refreshed and reposted to the PR comment
 
-## Pass 3: Frontend Readiness
+## Pass 3: Demo Honesty And “AI Slop” Removal
+
+- Result: improved, still partial on sponsor rails
+- Notes:
+  - the repo now explicitly documents that this is a controlled-supply pilot, not an open marketplace
+  - the MCP bridge is described as model-agnostic, but the job market remains intentionally narrow
+  - World and 0G are still env-gated or local-fallback integrations and are labeled that way
+
+## Pass 4: Buildability
+
+- Result: pass
+- Notes:
+  - `bun install`, `bun run check`, `bun run build`, and `bun run dev` work
+  - the local demo completes list, claim, submit, approve/release, and refund
+
+## Pass 5: Backend Readiness
 
 - Result: pass for MVP
 - Notes:
-  - there is a working poster -> worker -> reviewer UI and screenshot coverage
-  - the UX is demo-ready, though not yet wallet-onboarding complete for public testnet users
-
-## Pass 4: Backend Readiness
-
-- Result: pass for MVP
-- Notes:
-  - planner, broker, worker endpoints, scoring, and dossier mirror are implemented
+  - planner, broker, worker endpoints, MCP bridge, scoring, and dossier mirror are implemented
   - state is file-backed for deterministic local replay
 
-## Pass 5: Contract Readiness
+## Pass 6: Contract Readiness
 
 - Result: pass for MVP
 - Notes:
@@ -36,7 +46,7 @@
   - ERC-8004-inspired local identity registry is deployed and used for poster and worker registration
   - only the scaffold milestone is payout-bearing in the current MVP, which keeps the contract aligned with the visible demo
 
-## Pass 6: Sponsor Integration Reality
+## Pass 7: Sponsor Integration Reality
 
 - Result: partial
 - Notes:
@@ -44,14 +54,16 @@
   - World: product gates exist, proof verification is stubbed
   - 0G: dossier model exists, network write path is stubbed
 
-## Pass 7: Review Risks
+## Pass 8: Review Risks
 
 - Result: open items remain
 - Notes:
   - no live World Developer Portal app credentials are configured
   - no funded Arc Testnet account is configured in this repo
   - no funded 0G dossier writer key is configured in this repo
-  - acceptance test commands in the original spec matrix are not fully implemented as named scripts
+  - live World verification is still not exercised end-to-end because no credentials are present here
+  - live 0G upload is still not exercised end-to-end because no writer key is present here
+  - public-network Arc rehearsal still depends on funded deployer credentials
 
 ## Overall
 

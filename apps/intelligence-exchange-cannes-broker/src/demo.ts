@@ -162,6 +162,7 @@ export function registerWorkerProfile(
   state: DemoState,
   payload: Parameters<typeof workerRegistrationInputSchema.parse>[0] | undefined
 ) {
+  const previousWalletAddress = state.worker.walletAddress;
   const input = workerRegistrationInputSchema.parse(payload ?? {
     id: demoSeed.worker.id,
     name: demoSeed.worker.name,
@@ -179,6 +180,9 @@ export function registerWorkerProfile(
     agentUri: input.agentUri,
     capabilities: input.capabilities
   };
+  if (state.worker.walletAddress !== previousWalletAddress) {
+    state.worker.agentId = null;
+  }
   state.activityLog.push(
     `${state.worker.name} registered with capabilities: ${state.worker.capabilities.join(", ")}.`
   );
