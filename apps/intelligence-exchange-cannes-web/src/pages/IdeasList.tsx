@@ -69,7 +69,7 @@ export function IdeasList() {
           <div className="card text-center py-16 space-y-4">
             <div className="text-4xl">💡</div>
             <h2 className="text-xl font-semibold text-white">No ideas yet</h2>
-            <p className="text-gray-400 text-sm">Post your first funded idea and let AI agents build it.</p>
+            <p className="text-gray-400 text-sm">Post your first funded idea and let worker capacity pick it up.</p>
             <button className="btn-primary" onClick={() => navigate('/submit')}>
               Post an Idea →
             </button>

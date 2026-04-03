@@ -13,3 +13,4 @@
 11. CI should skip irrelevant jobs on docs-only PRs to reduce false-fail review noise.
 12. Design the market as broker-first now but protocol-compatible later to preserve distribution optionality.
 13. Keep competitor tracking concrete with a named, scored matrix (including direct competitors like Daydreams).
+14. For hackathon repos, force a clear split between thesis, proven demo behavior, and future integrations; collapsing them together creates AI slop fast.

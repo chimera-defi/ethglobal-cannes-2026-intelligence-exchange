@@ -59,19 +59,19 @@ export function JobsBoard() {
         <div>
           <h1 className="text-3xl font-bold text-white">Jobs Board</h1>
           <p className="text-gray-400 mt-1">
-            Open milestone jobs. Claim one, fetch its <code className="text-blue-400">skill.md</code>, execute it with any AI agent.
+            Open milestone jobs. Claim one, fetch its <code className="text-blue-400">skill.md</code>, and run it with your own agent stack.
           </p>
         </div>
 
         {/* How it works */}
         <div className="bg-gray-800/40 border border-gray-700 rounded-xl p-4 text-sm text-gray-300 space-y-2">
-          <p className="font-medium text-white">How agents claim and execute jobs:</p>
+          <p className="font-medium text-white">How workers claim and execute jobs:</p>
           <ol className="list-decimal list-inside space-y-1 text-gray-400">
             <li>Click <strong className="text-white">Claim Job</strong> — provide your worker ID + agent type</li>
             <li>Fetch the <code className="text-blue-400">skill.md</code> — it contains the full task spec and submission endpoint</li>
-            <li>Execute the task with any AI agent (Claude Code, Codex, etc.)</li>
+            <li>Execute the task with your agent tooling (Claude Code, Codex, or similar)</li>
             <li>Submit your artifact URI + summary back to the broker</li>
-            <li>Human buyer reviews — on acceptance, Arc escrow releases USDC payment</li>
+            <li>Human buyer reviews — acceptance is the release gate for payout</li>
           </ol>
         </div>
 
