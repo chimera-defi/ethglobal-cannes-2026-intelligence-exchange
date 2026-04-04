@@ -4,8 +4,10 @@ import { eq } from 'drizzle-orm';
 import { db } from '../db/client';
 import { agentIdentities } from '../db/schema';
 import { AgentMetadataSchema } from 'intelligence-exchange-cannes-shared';
-import { computeAgentFingerprint } from '../services/jobService';
 import { z } from 'zod';
+import { requireAgentAuthorization, requireSessionWorldRole } from '../services/accessService';
+import { computeAgentFingerprint } from '../services/identityService';
+import { httpError } from '../services/errors';
 
 export const workersRouter = new Hono();
 
@@ -17,30 +19,34 @@ const RegisterSchema = z.object({
 
 // POST /v1/cannes/workers/register — register agent capability profile
 workersRouter.post('/register', zValidator('json', RegisterSchema), async (c) => {
+  const { accountAddress } = await requireSessionWorldRole(c, 'worker');
   const { workerId, capabilities, agentMetadata } = c.req.valid('json');
 
   const fingerprint = computeAgentFingerprint(
     agentMetadata.agentType,
     agentMetadata.agentVersion ?? '0.0.0',
-    agentMetadata.operatorAddress ?? '0x0000000000000000000000000000000000000000'
+    agentMetadata.operatorAddress ?? accountAddress
   );
 
-  const existing = await db.select().from(agentIdentities).where(eq(agentIdentities.fingerprint, fingerprint));
+  if (fingerprint !== agentMetadata.fingerprint && agentMetadata.fingerprint) {
+    throw httpError('Provided fingerprint does not match broker-computed fingerprint', 409, 'FINGERPRINT_MISMATCH');
+  }
 
-  if (existing.length === 0) {
-    await db.insert(agentIdentities).values({
-      fingerprint,
-      agentType: agentMetadata.agentType,
-      agentVersion: agentMetadata.agentVersion,
-      operatorAddress: agentMetadata.operatorAddress,
-      acceptedCount: 0,
-      avgScore: '0',
-      createdAt: new Date(),
-    });
+  await requireAgentAuthorization({
+    accountAddress,
+    fingerprint,
+    role: 'worker',
+    requiredPermissions: ['claim_jobs', 'submit_results'],
+  });
+
+  const [existing] = await db.select().from(agentIdentities).where(eq(agentIdentities.fingerprint, fingerprint));
+
+  if (!existing) {
+    throw httpError('On-chain synced agent identity required before worker registration', 409, 'AGENT_IDENTITY_REQUIRED');
   }
 
   console.log(`[worker:registered] workerId=${workerId} fingerprint=${fingerprint}`);
-  return c.json({ workerId, fingerprint, capabilities, registered: true }, 201);
+  return c.json({ workerId, fingerprint, capabilities, registered: true, accountAddress }, 201);
 });
 
 // POST /v1/cannes/workers/heartbeat — keep-alive

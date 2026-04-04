@@ -1,4 +1,4 @@
-import { Queue, Worker } from 'bullmq';
+import { Queue } from 'bullmq';
 import { STALLED_JOB_INTERVAL_MS } from 'intelligence-exchange-cannes-shared';
 import type { BrokerDb } from '../db/client';
 
@@ -16,15 +16,23 @@ function parseRedisConnection(url: string) {
 
 const connection = parseRedisConnection(REDIS_URL);
 
-export const milestoneQueue = new Queue('milestone-jobs', {
-  connection,
-  defaultJobOptions: {
-    attempts: 3,
-    backoff: { type: 'exponential', delay: 1000 },
-    removeOnComplete: { count: 100 },
-    removeOnFail: { count: 50 },
-  },
-});
+let milestoneQueue: Queue | null = null;
+
+function getMilestoneQueue() {
+  if (milestoneQueue) return milestoneQueue;
+
+  milestoneQueue = new Queue('milestone-jobs', {
+    connection,
+    defaultJobOptions: {
+      attempts: 3,
+      backoff: { type: 'exponential', delay: 1000 },
+      removeOnComplete: { count: 100 },
+      removeOnFail: { count: 50 },
+    },
+  });
+
+  return milestoneQueue;
+}
 
 // Re-queue stalled jobs (lease expired) back to the queue.
 // This runs every STALLED_JOB_INTERVAL_MS (10s for demo responsiveness).
@@ -53,7 +61,7 @@ export async function setupLeaseExpiryRequeue(db: BrokerDb) {
       }).where(eq(jobs.jobId, job.jobId));
 
       // Re-add to BullMQ
-      await milestoneQueue.add(`job:${job.jobId}:requeue`, {
+      await getMilestoneQueue().add(`job:${job.jobId}:requeue`, {
         jobId: job.jobId,
         milestoneType: job.milestoneType,
         requeued: true,

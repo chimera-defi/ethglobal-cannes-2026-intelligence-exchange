@@ -1,5 +1,60 @@
 import { pgTable, text, timestamp, numeric, integer, boolean, jsonb, uuid } from 'drizzle-orm/pg-core';
 
+// ─── Principal / Identity ──────────────────────────────────────────────────────
+
+export const accounts = pgTable('accounts', {
+  accountAddress: text('account_address').primaryKey(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const authChallenges = pgTable('auth_challenges', {
+  challengeId: uuid('challenge_id').primaryKey(),
+  accountAddress: text('account_address').notNull(),
+  purpose: text('purpose').notNull(),
+  nonce: text('nonce').notNull(),
+  message: text('message').notNull(),
+  metadata: jsonb('metadata').notNull().default({}),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  usedAt: timestamp('used_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const webSessions = pgTable('web_sessions', {
+  sessionId: uuid('session_id').primaryKey(),
+  accountAddress: text('account_address').notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  revokedAt: timestamp('revoked_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const worldVerifications = pgTable('world_verifications', {
+  verificationId: uuid('verification_id').primaryKey(),
+  accountAddress: text('account_address').notNull(),
+  role: text('role').notNull(),
+  nullifierHash: text('nullifier_hash').notNull(),
+  verificationLevel: text('verification_level').notNull(),
+  verifiedAt: timestamp('verified_at', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const agentAuthorizations = pgTable('agent_authorizations', {
+  authorizationId: uuid('authorization_id').primaryKey(),
+  accountAddress: text('account_address').notNull(),
+  fingerprint: text('fingerprint').notNull(),
+  agentType: text('agent_type').notNull(),
+  agentVersion: text('agent_version'),
+  role: text('role').notNull(),
+  permissionScope: jsonb('permission_scope').notNull().default([]),
+  status: text('status').notNull().default('pending_registration'),
+  onChainTokenId: integer('on_chain_token_id'),
+  registrationTxHash: text('registration_tx_hash'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  activatedAt: timestamp('activated_at', { withTimezone: true }),
+  revokedAt: timestamp('revoked_at', { withTimezone: true }),
+});
+
 // ─── Ideas ───────────────────────────────────────────────────────────────────
 
 export const ideas = pgTable('ideas', {
@@ -74,6 +129,8 @@ export const claims = pgTable('claims', {
   claimId: text('claim_id').primaryKey(),
   jobId: text('job_id').notNull().references(() => jobs.jobId),
   workerId: text('worker_id').notNull(),
+  accountAddress: text('account_address'),
+  agentFingerprint: text('agent_fingerprint'),
   agentMetadata: jsonb('agent_metadata'),
   claimedAt: timestamp('claimed_at', { withTimezone: true }).notNull().defaultNow(),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
@@ -87,6 +144,8 @@ export const submissions = pgTable('submissions', {
   jobId: text('job_id').notNull().references(() => jobs.jobId),
   claimId: text('claim_id').notNull().references(() => claims.claimId),
   workerId: text('worker_id').notNull(),
+  accountAddress: text('account_address'),
+  agentFingerprint: text('agent_fingerprint'),
   artifactUris: jsonb('artifact_uris').notNull().default([]),
   traceUri: text('trace_uri'),
   summary: text('summary'),
@@ -97,14 +156,30 @@ export const submissions = pgTable('submissions', {
   submittedAt: timestamp('submitted_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const agentSpendEvents = pgTable('agent_spend_events', {
+  eventId: text('event_id').primaryKey(),
+  jobId: text('job_id').notNull().references(() => jobs.jobId),
+  workerId: text('worker_id').notNull(),
+  vendor: text('vendor').notNull(),
+  purpose: text('purpose').notNull(),
+  amountUsd: numeric('amount_usd', { precision: 10, scale: 4 }).notNull(),
+  settlementRail: text('settlement_rail').notNull().default('demo'),
+  txHash: text('tx_hash'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 // ─── Agent Identities (mirrors on-chain registry) ─────────────────────────────
 
 export const agentIdentities = pgTable('agent_identities', {
   fingerprint: text('fingerprint').primaryKey(),
+  accountAddress: text('account_address'),
   agentType: text('agent_type').notNull(),
   agentVersion: text('agent_version'),
+  role: text('role'),
+  permissionsHash: text('permissions_hash'),
   operatorAddress: text('operator_address'),
   onChainTokenId: integer('on_chain_token_id'),
+  registrationTxHash: text('registration_tx_hash'),
   acceptedCount: integer('accepted_count').notNull().default(0),
   avgScore: numeric('avg_score', { precision: 5, scale: 2 }).notNull().default('0'),
   registeredAt: timestamp('registered_at', { withTimezone: true }),
@@ -124,5 +199,40 @@ export const escrowReleases = pgTable('escrow_releases', {
   txHash: text('tx_hash'),
   status: text('status').notNull().default('pending'), // pending | confirmed | failed
   releasedAt: timestamp('released_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const chainSyncs = pgTable('chain_syncs', {
+  syncId: uuid('sync_id').primaryKey(),
+  eventType: text('event_type').notNull(),
+  txHash: text('tx_hash').notNull(),
+  contractAddress: text('contract_address'),
+  blockNumber: integer('block_number'),
+  subjectId: text('subject_id').notNull(),
+  payload: jsonb('payload').notNull().default({}),
+  status: text('status').notNull().default('confirmed'),
+  confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const chainEvents = pgTable('chain_events', {
+  eventId: uuid('event_id').primaryKey(),
+  syncId: uuid('sync_id'),
+  eventType: text('event_type').notNull(),
+  txHash: text('tx_hash').notNull(),
+  subjectId: text('subject_id').notNull(),
+  payload: jsonb('payload').notNull().default({}),
+  recordedAt: timestamp('recorded_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const acceptedAttestations = pgTable('accepted_attestations', {
+  attestationId: uuid('attestation_id').primaryKey(),
+  jobId: text('job_id').notNull().references(() => jobs.jobId),
+  agentFingerprint: text('agent_fingerprint').notNull(),
+  score: integer('score').notNull(),
+  reviewerAddress: text('reviewer_address').notNull(),
+  payoutReleased: boolean('payout_released').notNull().default(false),
+  attestorAddress: text('attestor_address').notNull(),
+  signature: text('signature').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
