@@ -107,7 +107,7 @@ validate: infra-up
 # Screenshots
 screenshots:
 	@echo "Updating screenshots (requires running stack)..."
-	@corepack pnpm --filter intelligence-exchange-cannes-web test:e2e:screenshots
+	@node scripts/take-screenshots.mjs
 
 # Cleanup
 stop:

@@ -108,27 +108,31 @@ See [docs/architecture/system-overview.md](docs/architecture/system-overview.md)
 
 ## Screenshots
 
-All screenshots below were captured from the running local stack in `output/playwright/cannes-demo/`.
+All screenshots below were captured from the running local stack in `output/playwright/cannes-demo-2026/` (April 2026).
+
+### Landing Page
+
+![Landing page](output/playwright/cannes-demo-2026/landing.png)
 
 ### Submit
 
-![Submit flow](output/playwright/cannes-demo/submit.png)
+![Submit flow](output/playwright/cannes-demo-2026/submit.png)
 
 ### Ideas
 
-![Ideas list](output/playwright/cannes-demo/ideas.png)
+![Ideas list](output/playwright/cannes-demo-2026/ideas.png)
 
 ### Idea Detail
 
-![Idea detail](output/playwright/cannes-demo/idea-detail.png)
+![Idea detail](output/playwright/cannes-demo-2026/idea-detail.png)
 
 ### Jobs Board
 
-![Jobs board](output/playwright/cannes-demo/jobs.png)
+![Jobs board](output/playwright/cannes-demo-2026/jobs.png)
 
-### Review Panel
+### Agents Registration
 
-![Review panel](output/playwright/cannes-demo/review.png)
+![Agents page](output/playwright/cannes-demo-2026/agents.png)
 
 ## Business Model
 
@@ -624,3 +628,74 @@ For detailed specifications, see:
 - `spec/TOKEN_ARCHITECTURE.md` - Core token design and asset definitions
 - `spec/TOKENOMICS.md` - Supply, emission, and allocation mechanics
 - `spec/TOKEN_HANDOFF_PACKAGE.md` - Implementation workstreams
+
+
+---
+
+## Technology Stack & Dependencies
+
+### Core Infrastructure
+| Technology | Purpose |
+|------------|---------|
+| **TypeScript** | Primary language |
+| **Bun** | Runtime and package management |
+| **pnpm** | Package manager (via corepack) |
+| **Vite** | Frontend build tool |
+| **Hono** | Backend API framework |
+| **Drizzle ORM** | Database ORM |
+| **Postgres** | Primary database |
+| **Redis** | Caching and job queues |
+| **Docker** | Containerization |
+
+### Blockchain & Web3
+| Technology | Purpose |
+|------------|---------|
+| **Foundry** | Solidity development and testing |
+| **Arc (Circle)** | USDC escrow and settlement |
+| **Worldchain** | Identity and agent registration |
+| **World Agent Kit** | Human-backed agent verification |
+| **0G** | Decentralized storage for dossiers |
+| **RainbowKit** | Wallet connection UI |
+| **Wagmi/Viem** | Ethereum interaction |
+| **Ethers.js** | Contract interaction |
+
+### Smart Contracts
+| Contract | Network | Purpose |
+|----------|---------|---------|
+| **AdvancedArcEscrow** | Arc Testnet | USDC escrow with vesting |
+| **AgentIdentityRegistry** | Worldchain | ERC-8004 style agent identity |
+| **IdentityGate** | Worldchain | Role-based access control |
+
+### AI & Automation
+| Technology | Purpose |
+|------------|---------|
+| **Claude Code** | Agent worker type |
+| **Codex** | Contract development and review |
+| **Kimi** | Documentation and integration |
+| **Google Stitch** | UI component generation |
+
+### Development Tools
+| Technology | Purpose |
+|------------|---------|
+| **Playwright** | E2E testing and screenshots |
+| **Foundry** | Contract testing |
+| **BullMQ** | Job queue management |
+| **Tailwind CSS** | Styling |
+| **Radix UI** | Component primitives |
+
+### Documentation
+| Tool | Purpose |
+|------|---------|
+| **Claude Code** | README, specs, architecture docs |
+| **Codex** | Token architecture, contract specs |
+| **Kimi** | Integration, consolidation |
+| **Google Stitch** | Design system implementation |
+
+---
+
+**Built with contributions from:**
+- **Claude Code** (Anthropic) - Architecture, documentation, integration
+- **Codex** (OpenAI) - Smart contracts, tokenomics
+- **Kimi** - Documentation, testing
+- **Google Stitch** - UI components
+- **Chimera** - Product direction and co-author
