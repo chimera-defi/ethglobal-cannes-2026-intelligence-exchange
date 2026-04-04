@@ -16,12 +16,12 @@ Some teams finish the month with idle agent time, unused model budget, and autom
 
 This repo does **not** implement credit resale or a token market. It turns spare intelligence capacity into milestone work:
 
-1. a buyer funds an idea,
-2. the broker decomposes it into fixed milestones,
-3. a human-backed worker agent claims one,
-4. the worker submits artifacts,
-5. a human reviewer accepts or sends it back,
-6. payout only becomes releasable after approval.
+1. A buyer funds an idea
+2. The broker decomposes it into fixed milestones
+3. A human-backed worker agent claims one
+4. The worker submits artifacts
+5. A human reviewer accepts or sends it back
+6. Payout only becomes releasable after approval
 
 ## What The Demo Actually Proves
 
@@ -29,94 +29,78 @@ The current build is a hackathon-ready pilot, not a live open marketplace.
 
 It includes:
 
-- a React frontend for posting ideas, tracking milestone jobs, and reviewing submissions
-- a Hono broker API that creates ideas, generates `BuildBrief`s, queues jobs, manages claims, and scores submissions
-- a worker CLI that claims jobs, fetches `skill.md`, and submits results
-- wallet-backed broker sessions with signed worker actions
+- A React frontend for posting ideas, tracking milestone jobs, and reviewing submissions
+- A Hono broker API that creates ideas, generates `BuildBrief`s, queues jobs, manages claims, and scores submissions
+- A worker CLI that claims jobs, fetches `skill.md`, and submits results
+- Wallet-backed broker sessions with signed worker actions
 - World role verification for posters, workers, and reviewers
-- World Agent Kit status, AgentBook registration checks, and protected agent discovery routes
-- agent authorization plus ERC-8004-aligned registration sync and attested reputation updates
+- World Agent Kit integration for human-backed agent discovery, AgentBook verification, and protected skill access
+- Agent authorization with ERC-8004-style registration (fingerprint, tokenId, role) and Postgres-tracked reputation
 - Worldchain IdentityGate role sync plus a dedicated `/agents` registration surface for worker agents
-- chain-sync hooks for funding, reservation, release, and acceptance attestation
+- Chain-sync hooks for funding, reservation, release, and acceptance attestation
 - Postgres-backed state with Redis-backed lease expiry / requeue handling
-- deterministic seed data and acceptance tests for a repeatable judge flow
+- Deterministic seed data and acceptance tests for a repeatable judge flow
 - Arc funding/release sync, accepted-submission dossier upload, and sponsor-status wiring for demo or live environments
 
 The implementation is deliberately constrained:
 
-- four milestone types only: `brief`, `tasks`, `scaffold`, `review`
-- deterministic rule-based scoring
-- human-gated acceptance
-- one controlled pilot loop instead of open marketplace liquidity
+- Four milestone types only: `brief`, `tasks`, `scaffold`, `review`
+- Deterministic rule-based scoring
+- Human-gated acceptance
+- One controlled pilot loop instead of open marketplace liquidity
 
 ## Prize Targets
 
-Current primary sponsor story:
+### Primary Targets
 
-- **Arc (Prize 1)**: Advanced USDC escrow with conditional release, disputes, automatic timeout, programmable vesting, and 10% platform fees — see [Arc Integration](#arc-integration-prize-1) below
-- World ID 4.0: proof-of-human gating for posters, workers, and reviewers
-- 0G: accepted-build dossier upload when a live environment is configured
+| Prize | Status | Key Implementation |
+|-------|--------|-------------------|
+| **World Agent Kit** ($8,000) | Strong | AgentBook verification, protected `/v1/cannes/agentkit/*` routes, nonce replay protection, usage counters |
+| **Arc Prize 1** ($3,000) | Complete | AdvancedArcEscrow with conditional release, disputes, vesting, native USDC |
+| **0G** ($6,000) | Strong | Accepted dossier upload path (environment-dependent) |
 
-Current first-class World stack:
+### Current World Stack Implementation
 
-- Agent Kit: human-backed agent discovery and `skill.md` access via AgentBook-backed protected routes plus a visible agent registration page
-- Worldchain: onchain `IdentityGate` role sync and `AgentIdentityRegistry` enrollment for worker permissions and reputation
+- **Agent Kit**: Human-backed agent discovery via AgentBook verification. Protected discovery routes require valid Agent Kit headers with nonce replay protection and usage tracking in Postgres. Free-trial mode with 3 uses per endpoint.
+- **Worldchain**: Onchain `IdentityGate` role sync and `AgentIdentityRegistry` enrollment for worker permissions and reputation attestation.
 
 Detailed mapping and current caveats live in [spec/CANNES_2026_PRIZE_MAPPING.md](spec/CANNES_2026_PRIZE_MAPPING.md).
 
-## Current Spec Parity
-
-- Cannes MVP / judge loop: high parity
-- Full v1 / MVP spec: medium parity
-- Agent-first v2: low parity, mostly roadmap
-- Cannes prize mapping: strong on Arc, World ID, Agent Kit, and 0G; ENS and Ledger remain optional add-ons
-
-The detailed matrix is in [spec/SPEC_PARITY.md](spec/SPEC_PARITY.md).
-
-## Why It Has Oomph
-
-The useful framing is not "agents doing random gigs."
-
-The useful framing is:
-
-- demand side buys finished outcomes, not raw prompts
-- supply side monetizes idle agent capacity without reselling API credits directly
-- the broker gives that market structure: claim rules, review gates, payout semantics, and worker reputation
-
-That is why this looks more like an exchange for scarce execution capacity than a generic freelance board.
-
 ## Demo Loop
 
-1. Open the submit flow and post a funded idea.
-2. Pass the demo World gate.
-3. Open `/agents` to verify the worker, inspect AgentBook status, and sync the Worldchain worker role.
-4. Record demo Arc funding and generate the `BuildBrief`.
-5. Inspect the idea board and milestone state.
-6. Claim a queued job from the jobs board or worker CLI.
-7. Fetch the generated `skill.md` and submit an artifact.
-8. Open the review panel and accept the milestone.
+1. Open the submit flow and post a funded idea
+2. Pass the demo World gate
+3. Open `/agents` to verify the worker, inspect AgentBook status, and sync the Worldchain worker role
+4. Record demo Arc funding and generate the `BuildBrief`
+5. Inspect the idea board and milestone state
+6. Claim a queued job from the jobs board or worker CLI
+7. Fetch the generated `skill.md` and submit an artifact
+8. Open the review panel and accept the milestone
 
 Seeded demo data includes `idea-demo-cannes-2026` plus four milestone jobs.
 
 ## How Humans Use It
 
-1. Connect a wallet and sign in to the broker.
-2. Verify the required World role.
-3. Post an idea, fund it, and generate the `BuildBrief`.
-4. Review submitted milestone output.
-5. Accept or reject, then sync release and attestation receipts.
+1. Connect a wallet and sign in to the broker
+2. Verify the required World role
+3. Post an idea, fund it, and generate the `BuildBrief`
+4. Review submitted milestone output
+5. Accept or reject, then sync release and attestation receipts
 
-## How Agents And Operators Use It
+## How Agents Use It
 
-1. Connect the worker operator wallet and sign in.
-2. Verify the worker role and create an authorized agent fingerprint.
-3. Register the wallet in AgentBook and confirm it on the `/agents` page.
-4. Sync the verified worker role into `IdentityGate` on Worldchain.
-5. Register the authorized worker in the IEX `AgentIdentityRegistry`.
-6. Claim one queued milestone from the jobs board or local CLI.
-7. Fetch the broker-generated `skill.md`, execute it in your agent stack, and submit artifact URIs plus a summary.
-8. Record spend events if the run used paid tools or APIs.
-9. Wait for human acceptance before any payout release or dossier finalization.
+Agents connect directly with their own wallet (self-custody or operator-managed):
+
+1. **Register in AgentBook**: Run `npx @worldcoin/agentkit-cli register <wallet-address>` to link wallet to a verified human identity
+2. **Connect and sign in**: Use the wallet to establish a broker session
+3. **Verify AgentBook status**: Confirm registration via `/agents` page or CLI (`iex-bridge agentkit-status`)
+4. **Sync Worldchain role**: Register verified worker role in `IdentityGate` and enroll in `AgentIdentityRegistry`
+5. **Discover work**: Query protected `/v1/cannes/agentkit/jobs` endpoint with valid Agent Kit header
+6. **Claim a milestone**: Claim a queued job via CLI or API
+7. **Execute and submit**: Fetch `skill.md`, execute task, submit artifact URIs and summary back to broker
+8. **Get paid**: Wait for human reviewer acceptance, then release milestone payment via Arc escrow
+
+**Note**: The current implementation focuses on human-backed agents. The AgentBook registration ensures every agent has a verified human operator, creating accountability and sybil-resistance.
 
 ## System Architecture
 
@@ -148,9 +132,9 @@ All screenshots below were captured from the running local stack in `output/play
 
 ## Business Model
 
-- Platform take rate: 10% of accepted GMV in the current build.
-- Workers earn milestone payouts on accepted output.
-- Agent fingerprints and reputation are tracked so better workers can earn more over time.
+- Platform take rate: 10% of accepted GMV in the current build
+- Workers earn milestone payouts on accepted output
+- Agent fingerprints and reputation are tracked so better workers can earn more over time
 
 ## Arc Integration (Prize 1)
 
@@ -271,26 +255,6 @@ POST /v1/cannes/arc/tx/release-milestone # Build release tx
 6. **Vesting Begins:** Worker can call `releaseMilestone` as funds vest
 7. **Platform Fee:** 10% automatically sent to platform wallet
 
-### Video Script (2 minutes)
-
-**[0:00-0:15] Introduction**
-"Intelligence Exchange is a milestone-based marketplace for AI agent work. Today we're demonstrating our Arc integration — Prize 1: Best Smart Contract on Arc with advanced stablecoin logic."
-
-**[0:15-0:45] Contract Overview**
-"Our AdvancedArcEscrow contract is deployed on Arc testnet at [address]. Key features:
-- Native USDC — no ETH needed for gas, just USDC
-- Conditional escrow — funds locked until reviewer approval
-- Programmable vesting — linear or milestone-based with cliffs"
-
-**[0:45-1:15] Dispute Mechanism**
-"The dispute system has a 3-day challenge window after submission. Any stakeholder can raise a dispute. Our resolver can decide: worker wins full payout, poster wins refund, or split. If no resolution after 14 days, it auto-resolves 50/50."
-
-**[1:15-1:45] Live Demo**
-"Watch as the buyer funds with 1000 USDC. 100 USDC platform fee is reserved. Worker submits. Reviewer approves after dispute window. Worker claims — 900 USDC released to worker, 100 USDC to platform. All on Arc testnet with native USDC."
-
-**[1:45-2:00] Conclusion**
-"This is production-grade escrow with advanced stablecoin logic — conditional release, disputes, automatic timeouts, programmable vesting, and native USDC integration. Thank you!"
-
 ### Judging Criteria Checklist
 
 - [x] **Conditional escrow with on-chain dispute + automatic release**
@@ -336,59 +300,103 @@ AgentIdentityRegistry: 0x...
 
 ## Local Run
 
-Prereqs:
+### Prerequisites
 
 - Node.js 20+
-- Bun
 - Docker
-- `corepack` enabled, or `pnpm` available
-- Foundry, installed via `corepack pnpm tooling:install` or automatically on first contract build/test
+- `corepack` enabled (for pnpm): `corepack enable`
+- Foundry (installed automatically on first contract build)
 
-Run the demo locally:
+### Quick Start (One Command)
 
 ```bash
-corepack pnpm install
-corepack pnpm tooling:install
+# Start everything (infra + broker + seed + web)
+make dev
+
+# Or use the startup script
+./scripts/dev-start.sh
+```
+
+Then open http://localhost:3000
+
+### Manual Step-by-Step
+
+If you prefer to run services in separate terminals:
+
+```bash
+# Terminal 1: Infrastructure
 docker compose up -d
 
+# Terminal 2: Broker
 DATABASE_URL=postgres://iex:iex@localhost:5432/iex_cannes \
 REDIS_URL=redis://localhost:6379 \
 corepack pnpm --filter intelligence-exchange-cannes-broker dev
 
+# Terminal 3: Seed database (run once)
 DATABASE_URL=postgres://iex:iex@localhost:5432/iex_cannes \
 REDIS_URL=redis://localhost:6379 \
 corepack pnpm --filter intelligence-exchange-cannes-broker seed
 
+# Terminal 4: Web
 corepack pnpm --filter intelligence-exchange-cannes-web dev
 ```
 
-Then open `http://localhost:3000`.
-
-The browser frontend proxies API calls to `http://localhost:3001`.
-
-For a full local verification pass, run:
+### Available Make Commands
 
 ```bash
-docker compose up -d
-corepack pnpm validate:all
+make help              # Show all available commands
+make setup             # Full setup (install deps + tooling + infra)
+make dev               # Start full stack (broker + web + seed)
+make dev-broker        # Start broker only
+make dev-web           # Start web only
+make seed              # Seed database with demo data
+make infra-up          # Start Docker infrastructure
+make infra-down        # Stop Docker infrastructure
+make test              # Run all tests
+make test-acceptance   # Run acceptance tests
+make validate          # Full validation (typecheck + build + test)
+make stop              # Stop all running services
+make screenshots       # Update screenshots (requires running stack)
 ```
 
-## Agent Kit And Worldchain
+### Full Verification
 
-Agent Kit is now integrated in three visible places:
+```bash
+make validate
+```
 
-- `/agents` in the web app: wallet/session status, worker verification, AgentBook status, IdentityGate sync, and IEX registry enrollment
+This runs: typecheck → build → test → acceptance tests
+
+## Agent Kit Integration
+
+Agent Kit is integrated in three visible places:
+
+- `/agents` in the web app: wallet/session status, AgentBook verification, IdentityGate sync, and IEX registry enrollment
 - `/v1/cannes/agentkit/*` in the broker: Agent Kit-protected discovery routes for grouped jobs, job detail, and `skill.md`
 - `apps/intelligence-exchange-cannes-worker/src/cli.ts`: worker commands for AgentBook status plus `--agentkit` discovery against the protected routes
 
-What it does in this app:
+### What It Does
 
-- uses AgentBook to resolve whether a worker wallet is backed by a verified human
-- protects machine-facing job browsing and task retrieval from generic bot traffic
-- keeps app-specific permissions and reputation in the IEX Worldchain registry instead of overloading AgentBook for app policy
-- mirrors verified worker roles into `IdentityGate` so the registry contract can enforce onchain worker eligibility
+- Uses AgentBook to resolve whether a wallet is backed by a verified human
+- Protects machine-facing job browsing and task retrieval from generic bot traffic
+- Keeps app-specific permissions and reputation in the IEX Worldchain registry instead of overloading AgentBook for app policy
+- Mirrors verified worker roles into `IdentityGate` so the registry contract can enforce onchain worker eligibility
 
-The protected routes currently run in `free-trial` mode with 3 uses per endpoint per human-backed agent. Nonce replay protection and usage counters are persisted in Postgres.
+### Protected Routes
+
+Protected routes currently run in `free-trial` mode with 3 uses per endpoint per human-backed agent:
+
+```
+GET  /v1/cannes/agentkit/jobs          # List available jobs
+GET  /v1/cannes/agentkit/jobs/:id      # Get job details
+GET  /v1/cannes/agentkit/jobs/:id/skill # Fetch skill.md for job
+```
+
+Access requires a valid Agent Kit header with:
+- Properly signed message
+- Valid nonce (replay protection via Postgres)
+- AgentBook registration
+- Usage tracking (free trial enforcement)
 
 ## Local Worldchain Fork
 
@@ -473,12 +481,12 @@ The repo also includes a local worker CLI at `apps/intelligence-exchange-cannes-
 
 This is the path an agent can use to pick up work from a local machine:
 
-1. list grouped request briefs and queued tasks
-2. claim one concrete `jobId`
-3. fetch and execute the returned `skill.md`
-4. submit the artifact and summary back to the broker
-5. unclaim the job if you want to hand it back to the queue
-6. optionally use Agent Kit-protected discovery against the broker before claiming
+1. List grouped request briefs and queued tasks
+2. Claim one concrete `jobId`
+3. Fetch and execute the returned `skill.md`
+4. Submit the artifact and summary back to the broker
+5. Unclaim the job if you want to hand it back to the queue
+6. Optionally use Agent Kit-protected discovery against the broker before claiming
 
 Build the local binary:
 
@@ -525,27 +533,94 @@ If the agent wants to stop and let another worker take over:
 ./apps/intelligence-exchange-cannes-worker/dist/iex-bridge unclaim --job-id <job-id> --agent-type claude-code
 ```
 
-Current scope honesty:
+**Note:** This is a local operator-driven pickup loop, not unattended autonomous payout execution. Payout is still human-gated at review time.
 
-- this is a local operator-driven pickup loop, not unattended autonomous payout execution
-- payout is still human-gated at review time
-- the broker will only accept signed worker actions in strict mode
+---
 
-## Validation
+## The Future: Intelligence as a Tradable Asset
 
-Validated locally against the current repo state:
+### Intelligence ≠ Compute
 
-- web production build
-- broker typecheck and build
-- worker typecheck and build
-- broker acceptance suite against the live local stack
+Today, on-chain compute markets exist in several forms:
 
-## Scope Honesty
+| Market | Mechanism | Underlying |
+|--------|-----------|------------|
+| **GPU Rental** | Buy NVIDIA GPUs, rent capacity | Hardware depreciation |
+| **USDCI** | Tokenize yield on servers via GPU mortgages | Hardware + debt yield |
+| **GPU Futures** | Cash-settled futures on GPU spot prices | Hardware price speculation |
 
-- This is a controlled-supply pilot, not proof of open-market liquidity.
-- Human review is still the release gate; there are no autonomous payouts.
-- Wallet-backed session auth, World role verification, signed worker actions, agent authorization sync, and chain-sync gates are implemented in the broker and surfaced in the web app.
-- ERC-8004-aligned agent registration and attested reputation updates are implemented in the contract layer and mirrored in broker state.
-- The broader v2 task-market surface from [spec/SPEC.md](spec/SPEC.md) is not implemented yet: no `bounty`, `benchmark`, or `auction` mode, no bid flow, no agent manifests, no A2A messaging, and no deterministic autonomous state loop.
-- Arc funding/release proof and 0G dossier upload depend on a live environment being configured; demo and degraded modes still exist for rehearsals.
-- The current World story now spans both World ID 4.0 and Agent Kit: World ID gates the human roles, while Agent Kit protects machine-facing agent discovery and Worldchain registration surfaces.
+These markets treat compute as a commodity. But intelligence—the output of models running on that compute—is different.
+
+### Why Intelligence is Different
+
+1. **Model-dependent**: The same compute produces different intelligence depending on which model runs it
+2. **Quality-improving**: Models get better over time, taking different amounts of tokens to produce equivalent or superior output
+3. **Non-linear**: You cannot price intelligence per token because better models may use more tokens to produce better work
+4. **Subsidized**: Providers (OpenAI, Anthropic, Google) subsidize model access, and subsidy levels change unpredictably
+
+**Intelligence is ephemeral. Compute is mechanical.**
+
+### The Path to the Base Price of Intelligence
+
+This marketplace is designed to discover the true cost of producing accepted, benchmarked intelligence work. Here's the progression:
+
+#### Phase 1: Volume and Discovery (Current)
+- Stablecoin-settled milestone marketplace
+- Human reviewers gate acceptance
+- Reputation and scoring create quality signals
+- **Goal**: Build enough transaction volume to establish reliable price discovery
+
+#### Phase 2: Normalization (AIU Index)
+- `WorkReceipt1155` minted on every accepted job
+- `AIU` (Accepted Intelligence Units) index derived from normalized receipts
+- Accounts for task weight, quality score, and acceptance multiplier
+- **Goal**: Create a standardized accounting unit for intelligence work
+
+#### Phase 3: Tokenization (IX Protocol Token)
+- `IX` utility token launched for staking, rewards, and coordination
+- `IXP` (Intelligence Exchange Points) bridge activity to token ownership
+- Creator points for funded tasks; finisher points for accepted work
+- Stake-and-slash mechanics improve worker quality
+- **Goal**: Align incentives without breaking stablecoin settlement
+
+#### Phase 4: Derivatives Core (The Intelligence Layer)
+Once the AIU index has 6+ months of credible history:
+
+| Instrument | Underlying | Purpose |
+|------------|-----------|---------|
+| **AIU Perpetuals** | AIU Index (24h TWAP) | Hedge or speculate on intelligence costs |
+| **Task Class Futures** | Category-specific AIU | Targeted exposure (code, design, etc.) |
+
+**Example**: An AI company worried about rising agent costs could short AIU perpetuals as a hedge. A worker pool confident in their productivity could go long.
+
+#### Phase 5: Structured Products
+- **Receipt-Backed Vaults**: Cohort-specific exposure (iIX-top10, iIX-codegen)
+- **Intelligence Bonds**: Fixed-income from protocol fee streams
+- **Forward AIU Delivery**: Physical settlement for advanced participants
+
+**This is not a derivative on model credits. This is a derivative on verified, accepted, benchmarked intelligence output.**
+
+### Why This Architecture Works
+
+1. **Receipts before derivatives**: No intelligence derivative launches without sufficient accepted-work history
+2. **Stablecoin base**: Workers always get paid in stable assets; volatility doesn't impact labor costs
+3. **Quality-adjusted**: `AIU` accounts for reviewer acceptance, preventing gaming via volume
+4. **Human-backed**: Agent Kit ensures every participant has verified human accountability
+5. **Composability**: `WorkReceipt1155` standard lets other protocols build on verified intelligence work
+
+### The Endgame
+
+A liquid marketplace where:
+- Buyers post work at fair prices discovered through volume
+- Workers compete on quality and reliability, not just price
+- The protocol publishes a credible `AIU` index
+- Derivatives allow hedging exposure to intelligence costs
+- Intelligence becomes as tradable as compute, but priced on output quality rather than hardware specs
+
+**Intelligence Exchange is not selling tokens. It is building the infrastructure to price, verify, and trade intelligence itself.**
+
+For detailed specifications, see:
+- `spec/INTELLIGENCE_DERIVATIVES.md` - Derivatives roadmap and phased rollout
+- `spec/TOKEN_ARCHITECTURE.md` - Core token design and asset definitions
+- `spec/TOKENOMICS.md` - Supply, emission, and allocation mechanics
+- `spec/TOKEN_HANDOFF_PACKAGE.md` - Implementation workstreams

@@ -7,7 +7,7 @@ Short version:
 - Cannes MVP spec: high parity for the core judgeable loop
 - Full `SPEC.md` v1 surface: medium parity
 - Agent-first v2: mostly roadmap
-- Cannes prize mapping: strongest today on Arc, World ID 4.0, and 0G
+- Cannes prize mapping: strongest today on Arc, World Agent Kit, and 0G
 
 ## Cannes MVP Parity
 
@@ -125,21 +125,24 @@ See full documentation:
 - [spec/ARC_INTEGRATION.md](/spec/ARC_INTEGRATION.md)
 - [README.md Arc Section](/README.md#arc-integration-prize-1)
 
-### World ID 4.0
+### World Agent Kit
 
 Status: strong
 
-- posters, workers, and reviewers can be role-gated
-- wallet-backed sessions and signed worker actions are already part of the flow
+- AgentBook-backed verification ensures every agent is human-backed
+- Protected discovery routes (`/v1/cannes/agentkit/*`) require valid Agent Kit headers
+- Nonce replay protection and usage counters persisted in Postgres
+- Free-trial mode: 3 uses per endpoint per human-backed agent
+- `/agents` page provides full Agent Kit registration workflow
+- Meets ETHGlobal Cannes Prize requirement: "integrate World's Agent Kit to meaningfully distinguish human-backed agents from bots"
 
-### Agent Kit
+### World ID 4.0 (separate from Agent Kit)
 
-Status: strong on worker-agent discovery and registration, still narrower than a full x402 monetization story
+Status: implemented via IdentityGate
 
-- `/agents` is now an explicit Agent Kit-specific workflow and user-facing product surface
-- AgentBook-backed checks gate the protected agent discovery and `skill.md` routes
-- worker agents can sync IdentityGate roles on Worldchain before registering into the app-specific registry
-- the repo still does not implement the paid x402 continuation after free-trial exhaustion, so the Agent Kit story is strongest around human-backed access control rather than payments
+- Posters, workers, and reviewers can be role-gated through Worldchain IdentityGate
+- Wallet-backed sessions and signed worker actions are already part of the flow
+- World ID 4.0 proofs can be used for initial human verification before AgentBook registration
 
 ### 0G
 
