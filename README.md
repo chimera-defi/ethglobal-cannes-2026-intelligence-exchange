@@ -134,6 +134,10 @@ All screenshots below were captured from the running local stack in `output/play
 
 ![Agents page](output/playwright/cannes-demo-2026/agents.png)
 
+### Review Queue
+
+![Review panel](output/playwright/cannes-demo-2026/review.png)
+
 ## Business Model
 
 - Platform take rate: 10% of accepted GMV in the current build
