@@ -45,19 +45,63 @@ React + Vite SPA at `apps/intelligence-exchange-cannes-web/`. TypeScript, React 
 **Palette:** Dark gray base — `bg-gray-950` body, `bg-gray-900` cards, `border-gray-800` borders.
 
 **Component library:** shadcn/ui (custom dark-themed). Import from `@/components/ui/`:
-- `Button` — variants: `default` (blue), `destructive` (red), `success` (green), `outline`, `secondary`, `ghost`
+- `Button` — variants: `default` (blue), `destructive` (red), `success` (green), `outline`, `secondary`, `ghost`, `review` (purple — for pending review actions)
 - `Badge` — variants map 1:1 to job status: `queued`, `claimed`, `submitted`, `accepted`, `rejected`, `rework`, `funded`, `unfunded`, `created`, `settled`
 - `Card`, `CardHeader`, `CardTitle`, `CardDescription`, `CardContent`, `CardFooter`
 - `Input`, `Textarea`, `Label`
 - `Tabs`, `TabsList`, `TabsTrigger`, `TabsContent`
 - `Dialog`, `DialogContent`, `DialogHeader`, `DialogTitle`, `DialogDescription`, `DialogFooter`
 - `Separator`, `Toast`
+- `Select`, `SelectTrigger`, `SelectContent`, `SelectItem`, `SelectValue` — for dropdown filters
+- `Table`, `TableHeader`, `TableBody`, `TableRow`, `TableHead`, `TableCell` — for data lists
+- `Skeleton` — for content loading areas
+- `Alert`, `AlertTitle`, `AlertDescription` — for error/warning states
+- `Tooltip`, `TooltipTrigger`, `TooltipContent`, `TooltipProvider` — for truncated data
+- `Avatar`, `AvatarImage`, `AvatarFallback` — for wallet address display
+- `Sheet`, `SheetTrigger`, `SheetContent` — for mobile nav drawer
+- `Accordion`, `AccordionItem`, `AccordionTrigger`, `AccordionContent` — for collapsible sections
+- `Progress` — for milestone completion, form steps
 
 **Icons:** lucide-react. Common: `Wallet`, `ShieldCheck`, `CheckCircle2`, `XCircle`, `Loader2`, `ChevronRight`, `ArrowLeft`, `ExternalLink`, `Clock`, `AlertCircle`, `Zap`.
 
-**Loading:** Use CSS `.spinner` class (defined in `index.css`) — never emoji spinners.
+**Loading:** Use `Skeleton` component for content areas. Use `<Loader2 className="animate-spin" />` ONLY inside buttons during submit. Never use raw CSS `.spinner` class for new code.
 
 **cn() helper:** `import { cn } from '@/lib/utils'` for conditional class merging.
+
+## Anti-Slop Rules (enforced — violations will be rejected in PR review)
+
+**NEVER:**
+1. Use inline Tailwind color utilities for semantic states — BAD: `className="bg-purple-700"` / GOOD: `variant="review"`
+2. Use `absolute top-0 left-0 w-1 h-full bg-*` left-border decorations — remove entirely
+3. Center section headers in app pages — use `text-left` (only `text-center` for landing hero/CTA)
+4. Use `grid grid-cols-3` with icon-cards as "features" layout — use timeline or table
+5. Use `→` as a bullet character — use `<ul className="list-disc list-inside">` or lucide icons
+
+**Adding a new semantic color:**
+1. Add to `src/index.css` `:root`: `--my-color: H S% L%;`
+2. Add to `tailwind.config.js` `theme.extend.colors`: `'my-color': 'hsl(var(--my-color))'`
+3. If for a Button, add variant to `src/components/ui/button.tsx` `buttonVariants` cva
+
+**Loading state pattern:**
+```tsx
+if (isLoading) return (
+  <div className="space-y-3">
+    <Skeleton className="h-12 w-full" />
+    <Skeleton className="h-12 w-full" />
+  </div>
+);
+```
+
+**Empty state pattern:**
+```tsx
+<Card>
+  <CardContent className="flex flex-col items-center justify-center py-12 space-y-3">
+    <SomeIcon className="h-10 w-10 text-muted-foreground" />
+    <p className="text-sm text-muted-foreground">No items found.</p>
+    <Button size="sm" onClick={handleAction}>Primary Action</Button>
+  </CardContent>
+</Card>
+```
 
 ## Auth Pattern
 

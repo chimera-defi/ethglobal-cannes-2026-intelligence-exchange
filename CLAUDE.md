@@ -52,6 +52,21 @@ Before opening or updating a PR:
 - Prefer QMD or scoped `rg` over broad scans.
 - Do not narrate tool usage in detail.
 
+## Design System
+
+Always read `DESIGN.md` before making any visual or UI decisions.
+All font choices, colors, spacing, border-radius, and aesthetic direction are defined there.
+Do not deviate without explicit user approval.
+In QA mode, flag any code that doesn't match `DESIGN.md`.
+
+Key rules from DESIGN.md:
+- Background `#070D1A`, surface `#0D1625`, primary `#3B82F6`, amber `#F59E0B` for human-review states
+- Display font: Departure Mono. Body: Plus Jakarta Sans. Data/code: JetBrains Mono.
+- All cards have `border border-border` (1px). No borderless floating cards.
+- `rounded-sm` (4px) for inputs/badges, `rounded-md` (8px) for cards.
+- Status-driven 2px left border on job cards is a semantic indicator, not decoration.
+- No purple gradients, no 3-col icon grids, no centered section headers in app pages.
+
 ## Working Style
 
 - Build the smallest honest slice first.
