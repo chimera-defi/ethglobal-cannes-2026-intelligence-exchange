@@ -49,6 +49,8 @@ export const agentAuthorizations = pgTable('agent_authorizations', {
   status: text('status').notNull().default('pending_registration'),
   onChainTokenId: integer('on_chain_token_id'),
   registrationTxHash: text('registration_tx_hash'),
+  agentbookHumanId: text('agentbook_human_id'),
+  agentbookRegisteredAt: timestamp('agentbook_registered_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   activatedAt: timestamp('activated_at', { withTimezone: true }),
@@ -180,9 +182,23 @@ export const agentIdentities = pgTable('agent_identities', {
   operatorAddress: text('operator_address'),
   onChainTokenId: integer('on_chain_token_id'),
   registrationTxHash: text('registration_tx_hash'),
+  agentbookHumanId: text('agentbook_human_id'),
+  agentbookRegisteredAt: timestamp('agentbook_registered_at', { withTimezone: true }),
   acceptedCount: integer('accepted_count').notNull().default(0),
   avgScore: numeric('avg_score', { precision: 5, scale: 2 }).notNull().default('0'),
   registeredAt: timestamp('registered_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const agentkitUsageCounters = pgTable('agentkit_usage_counters', {
+  endpoint: text('endpoint').notNull(),
+  humanId: text('human_id').notNull(),
+  uses: integer('uses').notNull().default(0),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const agentkitNonces = pgTable('agentkit_nonces', {
+  nonce: text('nonce').primaryKey(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 

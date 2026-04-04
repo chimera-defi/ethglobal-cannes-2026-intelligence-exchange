@@ -133,6 +133,8 @@ export const AgentAuthorizationSchema = z.object({
   status: AuthorizationStatusSchema,
   onChainTokenId: z.number().int().optional(),
   registrationTxHash: z.string().optional(),
+  agentbookHumanId: z.string().optional(),
+  agentbookRegisteredAt: z.string().datetime().optional(),
   createdAt: z.string().datetime().optional(),
   updatedAt: z.string().datetime().optional(),
   activatedAt: z.string().datetime().optional(),

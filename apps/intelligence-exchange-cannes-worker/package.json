@@ -12,14 +12,15 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@worldcoin/agentkit": "0.1.6",
     "commander": "^12.1.0",
-    "zod": "^3.22.4",
     "dotenv": "^16.4.5",
+    "intelligence-exchange-cannes-shared": "workspace:*",
     "viem": "^2.11.0",
-    "intelligence-exchange-cannes-shared": "workspace:*"
+    "zod": "^3.22.4"
   },
   "devDependencies": {
-    "typescript": "^5.4.5",
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "typescript": "^5.4.5"
   }
 }

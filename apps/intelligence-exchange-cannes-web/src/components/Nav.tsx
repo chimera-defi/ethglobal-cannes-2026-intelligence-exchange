@@ -36,6 +36,7 @@ export function Nav() {
     { to: '/workspace', label: 'Workspace' },
     { to: '/submit', label: 'Post Idea' },
     { to: '/jobs', label: 'Jobs' },
+    { to: '/agents', label: 'Agents' },
     { to: '/ideas', label: 'My Ideas' },
   ];
 
