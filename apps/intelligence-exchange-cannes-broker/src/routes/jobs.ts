@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { desc, eq, inArray } from 'drizzle-orm';
 import { db } from '../db/client';
-import { acceptedAttestations, agentSpendEvents, briefs, ideas, jobs, milestones, submissions } from '../db/schema';
+import { acceptedAttestations, agentSpendEvents, briefs, claims, ideas, jobs, milestones, submissions } from '../db/schema';
 import { claimJob, recordSpendEvent, submitJob, unclaimJob } from '../services/jobService';
 import {
   JobClaimRequestSchema,
@@ -44,7 +44,18 @@ type GroupedJobBoardItem = {
     status: string;
     budgetUsd: string;
     leaseExpiry: Date | null;
+    activeClaimId: string | null;
     activeClaimWorkerId: string | null;
+    activeClaimAgentFingerprint: string | null;
+    latestSubmission: {
+      submissionId: string;
+      artifactUris: string[];
+      summary: string | null;
+      submittedAt: Date;
+      accountAddress: string | null;
+      agentFingerprint: string | null;
+      scoreStatus: string | null;
+    } | null;
     order: number;
   }>;
 };
@@ -124,11 +135,33 @@ async function buildGroupedJobBoard(statusFilter: string) {
     ? await db.select().from(ideas).where(inArray(ideas.ideaId, ideaIds))
     : [];
   const boardMilestones = await db.select().from(milestones).where(inArray(milestones.briefId, briefIds));
+  const activeClaimIds = Array.from(
+    new Set(
+      boardJobs
+        .map((job) => job.activeClaimId)
+        .filter((claimId): claimId is string => Boolean(claimId)),
+    ),
+  );
+  const boardClaims: Array<typeof claims.$inferSelect> = activeClaimIds.length > 0
+    ? await db.select().from(claims).where(inArray(claims.claimId, activeClaimIds))
+    : [];
+  const jobIds = Array.from(new Set(boardJobs.map((job) => job.jobId)));
+  const boardSubmissions: Array<typeof submissions.$inferSelect> = jobIds.length > 0
+    ? await db.select().from(submissions).where(inArray(submissions.jobId, jobIds)).orderBy(desc(submissions.submittedAt))
+    : [];
 
   const briefsById = new Map(boardBriefs.map((brief) => [brief.briefId, brief]));
   const ideasById = new Map(boardIdeas.map((idea) => [idea.ideaId, idea]));
   const milestonesById = new Map(boardMilestones.map((milestone) => [milestone.milestoneId, milestone]));
+  const claimsById = new Map(boardClaims.map((claim) => [claim.claimId, claim]));
+  const latestSubmissionByJobId = new Map<string, typeof submissions.$inferSelect>();
   const jobsByBriefId = new Map<string, typeof boardJobs>();
+
+  for (const submission of boardSubmissions) {
+    if (!latestSubmissionByJobId.has(submission.jobId)) {
+      latestSubmissionByJobId.set(submission.jobId, submission);
+    }
+  }
 
   for (const job of boardJobs) {
     const existing = jobsByBriefId.get(job.briefId) ?? [];
@@ -146,6 +179,8 @@ async function buildGroupedJobBoard(statusFilter: string) {
     const milestoneJobs = (jobsByBriefId.get(briefId) ?? [])
       .map((job) => {
         const milestone = milestonesById.get(job.milestoneId);
+        const activeClaim = job.activeClaimId ? claimsById.get(job.activeClaimId) : null;
+        const latestSubmission = latestSubmissionByJobId.get(job.jobId) ?? null;
         return {
           jobId: job.jobId,
           milestoneId: job.milestoneId,
@@ -156,7 +191,22 @@ async function buildGroupedJobBoard(statusFilter: string) {
           status: job.status,
           budgetUsd: job.budgetUsd,
           leaseExpiry: job.leaseExpiry ?? null,
+          activeClaimId: job.activeClaimId ?? null,
           activeClaimWorkerId: job.activeClaimWorkerId ?? null,
+          activeClaimAgentFingerprint: activeClaim?.agentFingerprint ?? null,
+          latestSubmission: latestSubmission
+            ? {
+                submissionId: latestSubmission.submissionId,
+                artifactUris: Array.isArray(latestSubmission.artifactUris)
+                  ? latestSubmission.artifactUris.filter((uri): uri is string => typeof uri === 'string')
+                  : [],
+                summary: latestSubmission.summary ?? null,
+                submittedAt: latestSubmission.submittedAt,
+                accountAddress: latestSubmission.accountAddress ?? null,
+                agentFingerprint: latestSubmission.agentFingerprint ?? null,
+                scoreStatus: latestSubmission.scoreStatus ?? null,
+              }
+            : null,
           order: milestone?.order ?? Number.MAX_SAFE_INTEGER,
         };
       })

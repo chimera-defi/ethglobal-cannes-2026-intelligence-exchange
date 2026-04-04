@@ -21,6 +21,7 @@
 
 - Never push directly to `main`.
 - One task = one branch = one PR.
+- When a task is complete and the user has not opted out, create the branch, commit, push, and open a PR instead of leaving changes uncommitted on `main`.
 - Keep related commits stacked in the same PR.
 
 ## Multi-Pass Review
