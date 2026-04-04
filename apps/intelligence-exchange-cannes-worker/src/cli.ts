@@ -8,6 +8,7 @@
  *
  * Usage:
  *   iex-bridge claim --job-id <id> --agent-type claude-code
+ *   iex-bridge unclaim --job-id <id> --agent-type claude-code
  *   iex-bridge submit --job-id <id> --claim-id <id> --artifact <uri> --summary "..."
  *   iex-bridge list
  *   iex-bridge status --job-id <id>
@@ -56,6 +57,7 @@ type GroupedJobsListResponse = {
       jobId: string;
       milestoneType: string;
       title: string;
+      skillMdUrl: string;
       status: string;
       budgetUsd: string;
     }>;
@@ -80,7 +82,7 @@ export function computeAgentFingerprint(agentType: string, agentVersion: string,
 
 export async function createSignedAction(input: {
   accountAddress: string;
-  purpose: 'worker_claim' | 'worker_submit';
+  purpose: 'worker_claim' | 'worker_submit' | 'worker_unclaim';
   agentFingerprint: string;
   jobId: string;
   privateKey?: string;
@@ -222,6 +224,42 @@ program
     console.log('─'.repeat(60));
     console.log('\nAfter completing the task, submit with:');
     console.log(`  iex-bridge submit --job-id ${opts.jobId} --claim-id ${claimRes.claimId} --artifact <uri> --summary "..." --agent-type ${opts.agentType}`);
+  });
+
+program
+  .command('unclaim')
+  .description('Release a claimed job back to the queue')
+  .requiredOption('--job-id <id>', 'Job ID to unclaim')
+  .option('--agent-type <type>', 'Authorized agent type', 'claude-code')
+  .option('--agent-version <ver>', 'Authorized agent version', '1.0.0')
+  .option('--agent-fingerprint <fp>', 'Authorized agent fingerprint override')
+  .option('--private-key <key>', 'Operator wallet private key override')
+  .action(async (opts) => {
+    const operator = getOperatorAccount(opts.privateKey);
+    const agentFingerprint = opts.agentFingerprint ?? computeAgentFingerprint(
+      opts.agentType,
+      opts.agentVersion,
+      operator.address,
+    );
+
+    console.log(`\nReleasing claim on job ${opts.jobId} for operator ${operator.address}...`);
+
+    const signedAction = await createSignedAction({
+      accountAddress: operator.address,
+      purpose: 'worker_unclaim',
+      agentFingerprint,
+      jobId: opts.jobId,
+      privateKey: opts.privateKey,
+    });
+
+    const result = await brokerPost(`/v1/cannes/jobs/${opts.jobId}/unclaim`, {
+      signedAction,
+    }) as { unclaimed: boolean; status: string };
+
+    console.log('\n✓ Claim released.');
+    console.log(`  Job ID:  ${opts.jobId}`);
+    console.log(`  Status:  ${result.status}`);
+    console.log(`  Skill:   ${BROKER_URL}/v1/cannes/jobs/${opts.jobId}/skill.md`);
   });
 
 program

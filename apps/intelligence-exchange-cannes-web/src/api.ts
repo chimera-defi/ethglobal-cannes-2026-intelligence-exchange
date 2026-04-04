@@ -55,7 +55,7 @@ export interface AuthMeResponse {
 
 export function createAuthChallenge(
   accountAddress: string,
-  purpose: 'web_login' | 'worker_claim' | 'worker_submit' = 'web_login',
+  purpose: 'web_login' | 'worker_claim' | 'worker_submit' | 'worker_unclaim' = 'web_login',
   metadata?: { agentFingerprint?: string; jobId?: string }
 ) {
   return post<AuthChallengeResponse>('/auth/challenge', {
@@ -287,6 +287,7 @@ export interface JobResponse {
     briefId: string;
     ideaId: string;
     posterId?: string | null;
+    skillMdUrl?: string;
     submission?: SubmissionDetail;
   };
   spendEvents: Array<{
@@ -335,6 +336,7 @@ export interface JobBoardMilestone {
   milestoneType: string;
   title: string;
   description: string;
+  skillMdUrl: string;
   status: string;
   budgetUsd: string;
   leaseExpiry?: string | null;
@@ -394,6 +396,29 @@ export function claimJobDemo(jobId: string, body: {
 }) {
   return post<{ claimId: string; expiresAt: string; skillMdUrl: string }>(
     `/jobs/${jobId}/claim`,
+    body
+  );
+}
+
+export function unclaimJob(jobId: string, signedAction: SignedAction) {
+  return post<{ unclaimed: boolean; status: string; jobId: string; skillMdUrl: string }>(
+    `/jobs/${jobId}/unclaim`,
+    { signedAction },
+    true
+  );
+}
+
+export function unclaimJobDemo(jobId: string, body: {
+  workerId: string;
+  agentMetadata?: {
+    agentType?: string;
+    agentVersion?: string;
+    operatorAddress?: string;
+    fingerprint?: string;
+  };
+}) {
+  return post<{ unclaimed: boolean; status: string; jobId: string; skillMdUrl: string }>(
+    `/jobs/${jobId}/unclaim`,
     body
   );
 }
