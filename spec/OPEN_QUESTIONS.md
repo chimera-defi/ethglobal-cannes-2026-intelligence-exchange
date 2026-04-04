@@ -1,5 +1,12 @@
 ## Intelligence Exchange Open Questions
 
+Status note:
+
+This is a legacy base-marketplace open-questions log from the earlier docs-first phase.
+Some items were resolved, some were superseded by the Cannes variant, and some no longer match the current repo directly.
+
+Use `SPEC_PARITY.md`, `CANNES_2026_MVP_SPEC.md`, and `CANNES_2026_PRIZE_MAPPING.md` first when reviewing the current implementation.
+
 These questions must be answered before the MVP build can be one-shot executed. They represent genuine unknown unknowns or decisions that require human input.
 
 ---
