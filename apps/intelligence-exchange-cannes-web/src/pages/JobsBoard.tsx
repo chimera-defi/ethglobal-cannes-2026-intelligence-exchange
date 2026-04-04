@@ -37,6 +37,9 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   claimJob,
   claimJobDemo,
@@ -1442,9 +1445,12 @@ export function JobsBoard() {
           </p>
         </div>
         {demoClaimEnabled && (
-          <div className="bg-blue-900/20 border border-blue-800 rounded-lg px-3 py-2 text-blue-200 text-sm">
-            Demo mode is enabled. Unsigned browser claims are allowed while World strict mode is off.
-          </div>
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Demo mode is enabled. Unsigned browser claims are allowed while World strict mode is off.
+            </AlertDescription>
+          </Alert>
         )}
 
         <AgentPickupGuide />
@@ -1501,16 +1507,16 @@ export function JobsBoard() {
 
         {/* Inline errors */}
         {signInError && (
-          <div className="flex items-center gap-2 text-red-400 text-sm bg-red-900/20 border border-red-800 rounded-lg px-3 py-2">
-            <XCircle className="h-4 w-4 shrink-0" />
-            {signInError}
-          </div>
+          <Alert variant="destructive">
+            <XCircle className="h-4 w-4" />
+            <AlertDescription>{signInError}</AlertDescription>
+          </Alert>
         )}
         {authError && (
-          <div className="flex items-center gap-2 text-red-400 text-sm bg-red-900/20 border border-red-800 rounded-lg px-3 py-2">
-            <XCircle className="h-4 w-4 shrink-0" />
-            {authError}
-          </div>
+          <Alert variant="destructive">
+            <XCircle className="h-4 w-4" />
+            <AlertDescription>{authError}</AlertDescription>
+          </Alert>
         )}
 
         {/* Claim success banner */}
@@ -1525,20 +1531,13 @@ export function JobsBoard() {
         )}
 
         {/* Status tabs */}
-        <div className="flex gap-1 bg-gray-900 rounded-lg p-1 w-fit">
-          {STATUS_TABS.map(tab => (
-            <button
-              key={tab}
-              onClick={() => switchTab(tab)}
-              className={cn(
-                'px-3 py-1.5 rounded-md text-sm font-medium transition-colors capitalize',
-                activeTab === tab ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-gray-300'
-              )}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
+        <Tabs value={activeTab} onValueChange={(v) => switchTab(v as StatusTab)}>
+          <TabsList>
+            {STATUS_TABS.map(tab => (
+              <TabsTrigger key={tab} value={tab} className="capitalize">{tab}</TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
 
         {activeTab !== 'queued' && (
           <Card className="border-gray-800 bg-gray-900/40">
@@ -1565,9 +1564,10 @@ export function JobsBoard() {
 
         {/* Jobs list */}
         {isLoading ? (
-          <div className="text-center py-12 space-y-3">
-            <Loader2 className="h-6 w-6 animate-spin text-gray-500 mx-auto" />
-            <p className="text-gray-400 text-sm">Loading jobs…</p>
+          <div className="space-y-3">
+            <Skeleton className="h-28 w-full" />
+            <Skeleton className="h-28 w-full" />
+            <Skeleton className="h-28 w-full" />
           </div>
         ) : error ? (
           <Card className="border-gray-700">
