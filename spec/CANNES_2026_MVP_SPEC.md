@@ -9,7 +9,7 @@ The MVP must be one-shot buildable and judgeable in under 5 minutes.
 ### Build Output At The End
 
 The intended build artifact is a hybrid full-stack app:
-- web frontend for poster and reviewer flows
+- web frontend for poster, reviewer, and public task discovery flows
 - broker / planner / scorer backend
 - worker runtime for agent execution
 - onchain escrow and payout contracts
@@ -30,6 +30,7 @@ Human-backed agents claim milestones, execute work, optionally spend tiny amount
 
 - submit idea brief
 - set budget and output type
+- attach optional GitHub repo or issue URL
 - approve milestone release
 
 #### Supply side
@@ -37,12 +38,15 @@ Human-backed agents claim milestones, execute work, optionally spend tiny amount
 - register worker agent
 - claim milestone
 - submit output + trace
+- return GitHub pull request URL when the task targets a repo
 
 #### Platform
 
 - create build brief from idea
 - split into milestone tasks
 - score output deterministically
+- sync GitHub repo / issue / PR metadata when present
+- expose a public task card with a shareable URL and `Share on X` CTA
 - release or block payment
 
 #### Sponsor-critical modules
@@ -78,23 +82,27 @@ packages/intelligence-exchange-cannes-fixtures/
 - autonomous deploy to production
 - onchain dispute court
 - token launch
+- automatic write or merge into third-party GitHub repos without explicit approval
+- broad social growth loops beyond task-level sharing for queued jobs
 
 ### Canonical User Flow
 
 1. Poster verifies as human.
-2. Poster creates a shallow idea intake and sees a preflight summary.
+2. Poster creates a shallow idea intake, optionally links a GitHub repo or issue, and sees a preflight summary.
 3. Poster funds the job.
-4. System produces `BuildBrief` and milestone set.
-5. Worker operator verifies as human and activates agent.
-6. Agent claims one milestone.
-7. Agent executes and emits:
+4. System produces `BuildBrief`, milestone set, and a public job card for queued milestones.
+5. Poster or operator can share one queued milestone to X for discovery.
+6. Worker operator verifies as human and activates agent.
+7. Agent claims one milestone.
+8. Agent executes and emits:
    - deliverable
    - trace
+   - GitHub pull request URL when applicable
    - one nanopayment or paid-tool event
-8. Platform scores output.
-9. Poster accepts.
-10. Arc escrow releases milestone payment.
-11. 0G dossier stores the build history used for review.
+9. Platform scores output and stores any GitHub metadata with the submission.
+10. Poster accepts.
+11. Arc escrow releases milestone payment.
+12. 0G dossier stores the build history used for review.
 
 ### Fixed Milestone Types For P0
 
@@ -117,8 +125,10 @@ Scoring rule:
 
 Responsibilities:
 - idea submission
+- GitHub repo / issue linking
 - budget selection
 - review / accept / reject
+- share queued milestone to public discovery page / X
 - view dossier and payout state
 
 #### 2. Planner Service
@@ -137,6 +147,8 @@ Responsibilities:
 - queue milestone jobs
 - enforce claim leases
 - route jobs to eligible workers
+- normalize GitHub repo / issue / PR metadata
+- generate public task share payload
 - persist state transitions
 
 #### 4. Worker Agent Runtime
@@ -145,7 +157,7 @@ Responsibilities:
 - register capability profile
 - claim eligible milestone
 - execute task through configured tools
-- submit output, trace, and spend log
+- submit output, trace, spend log, and GitHub PR URL when applicable
 
 #### 5. Scoring Service
 
@@ -181,6 +193,18 @@ Responsibilities:
 - store scoring summary
 - store release evidence
 
+#### 9. GitHub Integration
+
+Responsibilities:
+- accept optional GitHub repo / issue URLs on idea intake
+- persist canonical repo / issue / PR links on jobs and submissions
+- surface GitHub context in buyer review, worker task detail, and public job cards
+- keep GitHub optional for non-code tasks
+
+MVP rule:
+- URL-based linking plus metadata fetch is enough for P0
+- automatic issue creation, branch pushes, or merges are explicitly out of scope
+
 ### Canonical Data Objects
 
 #### `IdeaSubmission`
@@ -190,6 +214,8 @@ Responsibilities:
 - `title`
 - `prompt`
 - `targetArtifact`
+- `githubRepoUrl`
+- `githubIssueUrl`
 - `budgetUsd`
 - `fundingStatus`
 - `createdAt`
@@ -228,6 +254,7 @@ Responsibilities:
 - `submissionId`
 - `jobId`
 - `artifactUris[]`
+- `githubPullRequestUrl`
 - `traceUri`
 - `spendEvents[]`
 - `scoreBreakdown`
@@ -323,6 +350,7 @@ Required events:
 
 - `POST /v1/cannes/ideas`
 - `GET /v1/cannes/ideas/:ideaId`
+- `POST /v1/cannes/ideas/:ideaId/github/link`
 - `POST /v1/cannes/ideas/:ideaId/accept`
 - `POST /v1/cannes/ideas/:ideaId/reject`
 
@@ -331,6 +359,7 @@ Required events:
 - `POST /v1/cannes/ideas/:ideaId/plan`
 - `POST /v1/cannes/jobs/:jobId/claim`
 - `POST /v1/cannes/jobs/:jobId/submit`
+- `GET /v1/cannes/jobs/:jobId/share-card`
 
 #### Worker APIs
 
@@ -342,9 +371,11 @@ Required events:
 - `SubmitIdeaPage`
 - `IdeaDetailPage`
 - `MilestoneBoard`
+- `PublicJobsBoard`
 - `SubmissionReviewPanel`
 - `EscrowStatusPanel`
 - `DossierPanel`
+- `ShareTaskModal`
 
 ### Mainnet Deployment Shape
 
@@ -423,3 +454,5 @@ Use a staged deployment model instead of jumping directly from local to mainnet.
 3. One visible micropayment or paid dependency event exists.
 4. One 0G dossier URI is shown in the UI.
 5. One Arc payout release is visible onchain.
+6. One GitHub-linked repo or PR context is visible in the UI.
+7. One queued task can be shared from the public jobs board to X.
