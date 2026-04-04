@@ -27,25 +27,27 @@ Best concrete submission target:
 Secondary target:
 - `Best Smart Contracts on Arc with Advanced Stablecoin Logic`
 
-### 2. World
+### 2. World Agent Kit ($8,000)
 
-Strong fit.
+Strongest fit for World prizes.
 
 Why:
-- the Cannes page says World wants agentic experiences where World ID improves safety, fairness, or trust
-- it also explicitly rewards products that "break without proof of human"
+- the Cannes page explicitly says: "Apps that use AgentKit to ship agentic experiences where World ID improves safety, fairness, or trust"
+- key requirement: "Submissions must integrate World's Agent Kit to meaningfully distinguish human-backed agents from bots or automated scripts"
+- $8,000 total prize pool (1st: $4,000, 2nd: $2,500, 3rd: $1,500)
 
 How this variant maps:
-- only verified humans can post funded idea jobs
-- only verified humans can operate or back worker agents
-- only verified humans can approve milestone release
-- reputation is unique and sybil-resistant
+- AgentBook registration proves every agent is human-backed
+- Protected discovery routes distinguish human-backed agents from bots
+- Nonce replay protection + usage counters prevent abuse
+- Free-trial mode with per-endpoint rate limiting
+- `/agents` page provides complete Agent Kit registration workflow
 
 Best concrete submission target:
-- `Best use of World ID 4.0`
+- `Best use of Agent Kit` ($8,000)
 
 Secondary target:
-- `Best use of Agent Kit`
+- `Best use of World ID 4.0` (separate $5,000 pool, implemented via IdentityGate)
 
 ### 3. 0G
 
