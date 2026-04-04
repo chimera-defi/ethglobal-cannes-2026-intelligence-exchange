@@ -1,10 +1,14 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Development Startup Script
 # Starts the full Intelligence Exchange stack for local development
 #
 
-set -e
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+COMPOSE_BIN="${SCRIPT_DIR}/tooling/docker-compose.sh"
+PICK_PORT_BIN="${SCRIPT_DIR}/tooling/pick-port.sh"
 
 # Colors for output
 RED='\033[0;31m'
@@ -30,16 +34,40 @@ echo -e "${YELLOW}Checking prerequisites...${NC}"
 check_command docker || exit 1
 check_command pnpm || { echo -e "${RED}pnpm not found. Run: corepack enable${NC}"; exit 1; }
 check_command node || exit 1
+"${COMPOSE_BIN}" version >/dev/null
 echo -e "${GREEN}✓ Prerequisites OK${NC}"
 echo ""
 
 # Environment setup
-export DATABASE_URL="${DATABASE_URL:-postgres://iex:iex@localhost:5432/iex_cannes}"
-export REDIS_URL="${REDIS_URL:-redis://localhost:6379}"
-export BROKER_URL="${BROKER_URL:-http://localhost:3001}"
+POSTGRES_PORT="${POSTGRES_PORT:-5432}"
+REDIS_PORT="${REDIS_PORT:-6379}"
+BROKER_PORT="${BROKER_PORT:-$("${PICK_PORT_BIN}" 3001 3101 3201)}"
+WEB_PORT="${WEB_PORT:-$("${PICK_PORT_BIN}" 3000 3100 3200)}"
+CLEANED_UP=0
+INTERRUPTED=0
+
+export DATABASE_URL="${DATABASE_URL:-postgres://iex:iex@localhost:${POSTGRES_PORT}/iex_cannes}"
+export REDIS_URL="${REDIS_URL:-redis://localhost:${REDIS_PORT}}"
+export BROKER_URL="${BROKER_URL:-http://localhost:${BROKER_PORT}}"
+export VITE_DEV_PROXY_TARGET="${VITE_DEV_PROXY_TARGET:-${BROKER_URL}}"
+
+if [[ "${BROKER_PORT}" != "3001" ]]; then
+    echo -e "${YELLOW}Broker port 3001 is busy; using ${BROKER_PORT}.${NC}"
+fi
+
+if [[ "${WEB_PORT}" != "3000" ]]; then
+    echo -e "${YELLOW}Web port 3000 is busy; using ${WEB_PORT}.${NC}"
+fi
 
 # Function to cleanup processes on exit
 cleanup() {
+    if [[ "${CLEANED_UP}" == "1" ]]; then
+        return
+    fi
+
+    CLEANED_UP=1
+    trap - EXIT INT SIGTERM
+
     echo ""
     echo -e "${YELLOW}Shutting down services...${NC}"
     
@@ -54,21 +82,26 @@ cleanup() {
     fi
     
     echo -e "${YELLOW}Infrastructure still running. Run 'make infra-down' to stop.${NC}"
-    exit 0
 }
 
-trap cleanup SIGINT SIGTERM EXIT
+handle_interrupt() {
+    INTERRUPTED=1
+    cleanup
+}
+
+trap cleanup EXIT
+trap handle_interrupt INT SIGTERM
 
 # Start infrastructure
 echo -e "${YELLOW}Starting Docker infrastructure...${NC}"
-docker compose up -d
+POSTGRES_PORT="${POSTGRES_PORT}" REDIS_PORT="${REDIS_PORT}" "${COMPOSE_BIN}" up -d
 
 # Wait for services to be ready
 echo -e "${YELLOW}Waiting for Postgres and Redis...${NC}"
 sleep 3
 
 # Check if services are healthy
-if ! docker compose ps | grep -q "healthy\|Up"; then
+if ! "${COMPOSE_BIN}" ps | grep -q "healthy\|Up"; then
     echo -e "${RED}Warning: Docker services may not be fully ready yet${NC}"
 fi
 
@@ -85,8 +118,9 @@ fi
 
 # Start broker
 echo -e "${YELLOW}Starting Broker API...${NC}"
-echo -e "  ${BLUE}→ http://localhost:3001${NC}"
-corepack pnpm --filter intelligence-exchange-cannes-broker dev &
+echo -e "  ${BLUE}→ ${BROKER_URL}${NC}"
+PORT="${BROKER_PORT}" DATABASE_URL="${DATABASE_URL}" REDIS_URL="${REDIS_URL}" BROKER_URL="${BROKER_URL}" \
+    corepack pnpm --filter intelligence-exchange-cannes-broker dev &
 BROKER_PID=$!
 
 # Wait for broker to be ready
@@ -95,7 +129,8 @@ sleep 5
 
 # Seed database
 echo -e "${YELLOW}Seeding database...${NC}"
-if corepack pnpm --filter intelligence-exchange-cannes-broker seed 2>/dev/null; then
+if DATABASE_URL="${DATABASE_URL}" REDIS_URL="${REDIS_URL}" BROKER_URL="${BROKER_URL}" \
+    corepack pnpm --filter intelligence-exchange-cannes-broker seed 2>/dev/null; then
     echo -e "${GREEN}✓ Database seeded${NC}"
 else
     echo -e "${YELLOW}Warning: Database seed may have already run${NC}"
@@ -104,21 +139,29 @@ echo ""
 
 # Start web
 echo -e "${YELLOW}Starting Web App...${NC}"
-echo -e "  ${BLUE}→ http://localhost:3000${NC}"
-corepack pnpm --filter intelligence-exchange-cannes-web dev &
+echo -e "  ${BLUE}→ http://localhost:${WEB_PORT}${NC}"
+BROKER_URL="${BROKER_URL}" VITE_DEV_PROXY_TARGET="${VITE_DEV_PROXY_TARGET}" \
+    corepack pnpm --filter intelligence-exchange-cannes-web exec vite --host 127.0.0.1 --port "${WEB_PORT}" &
 WEB_PID=$!
 
 echo ""
 echo -e "${GREEN}╔════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${GREEN}║                   All Services Running!                    ║${NC}"
 echo -e "${GREEN}╠════════════════════════════════════════════════════════════╣${NC}"
-echo -e "${GREEN}║  Web App:    http://localhost:3000                        ║${NC}"
-echo -e "${GREEN}║  Broker API: http://localhost:3001                        ║${NC}"
-echo -e "${GREEN}║  API Docs:   http://localhost:3001/docs                   ║${NC}"
+printf "${GREEN}║  Web App:    %-44s║${NC}\n" "http://localhost:${WEB_PORT}"
+printf "${GREEN}║  Broker API: %-44s║${NC}\n" "${BROKER_URL}"
+printf "${GREEN}║  API Docs:   %-44s║${NC}\n" "${BROKER_URL}/docs"
 echo -e "${GREEN}╠════════════════════════════════════════════════════════════╣${NC}"
 echo -e "${GREEN}║  Press Ctrl+C to stop all services                        ║${NC}"
 echo -e "${GREEN}╚════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
 # Keep script running
-wait
+wait_status=0
+wait || wait_status=$?
+
+if [[ "${INTERRUPTED}" == "1" ]]; then
+    exit 0
+fi
+
+exit "${wait_status}"
