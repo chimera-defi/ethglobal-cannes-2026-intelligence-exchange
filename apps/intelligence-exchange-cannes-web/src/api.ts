@@ -564,3 +564,242 @@ export function rejectMilestone(ideaId: string, jobId: string, reason?: string) 
 export function getIntegrationsStatus() {
   return get<IntegrationsStatusResponse>('/integrations/status');
 }
+
+// ─── Arc Escrow (Prize 1) ──────────────────────────────────────────────────
+
+export interface ArcStatusResponse {
+  status: {
+    configured: boolean;
+    rpcUrl: string;
+    chainId: number;
+    isTestnet: boolean;
+    escrowContractAddress: string | null;
+    usdcAddress: string;
+    hasPrivateKey: boolean;
+    explorerUrl: string;
+    faucetUrl: string;
+  };
+  escrowConfig: {
+    platformFeeBps: number;
+    platformFeePercent: number;
+    reviewTimeout: number;
+    disputeWindow: number;
+    usdcAddress: string;
+  } | null;
+  prize1Criteria: {
+    conditionalEscrow: boolean;
+    disputeMechanism: boolean;
+    automaticRelease: boolean;
+    programmableVesting: boolean;
+    usdcNative: boolean;
+    platformFeeSplit: boolean;
+  };
+}
+
+export interface ArcConfigResponse {
+  configured: boolean;
+  chainId: number;
+  isTestnet: boolean;
+  rpcUrl: string;
+  contracts: {
+    advancedEscrow: string | null;
+    usdc: string;
+  };
+  explorer: {
+    baseUrl: string;
+    txUrl: string;
+    addressUrl: string;
+  };
+  faucets?: {
+    circle: string;
+  };
+  usdc: {
+    decimals: number;
+    symbol: string;
+  };
+}
+
+export interface ArcIdeaBalanceResponse {
+  ideaId: string;
+  ideaIdHash: string;
+  available: string;
+  availableFormatted: string;
+  totalFunded: string;
+  totalFundedFormatted: string;
+  platformFeesReserved: string;
+  platformFeesFormatted: string;
+}
+
+export interface ArcJobEscrowResponse {
+  jobId: string;
+  milestoneId: string;
+  milestoneIdHash: string;
+  status: {
+    code: number;
+    name: string;
+  };
+  onChain: {
+    ideaId: string;
+    amount: string;
+    amountFormatted: string;
+    worker: string;
+    reviewer: string;
+    submittedAt: number;
+    reviewStartedAt: number;
+    approvedAt: number;
+    submissionHash: string;
+    attestationHash: string;
+    releasedAmount: string;
+    releasedFormatted: string;
+  } | null;
+  vesting: {
+    totalAmount: string;
+    releasedAmount: string;
+    releasableNow: string;
+    releasableFormatted: string;
+    startTime: number;
+    cliff: number;
+    duration: number;
+    isLinear: boolean;
+    progress: number;
+  } | null;
+  dispute: {
+    disputant: string;
+    reasonHash: string;
+    raisedAt: number;
+    resolutionDeadline: number;
+    resolution: string;
+    resolved: boolean;
+    resolver: string;
+    canAutoResolve: boolean;
+  } | null;
+  actions: {
+    canAutoRelease: boolean;
+    canAutoResolve: boolean;
+  };
+}
+
+export interface ArcVestingProgressResponse {
+  jobId: string;
+  milestoneId: string;
+  totalAmount: string;
+  totalFormatted: string;
+  releasedAmount: string;
+  releasedFormatted: string;
+  releasableNow: string;
+  releasableFormatted: string;
+  remaining: string;
+  remainingFormatted: string;
+  schedule: {
+    startTime: number;
+    cliff: number;
+    duration: number;
+    isLinear: boolean;
+    elapsed: number;
+    percentVested: number;
+  };
+}
+
+export interface ArcTransactionData {
+  to: string;
+  data: string;
+  value: string;
+  description: string;
+}
+
+export interface ArcFundIdeaTxResponse {
+  ideaId: string;
+  amount: string;
+  amountUSDC: string;
+  platformFee: string;
+  platformFeeFormatted: string;
+  totalRequired: string;
+  totalFormatted: string;
+  transactions: ArcTransactionData[];
+}
+
+export interface ArcReserveMilestoneTxResponse {
+  ideaId: string;
+  milestoneId: string;
+  amount: string;
+  amountUSDC: string;
+  vesting: {
+    duration: number;
+    cliff: number;
+    linear: boolean;
+  };
+  transaction: ArcTransactionData;
+}
+
+export function getArcStatus() {
+  return get<ArcStatusResponse>('/arc/status');
+}
+
+export function getArcConfig() {
+  return get<ArcConfigResponse>('/arc/config');
+}
+
+export function getArcIdeaBalance(ideaId: string) {
+  return get<ArcIdeaBalanceResponse>(`/arc/ideas/${ideaId}/balance`);
+}
+
+export function getArcJobEscrow(jobId: string) {
+  return get<ArcJobEscrowResponse>(`/arc/jobs/${jobId}/escrow`);
+}
+
+export function getArcVestingProgress(jobId: string) {
+  return get<ArcVestingProgressResponse>(`/arc/jobs/${jobId}/vesting`);
+}
+
+// Transaction builders
+export function buildArcFundIdeaTx(ideaId: string, amount: string) {
+  return post<ArcFundIdeaTxResponse>('/arc/tx/fund-idea', { ideaId, amount }, true);
+}
+
+export function buildArcReserveMilestoneTx(body: {
+  ideaId: string;
+  milestoneId: string;
+  amount: string;
+  vestingDuration?: number;
+  vestingCliff?: number;
+  linearVesting?: boolean;
+}) {
+  return post<ArcReserveMilestoneTxResponse>('/arc/tx/reserve-milestone', body, true);
+}
+
+export function buildArcSubmitMilestoneTx(jobId: string, submissionHash: string) {
+  return post<{ jobId: string; milestoneId: string; submissionHash: string; transaction: ArcTransactionData }>(
+    '/arc/tx/submit-milestone',
+    { jobId, submissionHash },
+    true
+  );
+}
+
+export function buildArcStartReviewTx(jobId: string) {
+  return post<{ jobId: string; milestoneId: string; transaction: ArcTransactionData }>(
+    '/arc/tx/start-review',
+    { jobId },
+    true
+  );
+}
+
+export function buildArcReviewMilestoneTx(body: {
+  jobId: string;
+  attestationHash: string;
+  action: 'approve' | 'reject' | 'dispute';
+  disputeReasonHash?: string;
+}) {
+  return post<{ jobId: string; action: string; transaction?: ArcTransactionData; message?: string }>(
+    '/arc/tx/review-milestone',
+    body,
+    true
+  );
+}
+
+export function buildArcReleaseMilestoneTx(jobId: string, autoRelease = false) {
+  return post<{ jobId: string; milestoneId: string; autoRelease: boolean; transaction: ArcTransactionData }>(
+    '/arc/tx/release-milestone',
+    { jobId, autoRelease },
+    true
+  );
+}
