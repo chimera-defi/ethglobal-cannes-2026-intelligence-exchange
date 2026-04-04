@@ -34,6 +34,9 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import {
   claimJob,
   claimJobDemo,
@@ -42,11 +45,14 @@ import {
   createAgentAuthorization,
   getJobBoard,
   getIntegrationsStatus,
+  submitJob,
+  submitJobDemo,
   unclaimJob,
   unclaimJobDemo,
   type AgentAuthorization,
   type JobBoardGroup,
   type JobBoardMilestone,
+  type SubmissionResponse,
 } from '../api';
 import { useSession } from '../hooks/useSession';
 import { makeDemoAddress } from '../lib/demo';
@@ -87,14 +93,34 @@ function CheckItem({ done, loading, label, detail, action }: CheckItemProps) {
   );
 }
 
+function shortId(value?: string | null, head = 6, tail = 4) {
+  if (!value) return 'unknown';
+  if (tail <= 0) return value.length <= head ? value : `${value.slice(0, head)}…`;
+  if (value.length <= head + tail + 1) return value;
+  return `${value.slice(0, head)}…${value.slice(-tail)}`;
+}
+
+function normalizeId(value?: string | null) {
+  return value?.toLowerCase() ?? '';
+}
+
+function isValidUrl(value: string) {
+  try {
+    new URL(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function AgentPickupGuide() {
   return (
     <Card className="border-gray-700 bg-gray-900/60">
       <CardHeader className="pb-2">
         <CardTitle className="text-base text-white">Local Agent Pickup</CardTitle>
         <CardDescription>
-          Use the local worker CLI to browse grouped briefs, claim one job, run its task file, and
-          submit or unclaim it from the same machine.
+          Use the local worker CLI or the web board to claim one job, run its task file, and submit
+          a proof URL such as a GitHub pull request when the work is ready for review.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4 text-sm">
@@ -102,7 +128,7 @@ function AgentPickupGuide() {
           <p>1. Build the local worker binary.</p>
           <p>2. Set <span className="font-mono text-gray-200">BROKER_URL</span> and <span className="font-mono text-gray-200">WORKER_PRIVATE_KEY</span>.</p>
           <p>3. List queued work and select a concrete <span className="font-mono text-gray-200">jobId</span>.</p>
-          <p>4. Claim, execute <span className="font-mono text-gray-200">skill.md</span>, then submit or unclaim.</p>
+          <p>4. Claim, execute <span className="font-mono text-gray-200">skill.md</span>, then submit a proof URI or unclaim.</p>
         </div>
 
         <div className="space-y-3">
@@ -122,7 +148,8 @@ export WORKER_PRIVATE_KEY=0x...
 
           <p className="text-xs text-gray-500">
             This is a local operator-driven pickup loop. Agents can autonomously browse and execute
-            tasks from this machine, but payout is still human-gated at review time.
+            tasks from this machine, then hand back a proof URL for the board or CLI submit step.
+            The 0G dossier upload still happens after authenticated human acceptance.
           </p>
         </div>
       </CardContent>
@@ -528,6 +555,263 @@ function UnclaimDialog({
   );
 }
 
+interface SubmitProofDialogProps {
+  open: boolean;
+  job: JobBoardMilestone;
+  demoMode: boolean;
+  address?: string;
+  authorization?: AgentAuthorization | null;
+  onClose: () => void;
+  onSuccess: (result: {
+    jobId: string;
+    artifactUri: string;
+    submissionId: string;
+    scoreBreakdown: SubmissionResponse['scoreBreakdown'];
+  }) => void;
+}
+
+function SubmitProofDialog({
+  open,
+  job,
+  demoMode,
+  address,
+  authorization,
+  onClose,
+  onSuccess,
+}: SubmitProofDialogProps) {
+  const { signMessageAsync } = useSignMessage();
+  const [artifactUri, setArtifactUri] = useState('');
+  const [traceUri, setTraceUri] = useState('');
+  const [summary, setSummary] = useState('');
+  const [status, setStatus] = useState<'idle' | 'challenging' | 'signing' | 'submitting' | 'error'>(
+    'idle',
+  );
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  async function handleSubmit() {
+    setErrorMessage(null);
+
+    const trimmedArtifactUri = artifactUri.trim();
+    const trimmedTraceUri = traceUri.trim();
+    const trimmedSummary = summary.trim();
+
+    if (!job.activeClaimId) {
+      setStatus('error');
+      setErrorMessage('This claim is missing a claim ID. Refresh the board and try again.');
+      return;
+    }
+    if (!trimmedArtifactUri || !isValidUrl(trimmedArtifactUri)) {
+      setStatus('error');
+      setErrorMessage('Enter a valid proof URL. A GitHub pull request link is acceptable.');
+      return;
+    }
+    if (trimmedTraceUri && !isValidUrl(trimmedTraceUri)) {
+      setStatus('error');
+      setErrorMessage('Trace URL must be a valid URL.');
+      return;
+    }
+
+    const submission = {
+      claimId: job.activeClaimId,
+      status: 'completed' as const,
+      artifactUris: [trimmedArtifactUri],
+      summary: trimmedSummary || undefined,
+      traceUri: trimmedTraceUri || undefined,
+    };
+
+    try {
+      if (demoMode) {
+        setStatus('submitting');
+        const result = await submitJobDemo(job.jobId, {
+          ...submission,
+          workerId: job.activeClaimWorkerId ?? makeDemoAddress(`demo-worker:${job.jobId}`),
+          agentMetadata: {
+            agentType: 'demo-web-worker',
+            agentVersion: '0.1.0',
+            operatorAddress: makeDemoAddress('demo-web-operator'),
+          },
+        });
+        onSuccess({
+          jobId: job.jobId,
+          artifactUri: trimmedArtifactUri,
+          submissionId: result.submissionId,
+          scoreBreakdown: result.scoreBreakdown,
+        });
+        setStatus('idle');
+        return;
+      }
+
+      if (!address || !authorization) {
+        throw new Error('Wallet-connected worker authorization required');
+      }
+
+      const fingerprint = authorization.fingerprint ?? authorization.authorizationId;
+      setStatus('challenging');
+      const { challengeId, message } = await createAuthChallenge(address, 'worker_submit', {
+        agentFingerprint: fingerprint,
+        jobId: job.jobId,
+      });
+      setStatus('signing');
+      const signature = await signMessageAsync({ message });
+      setStatus('submitting');
+      const result = await submitJob(job.jobId, submission, {
+        accountAddress: address,
+        agentFingerprint: fingerprint,
+        challengeId,
+        signature,
+      });
+      onSuccess({
+        jobId: job.jobId,
+        artifactUri: trimmedArtifactUri,
+        submissionId: result.submissionId,
+        scoreBreakdown: result.scoreBreakdown,
+      });
+      setStatus('idle');
+    } catch (err) {
+      setStatus('error');
+      setErrorMessage(err instanceof Error ? err.message : 'Proof submission failed');
+    }
+  }
+
+  function handleClose() {
+    setStatus('idle');
+    setErrorMessage(null);
+    onClose();
+  }
+
+  const isProcessing = ['challenging', 'signing', 'submitting'].includes(status);
+
+  const statusLabel: Record<typeof status, string> = {
+    idle: 'Submit Proof',
+    challenging: 'Creating challenge…',
+    signing: 'Waiting for signature…',
+    submitting: 'Submitting proof…',
+    error: 'Retry',
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(value) => !value && handleClose()}>
+      <DialogContent className="max-w-lg border-gray-700 bg-gray-900">
+        <DialogHeader>
+          <DialogTitle className="text-white">Submit Proof</DialogTitle>
+          <DialogDescription>
+            Paste the artifact URL for this claimed job. A GitHub pull request link is enough for
+            the demo and review flow.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="space-y-2 rounded-lg bg-gray-800/60 p-3 text-sm">
+            <div className="flex justify-between gap-4">
+              <span className="text-gray-500">Milestone</span>
+              <span className="capitalize text-gray-300">{job.milestoneType}</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-gray-500">Job ID</span>
+              <span className="font-mono text-xs text-gray-300">{shortId(job.jobId, 14, 0)}</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-gray-500">Claim ID</span>
+              <span className="font-mono text-xs text-gray-300">
+                {shortId(job.activeClaimId, 14, 6)}
+              </span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-gray-500">Submitting as</span>
+              <span className="font-mono text-xs text-gray-300">
+                {demoMode
+                  ? shortId(job.activeClaimWorkerId ?? makeDemoAddress(`demo-worker:${job.jobId}`))
+                  : shortId(address)}
+              </span>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="artifact-uri" className="text-gray-300">
+              Proof URL
+            </Label>
+            <Input
+              id="artifact-uri"
+              value={artifactUri}
+              onChange={(event) => setArtifactUri(event.target.value)}
+              placeholder="https://github.com/org/repo/pull/123"
+              className="border-gray-700 bg-gray-950 text-gray-100"
+              disabled={isProcessing}
+            />
+            <p className="text-xs text-gray-500">
+              Use a GitHub PR, commit compare link, artifact bundle, or other reviewable URL.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="proof-summary" className="text-gray-300">
+              Summary
+            </Label>
+            <Textarea
+              id="proof-summary"
+              value={summary}
+              onChange={(event) => setSummary(event.target.value)}
+              placeholder="What the agent built, what changed, and how to review it."
+              className="min-h-[110px] border-gray-700 bg-gray-950 text-gray-100"
+              disabled={isProcessing}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="trace-uri" className="text-gray-300">
+              Trace URL
+            </Label>
+            <Input
+              id="trace-uri"
+              value={traceUri}
+              onChange={(event) => setTraceUri(event.target.value)}
+              placeholder="https://example.com/agent-trace.json"
+              className="border-gray-700 bg-gray-950 text-gray-100"
+              disabled={isProcessing}
+            />
+            <p className="text-xs text-gray-500">
+              Optional. The 0G dossier is assembled after human acceptance, not at submit time.
+            </p>
+          </div>
+
+          {status === 'signing' && (
+            <div className="flex items-center gap-2 rounded-lg border border-yellow-800 bg-yellow-900/20 px-3 py-2 text-xs text-yellow-400">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+              Check your wallet for a signature request.
+            </div>
+          )}
+
+          {status === 'error' && errorMessage && (
+            <div className="flex items-start gap-2 rounded-lg border border-red-800 bg-red-900/20 px-3 py-2 text-xs text-red-400">
+              <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              {errorMessage}
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="gap-2">
+          <Button variant="secondary" onClick={handleClose} disabled={isProcessing}>
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit} disabled={isProcessing}>
+            {isProcessing ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {statusLabel[status]}
+              </>
+            ) : (
+              <>
+                <ExternalLink className="h-4 w-4" />
+                {statusLabel[status]}
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Claim success banner ─────────────────────────────────────────────────────
 
 function ClaimSuccessBanner({
@@ -557,13 +841,75 @@ function ClaimSuccessBanner({
       </div>
       <p className="text-gray-400 text-xs">
         Fetch <span className="font-mono text-blue-400">skill.md</span> and run it with your agent
-        stack. If you dismiss this banner, you can reopen it from the claimed job row.
+        stack. Then use <span className="font-medium text-gray-300">Submit Proof</span> on the
+        claimed row to attach a GitHub PR or other artifact URL.
       </p>
       <div className="flex gap-2 flex-wrap">
         <Button size="sm" asChild>
           <a href={result.skillMdUrl} target="_blank" rel="noopener noreferrer">
             <ExternalLink className="h-3.5 w-3.5" />
             Open skill.md
+          </a>
+        </Button>
+        <Button size="sm" variant="secondary" onClick={onDismiss}>
+          Dismiss
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function SubmissionSuccessBanner({
+  result,
+  onDismiss,
+}: {
+  result: {
+    artifactUri: string;
+    submissionId: string;
+    scoreBreakdown: SubmissionResponse['scoreBreakdown'];
+  };
+  onDismiss: () => void;
+}) {
+  const passed = result.scoreBreakdown.scoreStatus === 'passed';
+
+  return (
+    <div
+      className={cn(
+        'space-y-3 rounded-xl border p-4',
+        passed ? 'border-green-700 bg-green-900/30' : 'border-yellow-700 bg-yellow-900/20',
+      )}
+    >
+      <div className="flex items-center gap-2">
+        {passed ? (
+          <CheckCircle2 className="h-4 w-4 shrink-0 text-green-400" />
+        ) : (
+          <AlertCircle className="h-4 w-4 shrink-0 text-yellow-400" />
+        )}
+        <p className={cn('text-sm font-semibold', passed ? 'text-green-300' : 'text-yellow-200')}>
+          {passed ? 'Proof submitted for review' : 'Submission needs rework'}
+        </p>
+      </div>
+      <div className="grid gap-3 text-sm md:grid-cols-2">
+        <div>
+          <span className="text-xs text-gray-500">Submission ID</span>
+          <p className="mt-0.5 break-all font-mono text-xs text-gray-200">{result.submissionId}</p>
+        </div>
+        <div>
+          <span className="text-xs text-gray-500">Score</span>
+          <p className="mt-0.5 text-xs text-gray-200">
+            {result.scoreBreakdown.totalScore}/100 · {result.scoreBreakdown.scoreStatus}
+          </p>
+        </div>
+      </div>
+      <p className="text-xs text-gray-400">
+        Judges can now see the submitted proof on the board. The accepted dossier is uploaded to
+        0G only after authenticated human acceptance.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" asChild>
+          <a href={result.artifactUri} target="_blank" rel="noopener noreferrer">
+            <ExternalLink className="h-3.5 w-3.5" />
+            Open Proof
           </a>
         </Button>
         <Button size="sm" variant="secondary" onClick={onDismiss}>
@@ -582,9 +928,12 @@ function MilestoneTaskRow({
   canClaim,
   claimDisabled,
   claimLabel,
+  ownershipLabel,
+  canSubmit,
   canUnclaim,
   onUnclaim,
   onClaim,
+  onSubmit,
   onView,
 }: {
   milestone: JobBoardMilestone;
@@ -592,9 +941,12 @@ function MilestoneTaskRow({
   canClaim: boolean;
   claimDisabled?: boolean;
   claimLabel?: string;
+  ownershipLabel?: string | null;
+  canSubmit?: boolean;
   canUnclaim?: boolean;
   onUnclaim?: () => void;
   onClaim: () => void;
+  onSubmit?: () => void;
   onView: () => void;
 }) {
   const isClaimable = milestone.status === 'queued';
@@ -602,6 +954,7 @@ function MilestoneTaskRow({
   const isActive = ['claimed', 'running'].includes(milestone.status);
   const isMatchingTab = milestone.status === activeTab;
   const canResume = milestone.status === 'claimed';
+  const latestArtifactUris = milestone.latestSubmission?.artifactUris ?? [];
 
   const statusVariant = (
     ['queued', 'claimed', 'submitted', 'accepted', 'rejected', 'rework', 'settled', 'created'] as const
@@ -613,7 +966,11 @@ function MilestoneTaskRow({
     <div
       className={cn(
         'rounded-xl border bg-gray-950/60 p-4',
-        isMatchingTab ? 'border-blue-800/70' : 'border-gray-800'
+        ownershipLabel
+          ? 'border-emerald-700/50 bg-emerald-950/10'
+          : isMatchingTab
+          ? 'border-blue-800/70'
+          : 'border-gray-800'
       )}
     >
       <div className="flex flex-col gap-4 md:flex-row md:items-start">
@@ -624,6 +981,7 @@ function MilestoneTaskRow({
             </span>
             <Badge variant={statusVariant}>{milestone.status.toUpperCase()}</Badge>
             {isMatchingTab && <Badge variant="info">IN THIS TAB</Badge>}
+            {ownershipLabel && <Badge variant="success">{ownershipLabel}</Badge>}
             {isActive && (
               <Badge variant="info" className="animate-pulse">
                 LIVE
@@ -642,6 +1000,15 @@ function MilestoneTaskRow({
             <p className="text-xs text-gray-500">
               Claimed by:{' '}
               <span className="font-mono text-gray-400">{milestone.activeClaimWorkerId}</span>
+              {milestone.activeClaimAgentFingerprint && (
+                <>
+                  {' · '}
+                  <span className="text-gray-500">Agent </span>
+                  <span className="font-mono text-gray-400">
+                    {shortId(milestone.activeClaimAgentFingerprint, 10, 6)}
+                  </span>
+                </>
+              )}
             </p>
           )}
           {milestone.leaseExpiry && isActive && (
@@ -649,6 +1016,46 @@ function MilestoneTaskRow({
               <Clock className="h-3 w-3" />
               Lease expires {new Date(milestone.leaseExpiry).toLocaleTimeString()}
             </p>
+          )}
+          {milestone.latestSubmission && (
+            <div className="mt-3 space-y-2 rounded-lg border border-gray-800 bg-gray-900/80 p-3">
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <Badge variant={milestone.latestSubmission.scoreStatus === 'passed' ? 'submitted' : 'warning'}>
+                  Proof Submitted
+                </Badge>
+                <span className="text-gray-500">
+                  {new Date(milestone.latestSubmission.submittedAt).toLocaleString()}
+                </span>
+                {milestone.latestSubmission.accountAddress && (
+                  <span className="font-mono text-gray-400">
+                    {shortId(milestone.latestSubmission.accountAddress)}
+                  </span>
+                )}
+                {milestone.latestSubmission.agentFingerprint && (
+                  <span className="font-mono text-gray-500">
+                    {shortId(milestone.latestSubmission.agentFingerprint, 10, 6)}
+                  </span>
+                )}
+              </div>
+              {milestone.latestSubmission.summary && (
+                <p className="text-xs text-gray-300">{milestone.latestSubmission.summary}</p>
+              )}
+              {latestArtifactUris.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {latestArtifactUris.slice(0, 2).map((artifactUri) => (
+                    <Button key={artifactUri} size="sm" variant="secondary" asChild>
+                      <a href={artifactUri} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="h-3.5 w-3.5" />
+                        Open Proof
+                      </a>
+                    </Button>
+                  ))}
+                  {latestArtifactUris.length > 2 && (
+                    <Badge variant="default">+{latestArtifactUris.length - 2} more</Badge>
+                  )}
+                </div>
+              )}
+            </div>
           )}
         </div>
 
@@ -663,6 +1070,11 @@ function MilestoneTaskRow({
                 <ExternalLink className="h-3.5 w-3.5" />
                 Open skill.md
               </a>
+            </Button>
+          )}
+          {canResume && canSubmit && onSubmit && (
+            <Button size="sm" onClick={onSubmit}>
+              Submit Proof
             </Button>
           )}
           {canResume && canUnclaim && onUnclaim && (
@@ -700,10 +1112,13 @@ function JobGroupCard({
   canClaim,
   claimDisabledJobId,
   claimLabelFor,
+  getOwnershipLabel,
+  canSubmit,
   canUnclaim,
   onToggle,
   onClaim,
   onUnclaim,
+  onSubmit,
   onView,
   onViewIdea,
 }: {
@@ -713,15 +1128,20 @@ function JobGroupCard({
   canClaim: boolean;
   claimDisabledJobId?: string | null;
   claimLabelFor: (milestone: JobBoardMilestone) => string;
+  getOwnershipLabel: (milestone: JobBoardMilestone) => string | null;
+  canSubmit: (milestone: JobBoardMilestone) => boolean;
   canUnclaim: (milestone: JobBoardMilestone) => boolean;
   onToggle: () => void;
   onClaim: (milestone: JobBoardMilestone) => void;
   onUnclaim: (milestone: JobBoardMilestone) => void;
+  onSubmit: (milestone: JobBoardMilestone) => void;
   onView: (milestone: JobBoardMilestone) => void;
   onViewIdea: () => void;
 }) {
   const queuedCount = group.milestones.filter((milestone) => milestone.status === 'queued').length;
   const claimedCount = group.milestones.filter((milestone) => milestone.status === 'claimed').length;
+  const myCount = group.milestones.filter((milestone) => getOwnershipLabel(milestone)).length;
+  const proofCount = group.milestones.filter((milestone) => milestone.latestSubmission).length;
   const matchingLabel = `${group.matchingMilestoneCount} ${activeTab} ${
     group.matchingMilestoneCount === 1 ? 'task' : 'tasks'
   }`;
@@ -737,6 +1157,8 @@ function JobGroupCard({
               <Badge variant="default">{group.milestones.length} total tasks</Badge>
               {queuedCount > 0 && <Badge variant="queued">{queuedCount} queued</Badge>}
               {claimedCount > 0 && <Badge variant="claimed">{claimedCount} claimed</Badge>}
+              {myCount > 0 && <Badge variant="success">{myCount} mine</Badge>}
+              {proofCount > 0 && <Badge variant="submitted">{proofCount} proof</Badge>}
             </div>
             <p className="text-sm text-gray-300">{group.prompt}</p>
             <p className="text-xs text-gray-500">{group.briefSummary}</p>
@@ -776,9 +1198,12 @@ function JobGroupCard({
                 canClaim={canClaim}
                 claimDisabled={claimDisabledJobId === milestone.jobId}
                 claimLabel={claimLabelFor(milestone)}
+                ownershipLabel={getOwnershipLabel(milestone)}
+                canSubmit={canSubmit(milestone)}
                 canUnclaim={canUnclaim(milestone)}
                 onClaim={() => onClaim(milestone)}
                 onUnclaim={() => onUnclaim(milestone)}
+                onSubmit={() => onSubmit(milestone)}
                 onView={() => onView(milestone)}
               />
             ))}
@@ -802,6 +1227,12 @@ export function JobsBoard() {
     claimId: string;
     expiresAt: string;
     skillMdUrl: string;
+  } | null>(null);
+  const [submittingJob, setSubmittingJob] = useState<JobBoardMilestone | null>(null);
+  const [submissionResult, setSubmissionResult] = useState<{
+    artifactUri: string;
+    submissionId: string;
+    scoreBreakdown: SubmissionResponse['scoreBreakdown'];
   } | null>(null);
   const [demoClaimingJobId, setDemoClaimingJobId] = useState<string | null>(null);
   const [releasingJob, setReleasingJob] = useState<JobBoardMilestone | null>(null);
@@ -850,7 +1281,8 @@ export function JobsBoard() {
     isRegistrationSynced;
   const demoClaimEnabled = integrations?.world.strict === false;
   const canClaim = strictClaimReady || demoClaimEnabled;
-  const currentWorkerAddress = (session?.accountAddress ?? address ?? '').toLowerCase();
+  const currentWorkerAddress = normalizeId(session?.accountAddress ?? address);
+  const currentAgentFingerprint = activeAuthorization?.fingerprint ?? activeAuthorization?.authorizationId ?? '';
 
   const groups = jobsData?.groups ?? [];
 
@@ -887,8 +1319,10 @@ export function JobsBoard() {
   function switchTab(tab: StatusTab) {
     setActiveTab(tab);
     setClaimingJob(null);
+    setSubmittingJob(null);
     setReleasingJob(null);
     setClaimResult(null);
+    setSubmissionResult(null);
   }
 
   function toggleGroup(briefId: string) {
@@ -912,6 +1346,7 @@ export function JobsBoard() {
         },
       });
       setClaimResult(result);
+      setActiveTab('claimed');
       await queryClient.invalidateQueries({ queryKey: ['job-board'] });
       await queryClient.invalidateQueries({ queryKey: ['jobs'] });
     } catch (err) {
@@ -926,16 +1361,73 @@ export function JobsBoard() {
     return demoClaimingJobId === job.jobId ? 'Claiming...' : 'Demo Claim';
   }
 
+  function isDemoOwnedJob(job: JobBoardMilestone) {
+    const demoWorkerAddress = normalizeId(makeDemoAddress(`demo-worker:${job.jobId}`));
+    return (
+      normalizeId(job.activeClaimWorkerId) === demoWorkerAddress
+      || normalizeId(job.latestSubmission?.accountAddress) === demoWorkerAddress
+    );
+  }
+
+  function getMilestoneOwnership(job: JobBoardMilestone) {
+    const matchesWorker = Boolean(
+      currentWorkerAddress
+      && (
+        normalizeId(job.activeClaimWorkerId) === currentWorkerAddress
+        || normalizeId(job.latestSubmission?.accountAddress) === currentWorkerAddress
+      ),
+    );
+    if (matchesWorker) {
+      return 'YOURS';
+    }
+
+    const matchesAgent = Boolean(
+      currentAgentFingerprint
+      && (
+        job.activeClaimAgentFingerprint === currentAgentFingerprint
+        || job.latestSubmission?.agentFingerprint === currentAgentFingerprint
+      ),
+    );
+    if (matchesAgent) {
+      return 'YOUR AGENT';
+    }
+
+    if (demoClaimEnabled && isDemoOwnedJob(job)) {
+      return 'DEMO';
+    }
+
+    return null;
+  }
+
   function canUnclaimJob(job: JobBoardMilestone) {
     if (job.status !== 'claimed') return false;
-    if (demoClaimEnabled) return Boolean(job.activeClaimWorkerId);
+    if (demoClaimEnabled) return isDemoOwnedJob(job);
     return Boolean(
       strictClaimReady
       && currentWorkerAddress
       && job.activeClaimWorkerId
-      && job.activeClaimWorkerId.toLowerCase() === currentWorkerAddress
+      && normalizeId(job.activeClaimWorkerId) === currentWorkerAddress
     );
   }
+
+  function canSubmitProof(job: JobBoardMilestone) {
+    if (job.status !== 'claimed' || !job.activeClaimId) return false;
+    if (demoClaimEnabled) return isDemoOwnedJob(job);
+    return Boolean(strictClaimReady && getMilestoneOwnership(job));
+  }
+
+  const myTaskCount = groups
+    .flatMap((group) => group.milestones)
+    .filter((milestone) => milestone.status === activeTab && getMilestoneOwnership(milestone)).length;
+  const orderedGroups = [...groups].sort((left, right) => {
+    const leftMine = left.milestones.some(
+      (milestone) => milestone.status === activeTab && getMilestoneOwnership(milestone),
+    );
+    const rightMine = right.milestones.some(
+      (milestone) => milestone.status === activeTab && getMilestoneOwnership(milestone),
+    );
+    return Number(rightMine) - Number(leftMine);
+  });
 
   return (
     <div className="page">
@@ -1025,6 +1517,12 @@ export function JobsBoard() {
         {claimResult && (
           <ClaimSuccessBanner result={claimResult} onDismiss={() => setClaimResult(null)} />
         )}
+        {submissionResult && (
+          <SubmissionSuccessBanner
+            result={submissionResult}
+            onDismiss={() => setSubmissionResult(null)}
+          />
+        )}
 
         {/* Status tabs */}
         <div className="flex gap-1 bg-gray-900 rounded-lg p-1 w-fit">
@@ -1041,6 +1539,29 @@ export function JobsBoard() {
             </button>
           ))}
         </div>
+
+        {activeTab !== 'queued' && (
+          <Card className="border-gray-800 bg-gray-900/40">
+            <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-white">
+                  {myTaskCount} {activeTab} task{myTaskCount === 1 ? '' : 's'} tied to this wallet
+                  or selected agent.
+                </p>
+                <p className="text-xs text-gray-500">
+                  {activeTab === 'claimed'
+                    ? 'Use Submit Proof on your claimed task to attach a GitHub PR or other proof URL.'
+                    : 'Submitted proof links are shown inline here so judges can inspect them from the board.'}
+                </p>
+              </div>
+              {currentAgentFingerprint && (
+                <Badge variant="info" className="font-mono">
+                  Agent {shortId(currentAgentFingerprint, 10, 6)}
+                </Badge>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Jobs list */}
         {isLoading ? (
@@ -1073,7 +1594,7 @@ export function JobsBoard() {
           </Card>
         ) : (
           <div className="space-y-3">
-            {groups.map((group) => (
+            {orderedGroups.map((group) => (
               <JobGroupCard
                 key={group.briefId}
                 group={group}
@@ -1082,10 +1603,13 @@ export function JobsBoard() {
                 canClaim={canClaim}
                 claimDisabledJobId={demoClaimingJobId}
                 claimLabelFor={getClaimLabel}
+                getOwnershipLabel={getMilestoneOwnership}
+                canSubmit={canSubmitProof}
                 canUnclaim={canUnclaimJob}
                 onToggle={() => toggleGroup(group.briefId)}
                 onClaim={(job) => {
                   setClaimResult(null);
+                  setSubmissionResult(null);
                   if (strictClaimReady) {
                     setClaimingJob(job);
                     return;
@@ -1095,6 +1619,11 @@ export function JobsBoard() {
                 onUnclaim={(job) => {
                   setClaimResult(null);
                   setReleasingJob(job);
+                }}
+                onSubmit={(job) => {
+                  setClaimResult(null);
+                  setSubmissionResult(null);
+                  setSubmittingJob(job);
                 }}
                 onView={(job) => navigate(`/review/${job.jobId}`)}
                 onViewIdea={() => navigate(`/ideas/${group.ideaId}`)}
@@ -1115,6 +1644,25 @@ export function JobsBoard() {
           onSuccess={result => {
             setClaimingJob(null);
             setClaimResult(result);
+            setActiveTab('claimed');
+            queryClient.invalidateQueries({ queryKey: ['job-board'] });
+            queryClient.invalidateQueries({ queryKey: ['jobs'] });
+          }}
+        />
+      )}
+
+      {submittingJob && (
+        <SubmitProofDialog
+          open={!!submittingJob}
+          job={submittingJob}
+          demoMode={demoClaimEnabled}
+          address={address}
+          authorization={activeAuthorization}
+          onClose={() => setSubmittingJob(null)}
+          onSuccess={(result) => {
+            setSubmittingJob(null);
+            setSubmissionResult(result);
+            setActiveTab(result.scoreBreakdown.scoreStatus === 'passed' ? 'submitted' : 'rework');
             queryClient.invalidateQueries({ queryKey: ['job-board'] });
             queryClient.invalidateQueries({ queryKey: ['jobs'] });
           }}
