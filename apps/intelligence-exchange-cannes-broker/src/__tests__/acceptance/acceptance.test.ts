@@ -97,7 +97,7 @@ async function verifyWorld(client: SessionClient, role: 'poster' | 'worker' | 'r
 
 async function createWorkerSignedAction(
   account: WalletAccount,
-  purpose: 'worker_claim' | 'worker_submit',
+  purpose: 'worker_claim' | 'worker_submit' | 'worker_unclaim',
   agentFingerprint: string,
   jobId: string,
 ) {
@@ -354,12 +354,46 @@ describe('spec-compliance acceptance', () => {
     expect(queuedIdeaState.data.jobs.every((job) => job.status === 'queued')).toBe(true);
 
     const claimAction = await createWorkerSignedAction(WORKER, 'worker_claim', workerFingerprint, firstJob.jobId);
-    const claimRes = await api<{
+    let claimRes = await api<{
       claimId: string;
       expiresAt: string;
       skillMdUrl: string;
     }>(undefined, 'POST', `/v1/cannes/jobs/${firstJob.jobId}/claim`, {
       signedAction: claimAction,
+    });
+    expect(claimRes.status).toBe(200);
+    expect(claimRes.data.claimId).toBeTruthy();
+
+    const claimedSkillRes = await broker.app.fetch(new Request(`http://broker.local${claimRes.data.skillMdUrl}`));
+    expect(claimedSkillRes.status).toBe(200);
+    expect(await claimedSkillRes.text()).toContain(firstJob.jobId);
+
+    const unclaimAction = await createWorkerSignedAction(WORKER, 'worker_unclaim', workerFingerprint, firstJob.jobId);
+    const unclaimRes = await api<{
+      unclaimed: boolean;
+      status: string;
+    }>(undefined, 'POST', `/v1/cannes/jobs/${firstJob.jobId}/unclaim`, {
+      signedAction: unclaimAction,
+    });
+    expect(unclaimRes.status).toBe(200);
+    expect(unclaimRes.data.unclaimed).toBe(true);
+    expect(unclaimRes.data.status).toBe('queued');
+
+    const jobAfterUnclaim = await api<{
+      job: { status: string; activeClaimId: string | null; activeClaimWorkerId: string | null };
+    }>(posterClient, 'GET', `/v1/cannes/jobs/${firstJob.jobId}`);
+    expect(jobAfterUnclaim.status).toBe(200);
+    expect(jobAfterUnclaim.data.job.status).toBe('queued');
+    expect(jobAfterUnclaim.data.job.activeClaimId).toBeNull();
+    expect(jobAfterUnclaim.data.job.activeClaimWorkerId).toBeNull();
+
+    const reclaimAction = await createWorkerSignedAction(WORKER, 'worker_claim', workerFingerprint, firstJob.jobId);
+    claimRes = await api<{
+      claimId: string;
+      expiresAt: string;
+      skillMdUrl: string;
+    }>(undefined, 'POST', `/v1/cannes/jobs/${firstJob.jobId}/claim`, {
+      signedAction: reclaimAction,
     });
     expect(claimRes.status).toBe(200);
     expect(claimRes.data.claimId).toBeTruthy();
@@ -569,5 +603,84 @@ describe('spec-compliance acceptance', () => {
     const acceptedState = await api<{ job: { status: string } }>(undefined, 'GET', `/v1/cannes/jobs/${reviewJob!.jobId}`);
     expect(acceptedState.status).toBe(200);
     expect(acceptedState.data.job.status).toBe('accepted');
+  });
+
+  test('claimed demo jobs can reopen skill.md and be unclaimed for another worker', async () => {
+    process.env.WORLD_ID_STRICT = '0';
+
+    const createIdeaRes = await api<{ ideaId: string }>(undefined, 'POST', '/v1/cannes/ideas', {
+      taskType: 'coding',
+      title: 'Demo unclaim flow',
+      prompt: 'Verify that a claimed job can reopen skill.md and be released back for another worker.',
+      budgetUsdMax: 8,
+      posterAccountAddress: 'demo-poster-skill',
+      worldIdProof: {
+        nullifierHash: 'demo-nullifier-skill',
+        proof: 'demo-proof-skill',
+        merkleRoot: 'demo-root-skill',
+        verificationLevel: 'device',
+      },
+    });
+    expect(createIdeaRes.status).toBe(201);
+
+    const ideaId = createIdeaRes.data.ideaId;
+
+    const fundRes = await api<{ fundingStatus: string }>(undefined, 'POST', `/v1/cannes/ideas/${ideaId}/fund`, {
+      txHash: txHash('7'),
+      amountUsd: 8,
+    });
+    expect(fundRes.status).toBe(200);
+
+    const planRes = await api<{ briefId: string }>(undefined, 'POST', `/v1/cannes/ideas/${ideaId}/plan`);
+    expect(planRes.status).toBe(200);
+
+    const ideaState = await api<{
+      jobs: Array<{ jobId: string; milestoneType: string; status: string }>;
+    }>(undefined, 'GET', `/v1/cannes/ideas/${ideaId}`);
+    expect(ideaState.status).toBe(200);
+
+    const briefJob = ideaState.data.jobs.find((job) => job.milestoneType === 'brief');
+    expect(briefJob).toBeTruthy();
+
+    const firstClaim = await api<{ claimId: string; skillMdUrl: string }>(undefined, 'POST', `/v1/cannes/jobs/${briefJob!.jobId}/claim`, {
+      workerId: 'demo-worker-skill-a',
+      agentMetadata: {
+        agentType: 'codex',
+        agentVersion: '1.0.0',
+      },
+    });
+    expect(firstClaim.status).toBe(200);
+
+    const skillRes = await broker.app.fetch(new Request(`http://broker.local${firstClaim.data.skillMdUrl}`));
+    expect(skillRes.status).toBe(200);
+    expect(await skillRes.text()).toContain(briefJob!.jobId);
+
+    const unclaimRes = await api<{ unclaimed: boolean; status: string }>(
+      undefined,
+      'POST',
+      `/v1/cannes/jobs/${briefJob!.jobId}/unclaim`,
+      { workerId: 'demo-worker-skill-a' },
+    );
+    expect(unclaimRes.status).toBe(200);
+    expect(unclaimRes.data.unclaimed).toBe(true);
+    expect(unclaimRes.data.status).toBe('queued');
+
+    const queuedState = await api<{
+      job: { status: string; activeClaimId: string | null; activeClaimWorkerId: string | null };
+    }>(undefined, 'GET', `/v1/cannes/jobs/${briefJob!.jobId}`);
+    expect(queuedState.status).toBe(200);
+    expect(queuedState.data.job.status).toBe('queued');
+    expect(queuedState.data.job.activeClaimId).toBeNull();
+    expect(queuedState.data.job.activeClaimWorkerId).toBeNull();
+
+    const secondClaim = await api<{ claimId: string }>(undefined, 'POST', `/v1/cannes/jobs/${briefJob!.jobId}/claim`, {
+      workerId: 'demo-worker-skill-b',
+      agentMetadata: {
+        agentType: 'codex',
+        agentVersion: '1.0.0',
+      },
+    });
+    expect(secondClaim.status).toBe(200);
+    expect(secondClaim.data.claimId).not.toBe(firstClaim.data.claimId);
   });
 });

@@ -55,7 +55,7 @@ export interface AuthMeResponse {
 
 export function createAuthChallenge(
   accountAddress: string,
-  purpose: 'web_login' | 'worker_claim' | 'worker_submit' = 'web_login',
+  purpose: 'web_login' | 'worker_claim' | 'worker_submit' | 'worker_unclaim' = 'web_login',
   metadata?: { agentFingerprint?: string; jobId?: string }
 ) {
   return post<AuthChallengeResponse>('/auth/challenge', {
@@ -287,6 +287,7 @@ export interface JobResponse {
     briefId: string;
     ideaId: string;
     posterId?: string | null;
+    skillMdUrl?: string;
     submission?: SubmissionDetail;
   };
   spendEvents: Array<{
@@ -329,6 +330,40 @@ export function getJobs(status = 'queued') {
   return get<{ jobs: JobResponse['job'][]; count: number }>(`/jobs?status=${status}`, true);
 }
 
+export interface JobBoardMilestone {
+  jobId: string;
+  milestoneId: string;
+  milestoneType: string;
+  title: string;
+  description: string;
+  skillMdUrl: string;
+  status: string;
+  budgetUsd: string;
+  leaseExpiry?: string | null;
+  activeClaimWorkerId?: string | null;
+  order: number;
+}
+
+export interface JobBoardGroup {
+  briefId: string;
+  ideaId: string;
+  title: string;
+  prompt: string;
+  posterId: string;
+  budgetUsd: string;
+  briefSummary: string;
+  generatedAt: string;
+  matchingMilestoneCount: number;
+  milestones: JobBoardMilestone[];
+}
+
+export function getJobBoard(status = 'queued') {
+  return get<{ groups: JobBoardGroup[]; count: number }>(
+    `/jobs?status=${status}&view=grouped`,
+    true
+  );
+}
+
 export async function getJobsByStatuses(statuses: string[]) {
   const results = await Promise.all(statuses.map((status) => getJobs(status)));
   const jobs = results.flatMap((result) => result.jobs);
@@ -361,6 +396,29 @@ export function claimJobDemo(jobId: string, body: {
 }) {
   return post<{ claimId: string; expiresAt: string; skillMdUrl: string }>(
     `/jobs/${jobId}/claim`,
+    body
+  );
+}
+
+export function unclaimJob(jobId: string, signedAction: SignedAction) {
+  return post<{ unclaimed: boolean; status: string; jobId: string; skillMdUrl: string }>(
+    `/jobs/${jobId}/unclaim`,
+    { signedAction },
+    true
+  );
+}
+
+export function unclaimJobDemo(jobId: string, body: {
+  workerId: string;
+  agentMetadata?: {
+    agentType?: string;
+    agentVersion?: string;
+    operatorAddress?: string;
+    fingerprint?: string;
+  };
+}) {
+  return post<{ unclaimed: boolean; status: string; jobId: string; skillMdUrl: string }>(
+    `/jobs/${jobId}/unclaim`,
     body
   );
 }

@@ -38,7 +38,7 @@ export type AgentRole = z.infer<typeof AgentRoleSchema>;
 export const AuthorizationStatusSchema = z.enum(['pending_registration', 'active', 'revoked']);
 export type AuthorizationStatus = z.infer<typeof AuthorizationStatusSchema>;
 
-export const ChallengePurposeSchema = z.enum(['web_login', 'worker_claim', 'worker_submit']);
+export const ChallengePurposeSchema = z.enum(['web_login', 'worker_claim', 'worker_submit', 'worker_unclaim']);
 export type ChallengePurpose = z.infer<typeof ChallengePurposeSchema>;
 
 export const ChainEventTypeSchema = z.enum([
@@ -321,6 +321,23 @@ export const JobClaimRequestSchema = z.union([
   DemoJobClaimRequestSchema,
 ]);
 export type JobClaimRequest = z.infer<typeof JobClaimRequestSchema>;
+
+export const DemoJobUnclaimRequestSchema = z.object({
+  workerId: z.string(),
+  agentMetadata: AgentMetadataSchema.optional(),
+});
+export type DemoJobUnclaimRequest = z.infer<typeof DemoJobUnclaimRequestSchema>;
+
+export const SignedJobUnclaimRequestSchema = z.object({
+  signedAction: SignedActionEnvelopeSchema,
+});
+export type SignedJobUnclaimRequest = z.infer<typeof SignedJobUnclaimRequestSchema>;
+
+export const JobUnclaimRequestSchema = z.union([
+  SignedJobUnclaimRequestSchema,
+  DemoJobUnclaimRequestSchema,
+]);
+export type JobUnclaimRequest = z.infer<typeof JobUnclaimRequestSchema>;
 
 const JobSubmissionFieldsSchema = z.object({
   claimId: z.string().uuid(),
