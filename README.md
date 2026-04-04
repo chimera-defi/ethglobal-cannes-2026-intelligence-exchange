@@ -111,6 +111,14 @@ Detailed mapping and current caveats live in [spec/CANNES_2026_PRIZE_MAPPING.md]
 
 ![Landing page with emerald buttons](output/e2e-demo/01-landing-emerald.png)
 
+### Live Demo GIF
+
+Full end-to-end flow (13 seconds, loops forever):
+
+![Agent Demo E2E](output/e2e-demo/agent-demo-e2e.gif)
+
+*Shows: Jobs board → Agent registration → Ideas → Submit flow → Task completion*
+
 *Screenshot taken April 4, 2026 - The emerald "Post an Idea" and "Enter App" buttons prove the agent successfully completed the task.*
 
 ### Full Documentation
