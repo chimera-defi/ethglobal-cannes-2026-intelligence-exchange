@@ -606,6 +606,25 @@ describe('spec-compliance acceptance', () => {
     expect(statusRes.data.humanId).toBe('0xagentkit-human-1');
 
     const detailPath = `/v1/cannes/agentkit/jobs/${firstJob.jobId}`;
+    const concurrentHeaders = await buildAgentkitHeader(WORKER, detailPath);
+    const concurrentResults = await Promise.all([
+      api<{ job?: { jobId: string }; error?: { code: string } }>(undefined, 'GET', detailPath, undefined, concurrentHeaders),
+      api<{ job?: { jobId: string }; error?: { code: string } }>(undefined, 'GET', detailPath, undefined, concurrentHeaders),
+    ]);
+    expect(concurrentResults.map((result) => result.status).sort((left, right) => left - right)).toEqual([200, 401]);
+
+    const concurrentSuccess = concurrentResults.find((result) => result.status === 200);
+    expect(concurrentSuccess?.data.job?.jobId).toBe(firstJob.jobId);
+
+    const concurrentReplay = concurrentResults.find((result) => result.status === 401);
+    expect(concurrentReplay?.data.error?.code).toBe('AGENTKIT_INVALID');
+
+    const malformedRes = await api<{ error?: { code: string } }>(undefined, 'GET', detailPath, undefined, {
+      [AGENTKIT]: 'not-base64',
+    });
+    expect(malformedRes.status).toBe(401);
+    expect(malformedRes.data.error?.code).toBe('AGENTKIT_INVALID_HEADER');
+
     const detailHeaders = await buildAgentkitHeader(WORKER, detailPath);
     const detailRes = await api<{ job: { jobId: string } }>(undefined, 'GET', detailPath, undefined, detailHeaders);
     expect(detailRes.status).toBe(200);
