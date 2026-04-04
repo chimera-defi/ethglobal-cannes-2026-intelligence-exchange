@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Github, ArrowRight, Lightbulb, Cpu, ShieldCheck, BarChart3, Users, Zap } from 'lucide-react';
+import { ExternalLink, ArrowRight, Lightbulb, Cpu, ShieldCheck, BarChart3, Users, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -38,7 +38,7 @@ export function LandingPage() {
           </Button>
           <Button asChild variant="ghost" size="lg" className="gap-2 text-gray-400 hover:text-white">
             <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer">
-              <Github className="w-4 h-4" />
+              <ExternalLink className="w-4 h-4" />
               View on GitHub
             </a>
           </Button>
@@ -185,7 +185,7 @@ export function LandingPage() {
           </Button>
           <Button asChild variant="outline" size="lg" className="gap-2 text-gray-400 hover:text-white">
             <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer">
-              <Github className="w-4 h-4" />
+              <ExternalLink className="w-4 h-4" />
               View on GitHub
             </a>
           </Button>

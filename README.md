@@ -121,6 +121,21 @@ Then open `http://localhost:3000`.
 
 The browser frontend proxies API calls to `http://localhost:3001`.
 
+If those ports are already occupied on your machine, run the infra on alternate ports:
+
+```bash
+POSTGRES_PORT=55432 REDIS_PORT=56379 docker compose up -d
+
+DATABASE_URL=postgres://iex:iex@localhost:55432/iex_cannes \
+REDIS_URL=redis://localhost:56379 \
+PORT=3101 \
+BROKER_URL=http://127.0.0.1:3101 \
+corepack pnpm --filter intelligence-exchange-cannes-broker dev
+
+VITE_DEV_PROXY_TARGET=http://127.0.0.1:3101 \
+corepack pnpm --filter intelligence-exchange-cannes-web exec vite --host 127.0.0.1 --port 3100
+```
+
 ## Local Agent Pickup CLI
 
 The repo also includes a local worker CLI at `apps/intelligence-exchange-cannes-worker/src/cli.ts`.

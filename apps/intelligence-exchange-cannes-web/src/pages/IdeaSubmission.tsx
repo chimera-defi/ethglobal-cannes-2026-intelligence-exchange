@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { IDKitWidget, VerificationLevel, type ISuccessResult } from '@worldcoin/idkit';
+import { useAccount, usePublicClient, useSwitchChain, useWriteContract } from 'wagmi';
+import { erc20Abi, isAddress, parseUnits } from 'viem';
 import {
   Wallet,
   ShieldCheck,
@@ -63,6 +65,16 @@ interface IdeaForm {
   taskType: 'coding' | 'analysis' | 'research' | 'summarization';
 }
 
+type RetryStep = 'fund' | 'plan';
+type WalletFundingStatus = 'idle' | 'switching' | 'awaiting-signature' | 'confirming' | 'syncing';
+
+const DEFAULT_ARC_CHAIN_ID = 5042002;
+const USDC_DECIMALS = 6;
+
+function formatUsdcAmount(amount: number) {
+  return amount.toFixed(6).replace(/\.?0+$/, '');
+}
+
 // ─── Step metadata ────────────────────────────────────────────────────────────
 
 const VISIBLE_STEPS: FlowStep[] = [
@@ -111,6 +123,10 @@ export function IdeaSubmission() {
   const navigate = useNavigate();
   const { isConnected, address, session, isPosterVerified, signIn, isSessionLoading, refreshSession } =
     useSession();
+  const { chainId } = useAccount();
+  const publicClient = usePublicClient();
+  const { switchChainAsync } = useSwitchChain();
+  const { writeContractAsync } = useWriteContract();
 
   const [step, setStep] = useState<FlowStep>(() => {
     if (!isConnected) return 'connect-wallet';
@@ -126,6 +142,8 @@ export function IdeaSubmission() {
   const [fundTxHash, setFundTxHash] = useState('');
   const [reservationSynced, setReservationSynced] = useState(false);
   const [demoPosterMode, setDemoPosterMode] = useState(false);
+  const [retryStep, setRetryStep] = useState<RetryStep>('fund');
+  const [walletFundingStatus, setWalletFundingStatus] = useState<WalletFundingStatus>('idle');
 
   const [form, setForm] = useState<IdeaForm>({
     title: '',
@@ -147,6 +165,25 @@ export function IdeaSubmission() {
   );
   const demoPosterAvailable = integrations?.world.strict === false;
   const demoPosterAddress = makeDemoAddress('demo-poster:web');
+  const arcChainId = integrations?.arc.chainId ?? DEFAULT_ARC_CHAIN_ID;
+  const escrowContractAddress = integrations?.arc.escrowContractAddress ?? null;
+  const usdcAddress = integrations?.arc.usdcAddress ?? null;
+  const walletFundingAvailable = !demoPosterMode && Boolean(escrowContractAddress && usdcAddress);
+  const walletFundingStatusMessage = {
+    switching: `Switching your wallet to Arc chain ${arcChainId}.`,
+    'awaiting-signature': 'Approve the USDC transfer in your wallet.',
+    confirming: 'Waiting for the Arc transaction confirmation.',
+    syncing: 'Funding confirmed. Syncing the idea with the broker.',
+    idle: null,
+  }[walletFundingStatus];
+
+  function getBudgetAmountUsd() {
+    const amountUsd = Number(form.budgetUsdMax);
+    if (!Number.isFinite(amountUsd) || amountUsd <= 0) {
+      throw new Error('Enter a valid USDC budget before funding the escrow.');
+    }
+    return amountUsd;
+  }
 
   // Derive the current effective step based on auth state transitions
   function getEffectiveStep(): FlowStep {
@@ -231,6 +268,46 @@ export function IdeaSubmission() {
 
   // ─── Fund ───────────────────────────────────────────────────────────────────
 
+  async function createAndSyncIdeaFunding(fundingHash: string) {
+    setError(null);
+    setRetryStep('fund');
+    setIsWorking(true);
+    setWalletFundingStatus('syncing');
+    setStep('funding');
+
+    try {
+      const amountUsd = getBudgetAmountUsd();
+      let nextIdeaId = ideaId;
+
+      if (!nextIdeaId) {
+        const idea = await createIdea({
+          taskType: form.taskType,
+          title: form.title,
+          prompt: form.prompt,
+          budgetUsdMax: amountUsd,
+          ...(demoPosterMode
+            ? {
+                posterAccountAddress: demoPosterAddress,
+                worldIdProof: makeDemoWorldProof(demoPosterAddress),
+              }
+            : {}),
+        });
+
+        nextIdeaId = idea.ideaId;
+        setIdeaId(nextIdeaId);
+      }
+
+      await fundIdea(nextIdeaId, fundingHash, amountUsd);
+      setStep('plan');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Funding failed');
+      setStep('error');
+    } finally {
+      setIsWorking(false);
+      setWalletFundingStatus('idle');
+    }
+  }
+
   async function handleCreateAndFund() {
     const fundingHash = fundTxHash.trim()
       || (demoPosterMode ? makeDemoTxHash(`fund:${form.title}:${form.budgetUsdMax}`) : '');
@@ -243,36 +320,74 @@ export function IdeaSubmission() {
       return;
     }
     setError(null);
-    setIsWorking(true);
-    setStep('funding');
     if (demoPosterMode && !fundTxHash.trim()) {
       setFundTxHash(fundingHash);
     }
+    await createAndSyncIdeaFunding(fundingHash);
+  }
+
+  async function handleWalletFundEscrow() {
+    if (!address) {
+      setError('Connect a wallet before funding the escrow.');
+      return;
+    }
+    if (!publicClient) {
+      setError('Arc RPC client is unavailable in this environment.');
+      return;
+    }
+    if (!escrowContractAddress || !usdcAddress) {
+      setError('Arc escrow funding is not configured for this environment.');
+      return;
+    }
+    if (!isAddress(escrowContractAddress) || !isAddress(usdcAddress)) {
+      setError('Arc funding addresses are misconfigured.');
+      return;
+    }
+
+    let amountUsd: number;
+    try {
+      amountUsd = getBudgetAmountUsd();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Invalid escrow funding amount');
+      return;
+    }
+
+    setError(null);
+    setRetryStep('fund');
+    setIsWorking(true);
+    setWalletFundingStatus(chainId === arcChainId ? 'awaiting-signature' : 'switching');
 
     try {
-      const idea = await createIdea({
-        taskType: form.taskType,
-        title: form.title,
-        prompt: form.prompt,
-        budgetUsdMax: form.budgetUsdMax,
-        ...(demoPosterMode
-          ? {
-              posterAccountAddress: demoPosterAddress,
-              worldIdProof: makeDemoWorldProof(demoPosterAddress),
-            }
-          : {}),
+      if (chainId !== arcChainId) {
+        if (!switchChainAsync) {
+          throw new Error(`Switch your wallet to Arc chain ${arcChainId} before funding the escrow.`);
+        }
+        await switchChainAsync({ chainId: arcChainId });
+      }
+
+      setWalletFundingStatus('awaiting-signature');
+      const txHash = await writeContractAsync({
+        address: usdcAddress,
+        abi: erc20Abi,
+        functionName: 'transfer',
+        args: [escrowContractAddress, parseUnits(formatUsdcAmount(amountUsd), USDC_DECIMALS)],
+        chainId: arcChainId,
       });
 
-      setIdeaId(idea.ideaId);
+      setFundTxHash(txHash);
+      setWalletFundingStatus('confirming');
 
-      await fundIdea(idea.ideaId, fundingHash, form.budgetUsdMax);
+      const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+      if (receipt.status !== 'success') {
+        throw new Error('Escrow funding transaction reverted on Arc.');
+      }
 
-      setStep('plan');
+      await createAndSyncIdeaFunding(txHash);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Funding failed');
-      setStep('error');
+      setError(err instanceof Error ? err.message : 'Wallet funding failed');
     } finally {
       setIsWorking(false);
+      setWalletFundingStatus('idle');
     }
   }
 
@@ -281,6 +396,7 @@ export function IdeaSubmission() {
   async function handlePlan() {
     if (!ideaId) return;
     setError(null);
+    setRetryStep('plan');
     setIsWorking(true);
     setStep('planning');
 
@@ -399,6 +515,8 @@ export function IdeaSubmission() {
                   setReserveTxHash('');
                   setReserveJobIds('');
                   setReservationSynced(false);
+                  setRetryStep('fund');
+                  setWalletFundingStatus('idle');
                   setForm({ title: '', prompt: '', budgetUsdMax: 10, taskType: 'coding' });
                 }}
               >
@@ -424,7 +542,7 @@ export function IdeaSubmission() {
                 variant="secondary"
                 onClick={() => {
                   setError(null);
-                  setStep(ideaId ? 'plan' : 'fund');
+                  setStep(retryStep);
                 }}
               >
                 Try Again
@@ -740,8 +858,8 @@ export function IdeaSubmission() {
                 Fund the Escrow
               </CardTitle>
               <CardDescription>
-                Send USDC to the Arc escrow contract, then paste the transaction hash below.
-                The broker syncs the funding event after verifying the tx on-chain.
+                Fund the Arc escrow from your connected wallet or paste an existing deposit hash.
+                The broker syncs the funding event using the confirmed Arc transaction.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
@@ -762,12 +880,63 @@ export function IdeaSubmission() {
                     </span>
                   </div>
                 )}
+                {integrations?.arc.usdcAddress && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">USDC Contract</span>
+                    <span className="text-white font-mono text-xs break-all ml-4">
+                      {integrations.arc.usdcAddress}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-gray-400">Arc Chain ID</span>
                   <span className="text-white font-mono">
-                    {integrations?.arc.chainId ?? '5042002'}
+                    {arcChainId}
                   </span>
                 </div>
+              </div>
+
+              {!demoPosterMode && (
+                <div className="space-y-3 rounded-lg border border-gray-800 bg-gray-900/60 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="space-y-1">
+                      <div className="text-sm font-semibold text-white">Fund directly from wallet</div>
+                      <p className="text-xs text-gray-400">
+                        Send {form.budgetUsdMax} USDC to the configured escrow contract and reuse the
+                        confirmed tx hash automatically.
+                      </p>
+                    </div>
+                    <Badge variant="info">Wallet</Badge>
+                  </div>
+
+                  <Button
+                    className="w-full text-base"
+                    size="lg"
+                    onClick={handleWalletFundEscrow}
+                    disabled={isWorking || !walletFundingAvailable}
+                  >
+                    {isWorking && walletFundingStatus !== 'idle' ? (
+                      <Loader2 className="animate-spin" />
+                    ) : (
+                      <Wallet className="w-4 h-4" />
+                    )}
+                    Fund Escrow from Wallet
+                  </Button>
+
+                  <p className="text-xs text-gray-500">
+                    {walletFundingStatusMessage
+                      ?? (walletFundingAvailable
+                        ? 'Your wallet will request a USDC transfer first, then the broker will sync the confirmed tx automatically.'
+                        : 'Direct wallet funding is unavailable until both the Arc escrow and USDC contract addresses are configured.')}
+                  </p>
+                </div>
+              )}
+
+              <div className="relative py-1">
+                <div className="h-px bg-gray-800" />
+                <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-gray-950 px-3 text-xs text-gray-500">
+                  or sync an existing deposit
+                </span>
               </div>
 
               <div className="space-y-1.5">
@@ -778,10 +947,10 @@ export function IdeaSubmission() {
                   value={fundTxHash}
                   onChange={e => setFundTxHash(e.target.value)}
                   className="font-mono text-xs"
+                  disabled={isWorking}
                 />
                 <p className="text-xs text-gray-500">
-                  Paste the transaction hash from your wallet after the escrow deposit confirms.
-                  Do not fabricate a hash — the broker verifies it on Arc.
+                  Paste a real Arc transaction hash if you already funded the escrow outside this flow.
                 </p>
                 {demoPosterAvailable && (
                   <Button
@@ -806,7 +975,7 @@ export function IdeaSubmission() {
                 ) : (
                   <DollarSign className="w-4 h-4" />
                 )}
-                Create Idea and Sync Funding
+                Create Idea and Sync Existing Funding
               </Button>
             </CardContent>
           </Card>
