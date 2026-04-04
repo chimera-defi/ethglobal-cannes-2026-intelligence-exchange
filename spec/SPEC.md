@@ -159,4 +159,4 @@ Do not model tradable credits in core architecture. Keep the platform anchored t
 9. `ALTERNATIVES_AND_VARIANTS.md`
 10. `contracts/README.md`
 11. `ACCEPTANCE_TEST_MATRIX.md`
-12. `FIRST_60_MINUTES.md`
+12. `CANNES_2026_FIRST_60_MINUTES.md`

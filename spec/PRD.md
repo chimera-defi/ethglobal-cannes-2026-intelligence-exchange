@@ -1,6 +1,8 @@
 ## Intelligence Exchange PRD
 
-**Status**: Draft | **Last Updated**: 2026-03-06 | **Owner**: TBD
+**Status**: Legacy base-marketplace draft | Not the current implementation source of truth
+
+For the current repo state, use `SPEC_PARITY.md`, `CANNES_2026_MVP_SPEC.md`, and the root `README.md` first.
 
 ### Problem
 AI teams have growing backlogs of AI jobs (coding, analysis, content, support operations), while potential executors have idle time, underused AI access, and no standardized way to earn on that spare capacity.

@@ -2,6 +2,12 @@
 
 ETHGlobal Cannes 2026 submission for a controlled-supply market where spare agent capacity can pick up scoped build work and get paid only when a human reviewer accepts the result.
 
+See the supporting spec pack in:
+
+- [spec/CANNES_2026_MVP_SPEC.md](/Users/kaustavhaldar/Documents/dev/crypto/2026/ethglobal-cannes-2026-intelligence-exchange/spec/CANNES_2026_MVP_SPEC.md)
+- [spec/CANNES_2026_PRIZE_MAPPING.md](/Users/kaustavhaldar/Documents/dev/crypto/2026/ethglobal-cannes-2026-intelligence-exchange/spec/CANNES_2026_PRIZE_MAPPING.md)
+- [spec/SPEC_PARITY.md](/Users/kaustavhaldar/Documents/dev/crypto/2026/ethglobal-cannes-2026-intelligence-exchange/spec/SPEC_PARITY.md)
+
 ## Thesis
 
 Intelligence is becoming a scarce operating resource.
@@ -26,9 +32,13 @@ It includes:
 - a React frontend for posting ideas, tracking milestone jobs, and reviewing submissions
 - a Hono broker API that creates ideas, generates `BuildBrief`s, queues jobs, manages claims, and scores submissions
 - a worker CLI that claims jobs, fetches `skill.md`, and submits results
+- wallet-backed broker sessions with signed worker actions
+- World role verification for posters, workers, and reviewers
+- agent authorization plus ERC-8004-aligned registration sync and attested reputation updates
+- chain-sync hooks for funding, reservation, release, and acceptance attestation
 - Postgres-backed state with Redis-backed lease expiry / requeue handling
 - deterministic seed data and acceptance tests for a repeatable judge flow
-- demo wiring for Arc funding, World gating, agent fingerprinting, and dossier-style metadata
+- Arc funding/release sync, accepted-submission dossier upload, and sponsor-status wiring for demo or live environments
 
 The implementation is deliberately constrained:
 
@@ -36,6 +46,29 @@ The implementation is deliberately constrained:
 - deterministic rule-based scoring
 - human-gated acceptance
 - one controlled pilot loop instead of open marketplace liquidity
+
+## Prize Targets
+
+Current primary sponsor story:
+
+- Arc: escrowed milestone funding, release sync, and spend-event logging
+- World ID 4.0: proof-of-human gating for posters, workers, and reviewers
+- 0G: accepted-build dossier upload when a live environment is configured
+
+Current follow-up target, not yet first-class in the repo:
+
+- Agent Kit: the prize mapping still matters strategically, but the product surface today maps more directly to World ID gating than to an explicit Agent Kit workflow
+
+Detailed mapping and current caveats live in [spec/CANNES_2026_PRIZE_MAPPING.md](/Users/kaustavhaldar/Documents/dev/crypto/2026/ethglobal-cannes-2026-intelligence-exchange/spec/CANNES_2026_PRIZE_MAPPING.md).
+
+## Current Spec Parity
+
+- Cannes MVP / judge loop: high parity
+- Full v1 / MVP spec: medium parity
+- Agent-first v2: low parity, mostly roadmap
+- Cannes prize mapping: strong on Arc, World, and 0G; weak on Agent Kit, ENS, and Ledger until more product surface exists
+
+The detailed matrix is in [spec/SPEC_PARITY.md](/Users/kaustavhaldar/Documents/dev/crypto/2026/ethglobal-cannes-2026-intelligence-exchange/spec/SPEC_PARITY.md).
 
 ## Why It Has Oomph
 
@@ -60,6 +93,23 @@ That is why this looks more like an exchange for scarce execution capacity than 
 7. Open the review panel and accept the milestone.
 
 Seeded demo data includes `idea-demo-cannes-2026` plus four milestone jobs.
+
+## How Humans Use It
+
+1. Connect a wallet and sign in to the broker.
+2. Verify the required World role.
+3. Post an idea, fund it, and generate the `BuildBrief`.
+4. Review submitted milestone output.
+5. Accept or reject, then sync release and attestation receipts.
+
+## How Agents And Operators Use It
+
+1. Connect the worker operator wallet and sign in.
+2. Verify the worker role and create an authorized agent fingerprint.
+3. Claim one queued milestone from the jobs board or local CLI.
+4. Fetch the broker-generated `skill.md`, execute it in your agent stack, and submit artifact URIs plus a summary.
+5. Record spend events if the run used paid tools or APIs.
+6. Wait for human acceptance before any payout release or dossier finalization.
 
 ## Screenshots
 
@@ -210,6 +260,8 @@ Validated locally against the current repo state:
 
 - This is a controlled-supply pilot, not proof of open-market liquidity.
 - Human review is still the release gate; there are no autonomous payouts.
-- The broker now enforces wallet-backed session auth, World role verification, agent authorization sync, and chain-sync gates for the core lifecycle.
-- ERC-8004-aligned agent registration and attested reputation updates are implemented in the contract layer and mirrored in broker state; the web app still needs the frontend wiring in [spec/CLAUDE_FRONTEND_HANDOFF.md](/Users/kaustavhaldar/Documents/dev/crypto/2026/ethglobal-cannes-2026-intelligence-exchange/spec/CLAUDE_FRONTEND_HANDOFF.md).
-- Arc funding/release and dossier upload still rely on local or demo wiring unless a live environment is configured.
+- Wallet-backed session auth, World role verification, signed worker actions, agent authorization sync, and chain-sync gates are implemented in the broker and surfaced in the web app.
+- ERC-8004-aligned agent registration and attested reputation updates are implemented in the contract layer and mirrored in broker state.
+- The broader v2 task-market surface from [spec/SPEC.md](/Users/kaustavhaldar/Documents/dev/crypto/2026/ethglobal-cannes-2026-intelligence-exchange/spec/SPEC.md) is not implemented yet: no `bounty`, `benchmark`, or `auction` mode, no bid flow, no agent manifests, no A2A messaging, and no deterministic autonomous state loop.
+- Arc funding/release proof and 0G dossier upload depend on a live environment being configured; demo and degraded modes still exist for rehearsals.
+- The current World story is strongest for World ID 4.0. Agent Kit should stay framed as a follow-up prize target until the product exposes a more explicit agent-facing World flow.
