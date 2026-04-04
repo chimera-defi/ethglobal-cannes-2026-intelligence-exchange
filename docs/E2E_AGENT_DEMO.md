@@ -106,10 +106,12 @@ All screenshots in `output/e2e-demo/`:
 | `06-task-completion.png` | Full task flow summary |
 | `06-task-completion.html` | Interactive task completion view |
 
-### Video Recording
-- **File**: `output/e2e-demo/page@*.webm`
-- **Duration**: Full browser session recorded
+### Video Recording & GIF
+- **WebM**: `output/e2e-demo/page@*.webm` (full browser session)
+- **GIF**: `output/e2e-demo/agent-demo-e2e.gif` (1.3MB, 720px, loops)
 - **Content**: Jobs → Agents → Ideas → Submit → Task completion
+
+![Agent Demo GIF](../output/e2e-demo/agent-demo-e2e.gif)
 
 ### Database Records
 ```sql
