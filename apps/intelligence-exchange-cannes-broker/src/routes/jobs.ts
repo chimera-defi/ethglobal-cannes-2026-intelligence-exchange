@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
-import { desc, eq } from 'drizzle-orm';
+import { desc, eq, inArray } from 'drizzle-orm';
 import { db } from '../db/client';
 import { acceptedAttestations, agentSpendEvents, briefs, ideas, jobs, milestones, submissions } from '../db/schema';
 import { claimJob, recordSpendEvent, submitJob } from '../services/jobService';
@@ -21,6 +21,30 @@ import { getWorldConfig } from '../services/sponsorConfig';
 import { keccak256, toBytes } from 'viem';
 
 export const jobsRouter = new Hono();
+
+type GroupedJobBoardItem = {
+  briefId: string;
+  ideaId: string;
+  title: string;
+  prompt: string;
+  posterId: string;
+  budgetUsd: string;
+  briefSummary: string;
+  generatedAt: Date;
+  matchingMilestoneCount: number;
+  milestones: Array<{
+    jobId: string;
+    milestoneId: string;
+    milestoneType: string;
+    title: string;
+    description: string;
+    status: string;
+    budgetUsd: string;
+    leaseExpiry: Date | null;
+    activeClaimWorkerId: string | null;
+    order: number;
+  }>;
+};
 
 function buildDemoAgentIdentity(input: {
   workerId: string;
@@ -57,9 +81,103 @@ function isSignedSubmitRequest(
   return 'signedAction' in req;
 }
 
+function sortMilestonesByOrder(
+  a: { order: number; milestoneType: string },
+  b: { order: number; milestoneType: string },
+) {
+  if (a.order !== b.order) {
+    return a.order - b.order;
+  }
+
+  return MILESTONE_ORDER.indexOf(a.milestoneType as typeof MILESTONE_ORDER[number])
+    - MILESTONE_ORDER.indexOf(b.milestoneType as typeof MILESTONE_ORDER[number]);
+}
+
+async function buildGroupedJobBoard(statusFilter: string) {
+  const matchingJobs = await db.select()
+    .from(jobs)
+    .where(eq(jobs.status, statusFilter))
+    .orderBy(desc(jobs.updatedAt));
+  if (matchingJobs.length === 0) {
+    return { groups: [] as GroupedJobBoardItem[], count: 0 };
+  }
+
+  const briefIds = Array.from(new Set(matchingJobs.map((job) => job.briefId)));
+  const briefMatchCounts = new Map<string, number>();
+  for (const job of matchingJobs) {
+    briefMatchCounts.set(job.briefId, (briefMatchCounts.get(job.briefId) ?? 0) + 1);
+  }
+
+  const boardJobs = await db.select().from(jobs).where(inArray(jobs.briefId, briefIds));
+  const boardBriefs = await db.select().from(briefs).where(inArray(briefs.briefId, briefIds));
+  const ideaIds = Array.from(new Set(boardBriefs.map((brief) => brief.ideaId)));
+  const boardIdeas = ideaIds.length > 0
+    ? await db.select().from(ideas).where(inArray(ideas.ideaId, ideaIds))
+    : [];
+  const boardMilestones = await db.select().from(milestones).where(inArray(milestones.briefId, briefIds));
+
+  const briefsById = new Map(boardBriefs.map((brief) => [brief.briefId, brief]));
+  const ideasById = new Map(boardIdeas.map((idea) => [idea.ideaId, idea]));
+  const milestonesById = new Map(boardMilestones.map((milestone) => [milestone.milestoneId, milestone]));
+  const jobsByBriefId = new Map<string, typeof boardJobs>();
+
+  for (const job of boardJobs) {
+    const existing = jobsByBriefId.get(job.briefId) ?? [];
+    existing.push(job);
+    jobsByBriefId.set(job.briefId, existing);
+  }
+
+  const groups = briefIds.flatMap((briefId) => {
+    const brief = briefsById.get(briefId);
+    if (!brief) return [];
+
+    const idea = ideasById.get(brief.ideaId);
+    if (!idea) return [];
+
+    const milestoneJobs = (jobsByBriefId.get(briefId) ?? [])
+      .map((job) => {
+        const milestone = milestonesById.get(job.milestoneId);
+        return {
+          jobId: job.jobId,
+          milestoneId: job.milestoneId,
+          milestoneType: job.milestoneType,
+          title: milestone?.title ?? `${job.milestoneType} milestone`,
+          description: milestone?.description ?? brief.summary,
+          status: job.status,
+          budgetUsd: job.budgetUsd,
+          leaseExpiry: job.leaseExpiry ?? null,
+          activeClaimWorkerId: job.activeClaimWorkerId ?? null,
+          order: milestone?.order ?? Number.MAX_SAFE_INTEGER,
+        };
+      })
+      .sort(sortMilestonesByOrder);
+
+    return [{
+      briefId,
+      ideaId: brief.ideaId,
+      title: idea.title,
+      prompt: idea.prompt,
+      posterId: idea.posterId,
+      budgetUsd: idea.budgetUsd,
+      briefSummary: brief.summary,
+      generatedAt: brief.generatedAt,
+      matchingMilestoneCount: briefMatchCounts.get(briefId) ?? 0,
+      milestones: milestoneJobs,
+    }];
+  });
+
+  return { groups, count: groups.length };
+}
+
 // GET /v1/cannes/jobs — list available (queued) jobs
 jobsRouter.get('/', async (c) => {
   const statusFilter = c.req.query('status') ?? 'queued';
+  const view = c.req.query('view');
+
+  if (view === 'grouped') {
+    return c.json(await buildGroupedJobBoard(statusFilter));
+  }
+
   const jobsList = await db.select().from(jobs).where(eq(jobs.status, statusFilter));
   return c.json({ jobs: jobsList, count: jobsList.length });
 });

@@ -40,6 +40,29 @@ async function brokerGet(path: string) {
   return res.json() as Promise<unknown>;
 }
 
+type FlatJobsListResponse = {
+  jobs: Array<{ jobId: string; milestoneType: string; budgetUsd: string; status: string }>;
+  count: number;
+};
+
+type GroupedJobsListResponse = {
+  groups: Array<{
+    briefId: string;
+    title: string;
+    prompt: string;
+    briefSummary: string;
+    matchingMilestoneCount: number;
+    milestones: Array<{
+      jobId: string;
+      milestoneType: string;
+      title: string;
+      status: string;
+      budgetUsd: string;
+    }>;
+  }>;
+  count: number;
+};
+
 export function getOperatorAccount(privateKeyOverride?: string) {
   const privateKey = (privateKeyOverride ?? WORKER_PRIVATE_KEY) as `0x${string}` | undefined;
   if (!privateKey) {
@@ -90,17 +113,58 @@ program
 
 program
   .command('list')
-  .description('List available jobs')
+  .description('List available jobs or grouped request briefs')
   .option('--status <status>', 'Filter by status', 'queued')
+  .option('--view <view>', 'Browse view: grouped or flat', 'grouped')
+  .option('--json', 'Print machine-readable JSON')
   .action(async (opts) => {
-    const data = await brokerGet(`/v1/cannes/jobs?status=${opts.status}`) as { jobs: unknown[]; count: number };
-    if (data.jobs.length === 0) {
-      console.log('No jobs available.');
+    if (!['grouped', 'flat'].includes(opts.view)) {
+      throw new Error(`Unsupported view: ${opts.view}. Use grouped or flat.`);
+    }
+
+    if (opts.view === 'flat') {
+      const data = await brokerGet(`/v1/cannes/jobs?status=${opts.status}`) as FlatJobsListResponse;
+      if (opts.json) {
+        console.log(JSON.stringify(data, null, 2));
+        return;
+      }
+      if (data.jobs.length === 0) {
+        console.log('No jobs available.');
+        return;
+      }
+      console.log(`\n${data.count} job(s) available:\n`);
+      for (const job of data.jobs) {
+        console.log(`  ${job.jobId}  type=${job.milestoneType}  budget=$${job.budgetUsd}  status=${job.status}`);
+      }
       return;
     }
-    console.log(`\n${data.count} job(s) available:\n`);
-    for (const job of data.jobs as Array<{ jobId: string; milestoneType: string; budgetUsd: string; status: string }>) {
-      console.log(`  ${job.jobId}  type=${job.milestoneType}  budget=$${job.budgetUsd}  status=${job.status}`);
+
+    const data = await brokerGet(`/v1/cannes/jobs?status=${opts.status}&view=grouped`) as GroupedJobsListResponse;
+    if (opts.json) {
+      console.log(JSON.stringify(data, null, 2));
+      return;
+    }
+    if (data.groups.length === 0) {
+      console.log('No request briefs available.');
+      return;
+    }
+
+    console.log(`\n${data.count} request brief(s) with ${opts.status} task(s):\n`);
+    for (const group of data.groups) {
+      console.log(`${group.title}`);
+      console.log(`  Brief ID: ${group.briefId}`);
+      console.log(`  Request: ${group.prompt}`);
+      console.log(`  Plan:    ${group.briefSummary}`);
+      console.log(`  Matching ${opts.status} tasks: ${group.matchingMilestoneCount}`);
+      console.log('  Tasks:');
+      for (const milestone of group.milestones) {
+        const marker = milestone.status === opts.status ? '>' : '-';
+        console.log(
+          `    ${marker} ${milestone.milestoneType}  job=${milestone.jobId}  status=${milestone.status}  budget=$${milestone.budgetUsd}`
+        );
+        console.log(`      ${milestone.title}`);
+      }
+      console.log('');
     }
   });
 

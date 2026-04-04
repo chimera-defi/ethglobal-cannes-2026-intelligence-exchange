@@ -329,6 +329,39 @@ export function getJobs(status = 'queued') {
   return get<{ jobs: JobResponse['job'][]; count: number }>(`/jobs?status=${status}`, true);
 }
 
+export interface JobBoardMilestone {
+  jobId: string;
+  milestoneId: string;
+  milestoneType: string;
+  title: string;
+  description: string;
+  status: string;
+  budgetUsd: string;
+  leaseExpiry?: string | null;
+  activeClaimWorkerId?: string | null;
+  order: number;
+}
+
+export interface JobBoardGroup {
+  briefId: string;
+  ideaId: string;
+  title: string;
+  prompt: string;
+  posterId: string;
+  budgetUsd: string;
+  briefSummary: string;
+  generatedAt: string;
+  matchingMilestoneCount: number;
+  milestones: JobBoardMilestone[];
+}
+
+export function getJobBoard(status = 'queued') {
+  return get<{ groups: JobBoardGroup[]; count: number }>(
+    `/jobs?status=${status}&view=grouped`,
+    true
+  );
+}
+
 export async function getJobsByStatuses(statuses: string[]) {
   const results = await Promise.all(statuses.map((status) => getJobs(status)));
   const jobs = results.flatMap((result) => result.jobs);

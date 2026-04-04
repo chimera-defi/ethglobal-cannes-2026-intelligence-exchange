@@ -40,26 +40,17 @@ import {
   createAuthChallenge,
   listAgentAuthorizations,
   createAgentAuthorization,
-  getJobs,
+  getJobBoard,
   getIntegrationsStatus,
   type AgentAuthorization,
+  type JobBoardGroup,
+  type JobBoardMilestone,
 } from '../api';
 import { useSession } from '../hooks/useSession';
 import { makeDemoAddress } from '../lib/demo';
 
 const STATUS_TABS = ['queued', 'claimed', 'submitted', 'accepted', 'rework'] as const;
 type StatusTab = (typeof STATUS_TABS)[number];
-
-type Job = {
-  jobId: string;
-  milestoneType: string;
-  status: string;
-  budgetUsd: string;
-  ideaId: string;
-  briefId: string;
-  leaseExpiry?: string | null;
-  activeClaimWorkerId?: string | null;
-};
 
 // ─── Onboarding checklist ────────────────────────────────────────────────────
 
@@ -394,83 +385,83 @@ function ClaimSuccessBanner({
   );
 }
 
-// ─── Job card ─────────────────────────────────────────────────────────────────
+// ─── Grouped job board ────────────────────────────────────────────────────────
 
-function JobCard({
-  job,
+function MilestoneTaskRow({
+  milestone,
+  activeTab,
   canClaim,
   claimDisabled,
   claimLabel,
   onClaim,
   onView,
-  onViewIdea,
 }: {
-  job: Job;
+  milestone: JobBoardMilestone;
+  activeTab: StatusTab;
   canClaim: boolean;
   claimDisabled?: boolean;
   claimLabel?: string;
   onClaim: () => void;
   onView: () => void;
-  onViewIdea: () => void;
 }) {
-  const isClaimable = job.status === 'queued';
-  const isReviewable = ['submitted', 'accepted', 'rework'].includes(job.status);
-  const isActive = ['claimed', 'running'].includes(job.status);
+  const isClaimable = milestone.status === 'queued';
+  const isReviewable = ['submitted', 'accepted', 'rework'].includes(milestone.status);
+  const isActive = ['claimed', 'running'].includes(milestone.status);
+  const isMatchingTab = milestone.status === activeTab;
 
   const statusVariant = (
     ['queued', 'claimed', 'submitted', 'accepted', 'rejected', 'rework', 'settled', 'created'] as const
-  ).includes(job.status as never)
-    ? (job.status as 'queued' | 'claimed' | 'submitted' | 'accepted' | 'rejected' | 'rework' | 'settled' | 'created')
+  ).includes(milestone.status as never)
+    ? (milestone.status as 'queued' | 'claimed' | 'submitted' | 'accepted' | 'rejected' | 'rework' | 'settled' | 'created')
     : 'default' as const;
 
   return (
-    <Card
+    <div
       className={cn(
-        'border-gray-800 bg-gray-900/40',
-        isClaimable && 'border-yellow-900/60 hover:border-yellow-700/60 transition-colors'
+        'rounded-xl border bg-gray-950/60 p-4',
+        isMatchingTab ? 'border-blue-800/70' : 'border-gray-800'
       )}
     >
-      <CardContent className="flex flex-col md:flex-row md:items-center gap-4 p-4">
-        <div className="flex-1 min-w-0 space-y-1.5">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-white font-semibold capitalize">
-              {job.milestoneType} Milestone
+      <div className="flex flex-col gap-4 md:flex-row md:items-start">
+        <div className="min-w-0 flex-1 space-y-1.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-semibold capitalize text-white">
+              {milestone.milestoneType} task
             </span>
-            <Badge variant={statusVariant}>{job.status.toUpperCase()}</Badge>
+            <Badge variant={statusVariant}>{milestone.status.toUpperCase()}</Badge>
+            {isMatchingTab && <Badge variant="info">IN THIS TAB</Badge>}
             {isActive && (
               <Badge variant="info" className="animate-pulse">
                 LIVE
               </Badge>
             )}
           </div>
+          <p className="text-sm text-gray-300">{milestone.title}</p>
+          <p className="text-xs text-gray-500">{milestone.description}</p>
           <div className="flex flex-wrap gap-3 text-xs text-gray-500">
             <span>
               Job:{' '}
-              <span className="font-mono text-gray-400">{job.jobId.slice(0, 12)}…</span>
+              <span className="font-mono text-gray-400">{milestone.jobId.slice(0, 12)}…</span>
             </span>
-            <button className="text-blue-400 hover:underline" onClick={onViewIdea}>
-              View Idea
-              <ChevronRight className="inline h-3 w-3" />
-            </button>
           </div>
-          {job.activeClaimWorkerId && (
+          {milestone.activeClaimWorkerId && (
             <p className="text-xs text-gray-500">
               Claimed by:{' '}
-              <span className="font-mono text-gray-400">{job.activeClaimWorkerId}</span>
+              <span className="font-mono text-gray-400">{milestone.activeClaimWorkerId}</span>
             </p>
           )}
-          {job.leaseExpiry && isActive && (
-            <p className="text-xs text-yellow-500 flex items-center gap-1">
+          {milestone.leaseExpiry && isActive && (
+            <p className="flex items-center gap-1 text-xs text-yellow-500">
               <Clock className="h-3 w-3" />
-              Lease expires {new Date(job.leaseExpiry).toLocaleTimeString()}
+              Lease expires {new Date(milestone.leaseExpiry).toLocaleTimeString()}
             </p>
           )}
         </div>
 
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex shrink-0 items-center gap-3">
           <div className="text-right">
-            <p className="text-green-400 font-bold">${job.budgetUsd}</p>
-            <p className="text-gray-500 text-xs">USDC</p>
+            <p className="font-bold text-green-400">${milestone.budgetUsd}</p>
+            <p className="text-xs text-gray-500">USDC</p>
           </div>
           {isClaimable && (
             <Button
@@ -490,6 +481,96 @@ function JobCard({
             </Button>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function JobGroupCard({
+  group,
+  activeTab,
+  expanded,
+  canClaim,
+  claimDisabledJobId,
+  claimLabelFor,
+  onToggle,
+  onClaim,
+  onView,
+  onViewIdea,
+}: {
+  group: JobBoardGroup;
+  activeTab: StatusTab;
+  expanded: boolean;
+  canClaim: boolean;
+  claimDisabledJobId?: string | null;
+  claimLabelFor: (milestone: JobBoardMilestone) => string;
+  onToggle: () => void;
+  onClaim: (milestone: JobBoardMilestone) => void;
+  onView: (milestone: JobBoardMilestone) => void;
+  onViewIdea: () => void;
+}) {
+  const queuedCount = group.milestones.filter((milestone) => milestone.status === 'queued').length;
+  const claimedCount = group.milestones.filter((milestone) => milestone.status === 'claimed').length;
+  const matchingLabel = `${group.matchingMilestoneCount} ${activeTab} ${
+    group.matchingMilestoneCount === 1 ? 'task' : 'tasks'
+  }`;
+
+  return (
+    <Card className="border-gray-800 bg-gray-900/40">
+      <CardContent className="space-y-4 p-5">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="min-w-0 flex-1 space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-lg font-semibold text-white">{group.title}</span>
+              <Badge variant="info">{matchingLabel}</Badge>
+              <Badge variant="default">{group.milestones.length} total tasks</Badge>
+              {queuedCount > 0 && <Badge variant="queued">{queuedCount} queued</Badge>}
+              {claimedCount > 0 && <Badge variant="claimed">{claimedCount} claimed</Badge>}
+            </div>
+            <p className="text-sm text-gray-300">{group.prompt}</p>
+            <p className="text-xs text-gray-500">{group.briefSummary}</p>
+            <div className="flex flex-wrap gap-3 text-xs text-gray-500">
+              <span>
+                Brief:{' '}
+                <span className="font-mono text-gray-400">{group.briefId.slice(0, 12)}…</span>
+              </span>
+              <span>Poster: <span className="font-mono text-gray-400">{group.posterId}</span></span>
+              <span>Planned {new Date(group.generatedAt).toLocaleString()}</span>
+            </div>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-3">
+            <div className="text-right">
+              <p className="font-bold text-green-400">${group.budgetUsd}</p>
+              <p className="text-xs text-gray-500">Idea budget</p>
+            </div>
+            <Button size="sm" variant="secondary" onClick={onViewIdea}>
+              View Idea
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Button>
+            <Button size="sm" onClick={onToggle}>
+              {expanded ? 'Hide tasks' : 'Browse tasks'}
+              <ChevronRight className={cn('h-3.5 w-3.5 transition-transform', expanded && 'rotate-90')} />
+            </Button>
+          </div>
+        </div>
+
+        {expanded && (
+          <div className="space-y-3 border-t border-gray-800 pt-4">
+            {group.milestones.map((milestone) => (
+              <MilestoneTaskRow
+                key={milestone.jobId}
+                milestone={milestone}
+                activeTab={activeTab}
+                canClaim={canClaim}
+                claimDisabled={claimDisabledJobId === milestone.jobId}
+                claimLabel={claimLabelFor(milestone)}
+                onClaim={() => onClaim(milestone)}
+                onView={() => onView(milestone)}
+              />
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -503,13 +584,14 @@ export function JobsBoard() {
   const { isConnected, address, session, isWorkerVerified, signIn } = useSession();
 
   const [activeTab, setActiveTab] = useState<StatusTab>('queued');
-  const [claimingJob, setClaimingJob] = useState<Job | null>(null);
+  const [claimingJob, setClaimingJob] = useState<JobBoardMilestone | null>(null);
   const [claimResult, setClaimResult] = useState<{
     claimId: string;
     expiresAt: string;
     skillMdUrl: string;
   } | null>(null);
   const [demoClaimingJobId, setDemoClaimingJobId] = useState<string | null>(null);
+  const [expandedBriefs, setExpandedBriefs] = useState<Record<string, boolean>>({});
 
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [signInError, setSignInError] = useState<string | null>(null);
@@ -519,8 +601,8 @@ export function JobsBoard() {
   const hasSession = !!session;
 
   const { data: jobsData, isLoading, error, refetch } = useQuery({
-    queryKey: ['jobs', activeTab],
-    queryFn: () => getJobs(activeTab),
+    queryKey: ['job-board', activeTab],
+    queryFn: () => getJobBoard(activeTab),
     refetchInterval: 10_000,
   });
   const { data: integrations } = useQuery({
@@ -555,7 +637,7 @@ export function JobsBoard() {
   const demoClaimEnabled = integrations?.world.strict === false;
   const canClaim = strictClaimReady || demoClaimEnabled;
 
-  const jobs = jobsData?.jobs ?? [];
+  const groups = jobsData?.groups ?? [];
 
   async function handleSignIn() {
     setIsSigningIn(true);
@@ -593,7 +675,14 @@ export function JobsBoard() {
     setClaimResult(null);
   }
 
-  async function handleDemoClaim(job: Job) {
+  function toggleGroup(briefId: string) {
+    setExpandedBriefs((current) => ({
+      ...current,
+      [briefId]: !current[briefId],
+    }));
+  }
+
+  async function handleDemoClaim(job: JobBoardMilestone) {
     setDemoClaimingJobId(job.jobId);
     setSignInError(null);
     setAuthError(null);
@@ -607,12 +696,18 @@ export function JobsBoard() {
         },
       });
       setClaimResult(result);
+      await queryClient.invalidateQueries({ queryKey: ['job-board'] });
       await queryClient.invalidateQueries({ queryKey: ['jobs'] });
     } catch (err) {
       setAuthError(err instanceof Error ? err.message : 'Demo claim failed');
     } finally {
       setDemoClaimingJobId(null);
     }
+  }
+
+  function getClaimLabel(job: JobBoardMilestone) {
+    if (strictClaimReady) return 'Claim';
+    return demoClaimingJobId === job.jobId ? 'Claiming...' : 'Demo Claim';
   }
 
   return (
@@ -622,9 +717,9 @@ export function JobsBoard() {
         <div>
           <h1 className="text-3xl font-bold text-white">Jobs Board</h1>
           <p className="text-gray-400 mt-1">
-            Open milestone jobs. Complete worker setup, claim a job, fetch its{' '}
-            <span className="font-mono text-blue-400">skill.md</span>, and run it with your agent
-            stack.
+            Browse funded request briefs, expand them into milestone tasks, then claim one concrete
+            job and run its <span className="font-mono text-blue-400">skill.md</span> with your
+            agent stack.
           </p>
         </div>
         {demoClaimEnabled && (
@@ -733,12 +828,12 @@ export function JobsBoard() {
               </Button>
             </CardContent>
           </Card>
-        ) : jobs.length === 0 ? (
+        ) : groups.length === 0 ? (
           <Card className="border-gray-700">
             <CardContent className="text-center py-12 space-y-3">
               <AlertCircle className="h-8 w-8 text-gray-600 mx-auto" />
               <p className="text-gray-400">
-                No <span className="text-white">{activeTab}</span> jobs right now.
+                No <span className="text-white">{activeTab}</span> request briefs right now.
               </p>
               {activeTab === 'queued' && (
                 <p className="text-gray-500 text-sm">
@@ -749,20 +844,17 @@ export function JobsBoard() {
           </Card>
         ) : (
           <div className="space-y-3">
-            {jobs.map(job => (
-              <JobCard
-                key={job.jobId}
-                job={job}
+            {groups.map((group) => (
+              <JobGroupCard
+                key={group.briefId}
+                group={group}
+                activeTab={activeTab}
+                expanded={Boolean(expandedBriefs[group.briefId])}
                 canClaim={canClaim}
-                claimDisabled={demoClaimingJobId === job.jobId}
-                claimLabel={
-                  strictClaimReady
-                    ? 'Claim'
-                    : demoClaimingJobId === job.jobId
-                    ? 'Claiming...'
-                    : 'Demo Claim'
-                }
-                onClaim={() => {
+                claimDisabledJobId={demoClaimingJobId}
+                claimLabelFor={getClaimLabel}
+                onToggle={() => toggleGroup(group.briefId)}
+                onClaim={(job) => {
                   setClaimResult(null);
                   if (strictClaimReady) {
                     setClaimingJob(job);
@@ -770,8 +862,8 @@ export function JobsBoard() {
                   }
                   void handleDemoClaim(job);
                 }}
-                onView={() => navigate(`/review/${job.jobId}`)}
-                onViewIdea={() => navigate(`/ideas/${job.ideaId}`)}
+                onView={(job) => navigate(`/review/${job.jobId}`)}
+                onViewIdea={() => navigate(`/ideas/${group.ideaId}`)}
               />
             ))}
           </div>
@@ -789,6 +881,7 @@ export function JobsBoard() {
           onSuccess={result => {
             setClaimingJob(null);
             setClaimResult(result);
+            queryClient.invalidateQueries({ queryKey: ['job-board'] });
             queryClient.invalidateQueries({ queryKey: ['jobs'] });
           }}
         />
