@@ -52,6 +52,7 @@ coverage/
 
 # Local demo/runtime state
 .runtime/
+.iex-worker-runs/
 apps/intelligence-exchange-cannes-broker/.runtime/
 apps/intelligence-exchange-cannes-web/test-results/
 artifacts/

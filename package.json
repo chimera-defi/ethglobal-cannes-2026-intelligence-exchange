@@ -19,6 +19,7 @@
     "dev:cannes": "pnpm --filter '*cannes*' --parallel run dev",
     "build": "pnpm --filter '*cannes*' run build",
     "test": "pnpm --filter '*cannes*' run test",
+    "worker:cli": "pnpm --filter intelligence-exchange-cannes-worker run cli",
     "test:acceptance": "pnpm --filter 'intelligence-exchange-cannes-broker' run test:acceptance",
     "contracts:validate": "pnpm --filter 'intelligence-exchange-cannes-contracts' run test",
     "contracts:deploy:local": "pnpm --filter intelligence-exchange-cannes-contracts deploy:local",
