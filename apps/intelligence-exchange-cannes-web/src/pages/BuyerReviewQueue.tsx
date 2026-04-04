@@ -1,23 +1,9 @@
-import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Loader2, ArrowLeft, CheckCircle2, ChevronRight, AlertCircle } from 'lucide-react';
-import { getIdeas, getJobs } from '../api';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
-import { useSession } from '../hooks/useSession';
+import { getJobs } from '../api';
 
 export function BuyerReviewQueue() {
   const navigate = useNavigate();
-  const { session } = useSession();
-  const posterId = session?.accountAddress;
-
-  const ideasQuery = useQuery({
-    queryKey: ['ideas', posterId ?? 'all'],
-    queryFn: () => getIdeas(posterId),
-    refetchInterval: 15_000,
-  });
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['jobs', 'submitted'],
@@ -25,41 +11,27 @@ export function BuyerReviewQueue() {
     refetchInterval: 8000,
   });
 
-  const jobs = useMemo(() => {
-    const allJobs = data?.jobs ?? [];
-    if (!posterId) return allJobs;
-    const ideaIds = new Set((ideasQuery.data?.ideas ?? []).map((idea) => idea.ideaId));
-    return allJobs.filter((job) => ideaIds.has(job.ideaId));
-  }, [data?.jobs, ideasQuery.data?.ideas, posterId]);
+  const jobs = data?.jobs ?? [];
 
-  if (isLoading || ideasQuery.isLoading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center space-y-3">
-          <Loader2 className="animate-spin h-8 w-8 text-gray-400 mx-auto" />
+          <div className="spinner" />
           <p className="text-gray-400 text-sm">Loading review queue...</p>
         </div>
       </div>
     );
   }
 
-  if (error || ideasQuery.error) {
+  if (error) {
     return (
       <div className="page">
         <div className="max-w-3xl mx-auto">
-          <Card>
-            <CardContent className="text-center space-y-4 py-10">
-              <AlertCircle className="h-8 w-8 text-red-400 mx-auto" />
-              <p className="text-red-400">Failed to load review queue</p>
-              <Button onClick={() => {
-                void refetch();
-                void ideasQuery.refetch();
-              }}
-              >
-                Retry
-              </Button>
-            </CardContent>
-          </Card>
+          <div className="card text-center space-y-4 py-10">
+            <p className="text-red-400">Failed to load review queue</p>
+            <button className="btn-primary" onClick={() => refetch()}>Retry</button>
+          </div>
         </div>
       </div>
     );
@@ -70,15 +42,12 @@ export function BuyerReviewQueue() {
       <div className="max-w-3xl mx-auto space-y-6">
         {/* Header */}
         <div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-gray-500 hover:text-gray-300 mb-2 h-auto p-0 gap-1"
+          <button
+            className="text-sm text-gray-500 hover:text-gray-300 flex items-center gap-1 mb-2"
             onClick={() => navigate('/workspace')}
           >
-            <ArrowLeft className="h-3 w-3" />
-            Workspace
-          </Button>
+            ← Workspace
+          </button>
           <div className="flex items-start justify-between gap-4">
             <div>
               <h1 className="text-3xl font-bold text-white">Review Queue</h1>
@@ -92,66 +61,60 @@ export function BuyerReviewQueue() {
         </div>
 
         {jobs.length === 0 ? (
-          <Card>
-            <CardContent className="text-center py-16 space-y-4">
-              <CheckCircle2 className="h-12 w-12 text-green-400 mx-auto" />
-              <h2 className="text-xl font-semibold text-white">All caught up!</h2>
-              <p className="text-gray-400 text-sm">No milestones are waiting for review right now.</p>
-              <Button variant="secondary" onClick={() => navigate('/workspace')}>
-                <ArrowLeft className="h-4 w-4" />
-                Back to Workspace
-              </Button>
-            </CardContent>
-          </Card>
+          <div className="card text-center py-16 space-y-4">
+            <p className="text-4xl">✓</p>
+            <h2 className="text-xl font-semibold text-white">All caught up!</h2>
+            <p className="text-gray-400 text-sm">No milestones are waiting for review right now.</p>
+            <button
+              className="btn-primary bg-gray-700 hover:bg-gray-600"
+              onClick={() => navigate('/workspace')}
+            >
+              Back to Workspace
+            </button>
+          </div>
         ) : (
           <div className="space-y-3">
             {jobs.map(job => (
-              <Card
+              <div
                 key={job.jobId}
-                className="border-amber-800/40 hover:border-amber-700/60 transition-colors"
+                className="card flex flex-col md:flex-row md:items-center gap-4 border-purple-900/40 hover:border-purple-700/60 transition-colors"
               >
-                <CardContent className="flex flex-col md:flex-row md:items-center gap-4 py-4">
-                  <div className="flex-1 min-w-0 space-y-1.5">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-white font-semibold capitalize">{job.milestoneType} Milestone</span>
-                      <Badge variant="submitted">SUBMITTED</Badge>
-                    </div>
-                    <div className="flex flex-wrap gap-3 text-xs text-gray-500">
+                <div className="flex-1 min-w-0 space-y-1.5">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-white font-semibold capitalize">{job.milestoneType} Milestone</span>
+                    <span className="badge badge-submitted">SUBMITTED</span>
+                  </div>
+                  <div className="flex flex-wrap gap-3 text-xs text-gray-500">
+                    <span>
+                      Idea:{' '}
+                      <button
+                        className="text-blue-400 hover:underline font-mono"
+                        onClick={() => navigate(`/ideas/${job.ideaId}`)}
+                      >
+                        {job.ideaId.slice(0, 12)}...
+                      </button>
+                    </span>
+                    {job.activeClaimWorkerId && (
                       <span>
-                        Idea:{' '}
-                        <Button
-                          variant="link"
-                          size="sm"
-                          className="text-blue-400 h-auto p-0 font-mono text-xs"
-                          onClick={() => navigate(`/ideas/${job.ideaId}`)}
-                        >
-                          {job.ideaId.slice(0, 12)}...
-                        </Button>
+                        Worker: <span className="text-gray-400 font-mono">{job.activeClaimWorkerId}</span>
                       </span>
-                      {job.activeClaimWorkerId && (
-                        <span>
-                          Worker: <span className="text-gray-400 font-mono">{job.activeClaimWorkerId}</span>
-                        </span>
-                      )}
-                      <span className="font-mono text-gray-600">{job.jobId.slice(0, 12)}...</span>
-                    </div>
+                    )}
+                    <span className="font-mono text-gray-600">{job.jobId.slice(0, 12)}...</span>
                   </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <div className="text-right">
-                      <p className="text-green-400 font-bold">${job.budgetUsd}</p>
-                      <p className="text-gray-500 text-xs">USDC</p>
-                    </div>
-                    <Button
-                      size="sm"
-                      className="bg-amber-600 hover:bg-amber-500 text-white"
-                      onClick={() => navigate(`/review/${job.jobId}`)}
-                    >
-                      Review
-                      <ChevronRight className="h-3 w-3" />
-                    </Button>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <div className="text-right">
+                    <p className="text-green-400 font-bold">${job.budgetUsd}</p>
+                    <p className="text-gray-500 text-xs">USDC</p>
                   </div>
-                </CardContent>
-              </Card>
+                  <button
+                    className="btn-primary bg-purple-700 hover:bg-purple-600 text-sm"
+                    onClick={() => navigate(`/review/${job.jobId}`)}
+                  >
+                    Review →
+                  </button>
+                </div>
+              </div>
             ))}
           </div>
         )}

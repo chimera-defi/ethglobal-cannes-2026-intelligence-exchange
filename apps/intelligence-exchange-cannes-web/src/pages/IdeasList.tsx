@@ -21,6 +21,10 @@ export function IdeasList() {
 
   const ideas = data?.ideas ?? [];
 
+  const totalFunded = ideas
+    .filter(i => i.fundingStatus === 'funded')
+    .reduce((sum, i) => sum + parseFloat(i.budgetUsd || '0'), 0);
+
   const fundingColor: Record<string, string> = {
     funded: 'badge-funded',
     unfunded: 'badge-unfunded',
@@ -30,24 +34,29 @@ export function IdeasList() {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center space-y-4 py-12">
-          <div className="animate-spin text-4xl">⚙️</div>
-          <p className="text-gray-400">Loading ideas...</p>
+        <div className="text-center space-y-3">
+          <div className="spinner" />
+          <p className="text-gray-400 text-sm">Loading ideas...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen p-4 md:p-8">
+    <div className="page">
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-white">My Ideas</h1>
-            <p className="text-gray-400 mt-1">All posted ideas and their milestone status.</p>
+            <p className="text-gray-400 mt-1">
+              {ideas.length} idea{ideas.length !== 1 ? 's' : ''}
+              {totalFunded > 0 && (
+                <> · <span className="text-green-400 font-medium">${totalFunded.toFixed(0)} USDC funded</span></>
+              )}
+            </p>
           </div>
-          <button className="btn-primary" onClick={() => navigate('/submit')}>
+          <button className="btn-primary shrink-0" onClick={() => navigate('/submit')}>
             + Post New Idea
           </button>
         </div>

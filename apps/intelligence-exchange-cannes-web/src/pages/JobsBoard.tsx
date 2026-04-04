@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getJobs } from '../api';
 
 const STATUS_TABS = ['queued', 'claimed', 'submitted', 'accepted', 'rework'] as const;
@@ -22,6 +22,13 @@ export function JobsBoard() {
   });
 
   const jobs = data?.jobs ?? [];
+
+  function switchTab(tab: StatusTab) {
+    setActiveTab(tab);
+    setClaimingJobId(null);
+    setClaimResult(null);
+    setClaimError(null);
+  }
 
   async function handleClaim(jobId: string) {
     if (!claimForm.workerId.trim()) {
@@ -53,7 +60,7 @@ export function JobsBoard() {
   }
 
   return (
-    <div className="min-h-screen p-4 md:p-8">
+    <div className="page">
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <div>
@@ -89,26 +96,28 @@ export function JobsBoard() {
                 <p className="text-gray-200 text-xs mt-0.5">{new Date(claimResult.expiresAt).toLocaleString()}</p>
               </div>
             </div>
-            <a
-              href={claimResult.skillMdUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn-primary inline-flex items-center gap-2 text-sm"
-            >
-              View skill.md →
-            </a>
-            <button
-              className="btn-primary bg-gray-700 hover:bg-gray-600 text-sm ml-2"
-              onClick={() => setClaimResult(null)}
-            >
-              Dismiss
-            </button>
+            <div className="flex gap-2 flex-wrap">
+              <a
+                href={claimResult.skillMdUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-primary inline-flex items-center gap-2 text-sm"
+              >
+                View skill.md →
+              </a>
+              <button
+                className="btn-primary bg-gray-700 hover:bg-gray-600 text-sm"
+                onClick={() => setClaimResult(null)}
+              >
+                Dismiss
+              </button>
+            </div>
           </div>
         )}
 
         {/* Claim modal */}
         {claimingJobId && !claimResult && (
-          <div className="bg-gray-900 border border-gray-700 rounded-xl p-5 space-y-4">
+          <div className="bg-gray-900 border border-blue-800 bg-blue-950/10 rounded-xl p-5 space-y-4">
             <h3 className="text-white font-semibold">Claim Job</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div className="md:col-span-1">
@@ -163,7 +172,7 @@ export function JobsBoard() {
           {STATUS_TABS.map(tab => (
             <button
               key={tab}
-              onClick={() => setActiveTab(tab)}
+              onClick={() => switchTab(tab)}
               className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors capitalize ${
                 activeTab === tab ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-gray-300'
               }`}
@@ -176,12 +185,11 @@ export function JobsBoard() {
         {/* Jobs list */}
         {isLoading ? (
           <div className="text-center py-12 space-y-3">
-            <div className="animate-spin text-3xl">⚙️</div>
-            <p className="text-gray-400">Loading jobs...</p>
+            <div className="spinner" />
+            <p className="text-gray-400 text-sm mt-2">Loading jobs...</p>
           </div>
         ) : error ? (
           <div className="card text-center py-8 space-y-3">
-            <div className="text-3xl">❌</div>
             <p className="text-red-400 text-sm">{String(error)}</p>
             <button className="btn-primary" onClick={() => refetch()}>Retry</button>
           </div>
