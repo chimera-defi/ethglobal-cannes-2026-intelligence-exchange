@@ -3,13 +3,15 @@ import { zValidator } from '@hono/zod-validator';
 import { desc, eq, inArray } from 'drizzle-orm';
 import { db } from '../db/client';
 import { acceptedAttestations, agentSpendEvents, briefs, ideas, jobs, milestones, submissions } from '../db/schema';
-import { claimJob, recordSpendEvent, submitJob } from '../services/jobService';
+import { claimJob, recordSpendEvent, submitJob, unclaimJob } from '../services/jobService';
 import {
   JobClaimRequestSchema,
   JobResultSubmitRequestSchema,
   JobSpendCreateRequestSchema,
+  JobUnclaimRequestSchema,
   type JobClaimRequest,
   type JobResultSubmitRequest,
+  type JobUnclaimRequest,
 } from 'intelligence-exchange-cannes-shared';
 import { MILESTONE_ORDER } from 'intelligence-exchange-cannes-shared';
 import { getSessionAccountAddress, requireAgentAuthorization, requireWorldRole } from '../services/accessService';
@@ -38,6 +40,7 @@ type GroupedJobBoardItem = {
     milestoneType: string;
     title: string;
     description: string;
+    skillMdUrl: string;
     status: string;
     budgetUsd: string;
     leaseExpiry: Date | null;
@@ -78,6 +81,12 @@ function isSignedClaimRequest(
 function isSignedSubmitRequest(
   req: JobResultSubmitRequest,
 ): req is Extract<JobResultSubmitRequest, { signedAction: unknown }> {
+  return 'signedAction' in req;
+}
+
+function isSignedUnclaimRequest(
+  req: JobUnclaimRequest,
+): req is Extract<JobUnclaimRequest, { signedAction: unknown }> {
   return 'signedAction' in req;
 }
 
@@ -143,6 +152,7 @@ async function buildGroupedJobBoard(statusFilter: string) {
           milestoneType: job.milestoneType,
           title: milestone?.title ?? `${job.milestoneType} milestone`,
           description: milestone?.description ?? brief.summary,
+          skillMdUrl: `/v1/cannes/jobs/${job.jobId}/skill.md`,
           status: job.status,
           budgetUsd: job.budgetUsd,
           leaseExpiry: job.leaseExpiry ?? null,
@@ -203,6 +213,7 @@ jobsRouter.get('/:jobId', async (c) => {
     job: {
       ...job,
       posterId: idea?.posterId ?? null,
+      skillMdUrl: `/v1/cannes/jobs/${jobId}/skill.md`,
     },
     spendEvents,
     latestSubmission,
@@ -225,7 +236,9 @@ jobsRouter.get('/:jobId/skill.md', async (c) => {
   const [brief] = await db.select().from(briefs).where(eq(briefs.briefId, job.briefId));
 
   const milestoneIdx = MILESTONE_ORDER.indexOf(job.milestoneType as typeof MILESTONE_ORDER[number]);
-  const leaseDeadline = new Date(Date.now() + 45 * 60 * 1000).toISOString();
+  const leaseDeadline = job.leaseExpiry
+    ? job.leaseExpiry.toISOString()
+    : new Date(Date.now() + 45 * 60 * 1000).toISOString();
 
   const skillMd = `---
 job_id: ${jobId}
@@ -347,6 +360,52 @@ jobsRouter.post('/:jobId/claim', zValidator('json', JobClaimRequestSchema), asyn
   } catch (err: unknown) {
     const status = (err as { status?: number }).status ?? 500;
     const code = (err as { code?: string }).code ?? 'CLAIM_FAILED';
+    return c.json({ error: { code, message: String(err) } }, status as 401 | 403 | 404 | 409 | 500);
+  }
+});
+
+// POST /v1/cannes/jobs/:jobId/unclaim — release an active claim back to the queue
+jobsRouter.post('/:jobId/unclaim', zValidator('json', JobUnclaimRequestSchema), async (c) => {
+  const { jobId } = c.req.param();
+  const req = c.req.valid('json');
+
+  try {
+    let result: Awaited<ReturnType<typeof unclaimJob>>;
+
+    if (isSignedUnclaimRequest(req)) {
+      await consumeChallenge({
+        challengeId: req.signedAction.challengeId,
+        accountAddress: req.signedAction.accountAddress,
+        signature: req.signedAction.signature,
+        purpose: 'worker_unclaim',
+        metadata: {
+          agentFingerprint: req.signedAction.agentFingerprint,
+          jobId,
+        },
+      });
+
+      await requireWorldRole(req.signedAction.accountAddress, 'worker');
+      await requireAgentAuthorization({
+        accountAddress: req.signedAction.accountAddress,
+        fingerprint: req.signedAction.agentFingerprint,
+        role: 'worker',
+        requiredPermissions: ['claim_jobs'],
+      });
+
+      result = await unclaimJob(jobId, req.signedAction.accountAddress, req.signedAction.agentFingerprint);
+    } else {
+      if (getWorldConfig().strict) {
+        throw httpError('Signed worker unclaim required when WORLD_ID_STRICT is enabled', 401, 'AUTH_REQUIRED');
+      }
+
+      const demoIdentity = buildDemoAgentIdentity(req);
+      result = await unclaimJob(jobId, demoIdentity.accountAddress, demoIdentity.fingerprint);
+    }
+
+    return c.json({ ...result, jobId, skillMdUrl: `/v1/cannes/jobs/${jobId}/skill.md` });
+  } catch (err: unknown) {
+    const status = (err as { status?: number }).status ?? 500;
+    const code = (err as { code?: string }).code ?? 'UNCLAIM_FAILED';
     return c.json({ error: { code, message: String(err) } }, status as 401 | 403 | 404 | 409 | 500);
   }
 });
