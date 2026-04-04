@@ -103,7 +103,7 @@ export function IdeasList() {
         ) : (
           <div className="space-y-3">
             {ideas.map(idea => (
-              <Card key={idea.ideaId}>
+              <Card key={idea.ideaId} className={`border-l-2 hover:border-slate-600 transition-colors ${idea.fundingStatus === 'funded' ? 'border-l-emerald-500' : idea.fundingStatus === 'cancelled' ? 'border-l-red-500' : 'border-l-slate-700'}`}>
                 <CardContent className="flex flex-col md:flex-row gap-4 py-4">
                   <div className="flex-1 min-w-0 space-y-2">
                     <div className="flex items-center gap-2 flex-wrap">
