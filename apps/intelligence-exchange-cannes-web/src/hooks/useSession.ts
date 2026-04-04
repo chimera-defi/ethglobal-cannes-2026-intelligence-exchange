@@ -20,7 +20,7 @@ export function useSession() {
     queryFn: getWorldStatus,
     retry: false,
     staleTime: 30_000,
-    enabled: !!sessionQuery.data,
+    enabled: !!sessionQuery.data?.account,
   });
 
   async function signIn() {
@@ -36,9 +36,15 @@ export function useSession() {
     queryClient.removeQueries({ queryKey: ['session'] });
   }
 
-  const session = sessionQuery.data ?? null;
+  async function refreshSession() {
+    await queryClient.invalidateQueries({ queryKey: ['session'] });
+  }
+
+  const session = sessionQuery.data?.account ?? null;
   const worldStatus = worldStatusQuery.data ?? null;
-  const worldRoles: Array<'poster' | 'worker' | 'reviewer'> = worldStatus?.roles ?? session?.worldRoles ?? [];
+  const worldRoles = worldStatus?.verifications.map(verification => verification.role)
+    ?? session?.worldRoles
+    ?? [];
 
   return {
     isConnected,
@@ -51,5 +57,6 @@ export function useSession() {
     isSessionLoading: sessionQuery.isLoading,
     signIn,
     signOut,
+    refreshSession,
   };
 }
