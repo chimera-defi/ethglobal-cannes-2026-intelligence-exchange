@@ -1,5 +1,12 @@
 # Claude Frontend Handoff
 
+## Status Note
+
+This handoff captured an earlier frontend gap list.
+Parts of it have since been implemented in the repo.
+
+Use [spec/SPEC_PARITY.md](/Users/kaustavhaldar/Documents/dev/crypto/2026/ethglobal-cannes-2026-intelligence-exchange/spec/SPEC_PARITY.md) as the current parity snapshot, and treat the rest of this document as historical frontend delta / follow-up guidance rather than the current source of truth.
+
 ## Objective
 
 Bring the web app in `/apps/intelligence-exchange-cannes-web` into line with the authenticated product flow that is now enforced by the broker:

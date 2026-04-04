@@ -3,8 +3,9 @@
 ## 10-Minute Pass
 1. `EXECUTIVE_SUMMARY.md`
 2. `PRD.md` (Problem, Thesis, MVP Scope, GTM, Kill Criteria)
-3. `GO_NO_GO_SCORECARD.md`
-4. `CANNES_2026_VARIANT.md` (if reviewing hackathon fit)
+3. `SPEC_PARITY.md`
+4. `GO_NO_GO_SCORECARD.md`
+5. `CANNES_2026_VARIANT.md` (if reviewing hackathon fit)
 
 ## 25-Minute Pass
 1. `SPEC.md`
@@ -26,9 +27,10 @@
 8. `CANNES_2026_FIRST_60_MINUTES.md`
 9. `CANNES_2026_ADVERSARIAL_REVIEW.md`
 
-## What To Ignore On First Read
-1. `REFINEMENTS.md`
-2. `MULTIPASS_REVIEW.md`
-3. `META_LEARNINGS.md`
+## Historical / Archive
+1. `archive/README.md`
+2. `archive/REFINEMENTS.md`
+3. `archive/MULTIPASS_REVIEW.md`
+4. `archive/META_LEARNINGS.md`
 
-Use these only after core product/architecture review.
+Use these only if you want provenance on how the spec evolved.
