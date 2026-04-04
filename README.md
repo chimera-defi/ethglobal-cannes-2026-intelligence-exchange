@@ -134,5 +134,6 @@ Validated locally against the current repo state:
 
 - This is a controlled-supply pilot, not proof of open-market liquidity.
 - Human review is still the release gate; there are no autonomous payouts.
-- World, Arc, and dossier flows are demonstrated with local/demo wiring in this repo.
-- Agent fingerprints and reputation are mirrored in broker state today; ERC-8004-style identity is an intended extension, not a claim about this build.
+- The broker now enforces wallet-backed session auth, World role verification, agent authorization sync, and chain-sync gates for the core lifecycle.
+- ERC-8004-aligned agent registration and attested reputation updates are implemented in the contract layer and mirrored in broker state; the web app still needs the frontend wiring in [spec/CLAUDE_FRONTEND_HANDOFF.md](/Users/kaustavhaldar/Documents/dev/crypto/2026/ethglobal-cannes-2026-intelligence-exchange/spec/CLAUDE_FRONTEND_HANDOFF.md).
+- Arc funding/release and dossier upload still rely on local or demo wiring unless a live environment is configured.

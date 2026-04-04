@@ -29,6 +29,30 @@ export type QualityProfile = z.infer<typeof QualityProfileSchema>;
 export const TrustTierSchema = z.enum(['T0', 'T1', 'T2', 'T3']);
 export type TrustTier = z.infer<typeof TrustTierSchema>;
 
+export const AccountRoleSchema = z.enum(['poster', 'worker', 'reviewer']);
+export type AccountRole = z.infer<typeof AccountRoleSchema>;
+
+export const AgentRoleSchema = z.enum(['poster', 'worker']);
+export type AgentRole = z.infer<typeof AgentRoleSchema>;
+
+export const AuthorizationStatusSchema = z.enum(['pending_registration', 'active', 'revoked']);
+export type AuthorizationStatus = z.infer<typeof AuthorizationStatusSchema>;
+
+export const ChallengePurposeSchema = z.enum(['web_login', 'worker_claim', 'worker_submit']);
+export type ChallengePurpose = z.infer<typeof ChallengePurposeSchema>;
+
+export const ChainEventTypeSchema = z.enum([
+  'idea_funded',
+  'milestone_reserved',
+  'milestone_released',
+  'agent_registered',
+  'accepted_submission_attested',
+]);
+export type ChainEventType = z.infer<typeof ChainEventTypeSchema>;
+
+export const ChainSyncStatusSchema = z.enum(['pending', 'confirmed', 'failed']);
+export type ChainSyncStatus = z.infer<typeof ChainSyncStatusSchema>;
+
 export const FundingStatusSchema = z.enum(['unfunded', 'funded', 'partially_funded', 'exhausted']);
 export type FundingStatus = z.infer<typeof FundingStatusSchema>;
 
@@ -44,7 +68,112 @@ export const CaseStateSchema = z.enum([
 ]);
 export type CaseState = z.infer<typeof CaseStateSchema>;
 
+export const PermissionScopeSchema = z.array(z.string().min(1)).min(1);
+export type PermissionScope = z.infer<typeof PermissionScopeSchema>;
+
+export const WorldIdProofSchema = z.object({
+  nullifierHash: z.string(),
+  proof: z.string(),
+  merkleRoot: z.string(),
+  verificationLevel: z.string(),
+});
+export type WorldIdProof = z.infer<typeof WorldIdProofSchema>;
+
 // ─── Domain Objects ───────────────────────────────────────────────────────────
+
+export const AuthenticatedAccountSchema = z.object({
+  accountAddress: z.string(),
+  activeSessionId: z.string().uuid().optional(),
+  worldRoles: z.array(AccountRoleSchema).default([]),
+  createdAt: z.string().datetime().optional(),
+  updatedAt: z.string().datetime().optional(),
+});
+export type AuthenticatedAccount = z.infer<typeof AuthenticatedAccountSchema>;
+
+export const AuthChallengeSchema = z.object({
+  challengeId: z.string().uuid(),
+  accountAddress: z.string(),
+  purpose: ChallengePurposeSchema,
+  nonce: z.string(),
+  message: z.string(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+  expiresAt: z.string().datetime(),
+  usedAt: z.string().datetime().optional(),
+  createdAt: z.string().datetime().optional(),
+});
+export type AuthChallenge = z.infer<typeof AuthChallengeSchema>;
+
+export const WebSessionSchema = z.object({
+  sessionId: z.string().uuid(),
+  accountAddress: z.string(),
+  expiresAt: z.string().datetime(),
+  revokedAt: z.string().datetime().optional(),
+  createdAt: z.string().datetime().optional(),
+});
+export type WebSession = z.infer<typeof WebSessionSchema>;
+
+export const WorldVerificationSchema = z.object({
+  verificationId: z.string().uuid(),
+  accountAddress: z.string(),
+  role: AccountRoleSchema,
+  nullifierHash: z.string(),
+  verificationLevel: z.string(),
+  verifiedAt: z.string().datetime(),
+});
+export type WorldVerification = z.infer<typeof WorldVerificationSchema>;
+
+export const AgentAuthorizationSchema = z.object({
+  authorizationId: z.string().uuid(),
+  accountAddress: z.string(),
+  fingerprint: z.string(),
+  agentType: z.string(),
+  agentVersion: z.string().optional(),
+  role: AgentRoleSchema,
+  permissionScope: PermissionScopeSchema,
+  status: AuthorizationStatusSchema,
+  onChainTokenId: z.number().int().optional(),
+  registrationTxHash: z.string().optional(),
+  createdAt: z.string().datetime().optional(),
+  updatedAt: z.string().datetime().optional(),
+  activatedAt: z.string().datetime().optional(),
+  revokedAt: z.string().datetime().optional(),
+});
+export type AgentAuthorization = z.infer<typeof AgentAuthorizationSchema>;
+
+export const SignedActionEnvelopeSchema = z.object({
+  accountAddress: z.string(),
+  agentFingerprint: z.string(),
+  challengeId: z.string().uuid(),
+  signature: z.string(),
+});
+export type SignedActionEnvelope = z.infer<typeof SignedActionEnvelopeSchema>;
+
+export const ChainReceiptSyncSchema = z.object({
+  syncId: z.string().uuid().optional(),
+  eventType: ChainEventTypeSchema,
+  txHash: z.string(),
+  contractAddress: z.string().optional(),
+  blockNumber: z.number().int().nonnegative().optional(),
+  subjectId: z.string(),
+  payload: z.record(z.string(), z.unknown()).default({}),
+  status: ChainSyncStatusSchema.default('confirmed'),
+});
+export type ChainReceiptSync = z.infer<typeof ChainReceiptSyncSchema>;
+
+export const AcceptedSubmissionAttestationSchema = z.object({
+  jobId: z.string(),
+  jobIdHash: z.string().optional(),
+  agentFingerprint: z.string(),
+  score: z.number().int().min(0).max(100),
+  reviewerAddress: z.string(),
+  payoutReleased: z.boolean(),
+  attestorAddress: z.string(),
+  registryAddress: z.string().optional(),
+  chainId: z.number().int().positive().optional(),
+  signature: z.string().optional(),
+  attestedAt: z.string().datetime().optional(),
+});
+export type AcceptedSubmissionAttestation = z.infer<typeof AcceptedSubmissionAttestationSchema>;
 
 export const IdeaSubmissionSchema = z.object({
   ideaId: z.string().uuid(),
@@ -158,7 +287,6 @@ export type EscrowRelease = z.infer<typeof EscrowReleaseSchema>;
 // ─── API Request Schemas ──────────────────────────────────────────────────────
 
 export const JobCreateRequestSchema = z.object({
-  buyerId: z.string(),
   taskType: TaskTypeSchema,
   prompt: z.string().min(10).max(10_000),
   title: z.string().min(1).max(200),
@@ -169,29 +297,37 @@ export const JobCreateRequestSchema = z.object({
     kind: z.enum(['text', 'image', 'repo', 'pdf']),
   })).optional(),
   qualityProfile: QualityProfileSchema.optional().default('balanced'),
-  worldIdProof: z.object({
-    nullifierHash: z.string(),
-    proof: z.string(),
-    merkleRoot: z.string(),
-    verificationLevel: z.string(),
-  }).optional(),
+  delegatedAgentAuthorizationId: z.string().uuid().optional(),
+  buyerId: z.string().optional(),
+  posterAccountAddress: z.string().optional(),
+  worldIdProof: WorldIdProofSchema.optional(),
+  worldVerificationToken: z.string().optional(),
 });
 export type JobCreateRequest = z.infer<typeof JobCreateRequestSchema>;
 
-export const JobClaimRequestSchema = z.object({
+export const DemoJobClaimRequestSchema = z.object({
   workerId: z.string(),
   agentMetadata: AgentMetadataSchema.optional(),
 });
+export type DemoJobClaimRequest = z.infer<typeof DemoJobClaimRequestSchema>;
+
+export const SignedJobClaimRequestSchema = z.object({
+  signedAction: SignedActionEnvelopeSchema,
+});
+export type SignedJobClaimRequest = z.infer<typeof SignedJobClaimRequestSchema>;
+
+export const JobClaimRequestSchema = z.union([
+  SignedJobClaimRequestSchema,
+  DemoJobClaimRequestSchema,
+]);
 export type JobClaimRequest = z.infer<typeof JobClaimRequestSchema>;
 
-export const JobResultSubmitRequestSchema = z.object({
-  workerId: z.string(),
+const JobSubmissionFieldsSchema = z.object({
   claimId: z.string().uuid(),
   status: z.enum(['completed', 'failed', 'expired']),
   artifactUris: z.array(z.string().url()).min(1),
   summary: z.string().max(5000).optional(),
   traceUri: z.string().url().optional(),
-  agentMetadata: AgentMetadataSchema.optional(),
   telemetry: z.object({
     inputTokens: z.number().int().optional(),
     outputTokens: z.number().int().optional(),
@@ -199,7 +335,33 @@ export const JobResultSubmitRequestSchema = z.object({
     durationMs: z.number().int().optional(),
   }).optional(),
 });
+
+export const SignedJobResultSubmitRequestSchema = JobSubmissionFieldsSchema.extend({
+  signedAction: SignedActionEnvelopeSchema,
+});
+export type SignedJobResultSubmitRequest = z.infer<typeof SignedJobResultSubmitRequestSchema>;
+
+export const DemoJobResultSubmitRequestSchema = JobSubmissionFieldsSchema.extend({
+  workerId: z.string(),
+  agentMetadata: AgentMetadataSchema.optional(),
+});
+export type DemoJobResultSubmitRequest = z.infer<typeof DemoJobResultSubmitRequestSchema>;
+
+export const JobResultSubmitRequestSchema = z.union([
+  SignedJobResultSubmitRequestSchema,
+  DemoJobResultSubmitRequestSchema,
+]);
 export type JobResultSubmitRequest = z.infer<typeof JobResultSubmitRequestSchema>;
+
+export const JobSpendCreateRequestSchema = z.object({
+  workerId: z.string(),
+  vendor: z.string().min(1).max(200),
+  purpose: z.string().min(1).max(500),
+  amountUsd: z.number().positive(),
+  settlementRail: z.enum(['demo', 'arc']).default('demo'),
+  txHash: z.string().optional(),
+});
+export type JobSpendCreateRequest = z.infer<typeof JobSpendCreateRequestSchema>;
 
 export const JobStateEventSchema = z.object({
   eventId: z.string().uuid(),
@@ -210,6 +372,79 @@ export const JobStateEventSchema = z.object({
   payload: z.record(z.string(), z.unknown()).optional(),
 });
 export type JobStateEvent = z.infer<typeof JobStateEventSchema>;
+
+// ─── Auth / Identity API Schemas ──────────────────────────────────────────────
+
+export const AuthChallengeRequestSchema = z.object({
+  accountAddress: z.string(),
+  purpose: ChallengePurposeSchema,
+  agentFingerprint: z.string().optional(),
+  jobId: z.string().optional(),
+});
+export type AuthChallengeRequest = z.infer<typeof AuthChallengeRequestSchema>;
+
+export const AuthChallengeResponseSchema = AuthChallengeSchema.pick({
+  challengeId: true,
+  accountAddress: true,
+  purpose: true,
+  nonce: true,
+  message: true,
+  expiresAt: true,
+});
+export type AuthChallengeResponse = z.infer<typeof AuthChallengeResponseSchema>;
+
+export const AuthVerifyRequestSchema = z.object({
+  challengeId: z.string().uuid(),
+  accountAddress: z.string(),
+  signature: z.string(),
+});
+export type AuthVerifyRequest = z.infer<typeof AuthVerifyRequestSchema>;
+
+export const MeResponseSchema = z.object({
+  account: AuthenticatedAccountSchema.nullable(),
+  authorizations: z.array(AgentAuthorizationSchema),
+  worldVerifications: z.array(WorldVerificationSchema),
+});
+export type MeResponse = z.infer<typeof MeResponseSchema>;
+
+export const WorldVerificationRequestSchema = z.object({
+  role: AccountRoleSchema,
+  proof: WorldIdProofSchema,
+});
+export type WorldVerificationRequest = z.infer<typeof WorldVerificationRequestSchema>;
+
+export const WorldStatusResponseSchema = z.object({
+  accountAddress: z.string(),
+  verifications: z.array(WorldVerificationSchema),
+});
+export type WorldStatusResponse = z.infer<typeof WorldStatusResponseSchema>;
+
+export const AgentAuthorizationCreateRequestSchema = z.object({
+  agentType: z.string(),
+  agentVersion: z.string().optional(),
+  role: AgentRoleSchema,
+  permissionScope: PermissionScopeSchema,
+});
+export type AgentAuthorizationCreateRequest = z.infer<typeof AgentAuthorizationCreateRequestSchema>;
+
+export const AgentAuthorizationSyncRequestSchema = ChainReceiptSyncSchema.omit({
+  eventType: true,
+  subjectId: true,
+}).extend({
+  onChainTokenId: z.number().int().positive(),
+});
+export type AgentAuthorizationSyncRequest = z.infer<typeof AgentAuthorizationSyncRequestSchema>;
+
+export const AcceptJobRequestSchema = z.object({
+  jobId: z.string(),
+});
+export type AcceptJobRequest = z.infer<typeof AcceptJobRequestSchema>;
+
+export const RejectJobRequestSchema = z.object({
+  jobId: z.string(),
+  reason: z.string().optional(),
+});
+export type RejectJobRequest = z.infer<typeof RejectJobRequestSchema>;
 
 // ─── Error Envelope ───────────────────────────────────────────────────────────
 
