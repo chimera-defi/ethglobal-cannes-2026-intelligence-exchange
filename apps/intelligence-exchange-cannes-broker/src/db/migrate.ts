@@ -4,6 +4,69 @@ import { sql } from './client';
 // Append-only discipline: job_events table must NEVER be updated or deleted.
 export async function migrate() {
   await sql`
+    CREATE TABLE IF NOT EXISTS accounts (
+      account_address TEXT PRIMARY KEY,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS auth_challenges (
+      challenge_id UUID PRIMARY KEY,
+      account_address TEXT NOT NULL,
+      purpose TEXT NOT NULL,
+      nonce TEXT NOT NULL,
+      message TEXT NOT NULL,
+      metadata JSONB NOT NULL DEFAULT '{}',
+      expires_at TIMESTAMPTZ NOT NULL,
+      used_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS web_sessions (
+      session_id UUID PRIMARY KEY,
+      account_address TEXT NOT NULL,
+      expires_at TIMESTAMPTZ NOT NULL,
+      revoked_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS world_verifications (
+      verification_id UUID PRIMARY KEY,
+      account_address TEXT NOT NULL,
+      role TEXT NOT NULL,
+      nullifier_hash TEXT NOT NULL,
+      verification_level TEXT NOT NULL,
+      verified_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS agent_authorizations (
+      authorization_id UUID PRIMARY KEY,
+      account_address TEXT NOT NULL,
+      fingerprint TEXT NOT NULL,
+      agent_type TEXT NOT NULL,
+      agent_version TEXT,
+      role TEXT NOT NULL,
+      permission_scope JSONB NOT NULL DEFAULT '[]',
+      status TEXT NOT NULL DEFAULT 'pending_registration',
+      on_chain_token_id INTEGER,
+      registration_tx_hash TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      activated_at TIMESTAMPTZ,
+      revoked_at TIMESTAMPTZ
+    )
+  `;
+
+  await sql`
     CREATE TABLE IF NOT EXISTS ideas (
       idea_id TEXT PRIMARY KEY,
       poster_id TEXT NOT NULL,
@@ -77,6 +140,8 @@ export async function migrate() {
       claim_id TEXT PRIMARY KEY,
       job_id TEXT NOT NULL REFERENCES jobs(job_id),
       worker_id TEXT NOT NULL,
+      account_address TEXT,
+      agent_fingerprint TEXT,
       agent_metadata JSONB,
       claimed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       expires_at TIMESTAMPTZ NOT NULL,
@@ -90,6 +155,8 @@ export async function migrate() {
       job_id TEXT NOT NULL REFERENCES jobs(job_id),
       claim_id TEXT NOT NULL REFERENCES claims(claim_id),
       worker_id TEXT NOT NULL,
+      account_address TEXT,
+      agent_fingerprint TEXT,
       artifact_uris JSONB NOT NULL DEFAULT '[]',
       trace_uri TEXT,
       summary TEXT,
@@ -102,12 +169,30 @@ export async function migrate() {
   `;
 
   await sql`
+    CREATE TABLE IF NOT EXISTS agent_spend_events (
+      event_id TEXT PRIMARY KEY,
+      job_id TEXT NOT NULL REFERENCES jobs(job_id),
+      worker_id TEXT NOT NULL,
+      vendor TEXT NOT NULL,
+      purpose TEXT NOT NULL,
+      amount_usd NUMERIC(10,4) NOT NULL,
+      settlement_rail TEXT NOT NULL DEFAULT 'demo',
+      tx_hash TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+
+  await sql`
     CREATE TABLE IF NOT EXISTS agent_identities (
       fingerprint TEXT PRIMARY KEY,
+      account_address TEXT,
       agent_type TEXT NOT NULL,
       agent_version TEXT,
+      role TEXT,
+      permissions_hash TEXT,
       operator_address TEXT,
       on_chain_token_id INTEGER,
+      registration_tx_hash TEXT,
       accepted_count INTEGER NOT NULL DEFAULT 0,
       avg_score NUMERIC(5,2) NOT NULL DEFAULT 0,
       registered_at TIMESTAMPTZ,
@@ -129,6 +214,73 @@ export async function migrate() {
       released_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS chain_syncs (
+      sync_id UUID PRIMARY KEY,
+      event_type TEXT NOT NULL,
+      tx_hash TEXT NOT NULL,
+      contract_address TEXT,
+      block_number INTEGER,
+      subject_id TEXT NOT NULL,
+      payload JSONB NOT NULL DEFAULT '{}',
+      status TEXT NOT NULL DEFAULT 'confirmed',
+      confirmed_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS chain_events (
+      event_id UUID PRIMARY KEY,
+      sync_id UUID,
+      event_type TEXT NOT NULL,
+      tx_hash TEXT NOT NULL,
+      subject_id TEXT NOT NULL,
+      payload JSONB NOT NULL DEFAULT '{}',
+      recorded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS accepted_attestations (
+      attestation_id UUID PRIMARY KEY,
+      job_id TEXT NOT NULL REFERENCES jobs(job_id),
+      agent_fingerprint TEXT NOT NULL,
+      score INTEGER NOT NULL,
+      reviewer_address TEXT NOT NULL,
+      payout_released BOOLEAN NOT NULL DEFAULT FALSE,
+      attestor_address TEXT NOT NULL,
+      signature TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+
+  await sql`ALTER TABLE claims ADD COLUMN IF NOT EXISTS account_address TEXT`;
+  await sql`ALTER TABLE claims ADD COLUMN IF NOT EXISTS agent_fingerprint TEXT`;
+
+  await sql`ALTER TABLE submissions ADD COLUMN IF NOT EXISTS account_address TEXT`;
+  await sql`ALTER TABLE submissions ADD COLUMN IF NOT EXISTS agent_fingerprint TEXT`;
+
+  await sql`ALTER TABLE agent_identities ADD COLUMN IF NOT EXISTS account_address TEXT`;
+  await sql`ALTER TABLE agent_identities ADD COLUMN IF NOT EXISTS role TEXT`;
+  await sql`ALTER TABLE agent_identities ADD COLUMN IF NOT EXISTS permissions_hash TEXT`;
+  await sql`ALTER TABLE agent_identities ADD COLUMN IF NOT EXISTS registration_tx_hash TEXT`;
+
+  await sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS world_verifications_account_role_idx
+    ON world_verifications (account_address, role)
+  `;
+
+  await sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS world_verifications_nullifier_idx
+    ON world_verifications (nullifier_hash)
+  `;
+
+  await sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS chain_syncs_tx_event_idx
+    ON chain_syncs (tx_hash, event_type)
   `;
 
   console.log('✓ Database schema ready');
