@@ -1,7 +1,9 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test';
+import { AGENTKIT, formatSIWEMessage } from '@worldcoin/agentkit';
 import { encodePacked, keccak256 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { sql } from '../../db/client';
+import { setAgentBookVerifierForTests } from '../../services/agentkitService';
 
 type BrokerModule = typeof import('../../index');
 type SessionClient = { cookie?: string };
@@ -33,10 +35,14 @@ async function api<T = unknown>(
   method: string,
   path: string,
   body?: unknown,
+  extraHeaders?: Record<string, string>,
 ): Promise<{ status: number; data: T; headers: Headers }> {
   const headers = new Headers();
   if (body !== undefined) headers.set('Content-Type', 'application/json');
   if (client?.cookie) headers.set('Cookie', client.cookie);
+  for (const [key, value] of Object.entries(extraHeaders ?? {})) {
+    headers.set(key, value);
+  }
 
   const res = await broker.app.fetch(new Request(`http://broker.local${path}`, {
     method,
@@ -51,6 +57,33 @@ async function api<T = unknown>(
 
   const data = await res.json() as T;
   return { status: res.status, data, headers: res.headers };
+}
+
+async function textApi(
+  client: SessionClient | undefined,
+  method: string,
+  path: string,
+  body?: unknown,
+  extraHeaders?: Record<string, string>,
+) {
+  const headers = new Headers();
+  if (body !== undefined) headers.set('Content-Type', 'application/json');
+  if (client?.cookie) headers.set('Cookie', client.cookie);
+  for (const [key, value] of Object.entries(extraHeaders ?? {})) {
+    headers.set(key, value);
+  }
+
+  const res = await broker.app.fetch(new Request(`http://broker.local${path}`, {
+    method,
+    headers,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  }));
+
+  return {
+    status: res.status,
+    text: await res.text(),
+    headers: res.headers,
+  };
 }
 
 async function signIn(client: SessionClient, account: WalletAccount) {
@@ -122,6 +155,29 @@ async function createWorkerSignedAction(
   };
 }
 
+async function buildAgentkitHeader(account: WalletAccount, path: string) {
+  const resourceUri = `http://broker.local${path}`;
+  const payload = {
+    domain: 'broker.local',
+    address: account.address,
+    statement: 'Verify your agent is backed by a real human',
+    uri: resourceUri,
+    version: '1',
+    chainId: 'eip155:480',
+    type: 'eip191' as const,
+    nonce: crypto.randomUUID().replaceAll('-', ''),
+    issuedAt: new Date().toISOString(),
+    resources: [resourceUri],
+    signatureScheme: 'eip191' as const,
+  };
+  const message = formatSIWEMessage(payload, account.address);
+  const signature = await account.signMessage({ message });
+
+  return {
+    [AGENTKIT]: Buffer.from(JSON.stringify({ ...payload, signature }), 'utf8').toString('base64'),
+  };
+}
+
 async function truncateAllTables() {
   await sql.unsafe(`
     TRUNCATE TABLE
@@ -139,6 +195,8 @@ async function truncateAllTables() {
       briefs,
       ideas,
       agent_authorizations,
+      agentkit_usage_counters,
+      agentkit_nonces,
       world_verifications,
       web_sessions,
       auth_challenges,
@@ -160,6 +218,7 @@ beforeEach(async () => {
   posterClient.cookie = undefined;
   workerClient.cookie = undefined;
   reviewerClient.cookie = undefined;
+  setAgentBookVerifierForTests(null);
   await truncateAllTables();
 });
 
@@ -495,6 +554,92 @@ describe('spec-compliance acceptance', () => {
     expect(reputationAfterAttestation.data.acceptedCount).toBe(1);
     expect(Number(reputationAfterAttestation.data.avgScore)).toBeGreaterThan(0);
     expect(reputationAfterAttestation.data.onChainTokenId).toBe(8004);
+  });
+
+  test('protects agent discovery routes with Agent Kit registration, replay protection, and per-endpoint free-trial limits', async () => {
+    await signIn(posterClient, POSTER);
+    await verifyWorld(posterClient, 'poster', 'agentkit-poster');
+
+    const createIdeaRes = await api<{ ideaId: string }>(posterClient, 'POST', '/v1/cannes/ideas', {
+      taskType: 'coding',
+      title: 'AgentKit protected discovery',
+      prompt: 'Create a queued job set so the protected agent routes can be exercised.',
+      budgetUsdMax: 12,
+    });
+    expect(createIdeaRes.status).toBe(201);
+
+    const ideaId = createIdeaRes.data.ideaId;
+    const fundRes = await api<{ fundingStatus: string }>(posterClient, 'POST', `/v1/cannes/ideas/${ideaId}/fund`, {
+      txHash: txHash('a'),
+      amountUsd: 12,
+    });
+    expect(fundRes.status).toBe(200);
+
+    const planRes = await api<{ briefId: string }>(posterClient, 'POST', `/v1/cannes/ideas/${ideaId}/plan`);
+    expect(planRes.status).toBe(200);
+
+    const ideaState = await api<{
+      jobs: Array<{ jobId: string; milestoneId: string; status: string }>;
+    }>(posterClient, 'GET', `/v1/cannes/ideas/${ideaId}`);
+    expect(ideaState.status).toBe(200);
+
+    const queueRes = await api<{ sync: { eventType: string } }>(posterClient, 'POST', '/v1/cannes/chain/sync', {
+      eventType: 'milestone_reserved',
+      txHash: txHash('b'),
+      subjectId: ideaId,
+      payload: { jobIds: ideaState.data.jobs.map((job) => job.jobId) },
+      status: 'confirmed',
+    });
+    expect(queueRes.status).toBe(200);
+
+    const firstJob = ideaState.data.jobs[0];
+    setAgentBookVerifierForTests({
+      lookupHuman: async (address) => address.toLowerCase() === WORKER.address.toLowerCase() ? '0xagentkit-human-1' : null,
+    });
+
+    const statusRes = await api<{
+      registered: boolean;
+      humanId: string | null;
+    }>(undefined, 'GET', `/v1/cannes/agentkit/status?address=${WORKER.address}`);
+    expect(statusRes.status).toBe(200);
+    expect(statusRes.data.registered).toBe(true);
+    expect(statusRes.data.humanId).toBe('0xagentkit-human-1');
+
+    const detailPath = `/v1/cannes/agentkit/jobs/${firstJob.jobId}`;
+    const detailHeaders = await buildAgentkitHeader(WORKER, detailPath);
+    const detailRes = await api<{ job: { jobId: string } }>(undefined, 'GET', detailPath, undefined, detailHeaders);
+    expect(detailRes.status).toBe(200);
+    expect(detailRes.data.job.jobId).toBe(firstJob.jobId);
+
+    const replayRes = await api<{ error?: { code: string } }>(undefined, 'GET', detailPath, undefined, detailHeaders);
+    expect(replayRes.status).toBe(401);
+    expect(replayRes.data.error?.code).toBe('AGENTKIT_INVALID');
+
+    const skillPath = `/v1/cannes/agentkit/jobs/${firstJob.jobId}/skill.md`;
+    const skillHeaders = await buildAgentkitHeader(WORKER, skillPath);
+    const skillRes = await textApi(undefined, 'GET', skillPath, undefined, skillHeaders);
+    expect(skillRes.status).toBe(200);
+    expect(skillRes.text).toContain(firstJob.jobId);
+
+    for (const attempt of [1, 2, 3]) {
+      const listPath = '/v1/cannes/agentkit/jobs?status=queued&view=grouped';
+      const listHeaders = await buildAgentkitHeader(WORKER, listPath);
+      const listRes = await api<{ count: number }>(undefined, 'GET', listPath, undefined, listHeaders);
+      expect(listRes.status).toBe(200);
+      expect(listRes.data.count).toBeGreaterThan(0);
+      expect(attempt).toBeLessThanOrEqual(3);
+    }
+
+    const exhaustedHeaders = await buildAgentkitHeader(WORKER, '/v1/cannes/agentkit/jobs?status=queued&view=grouped');
+    const exhaustedRes = await api<{ error?: { code: string } }>(
+      undefined,
+      'GET',
+      '/v1/cannes/agentkit/jobs?status=queued&view=grouped',
+      undefined,
+      exhaustedHeaders,
+    );
+    expect(exhaustedRes.status).toBe(429);
+    expect(exhaustedRes.data.error?.code).toBe('AGENTKIT_TRIAL_EXHAUSTED');
   });
 
   test('demo fallback supports rework reclaim and anonymous review without partial accept failures', async () => {

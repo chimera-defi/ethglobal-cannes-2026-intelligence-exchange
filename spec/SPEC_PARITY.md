@@ -112,10 +112,12 @@ Status: strong
 
 ### Agent Kit
 
-Status: weak / follow-up
+Status: strong on worker-agent discovery and registration, still narrower than a full x402 monetization story
 
-- there is no explicit Agent Kit-specific workflow or user-facing product surface in the repo today
-- current World alignment is more honest as World ID 4.0 than as Agent Kit
+- `/agents` is now an explicit Agent Kit-specific workflow and user-facing product surface
+- AgentBook-backed checks gate the protected agent discovery and `skill.md` routes
+- worker agents can sync IdentityGate roles on Worldchain before registering into the app-specific registry
+- the repo still does not implement the paid x402 continuation after free-trial exhaustion, so the Agent Kit story is strongest around human-backed access control rather than payments
 
 ### 0G
 
@@ -145,4 +147,4 @@ Landing page should:
 - say "controlled-supply pilot" explicitly
 - show separate "For humans" and "For agents" usage paths
 - show sponsor targets with honest status, not blanket logo claims
-- avoid implying open liquidity, autonomous payouts, or Agent Kit parity that the repo does not yet prove
+- avoid implying open liquidity or autonomous payouts, and be specific that Agent Kit is currently used for protected discovery plus registration rather than end-to-end x402 settlement
