@@ -20,6 +20,7 @@ contract IdeaEscrow {
     error MilestoneAlreadyReserved(bytes32 milestoneId);
     error MilestoneNotReserved(bytes32 milestoneId);
     error MilestoneAlreadySettled(bytes32 milestoneId);
+    error ArrayLengthMismatch();
     error ZeroAmount();
     error TransferFailed();
 
@@ -92,6 +93,41 @@ contract IdeaEscrow {
         milestoneIdea[milestoneId] = ideaId;
 
         emit MilestoneReserved(ideaId, milestoneId, amount);
+    }
+
+    /// @notice Reserve multiple milestones in one poster-approved transaction.
+    function reserveMilestones(
+        bytes32 ideaId,
+        bytes32[] calldata milestoneIds,
+        uint256[] calldata amounts
+    ) external {
+        IdeaFund storage fund = ideas[ideaId];
+        if (!fund.exists) revert IdeaNotFunded(ideaId);
+        if (msg.sender != fund.poster) revert Unauthorized();
+        if (milestoneIds.length != amounts.length) revert ArrayLengthMismatch();
+
+        uint256 totalRequired = 0;
+        for (uint256 i = 0; i < milestoneIds.length; i++) {
+            bytes32 milestoneId = milestoneIds[i];
+            uint256 amount = amounts[i];
+            if (amount == 0) revert ZeroAmount();
+            if (milestones[milestoneId].status != MilestoneStatus.None) {
+                revert MilestoneAlreadyReserved(milestoneId);
+            }
+            totalRequired += amount;
+        }
+
+        if (fund.available < totalRequired) revert InsufficientBalance(ideaId, totalRequired, fund.available);
+
+        fund.available -= totalRequired;
+        for (uint256 i = 0; i < milestoneIds.length; i++) {
+            bytes32 milestoneId = milestoneIds[i];
+            uint256 amount = amounts[i];
+            milestones[milestoneId] = MilestoneFund({ amount: amount, status: MilestoneStatus.Reserved });
+            milestoneIdea[milestoneId] = ideaId;
+
+            emit MilestoneReserved(ideaId, milestoneId, amount);
+        }
     }
 
     /// @notice Release reserved funds to a worker after accepted output.
