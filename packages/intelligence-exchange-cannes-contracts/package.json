@@ -4,15 +4,15 @@
   "private": true,
   "description": "Intelligence Exchange Smart Contracts - Arc USDC Escrow for ETHGlobal Cannes 2026",
   "scripts": {
-    "build": "forge build",
-    "test": "forge test --via-ir -vvv",
-    "test:arc": "forge test --match-contract AdvancedArcEscrow -vvv",
-    "deploy:local": "forge script script/Deploy.s.sol --rpc-url http://localhost:8545 --broadcast",
-    "deploy:arc-testnet": "forge script script/Deploy.s.sol --rpc-url https://rpc.testnet.arc.network --broadcast --verify",
-    "deploy:arc-testnet:legacy": "forge script script/Deploy.s.sol --rpc-url https://rpc.testnet.arc.network --broadcast --legacy",
-    "worldchain:fork": "bash script/fork_worldchain.sh",
-    "deploy:worldchain-fork": "WORLDCHAIN_DEPLOY_RPC_URL=${WORLDCHAIN_DEPLOY_RPC_URL:-http://127.0.0.1:8545} bash script/deploy_worldchain.sh",
-    "deploy:worldchain": "bash script/deploy_worldchain.sh"
+    "build": "bash ../../scripts/tooling/with-foundry.sh forge build",
+    "test": "bash ../../scripts/tooling/with-foundry.sh forge test --via-ir -vvv",
+    "test:arc": "bash ../../scripts/tooling/with-foundry.sh forge test --match-contract AdvancedArcEscrow -vvv",
+    "deploy:local": "bash ../../scripts/tooling/with-foundry.sh forge script script/Deploy.s.sol --rpc-url http://localhost:8545 --broadcast",
+    "deploy:arc-testnet": "bash ../../scripts/tooling/with-foundry.sh forge script script/Deploy.s.sol --rpc-url https://rpc.testnet.arc.network --broadcast --verify",
+    "deploy:arc-testnet:legacy": "bash ../../scripts/tooling/with-foundry.sh forge script script/Deploy.s.sol --rpc-url https://rpc.testnet.arc.network --broadcast --legacy",
+    "worldchain:fork": "bash ../../scripts/tooling/with-foundry.sh bash script/fork_worldchain.sh",
+    "deploy:worldchain-fork": "WORLDCHAIN_DEPLOY_RPC_URL=${WORLDCHAIN_DEPLOY_RPC_URL:-http://127.0.0.1:8545} bash ../../scripts/tooling/with-foundry.sh bash script/deploy_worldchain.sh",
+    "deploy:worldchain": "bash ../../scripts/tooling/with-foundry.sh bash script/deploy_worldchain.sh"
   },
   "keywords": [
     "arc",
