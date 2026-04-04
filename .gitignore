@@ -49,3 +49,5 @@ coverage/
 # Temp
 *.tmp
 *.temp
+.gstack/
+.gstack-designs/
