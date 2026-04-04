@@ -1,6 +1,8 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
+import { agentkitRouter } from './routes/agentkit';
+import { arcRouter } from './routes/arc';
 import { authRouter } from './routes/auth';
 import { agentsRouter } from './routes/agents';
 import { chainRouter } from './routes/chain';
@@ -27,6 +29,8 @@ app.route('/v1/cannes/auth', authRouter);
 app.route('/v1/cannes/world', worldRouter);
 app.route('/v1/cannes/integrations', integrationsRouter);
 app.route('/v1/cannes/agents', agentsRouter);
+app.route('/v1/cannes/agentkit', agentkitRouter);
+app.route('/v1/cannes/arc', arcRouter);
 app.route('/v1/cannes/chain', chainRouter);
 app.route('/v1/cannes/ideas', ideasRouter);
 app.route('/v1/cannes/jobs', jobsRouter);
@@ -37,7 +41,7 @@ app.onError((err, c) => {
   console.error('[broker:error]', err);
   const status = (err as { status?: number }).status ?? 500;
   const code = (err as { code?: string }).code ?? 'INTERNAL_ERROR';
-  return c.json({ error: { code, message: err.message } }, status as 400 | 401 | 403 | 404 | 409 | 500);
+  return c.json({ error: { code, message: err.message } }, status as 400 | 401 | 403 | 404 | 409 | 429 | 500 | 503);
 });
 
 // Startup

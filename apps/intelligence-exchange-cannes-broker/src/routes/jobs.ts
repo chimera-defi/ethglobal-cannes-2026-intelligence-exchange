@@ -113,7 +113,7 @@ function sortMilestonesByOrder(
     - MILESTONE_ORDER.indexOf(b.milestoneType as typeof MILESTONE_ORDER[number]);
 }
 
-async function buildGroupedJobBoard(statusFilter: string) {
+export async function buildGroupedJobBoard(statusFilter: string) {
   const matchingJobs = await db.select()
     .from(jobs)
     .where(eq(jobs.status, statusFilter))
@@ -229,26 +229,18 @@ async function buildGroupedJobBoard(statusFilter: string) {
   return { groups, count: groups.length };
 }
 
-// GET /v1/cannes/jobs — list available (queued) jobs
-jobsRouter.get('/', async (c) => {
-  const statusFilter = c.req.query('status') ?? 'queued';
-  const view = c.req.query('view');
+export async function getFlatJobs(statusFilter: string) {
+  const jobsList = await db.select().from(jobs).where(eq(jobs.status, statusFilter));
+  return { jobs: jobsList, count: jobsList.length };
+}
 
-  if (view === 'grouped') {
-    return c.json(await buildGroupedJobBoard(statusFilter));
+export async function getJobDetail(jobId: string) {
+  const [job] = await db.select().from(jobs).where(eq(jobs.jobId, jobId));
+  if (!job) {
+    return null;
   }
 
-  const jobsList = await db.select().from(jobs).where(eq(jobs.status, statusFilter));
-  return c.json({ jobs: jobsList, count: jobsList.length });
-});
-
-// GET /v1/cannes/jobs/:jobId — get job details
-jobsRouter.get('/:jobId', async (c) => {
-  const { jobId } = c.req.param();
-  const [job] = await db.select().from(jobs).where(eq(jobs.jobId, jobId));
-  if (!job) return c.json({ error: { code: 'NOT_FOUND', message: 'Job not found' } }, 404);
   const [idea] = await db.select({ posterId: ideas.posterId }).from(ideas).where(eq(ideas.ideaId, job.ideaId));
-
   const spendEvents = await db.select().from(agentSpendEvents)
     .where(eq(agentSpendEvents.jobId, jobId))
     .orderBy(desc(agentSpendEvents.createdAt));
@@ -259,7 +251,7 @@ jobsRouter.get('/:jobId', async (c) => {
     .where(eq(acceptedAttestations.jobId, jobId))
     .orderBy(desc(acceptedAttestations.createdAt)))[0] ?? null;
 
-  return c.json({
+  return {
     job: {
       ...job,
       posterId: idea?.posterId ?? null,
@@ -270,16 +262,19 @@ jobsRouter.get('/:jobId', async (c) => {
     latestAttestation: latestAttestationRecord
       ? hydrateAcceptedSubmissionAttestation(latestAttestationRecord)
       : null,
-  });
-});
+  };
+}
 
-// GET /v1/cannes/jobs/:jobId/skill.md — serve skill.md task file for agents
-jobsRouter.get('/:jobId/skill.md', async (c) => {
-  const { jobId } = c.req.param();
+export async function buildSkillMdResponse(jobId: string) {
   const [job] = await db.select().from(jobs).where(eq(jobs.jobId, jobId));
-  if (!job) return c.json({ error: { code: 'NOT_FOUND', message: 'Job not found' } }, 404);
+  if (!job) {
+    return { error: { code: 'NOT_FOUND', message: 'Job not found' } as const, status: 404 as const };
+  }
   if (job.status !== 'queued' && job.status !== 'claimed') {
-    return c.json({ error: { code: 'NOT_AVAILABLE', message: `Job status: ${job.status}` } }, 409);
+    return {
+      error: { code: 'NOT_AVAILABLE', message: `Job status: ${job.status}` } as const,
+      status: 409 as const,
+    };
   }
 
   const [milestone] = await db.select().from(milestones).where(eq(milestones.milestoneId, job.milestoneId));
@@ -363,9 +358,42 @@ Production mode:
 In demo mode, the broker also accepts direct \`workerId\` submissions without signed actions.
 `;
 
-  return new Response(skillMd, {
-    headers: { 'Content-Type': 'text/markdown; charset=utf-8' },
-  });
+  return {
+    response: new Response(skillMd, {
+      headers: { 'Content-Type': 'text/markdown; charset=utf-8' },
+    }),
+    status: 200 as const,
+  };
+}
+
+// GET /v1/cannes/jobs — list available (queued) jobs
+jobsRouter.get('/', async (c) => {
+  const statusFilter = c.req.query('status') ?? 'queued';
+  const view = c.req.query('view');
+
+  if (view === 'grouped') {
+    return c.json(await buildGroupedJobBoard(statusFilter));
+  }
+
+  return c.json(await getFlatJobs(statusFilter));
+});
+
+// GET /v1/cannes/jobs/:jobId — get job details
+jobsRouter.get('/:jobId', async (c) => {
+  const { jobId } = c.req.param();
+  const detail = await getJobDetail(jobId);
+  if (!detail) return c.json({ error: { code: 'NOT_FOUND', message: 'Job not found' } }, 404);
+  return c.json(detail);
+});
+
+// GET /v1/cannes/jobs/:jobId/skill.md — serve skill.md task file for agents
+jobsRouter.get('/:jobId/skill.md', async (c) => {
+  const { jobId } = c.req.param();
+  const result = await buildSkillMdResponse(jobId);
+  if ('error' in result) {
+    return c.json({ error: result.error }, result.status);
+  }
+  return result.response;
 });
 
 // POST /v1/cannes/jobs/:jobId/claim — agent claims a milestone

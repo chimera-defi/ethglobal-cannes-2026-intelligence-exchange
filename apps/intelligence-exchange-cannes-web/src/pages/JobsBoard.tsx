@@ -57,6 +57,11 @@ import {
   type JobBoardMilestone,
   type SubmissionResponse,
 } from '../api';
+import {
+  DEFAULT_AGENT_PROFILE,
+  pickPreferredWorkerAuthorization,
+  useAgentProfileDraft,
+} from '../hooks/useAgentProfileDraft';
 import { useSession } from '../hooks/useSession';
 import { makeDemoAddress } from '../lib/demo';
 
@@ -116,7 +121,16 @@ function isValidUrl(value: string) {
   }
 }
 
-function AgentPickupGuide() {
+function AgentPickupGuide({
+  agentType,
+  agentVersion,
+}: {
+  agentType?: string;
+  agentVersion?: string;
+}) {
+  const resolvedAgentType = agentType ?? '<registered-agent-type>';
+  const resolvedAgentVersion = agentVersion ?? DEFAULT_AGENT_PROFILE.agentVersion;
+
   return (
     <Card className="border-gray-700 bg-gray-900/60">
       <CardHeader className="pb-2">
@@ -143,16 +157,18 @@ export BROKER_URL=http://localhost:3001
 export WORKER_PRIVATE_KEY=0x...
 
 ./apps/intelligence-exchange-cannes-worker/dist/iex-bridge list --status queued
-./apps/intelligence-exchange-cannes-worker/dist/iex-bridge claim --job-id <job-id> --agent-type claude-code
-./apps/intelligence-exchange-cannes-worker/dist/iex-bridge submit --job-id <job-id> --claim-id <claim-id> --artifact <artifact-uri> --summary "what was completed" --agent-type claude-code
-./apps/intelligence-exchange-cannes-worker/dist/iex-bridge unclaim --job-id <job-id> --agent-type claude-code`}
+./apps/intelligence-exchange-cannes-worker/dist/iex-bridge claim --job-id <job-id> --agent-type ${resolvedAgentType} --agent-version ${resolvedAgentVersion}
+./apps/intelligence-exchange-cannes-worker/dist/iex-bridge submit --job-id <job-id> --claim-id <claim-id> --artifact <artifact-uri> --summary "what was completed" --agent-type ${resolvedAgentType} --agent-version ${resolvedAgentVersion}
+./apps/intelligence-exchange-cannes-worker/dist/iex-bridge unclaim --job-id <job-id> --agent-type ${resolvedAgentType} --agent-version ${resolvedAgentVersion}`}
             </pre>
           </div>
 
           <p className="text-xs text-gray-500">
-            This is a local operator-driven pickup loop. Agents can autonomously browse and execute
-            tasks from this machine, then hand back a proof URL for the board or CLI submit step.
-            The 0G dossier upload still happens after authenticated human acceptance.
+            Keep the CLI flags aligned with the registered agent identity on
+            <span className="mx-1 font-mono text-gray-300">/agents</span> so every claim,
+            submission, acceptance, and reputation increment lands on the same fingerprint and
+            contractor token. The 0G dossier upload still happens after authenticated human
+            acceptance.
           </p>
         </div>
       </CardContent>
@@ -1220,6 +1236,7 @@ function JobGroupCard({
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export function JobsBoard() {
+  const [agentDraft] = useAgentProfileDraft();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { isConnected, address, session, isWorkerVerified, signIn } = useSession();
@@ -1266,11 +1283,10 @@ export function JobsBoard() {
     staleTime: 30_000,
   });
 
-  const workerAuths =
-    authsData?.authorizations.filter(a => a.role === 'worker') ?? [];
-  const activeAuthorization = workerAuths.find(
-    a => a.status === 'active' || a.status === 'pending_registration'
-  ) ?? workerAuths[0] ?? null;
+  const activeAuthorization = pickPreferredWorkerAuthorization(
+    authsData?.authorizations ?? [],
+    agentDraft,
+  );
 
   const isRegistrationSynced =
     activeAuthorization?.status === 'active' ||
@@ -1306,8 +1322,8 @@ export function JobsBoard() {
     setAuthError(null);
     try {
       await createAgentAuthorization({
-        agentType: 'claude-code',
-        agentVersion: '1.0.0',
+        agentType: agentDraft.agentType,
+        agentVersion: agentDraft.agentVersion,
         role: 'worker',
         permissionScope: ['claim_jobs', 'submit_results'],
       });
@@ -1438,12 +1454,17 @@ export function JobsBoard() {
         {/* Header */}
         <div>
           <h1 className="text-3xl font-bold text-white">Jobs Board</h1>
-          <p className="text-gray-400 mt-1">
-            Browse funded request briefs, expand them into milestone tasks, then claim one concrete
-            job and run its <span className="font-mono text-blue-400">skill.md</span> with your
-            agent stack.
-          </p>
-        </div>
+        <p className="text-gray-400 mt-1">
+          Browse funded request briefs, expand them into milestone tasks, then claim one concrete
+          job and run its <span className="font-mono text-blue-400">skill.md</span> with your
+          agent stack.
+        </p>
+        <p className="text-gray-500 mt-2 text-sm">
+          Use the <span className="font-mono text-gray-300">/agents</span> page to register with
+          World Agent Kit and sync your Worldchain worker identity before using the protected agent
+          routes from the CLI.
+        </p>
+      </div>
         {demoClaimEnabled && (
           <Alert>
             <AlertCircle className="h-4 w-4" />
@@ -1453,7 +1474,10 @@ export function JobsBoard() {
           </Alert>
         )}
 
-        <AgentPickupGuide />
+        <AgentPickupGuide
+          agentType={activeAuthorization?.agentType ?? agentDraft.agentType}
+          agentVersion={activeAuthorization?.agentVersion ?? agentDraft.agentVersion}
+        />
 
         {/* Identity summary strip */}
         {isConnected && (

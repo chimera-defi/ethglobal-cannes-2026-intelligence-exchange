@@ -59,6 +59,8 @@ export async function migrate() {
       status TEXT NOT NULL DEFAULT 'pending_registration',
       on_chain_token_id INTEGER,
       registration_tx_hash TEXT,
+      agentbook_human_id TEXT,
+      agentbook_registered_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       activated_at TIMESTAMPTZ,
@@ -193,9 +195,28 @@ export async function migrate() {
       operator_address TEXT,
       on_chain_token_id INTEGER,
       registration_tx_hash TEXT,
+      agentbook_human_id TEXT,
+      agentbook_registered_at TIMESTAMPTZ,
       accepted_count INTEGER NOT NULL DEFAULT 0,
       avg_score NUMERIC(5,2) NOT NULL DEFAULT 0,
       registered_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS agentkit_usage_counters (
+      endpoint TEXT NOT NULL,
+      human_id TEXT NOT NULL,
+      uses INTEGER NOT NULL DEFAULT 0,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (endpoint, human_id)
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS agentkit_nonces (
+      nonce TEXT PRIMARY KEY,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
@@ -257,6 +278,26 @@ export async function migrate() {
     )
   `;
 
+  // Older local/test databases used a different World verification shape.
+  // Normalize it in place so current routes and indexes can rely on account+role lookups.
+  await sql`ALTER TABLE world_verifications ADD COLUMN IF NOT EXISTS account_address TEXT`;
+  await sql`ALTER TABLE world_verifications ADD COLUMN IF NOT EXISTS role TEXT`;
+  await sql`ALTER TABLE world_verifications ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ`;
+  await sql`
+    UPDATE world_verifications
+    SET
+      account_address = COALESCE(account_address, wallet_address),
+      role = COALESCE(role, subject_id),
+      verified_at = COALESCE(verified_at, created_at, NOW())
+    WHERE account_address IS NULL OR role IS NULL OR verified_at IS NULL
+  `.catch(() => undefined);
+  await sql`ALTER TABLE world_verifications ALTER COLUMN account_address SET NOT NULL`.catch(() => undefined);
+  await sql`ALTER TABLE world_verifications ALTER COLUMN role SET NOT NULL`.catch(() => undefined);
+  await sql`ALTER TABLE world_verifications ALTER COLUMN verified_at SET NOT NULL`.catch(() => undefined);
+  await sql`ALTER TABLE world_verifications ALTER COLUMN verified_at SET DEFAULT NOW()`.catch(() => undefined);
+  await sql`ALTER TABLE world_verifications ALTER COLUMN subject_type DROP NOT NULL`.catch(() => undefined);
+  await sql`ALTER TABLE world_verifications ALTER COLUMN subject_id DROP NOT NULL`.catch(() => undefined);
+
   await sql`ALTER TABLE claims ADD COLUMN IF NOT EXISTS account_address TEXT`;
   await sql`ALTER TABLE claims ADD COLUMN IF NOT EXISTS agent_fingerprint TEXT`;
 
@@ -267,6 +308,11 @@ export async function migrate() {
   await sql`ALTER TABLE agent_identities ADD COLUMN IF NOT EXISTS role TEXT`;
   await sql`ALTER TABLE agent_identities ADD COLUMN IF NOT EXISTS permissions_hash TEXT`;
   await sql`ALTER TABLE agent_identities ADD COLUMN IF NOT EXISTS registration_tx_hash TEXT`;
+  await sql`ALTER TABLE agent_identities ADD COLUMN IF NOT EXISTS agentbook_human_id TEXT`;
+  await sql`ALTER TABLE agent_identities ADD COLUMN IF NOT EXISTS agentbook_registered_at TIMESTAMPTZ`;
+
+  await sql`ALTER TABLE agent_authorizations ADD COLUMN IF NOT EXISTS agentbook_human_id TEXT`;
+  await sql`ALTER TABLE agent_authorizations ADD COLUMN IF NOT EXISTS agentbook_registered_at TIMESTAMPTZ`;
 
   await sql`
     CREATE UNIQUE INDEX IF NOT EXISTS world_verifications_account_role_idx
@@ -281,6 +327,11 @@ export async function migrate() {
   await sql`
     CREATE UNIQUE INDEX IF NOT EXISTS chain_syncs_tx_event_idx
     ON chain_syncs (tx_hash, event_type)
+  `;
+
+  await sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS agentkit_usage_counters_endpoint_human_idx
+    ON agentkit_usage_counters (endpoint, human_id)
   `;
 
   console.log('✓ Database schema ready');
