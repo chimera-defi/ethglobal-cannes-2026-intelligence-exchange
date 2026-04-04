@@ -82,7 +82,7 @@ export function ReviewPanel() {
           <h1 className="text-xl font-semibold text-white">Awaiting Submission</h1>
           <p className="text-gray-400 text-sm">
             This milestone is <span className={`badge badge-${job.status}`}>{job.status}</span>.
-            The review panel will unlock once an agent submits their work.
+            The review panel will unlock once a worker submits their work.
           </p>
           {job.leaseExpiry && (
             <p className="text-gray-500 text-xs">
@@ -116,7 +116,7 @@ export function ReviewPanel() {
             </button>
             <h1 className="text-2xl font-bold text-white">Milestone Review</h1>
             <p className="text-gray-400 text-sm mt-1">
-              Review the agent's output and approve or request rework.
+              Review the worker output and approve or request rework.
             </p>
           </div>
           <span className={`badge badge-${job.status} text-sm px-3 py-1`}>
@@ -156,7 +156,7 @@ export function ReviewPanel() {
             <span className="text-2xl">✅</span>
             <div>
               <p className="text-green-300 font-semibold">Milestone Accepted</p>
-              <p className="text-green-400/70 text-sm">Arc escrow payout has been released to the worker. Agent identity recorded on-chain.</p>
+              <p className="text-green-400/70 text-sm">The milestone is now accepted in demo state and the worker reputation mirror can be updated from this result.</p>
             </div>
           </div>
         )}
@@ -170,9 +170,9 @@ export function ReviewPanel() {
           </div>
         )}
 
-        {/* Score Breakdown (placeholder — real data comes from submission record) */}
+        {/* Deterministic milestone rubric for the current demo */}
         <div className="card space-y-4">
-          <h2 className="text-lg font-semibold text-white">Score Breakdown</h2>
+          <h2 className="text-lg font-semibold text-white">Deterministic Review Checklist</h2>
           <ScoreBreakdown milestoneType={job.milestoneType} status={job.status} />
         </div>
 
@@ -181,7 +181,7 @@ export function ReviewPanel() {
           <div className="card space-y-4">
             <h2 className="text-lg font-semibold text-white">Your Decision</h2>
             <p className="text-gray-400 text-sm">
-              Review the score breakdown above. Accept to release payment, or reject to send back for rework.
+              Use the checklist above. Accept to mark the milestone payout-ready, or reject to send it back for rework.
             </p>
 
             {(acceptMutation.isError || rejectMutation.isError) && (
@@ -197,7 +197,7 @@ export function ReviewPanel() {
                   onClick={() => acceptMutation.mutate()}
                   disabled={isProcessing}
                 >
-                  {acceptMutation.isPending ? 'Approving...' : '✓ Accept & Release Payment'}
+                  {acceptMutation.isPending ? 'Approving...' : '✓ Accept Milestone'}
                 </button>
                 <button
                   className="btn-danger flex-1 py-3 text-base"
@@ -238,7 +238,7 @@ export function ReviewPanel() {
             )}
 
             <p className="text-gray-600 text-xs">
-              Human-gated: Arc escrow only releases after you click Accept. No autonomous payouts.
+              Human-gated: approval is the release gate. No autonomous payouts.
             </p>
           </div>
         )}
@@ -247,7 +247,7 @@ export function ReviewPanel() {
   );
 }
 
-// Score breakdown rendered from milestone type (real data would come from submission API)
+// Demo checklist rendered from milestone type.
 function ScoreBreakdown({ milestoneType, status }: { milestoneType: string; status: string }) {
   const checksByType: Record<string, Array<{ name: string; passed: boolean; detail?: string }>> = {
     tasks: [

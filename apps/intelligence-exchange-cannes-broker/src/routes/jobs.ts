@@ -90,8 +90,8 @@ Content-Type: application/json
 Your agent fingerprint will be computed as:
 \`keccak256(agentType + ":" + agentVersion + ":" + operatorAddress)\`
 
-On first accepted submission, your identity will be registered on-chain in the AgentIdentityRegistry.
-Subsequent accepted submissions increase your reputation score.
+In this demo, accepted submissions register your fingerprint in the broker-side reputation mirror.
+That mirror is the handoff point for future onchain identity and reputation wiring.
 `;
 
   return new Response(skillMd, {
