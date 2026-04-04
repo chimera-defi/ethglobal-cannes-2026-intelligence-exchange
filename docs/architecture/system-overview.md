@@ -39,7 +39,8 @@ flowchart LR
   Auth <--> |poster / worker / reviewer proofs| WorldID
   Auth <--> |human-backed agent discovery| AgentBook
   Jobs <--> |worker role sync| IdentityGate
-  Jobs <--> |registration + reputation sync| Registry
+  Jobs <--> |registration sync + attestation| Registry
+  Jobs --> |reputation tracking| Postgres
   Jobs <--> |tx builders, funding,\nrelease and dispute sync| Arc
   Jobs -->|accepted dossier upload| ZeroG
 ```
@@ -55,4 +56,5 @@ flowchart LR
 
 - The broker remains the control plane. Human review still decides whether work is accepted.
 - Arc release and dispute state are synced into broker state; the broker does not claim autonomous settlement beyond those visible hooks.
-- World ID, AgentBook, IdentityGate, and the worker registry are separate gates with different purposes: human proof, agent discovery access, worker role sync, and reputation / registration state.
+- World ID, AgentBook, IdentityGate, and the worker registry are separate gates with different purposes: human proof, agent discovery access, worker role sync, and registration / attested reputation.
+- Broker tracks reputation in Postgres (real-time); on-chain reputation in AgentIdentityRegistry requires explicit attestation submission.

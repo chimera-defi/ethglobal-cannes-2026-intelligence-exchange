@@ -1,24 +1,7 @@
 # Intelligence Exchange - Development Commands
 # Usage: make <command>
 
-# Load .env if present so per-machine port overrides are respected
--include .env
-export
-
-POSTGRES_PORT ?= 5432
-REDIS_PORT ?= 6379
-POSTGRES_PASSWORD ?= iex_local_dev_only_change_me
-REDIS_PASSWORD ?= iex_redis_local_dev_only_change_me
-# PORT in .env is the broker port; fall back to 3001
-BROKER_PORT ?= $(or $(PORT),3001)
-WEB_PORT ?= 3100
-DATABASE_URL ?= postgres://iex:$(POSTGRES_PASSWORD)@localhost:$(POSTGRES_PORT)/iex_cannes
-REDIS_URL ?= redis://:$(REDIS_PASSWORD)@localhost:$(REDIS_PORT)
-BROKER_URL ?= http://localhost:$(BROKER_PORT)
-VITE_DEV_PROXY_TARGET ?= $(BROKER_URL)
-COMPOSE ?= ./scripts/tooling/docker-compose.sh
-
-.PHONY: help install setup dev dev-broker dev-web seed stop clean test test-infra-security validate tunnel fork-mainnet deploy-intel-liquidity fork-mainnet-smoke tokenomics-demo demo-fork
+.PHONY: help install setup dev dev-broker dev-web seed stop clean test validate
 
 # Default command
 help:
@@ -41,7 +24,6 @@ help:
 	@echo ""
 	@echo "Testing:"
 	@echo "  make test            Run all tests"
-	@echo "  make test-infra-security Run infra hardening regression checks"
 	@echo "  make test-acceptance Run acceptance tests"
 	@echo "  make validate        Full validation (typecheck + build + test)"
 	@echo ""
@@ -49,17 +31,10 @@ help:
 	@echo "  make stop            Stop all running services"
 	@echo "  make clean           Clean build artifacts and node_modules"
 	@echo "  make screenshots     Update screenshots (requires running stack)"
-	@echo "  make tunnel          Start Cloudflare Quick Tunnel for web app"
-	@echo "  make fork-mainnet    Start Ethereum mainnet fork (blocking)"
-	@echo "  make deploy-intel-liquidity  Deploy INTEL + WETH pool to local fork"
-	@echo "  make fork-mainnet-smoke      Full fork + liquidity smoke test"
-	@echo "  make tokenomics-demo         Run LP/staker/holder tokenomics actor simulation"
-	@echo "  make demo-fork               Run full Assay Protocol demo on local mainnet fork"
 
 # Setup commands
 install:
 	corepack pnpm install
-	corepack pnpm hooks:install
 
 setup: install
 	corepack pnpm tooling:install
@@ -67,38 +42,49 @@ setup: install
 
 # Infrastructure
 infra-up:
-	POSTGRES_PORT=$(POSTGRES_PORT) REDIS_PORT=$(REDIS_PORT) POSTGRES_PASSWORD=$(POSTGRES_PASSWORD) REDIS_PASSWORD=$(REDIS_PASSWORD) $(COMPOSE) up -d
+	docker compose up -d
 	@echo "Waiting for Postgres and Redis to be ready..."
 	@sleep 3
 	@echo "Infrastructure ready!"
 
 infra-down:
-	POSTGRES_PORT=$(POSTGRES_PORT) REDIS_PORT=$(REDIS_PORT) POSTGRES_PASSWORD=$(POSTGRES_PASSWORD) REDIS_PASSWORD=$(REDIS_PASSWORD) $(COMPOSE) down --remove-orphans
+	docker compose down
 
 infra-reset:
-	POSTGRES_PORT=$(POSTGRES_PORT) REDIS_PORT=$(REDIS_PORT) POSTGRES_PASSWORD=$(POSTGRES_PASSWORD) REDIS_PASSWORD=$(REDIS_PASSWORD) $(COMPOSE) down -v --remove-orphans
-	POSTGRES_PORT=$(POSTGRES_PORT) REDIS_PORT=$(REDIS_PORT) POSTGRES_PASSWORD=$(POSTGRES_PASSWORD) REDIS_PASSWORD=$(REDIS_PASSWORD) $(COMPOSE) up -d
+	docker compose down -v
+	docker compose up -d
 	@echo "Infrastructure reset (data wiped)"
 
 # Development - Full stack
-dev:
-	@./scripts/dev-start.sh
+dev: infra-up
+	@echo "Starting Intelligence Exchange full stack..."
+	@echo "This will start: Broker (port 3001), Web (port 3000)"
+	@echo ""
+	@(trap 'kill %1 %2' INT; \
+		DATABASE_URL=postgres://iex:iex@localhost:5432/iex_cannes \
+		REDIS_URL=redis://localhost:6379 \
+		corepack pnpm --filter intelligence-exchange-cannes-broker dev & \
+		sleep 5 && \
+		$(MAKE) seed && \
+		corepack pnpm --filter intelligence-exchange-cannes-web dev & \
+		wait)
 
 # Development - Individual services
 dev-broker: infra-up
-	@echo "Starting broker on $(BROKER_URL)"
-	@PORT=$(BROKER_PORT) DATABASE_URL=$(DATABASE_URL) REDIS_URL=$(REDIS_URL) BROKER_URL=$(BROKER_URL) \
+	@echo "Starting broker on http://localhost:3001"
+	@DATABASE_URL=postgres://iex:iex@localhost:5432/iex_cannes \
+	REDIS_URL=redis://localhost:6379 \
 	corepack pnpm --filter intelligence-exchange-cannes-broker dev
 
 dev-web:
-	@echo "Starting web on http://localhost:$(WEB_PORT)"
-	@BROKER_URL=$(BROKER_URL) VITE_DEV_PROXY_TARGET=$(VITE_DEV_PROXY_TARGET) \
-	corepack pnpm --filter intelligence-exchange-cannes-web exec vite --host 0.0.0.0 --port $(WEB_PORT)
+	@echo "Starting web on http://localhost:3000"
+	@corepack pnpm --filter intelligence-exchange-cannes-web dev
 
 # Database
 seed:
 	@echo "Seeding database..."
-	@DATABASE_URL=$(DATABASE_URL) REDIS_URL=$(REDIS_URL) BROKER_URL=$(BROKER_URL) \
+	@DATABASE_URL=postgres://iex:iex@localhost:5432/iex_cannes \
+	REDIS_URL=redis://localhost:6379 \
 	corepack pnpm --filter intelligence-exchange-cannes-broker seed
 	@echo "Database seeded!"
 
@@ -109,22 +95,19 @@ db-reset: infra-reset
 test:
 	corepack pnpm test
 
-test-infra-security:
-	@echo "Running infra hardening regression checks..."
-	corepack pnpm test:infra-security
-
 test-acceptance: infra-up
 	@echo "Running acceptance tests..."
-	@DATABASE_URL=$(DATABASE_URL) REDIS_URL=$(REDIS_URL) BROKER_URL=$(BROKER_URL) \
+	@DATABASE_URL=postgres://iex:iex@localhost:5432/iex_cannes \
+	REDIS_URL=redis://localhost:6379 \
 	corepack pnpm test:acceptance
 
-validate:
+validate: infra-up
 	corepack pnpm validate:all
 
 # Screenshots
 screenshots:
 	@echo "Updating screenshots (requires running stack)..."
-	@node scripts/take-screenshots.mjs
+	@corepack pnpm --filter intelligence-exchange-cannes-web test:e2e:screenshots
 
 # Cleanup
 stop:
@@ -140,39 +123,6 @@ clean:
 	@rm -rf apps/*/dist packages/*/dist
 	@echo "Cleaned build artifacts"
 
-# Cloudflare Quick Tunnel (no account needed)
-# Run this in a second terminal after `make dev` to get a public HTTPS URL
-tunnel:
-	@echo "Starting Cloudflare Quick Tunnel for web app on port $(WEB_PORT)"
-	@echo "A public URL will appear below (valid for the duration of this process)"
-	@cloudflared tunnel --url http://localhost:$(WEB_PORT)
-
-fork-mainnet:
-	corepack pnpm --filter intelligence-exchange-cannes-contracts mainnet:fork
-
-deploy-intel-liquidity:
-	@echo "Deploying INTEL + WETH liquidity on local fork (http://127.0.0.1:8545)"
-	@MAINNET_FORK_RPC_URL=http://127.0.0.1:8545 \
-	PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
-	corepack pnpm --filter intelligence-exchange-cannes-contracts deploy:intel-liquidity:mainnet-fork
-
-fork-mainnet-smoke:
-	corepack pnpm --filter intelligence-exchange-cannes-contracts smoke:intel-liquidity:mainnet-fork
-
-tokenomics-demo:
-	corepack pnpm demo:tokenomics:actors
-
 # Quick start for demos
 demo: setup
 	@$(MAKE) dev
-
-# Full demo on mainnet fork
-demo-fork:
-	@echo '=== Starting mainnet fork ==='
-	@cd packages/intelligence-exchange-cannes-contracts && bash script/fork_mainnet.sh &
-	@sleep 3
-	@echo '=== Deploying Assay Protocol stack ==='
-	@cd packages/intelligence-exchange-cannes-contracts && forge script script/ForkDeploy.s.sol --rpc-url http://127.0.0.1:8545 --broadcast --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
-	@echo '=== Running integration tests ==='
-	@cd packages/intelligence-exchange-cannes-contracts && forge test --match-contract ForkIntegration --fork-url http://127.0.0.1:8545 -vv
-	@echo '=== Demo complete ==='

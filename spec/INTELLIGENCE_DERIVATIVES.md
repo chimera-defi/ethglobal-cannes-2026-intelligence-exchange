@@ -1,13 +1,8 @@
 # Intelligence Derivatives Specification
 
-> Scope note (2026-04-19): this is a forward-looking market roadmap, not a launch acceptance checklist.
-> Current launch behavior is defined by `docs/CANONICAL_PRODUCT_OVERVIEW.md` and `spec/tokenomics/INTEL_LAUNCH_ARCHITECTURE.md`.
-
 ## Overview
 
-This document defines the path from an INTEL-settled intelligence marketplace to a complete derivatives ecosystem for intelligence as a tradable asset class.
-
-> Launch reset note: the current token rail is `INTEL`. Legacy `IX/IXP` terminology has been removed from this roadmap.
+This document defines the path from a stablecoin-settled intelligence marketplace to a complete derivatives ecosystem for intelligence as a tradable asset class.
 
 **Core Thesis**: Intelligence is not compute. While compute can be commoditized (GPUs, FLOPs), intelligence depends on model quality, training data, and emergent capabilities. This marketplace discovers the true price of intelligence by measuring accepted, benchmarked work output.
 
@@ -36,7 +31,7 @@ This document defines the path from an INTEL-settled intelligence marketplace to
 **Status**: In Progress (Cannes 2026 build)
 
 **Components**:
-- INTEL-settled milestone marketplace (stablecoins as optional on-ramp only)
+- Stablecoin-settled milestone marketplace (USDC/Arc)
 - Human reviewer acceptance gates
 - Basic reputation scoring
 - Worker CLI and web app
@@ -86,37 +81,37 @@ Where:
 
 ---
 
-### Phase 3: INTEL Market Rail (Months 6-12)
+### Phase 3: Tokenization (Months 6-12)
 **Components**:
-- `INTEL` utility token launch
-- `INTEL` settlement + rewards ledger
+- `IX` utility token launch
+- `IXP` (Intelligence Exchange Points) ledger
 - Worker stake-and-slash mechanics
 - Buyer access tiers
 
-**INTEL Token Role**:
+**IX Token Role**:
 | Function | Mechanism |
 |----------|-----------|
-| **Worker Stake** | Lock INTEL to claim high-value tasks; slash on fraud |
-| **Buyer Discounts** | Lock INTEL for fee reductions |
-| **Rewards** | Epoch-based INTEL distribution to top performers |
+| **Worker Stake** | Lock IX to claim high-value tasks; slash on fraud |
+| **Buyer Discounts** | Lock IX for fee reductions |
+| **Rewards** | Epoch-based IX distribution to top performers |
 | **Coordination** | Governance for parameter changes |
 
-**INTEL Flow**:
+**IXP Points Flow**:
 ```
 Creator (task funded) ──┐
-                        ├──→ INTEL accrual / routing ──→ staking + treasury + LP flows
+                        ├──→ IXP accrual ──→ Epoch conversion ──→ IX
 Finisher (work accepted) ──┘
 ```
 
 **Milestones**:
-- [ ] INTEL token contract (capped supply: 100M)
+- [ ] IX token contract (capped supply: 100M)
 - [ ] WorkerStakeManager contract
 - [ ] RewardDistributor with epoch logic
 - [ ] Points-to-token conversion mechanism
 
 **Success Metrics**:
 - 50%+ of high-value tasks require stake
-- Top 10% workers earn meaningful INTEL rewards
+- Top 10% workers earn meaningful IX rewards
 - Token volatility doesn't impact worker participation
 
 ---
@@ -187,7 +182,7 @@ Fixed-duration instruments backed by protocol fee streams:
 
 #### Forward AIU Delivery (Advanced)
 Physical settlement for sophisticated participants:
-- Seller posts INTEL collateral
+- Seller posts IX collateral
 - Commits to deliver X AIU within Y months
 - Buyer pays premium upfront
 - Settlement: Seller must generate AIU or forfeit collateral
@@ -205,7 +200,8 @@ Physical settlement for sophisticated participants:
 | Asset | Type | Purpose |
 |-------|------|---------|
 | `USDC` | Stablecoin | Settlement, collateral, fees |
-| `INTEL` | Utility Token | Settlement, stake, rewards, coordination |
+| `IX` | Utility Token | Stake, rewards, coordination |
+| `IXP` | Points | Activity-to-token bridge |
 | `WorkReceipt1155` | NFT | Proof of accepted work |
 | `AIU` | Index Unit | Normalized intelligence output |
 | `iIX-*` | Vault Shares | Cohort-based exposure |
@@ -234,7 +230,7 @@ This specification reconciles with `TOKEN_ARCHITECTURE.md` from PR 11:
 | PR 11 Phase | This Spec | Reconciliation |
 |-------------|-----------|----------------|
 | Phase 1: Stable escrow | Phase 1 | Identical |
-| Phase 2: INTEL staking | Phase 3 | Tokenization |
+| Phase 2: IX staking | Phase 3 | Tokenization |
 | Phase 3: Receipts | Phase 2 | Moved earlier (prerequisite) |
 | Phase 4: Vaults | Phase 5 | Structured products |
 | Phase 5: Forward AIU | Phase 5 | Physical delivery (advanced) |
@@ -247,13 +243,14 @@ This specification reconciles with `TOKEN_ARCHITECTURE.md` from PR 11:
 |-------|---------------|--------|
 | 1 | Monthly accepted jobs | 1,000+ |
 | 2 | AIU index stability | < 5% daily volatility |
-| 3 | INTEL staked value | $1M+ TVL |
+| 3 | IX staked value | $1M+ TVL |
 | 4 | Perpetual open interest | $5M+ |
 | 5 | Vault AUM | $10M+ |
 
 ## Non-Goals
 
-- **No Provider Credit Redemption**: INTEL is not convertible to OpenAI/Anthropic credits
+- **No Token-Denominated Wages**: Workers always paid in stablecoins
+- **No Provider Credit Redemption**: IX is not convertible to OpenAI/Anthropic credits
 - **No Naked Shorting**: Derivatives require collateral
 - **No Pre-Mature Derivatives**: Index must have 6+ months history before perpetuals
 
