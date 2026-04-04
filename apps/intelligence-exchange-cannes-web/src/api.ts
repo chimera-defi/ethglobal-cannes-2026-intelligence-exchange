@@ -1,3 +1,5 @@
+import type { AcceptedSubmissionAttestation, WorldIdProof } from 'intelligence-exchange-cannes-shared';
+
 const BROKER = import.meta.env.VITE_BROKER_URL ?? '/v1/cannes';
 
 async function post<T>(path: string, body: unknown, authed = false): Promise<T> {
@@ -205,10 +207,12 @@ export interface IdeaDetailResponse {
   } | null;
   jobs: Array<{
     jobId: string;
+    milestoneId: string;
     milestoneType: string;
     status: string;
     budgetUsd: string;
-    leaseExpiry?: string;
+    leaseExpiry?: string | null;
+    activeClaimWorkerId?: string | null;
   }>;
 }
 
@@ -224,8 +228,9 @@ export interface IdeaListResponse {
   count: number;
 }
 
-export function getIdeas() {
-  return get<IdeaListResponse>('/ideas', true);
+export function getIdeas(posterId?: string) {
+  const query = posterId ? `?posterId=${encodeURIComponent(posterId)}` : '';
+  return get<IdeaListResponse>(`/ideas${query}`, true);
 }
 
 export function cancelIdea(ideaId: string) {
@@ -237,6 +242,9 @@ export function createIdea(body: {
   title: string;
   prompt: string;
   budgetUsdMax: number;
+  posterAccountAddress?: string;
+  worldIdProof?: WorldIdProof;
+  delegatedAgentAuthorizationId?: string;
 }) {
   return post<IdeaResponse>('/ideas', body, true);
 }
@@ -270,13 +278,15 @@ export interface SubmissionDetail {
 export interface JobResponse {
   job: {
     jobId: string;
+    milestoneId: string;
     milestoneType: string;
     status: string;
     budgetUsd: string;
-    activeClaimWorkerId?: string;
-    leaseExpiry?: string;
+    activeClaimWorkerId?: string | null;
+    leaseExpiry?: string | null;
     briefId: string;
     ideaId: string;
+    posterId?: string | null;
     submission?: SubmissionDetail;
   };
   spendEvents: Array<{
@@ -298,6 +308,7 @@ export interface JobResponse {
     scoreBreakdown?: SubmissionResponse['scoreBreakdown'] | null;
     submittedAt: string;
   } | null;
+  latestAttestation: AcceptedSubmissionAttestation | null;
 }
 
 export interface SubmissionResponse {
@@ -318,6 +329,12 @@ export function getJobs(status = 'queued') {
   return get<{ jobs: JobResponse['job'][]; count: number }>(`/jobs?status=${status}`, true);
 }
 
+export async function getJobsByStatuses(statuses: string[]) {
+  const results = await Promise.all(statuses.map((status) => getJobs(status)));
+  const jobs = results.flatMap((result) => result.jobs);
+  return { jobs, count: jobs.length };
+}
+
 export interface SignedAction {
   accountAddress: string;
   agentFingerprint: string;
@@ -333,10 +350,29 @@ export function claimJob(jobId: string, signedAction: SignedAction) {
   );
 }
 
+export function claimJobDemo(jobId: string, body: {
+  workerId: string;
+  agentMetadata?: {
+    agentType?: string;
+    agentVersion?: string;
+    operatorAddress?: string;
+    fingerprint?: string;
+  };
+}) {
+  return post<{ claimId: string; expiresAt: string; skillMdUrl: string }>(
+    `/jobs/${jobId}/claim`,
+    body
+  );
+}
+
 // ─── Review ───────────────────────────────────────────────────────────────
 
 export function acceptMilestone(ideaId: string, jobId: string) {
-  return post<{ accepted: boolean; attestationPayload?: unknown }>(`/ideas/${ideaId}/accept`, { jobId }, true);
+  return post<{ accepted: boolean; attestation: AcceptedSubmissionAttestation }>(
+    `/ideas/${ideaId}/accept`,
+    { jobId },
+    true
+  );
 }
 
 export function rejectMilestone(ideaId: string, jobId: string, reason?: string) {

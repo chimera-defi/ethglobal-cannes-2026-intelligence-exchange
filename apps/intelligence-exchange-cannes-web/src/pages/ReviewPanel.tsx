@@ -25,8 +25,9 @@ import {
 } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { acceptMilestone, rejectMilestone, syncChainReceipt, getJob } from '../api';
+import { acceptMilestone, rejectMilestone, syncChainReceipt, getJob, getIntegrationsStatus } from '../api';
 import { useSession } from '../hooks/useSession';
+import { makeDemoTxHash } from '../lib/demo';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -154,12 +155,20 @@ function AttestationPanel({
   attestationPayload,
   ideaId,
   jobId,
+  milestoneId,
+  payee,
+  amountUsd,
+  demoMode,
   onReleaseSynced,
   onAttestationSynced,
 }: {
   attestationPayload: unknown;
   ideaId: string;
   jobId: string;
+  milestoneId: string;
+  payee: string | null | undefined;
+  amountUsd: string;
+  demoMode: boolean;
   onReleaseSynced: () => void;
   onAttestationSynced: () => void;
 }) {
@@ -177,11 +186,17 @@ function AttestationPanel({
     setReleaseSyncing(true);
     setReleaseError(null);
     try {
+      if (!payee) throw new Error('Missing worker payout address for release sync');
       await syncChainReceipt({
         eventType: 'milestone_released',
         txHash: releaseTxHash.trim(),
         subjectId: ideaId,
-        payload: { jobId },
+        payload: {
+          jobId,
+          milestoneId,
+          payee,
+          amountUsd: Number(amountUsd),
+        },
       });
       setReleaseComplete(true);
       onReleaseSynced();
@@ -254,6 +269,16 @@ function AttestationPanel({
             {releaseComplete ? 'Synced' : 'Sync Release'}
           </Button>
         </div>
+        {demoMode && !releaseComplete && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="px-0 text-xs text-blue-400 hover:text-blue-300"
+            onClick={() => setReleaseTxHash(makeDemoTxHash(`release:${jobId}`))}
+          >
+            Use demo tx hash
+          </Button>
+        )}
         {releaseError && (
           <p className="text-xs text-red-400">{releaseError}</p>
         )}
@@ -287,6 +312,16 @@ function AttestationPanel({
             {attestComplete ? 'Synced' : 'Sync Attestation'}
           </Button>
         </div>
+        {demoMode && !attestComplete && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="px-0 text-xs text-blue-400 hover:text-blue-300"
+            onClick={() => setAttestTxHash(makeDemoTxHash(`attestation:${jobId}`))}
+          >
+            Use demo tx hash
+          </Button>
+        )}
         {attestError && (
           <p className="text-xs text-red-400">{attestError}</p>
         )}
@@ -306,7 +341,6 @@ export function ReviewPanel() {
 
   const [rejectReason, setRejectReason] = useState('');
   const [showRejectForm, setShowRejectForm] = useState(false);
-  const [attestationPayload, setAttestationPayload] = useState<unknown>(null);
   const [showReleaseFlow, setShowReleaseFlow] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [signInError, setSignInError] = useState<string | null>(null);
@@ -319,23 +353,30 @@ export function ReviewPanel() {
     enabled: !!jobId,
     refetchInterval: 5_000,
   });
+  const { data: integrations } = useQuery({
+    queryKey: ['integrations-status'],
+    queryFn: getIntegrationsStatus,
+    staleTime: 30_000,
+  });
 
   const job = data?.job;
   const latestSubmission = data?.latestSubmission;
+  const latestAttestation = data?.latestAttestation ?? null;
+  const demoReviewMode = integrations?.world.strict === false;
 
   // Determine if current user is the poster of this idea.
   // The broker session contains accountAddress; the idea/job has posterId.
   // We compare case-insensitively.
+  const reviewerAddress = session?.accountAddress ?? address;
   const isPoster =
-    !!address &&
+    !!reviewerAddress &&
     !!job &&
-    // posterId might be stored as wallet address
-    (job as { posterId?: string }).posterId?.toLowerCase() === address.toLowerCase();
+    !!job.posterId &&
+    job.posterId.toLowerCase() === reviewerAddress.toLowerCase();
 
   const canReview =
-    isConnected &&
-    hasSession &&
-    (isPoster || isReviewerVerified);
+    demoReviewMode ||
+    (hasSession && (isPoster || isReviewerVerified));
 
   async function handleSignIn() {
     setIsSigningIn(true);
@@ -352,8 +393,7 @@ export function ReviewPanel() {
   const acceptMutation = useMutation({
     mutationFn: () => acceptMilestone(job!.ideaId, job!.jobId),
     onSuccess: result => {
-      if (result.attestationPayload) {
-        setAttestationPayload(result.attestationPayload);
+      if (result.attestation) {
         setShowReleaseFlow(true);
       }
       queryClient.invalidateQueries({ queryKey: ['job', jobId] });
@@ -454,6 +494,8 @@ export function ReviewPanel() {
   const isRejected = job.status === 'rejected' || job.status === 'rework';
   const isPending = job.status === 'submitted';
   const isProcessing = acceptMutation.isPending || rejectMutation.isPending;
+  const effectiveAttestation = acceptMutation.data?.attestation ?? latestAttestation;
+  const releaseFlowVisible = (showReleaseFlow || isAccepted) && !!effectiveAttestation;
 
   return (
     <div className="page">
@@ -505,6 +547,12 @@ export function ReviewPanel() {
             )}
           </div>
         )}
+        {demoReviewMode && !hasSession && (
+          <div className="bg-blue-900/20 border border-blue-800 rounded-lg px-3 py-2 text-blue-200 text-sm">
+            Demo review mode is enabled. You can accept or reject without a broker session. Release
+            and attestation sync still require a signed-in poster session.
+          </div>
+        )}
 
         {/* Auth gate */}
         {signInError && (
@@ -552,28 +600,29 @@ export function ReviewPanel() {
             </div>
 
             {/* Submission artifact */}
-            {job.submission && (
+            {latestSubmission && (
               <div className="pt-3 border-t border-gray-800 space-y-2">
                 <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">
                   Submitted Work
                 </p>
-                {job.submission.artifactUri && (
+                {latestSubmission.artifactUris.map((artifactUri) => (
                   <a
-                    href={job.submission.artifactUri}
+                    key={artifactUri}
+                    href={artifactUri}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-blue-400 hover:text-blue-300 text-sm font-mono break-all flex items-center gap-1"
                   >
-                    {job.submission.artifactUri}
+                    {artifactUri}
                     <ExternalLink className="h-3 w-3 shrink-0" />
                   </a>
+                ))}
+                {latestSubmission.summary && (
+                  <p className="text-gray-300 text-sm leading-relaxed">{latestSubmission.summary}</p>
                 )}
-                {job.submission.summary && (
-                  <p className="text-gray-300 text-sm leading-relaxed">{job.submission.summary}</p>
-                )}
-                {job.submission.submittedAt && (
+                {latestSubmission.submittedAt && (
                   <p className="text-gray-500 text-xs">
-                    Submitted {new Date(job.submission.submittedAt).toLocaleString()}
+                    Submitted {new Date(latestSubmission.submittedAt).toLocaleString()}
                   </p>
                 )}
               </div>
@@ -630,7 +679,7 @@ export function ReviewPanel() {
         </Card>
 
         {/* Outcome banners */}
-        {isAccepted && !showReleaseFlow && (
+        {isAccepted && !releaseFlowVisible && (
           <div className="bg-green-900/30 border border-green-700 rounded-xl p-4 flex items-start gap-3">
             <CheckCircle2 className="h-5 w-5 text-green-400 shrink-0 mt-0.5" />
             <div>
@@ -664,16 +713,20 @@ export function ReviewPanel() {
         )}
 
         {/* Release and attestation sync flow (shown after accept) */}
-        {showReleaseFlow && (
+        {releaseFlowVisible && effectiveAttestation && (
           <Card className="border-gray-700 bg-gray-900/40">
             <CardHeader className="pb-2">
               <CardTitle className="text-base text-white">Release & Attestation Sync</CardTitle>
             </CardHeader>
             <CardContent>
               <AttestationPanel
-                attestationPayload={attestationPayload}
+                attestationPayload={effectiveAttestation}
                 ideaId={job.ideaId}
                 jobId={job.jobId}
+                milestoneId={job.milestoneId}
+                payee={job.activeClaimWorkerId}
+                amountUsd={job.budgetUsd}
+                demoMode={demoReviewMode}
                 onReleaseSynced={() =>
                   queryClient.invalidateQueries({ queryKey: ['job', jobId] })
                 }

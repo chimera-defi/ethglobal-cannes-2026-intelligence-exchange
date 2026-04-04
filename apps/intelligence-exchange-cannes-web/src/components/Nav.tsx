@@ -1,8 +1,10 @@
+import { useQuery } from '@tanstack/react-query';
 import { NavLink } from 'react-router-dom';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { ShieldCheck, LogIn, LogOut, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { getIntegrationsStatus } from '../api';
 import { useSession } from '../hooks/useSession';
 
 export function Nav() {
@@ -15,6 +17,12 @@ export function Nav() {
     signIn,
     signOut,
   } = useSession();
+  const { data: integrations } = useQuery({
+    queryKey: ['integrations-status'],
+    queryFn: getIntegrationsStatus,
+    staleTime: 30_000,
+  });
+  const demoMode = integrations?.world.strict === false;
 
   const navLink = (to: string, label: string) => (
     <NavLink
@@ -58,6 +66,11 @@ export function Nav() {
                   <Badge variant="success" className="gap-1">
                     <ShieldCheck className="w-3 h-3" /> Session
                   </Badge>
+                  {demoMode && (
+                    <Badge variant="warning" className="gap-1">
+                      Demo Mode
+                    </Badge>
+                  )}
                   {isPosterVerified && (
                     <Badge variant="info" className="gap-1">Poster</Badge>
                   )}
@@ -65,6 +78,10 @@ export function Nav() {
                     <Badge variant="info" className="gap-1">Worker</Badge>
                   )}
                 </>
+              ) : demoMode ? (
+                <Badge variant="warning" className="gap-1">
+                  Demo Mode
+                </Badge>
               ) : null}
             </div>
           )}
