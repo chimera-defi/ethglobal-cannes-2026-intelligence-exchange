@@ -50,6 +50,33 @@ function getAttestationDigest(attestation: Omit<AcceptedSubmissionAttestation, '
   ));
 }
 
+export function hydrateAcceptedSubmissionAttestation(record: {
+  jobId: string;
+  agentFingerprint: string;
+  score: number;
+  reviewerAddress: string;
+  payoutReleased: boolean;
+  attestorAddress: string;
+  signature: string;
+  createdAt: Date | string;
+}) {
+  const { registryAddress, chainId } = getAttestationDomain();
+
+  return {
+    jobId: record.jobId,
+    jobIdHash: getJobIdHash(record.jobId),
+    agentFingerprint: record.agentFingerprint,
+    score: record.score,
+    reviewerAddress: record.reviewerAddress,
+    payoutReleased: record.payoutReleased,
+    attestorAddress: record.attestorAddress,
+    registryAddress,
+    chainId: Number(chainId),
+    signature: record.signature,
+    attestedAt: new Date(record.createdAt).toISOString(),
+  };
+}
+
 export async function recordChainSync(input: ChainReceiptSync) {
   const [existing] = await db.select().from(chainSyncs).where(and(
     eq(chainSyncs.txHash, input.txHash),
@@ -130,9 +157,11 @@ export async function issueAcceptedSubmissionAttestation(input: {
   });
 
   return {
-    ...attestationBase,
-    signature,
-    attestedAt: createdAt.toISOString(),
+    ...hydrateAcceptedSubmissionAttestation({
+      ...attestationBase,
+      signature,
+      createdAt,
+    }),
   };
 }
 

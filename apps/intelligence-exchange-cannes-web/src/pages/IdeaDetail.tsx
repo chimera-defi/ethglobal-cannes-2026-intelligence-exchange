@@ -91,7 +91,7 @@ interface MilestoneJob {
   milestoneType: string;
   status: string;
   budgetUsd: string;
-  leaseExpiry?: string;
+  leaseExpiry?: string | null;
 }
 
 function statusBadgeVariant(

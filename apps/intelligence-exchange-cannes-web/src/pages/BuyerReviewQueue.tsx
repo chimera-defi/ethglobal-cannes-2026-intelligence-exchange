@@ -1,13 +1,23 @@
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Loader2, ArrowLeft, CheckCircle2, ChevronRight, AlertCircle } from 'lucide-react';
-import { getJobs } from '../api';
+import { getIdeas, getJobs } from '../api';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { useSession } from '../hooks/useSession';
 
 export function BuyerReviewQueue() {
   const navigate = useNavigate();
+  const { session } = useSession();
+  const posterId = session?.accountAddress;
+
+  const ideasQuery = useQuery({
+    queryKey: ['ideas', posterId ?? 'all'],
+    queryFn: () => getIdeas(posterId),
+    refetchInterval: 15_000,
+  });
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['jobs', 'submitted'],
@@ -15,9 +25,14 @@ export function BuyerReviewQueue() {
     refetchInterval: 8000,
   });
 
-  const jobs = data?.jobs ?? [];
+  const jobs = useMemo(() => {
+    const allJobs = data?.jobs ?? [];
+    if (!posterId) return allJobs;
+    const ideaIds = new Set((ideasQuery.data?.ideas ?? []).map((idea) => idea.ideaId));
+    return allJobs.filter((job) => ideaIds.has(job.ideaId));
+  }, [data?.jobs, ideasQuery.data?.ideas, posterId]);
 
-  if (isLoading) {
+  if (isLoading || ideasQuery.isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center space-y-3">
@@ -28,7 +43,7 @@ export function BuyerReviewQueue() {
     );
   }
 
-  if (error) {
+  if (error || ideasQuery.error) {
     return (
       <div className="page">
         <div className="max-w-3xl mx-auto">
@@ -36,7 +51,13 @@ export function BuyerReviewQueue() {
             <CardContent className="text-center space-y-4 py-10">
               <AlertCircle className="h-8 w-8 text-red-400 mx-auto" />
               <p className="text-red-400">Failed to load review queue</p>
-              <Button onClick={() => refetch()}>Retry</Button>
+              <Button onClick={() => {
+                void refetch();
+                void ideasQuery.refetch();
+              }}
+              >
+                Retry
+              </Button>
             </CardContent>
           </Card>
         </div>
