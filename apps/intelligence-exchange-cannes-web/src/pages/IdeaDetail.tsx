@@ -27,9 +27,9 @@ export function IdeaDetail() {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="card max-w-lg w-full text-center space-y-4 py-12">
-          <div className="animate-spin text-4xl">⚙️</div>
-          <p className="text-gray-400">Loading idea...</p>
+        <div className="text-center space-y-3">
+          <div className="spinner" />
+          <p className="text-gray-400 text-sm">Loading idea...</p>
         </div>
       </div>
     );
@@ -55,20 +55,23 @@ export function IdeaDetail() {
     job: jobs.find(j => j.milestoneType === type),
   }));
 
-  const allAccepted = jobs.length > 0 && jobs.every(j => j.status === 'accepted');
+  const acceptedCount = jobs.filter(j => j.status === 'accepted').length;
+  const totalCount = jobs.length;
+  const allAccepted = totalCount > 0 && acceptedCount === totalCount;
   const anyActive = jobs.some(j => ['claimed', 'running', 'submitted'].includes(j.status));
+  const progressPct = totalCount > 0 ? Math.round((acceptedCount / totalCount) * 100) : 0;
 
   return (
-    <div className="min-h-screen p-4 md:p-8">
+    <div className="page">
       <div className="max-w-3xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <button
-              className="text-gray-500 hover:text-gray-300 text-sm flex items-center gap-1 mb-2"
-              onClick={() => navigate('/submit')}
+              className="text-sm text-gray-500 hover:text-gray-300 flex items-center gap-1 mb-2"
+              onClick={() => navigate('/ideas')}
             >
-              ← Submit Another
+              ← My Ideas
             </button>
             <h1 className="text-2xl font-bold text-white break-words">{idea.title}</h1>
             <p className="text-gray-400 text-sm mt-1">
@@ -84,7 +87,7 @@ export function IdeaDetail() {
 
         {/* Idea summary */}
         <div className="card space-y-3">
-          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">Prompt</h2>
+          <h2 className="section-label">Prompt</h2>
           <p className="text-gray-200 text-sm leading-relaxed whitespace-pre-wrap">{idea.prompt}</p>
           {idea.escrowTxHash && (
             <div className="pt-2 border-t border-gray-800">
@@ -121,8 +124,21 @@ export function IdeaDetail() {
         <div className="card space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-white">Milestones</h2>
-            <span className="text-gray-500 text-sm">{jobs.filter(j => j.status === 'accepted').length}/{jobs.length} accepted</span>
+            <span className="text-gray-500 text-sm">{acceptedCount}/{totalCount} accepted</span>
           </div>
+
+          {/* Progress bar */}
+          {totalCount > 0 && (
+            <div className="space-y-1">
+              <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-green-600 rounded-full transition-all duration-500"
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
+              <p className="text-xs text-gray-500">{progressPct}% complete</p>
+            </div>
+          )}
 
           {jobs.length === 0 ? (
             <div className="text-center py-6 space-y-2">
