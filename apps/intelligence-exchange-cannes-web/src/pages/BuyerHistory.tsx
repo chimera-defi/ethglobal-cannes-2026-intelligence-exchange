@@ -111,7 +111,7 @@ export function BuyerHistory() {
         ) : (
           <div className="space-y-3">
             {jobs.map(job => (
-              <Card key={job.jobId} className="border-green-900/30">
+              <Card key={job.jobId} className={`border-l-2 ${job.status === 'settled' ? 'border-l-slate-400' : 'border-l-blue-500'}`}>
                 <CardContent className="flex flex-col md:flex-row md:items-center gap-4 py-4">
                   <div className="flex-1 min-w-0 space-y-1.5">
                     <div className="flex items-center gap-2 flex-wrap">

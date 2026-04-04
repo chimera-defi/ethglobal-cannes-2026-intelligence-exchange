@@ -117,6 +117,47 @@ function GateRow({ ok, label }: GateStatus) {
   );
 }
 
+// ─── Horizontal Stepper ───────────────────────────────────────────────────────
+
+function HorizontalStepper({ steps, activeIndex }: { steps: string[]; activeIndex: number }) {
+  return (
+    <div className="flex items-center w-full mb-6">
+      {steps.map((label, i) => (
+        <div key={label} className="flex items-center flex-1 last:flex-none">
+          <div className="flex flex-col items-center gap-1">
+            <div
+              className={cn(
+                'w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors',
+                i <= activeIndex
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-slate-700 text-slate-400'
+              )}
+            >
+              {i + 1}
+            </div>
+            <span
+              className={cn(
+                'text-xs whitespace-nowrap',
+                i <= activeIndex ? 'text-primary' : 'text-slate-500'
+              )}
+            >
+              {label}
+            </span>
+          </div>
+          {i < steps.length - 1 && (
+            <div
+              className={cn(
+                'flex-1 h-px mx-1 mb-4 transition-colors',
+                i < activeIndex ? 'bg-primary' : 'bg-slate-700'
+              )}
+            />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function IdeaSubmission() {
@@ -484,7 +525,7 @@ export function IdeaSubmission() {
 
   if (step === 'done' && ideaId) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4 bg-gray-950">
+      <div className="min-h-screen flex items-center justify-center p-4 bg-background">
         <Card className="max-w-lg w-full">
           <CardContent className="pt-8 pb-8 text-center space-y-6">
             <CheckCircle2 className="w-12 h-12 text-green-400 mx-auto" />
@@ -531,7 +572,7 @@ export function IdeaSubmission() {
 
   if (step === 'error') {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4 bg-gray-950">
+      <div className="min-h-screen flex items-center justify-center p-4 bg-background">
         <Card className="max-w-lg w-full">
           <CardContent className="pt-8 pb-8 text-center space-y-4">
             <XCircle className="w-12 h-12 text-red-400 mx-auto" />
@@ -558,7 +599,7 @@ export function IdeaSubmission() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="max-w-2xl w-full space-y-6">
 
         {/* Header */}
@@ -584,34 +625,10 @@ export function IdeaSubmission() {
         )}
 
         {/* Progress stepper */}
-        <div className="flex items-start gap-1">
-          {VISIBLE_STEPS.map((s, i) => {
-            const isActive = s === effectiveStep;
-            const isDone = visibleIndex > i;
-            return (
-              <div key={s} className="flex items-center gap-1 flex-1 min-w-0">
-                <div className="flex flex-col items-center gap-1 flex-1">
-                  <div
-                    className={cn(
-                      'w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0',
-                      isActive && 'bg-blue-600 text-white',
-                      isDone && 'bg-green-700 text-white',
-                      !isActive && !isDone && 'bg-gray-800 text-gray-500'
-                    )}
-                  >
-                    {isDone ? <CheckCircle2 className="w-3.5 h-3.5" /> : i + 1}
-                  </div>
-                  <span className="text-xs text-gray-500 text-center leading-tight truncate w-full text-center">
-                    {STEP_LABELS[s]}
-                  </span>
-                </div>
-                {i < VISIBLE_STEPS.length - 1 && (
-                  <div className="w-full h-px bg-gray-700 mt-3.5 mx-1 shrink" />
-                )}
-              </div>
-            );
-          })}
-        </div>
+        <HorizontalStepper
+          steps={VISIBLE_STEPS.map((s) => STEP_LABELS[s] ?? s)}
+          activeIndex={visibleIndex}
+        />
 
         {/* Error banner */}
         {error && (
