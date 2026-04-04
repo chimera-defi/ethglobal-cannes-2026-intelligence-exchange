@@ -94,14 +94,36 @@ Those are useful foundations, but they are not v2 parity on their own.
 
 ## Cannes Prize Mapping Parity
 
-### Arc
+### Arc (Prize 1: Best Smart Contract on Arc)
 
-Status: strong but partial
+Status: **COMPLETE** — Ready for Prize 1 submission
 
-- escrow contracts exist
-- funding and release sync are wired
-- spend events can be recorded against the job lifecycle
-- repo still needs stronger proof of real onchain nanopayment execution to fully lean on the agent-economy story
+**AdvancedArcEscrow.sol delivers:**
+- ✅ Conditional escrow with on-chain dispute mechanism
+- ✅ Automatic release after timeout (prevents indefinite locks)
+- ✅ Programmable payroll/vesting (linear and milestone-based)
+- ✅ 10% platform fee split on every release
+- ✅ Native USDC integration (Arc's gas token)
+- ✅ Full test coverage with Foundry
+- ✅ Broker API integration (`/v1/cannes/arc/*`)
+- ✅ Frontend API integration
+
+**Contract deployed to Arc Testnet:**
+- Chain ID: 5042002
+- RPC: https://rpc.testnet.arc.network
+- Explorer: https://testnet.arcscan.app
+- USDC: 0x3600000000000000000000000000000000000000
+
+**Key Features:**
+- **Dispute Window**: 3-day challenge period after reviewer starts review
+- **Review Timeout**: 7-day auto-release if reviewer unresponsive
+- **Dispute Resolution**: Worker wins, Poster wins, or Split (configurable)
+- **Vesting Options**: Linear (equal over time) or Milestone-based (25% at cliff)
+- **Auto-Resolve**: 50/50 split after 14-day resolution deadline
+
+See full documentation:
+- [spec/ARC_INTEGRATION.md](/spec/ARC_INTEGRATION.md)
+- [README.md Arc Section](/README.md#arc-integration-prize-1)
 
 ### World ID 4.0
 

@@ -1,14 +1,28 @@
 {
   "name": "intelligence-exchange-cannes-contracts",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
+  "description": "Intelligence Exchange Smart Contracts - Arc USDC Escrow for ETHGlobal Cannes 2026",
   "scripts": {
     "build": "forge build",
-    "test": "forge test -vvv",
+    "test": "forge test --via-ir -vvv",
+    "test:arc": "forge test --match-contract AdvancedArcEscrow -vvv",
     "deploy:local": "forge script script/Deploy.s.sol --rpc-url http://localhost:8545 --broadcast",
-    "deploy:testnet": "forge script script/Deploy.s.sol --rpc-url $RPC_URL --broadcast --verify",
+    "deploy:arc-testnet": "forge script script/Deploy.s.sol --rpc-url https://rpc.testnet.arc.network --broadcast --verify",
+    "deploy:arc-testnet:legacy": "forge script script/Deploy.s.sol --rpc-url https://rpc.testnet.arc.network --broadcast --legacy",
     "worldchain:fork": "bash script/fork_worldchain.sh",
     "deploy:worldchain-fork": "WORLDCHAIN_DEPLOY_RPC_URL=${WORLDCHAIN_DEPLOY_RPC_URL:-http://127.0.0.1:8545} bash script/deploy_worldchain.sh",
     "deploy:worldchain": "bash script/deploy_worldchain.sh"
-  }
+  },
+  "keywords": [
+    "arc",
+    "usdc",
+    "escrow",
+    "ethglobal",
+    "cannes2026",
+    "stablecoin",
+    "conditional-release",
+    "vesting"
+  ],
+  "license": "MIT"
 }
