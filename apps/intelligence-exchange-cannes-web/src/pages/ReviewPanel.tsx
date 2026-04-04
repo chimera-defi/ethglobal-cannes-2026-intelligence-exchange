@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getJob, acceptMilestone, rejectMilestone } from '../api';
+import { acceptMilestone, getJob, recordJobSpend, rejectMilestone } from '../api';
 
 export function ReviewPanel() {
   const { jobId } = useParams<{ jobId: string }>();
@@ -9,6 +9,17 @@ export function ReviewPanel() {
   const queryClient = useQueryClient();
   const [rejectReason, setRejectReason] = useState('');
   const [showRejectForm, setShowRejectForm] = useState(false);
+  const [spendForm, setSpendForm] = useState<{
+    vendor: string;
+    purpose: string;
+    amountUsd: number;
+    settlementRail: 'demo' | 'arc';
+  }>({
+    vendor: 'openrouter',
+    purpose: 'reasoning pass',
+    amountUsd: 0.01,
+    settlementRail: 'arc' as const,
+  });
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['job', jobId],
@@ -18,6 +29,8 @@ export function ReviewPanel() {
   });
 
   const job = data?.job;
+  const spendEvents = data?.spendEvents ?? [];
+  const latestSubmission = data?.latestSubmission;
 
   const acceptMutation = useMutation({
     mutationFn: () => acceptMilestone(job!.ideaId, job!.jobId, 'demo-reviewer'),
@@ -32,6 +45,19 @@ export function ReviewPanel() {
       queryClient.invalidateQueries({ queryKey: ['job', jobId] });
       setShowRejectForm(false);
       setRejectReason('');
+    },
+  });
+
+  const spendMutation = useMutation({
+    mutationFn: () => recordJobSpend(job!.jobId, {
+      workerId: job!.activeClaimWorkerId ?? 'demo-worker',
+      vendor: spendForm.vendor,
+      purpose: spendForm.purpose,
+      amountUsd: spendForm.amountUsd,
+      settlementRail: spendForm.settlementRail,
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['job', jobId] });
     },
   });
 
@@ -198,6 +224,88 @@ export function ReviewPanel() {
         <div className="card space-y-4">
           <h2 className="text-lg font-semibold text-white">Deterministic Review Checklist</h2>
           <ScoreBreakdown milestoneType={job.milestoneType} status={job.status} />
+        </div>
+
+        <div className="card space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold text-white">Agent Spend Events</h2>
+            <span className="text-xs text-gray-500">
+              {spendEvents.length} event{spendEvents.length === 1 ? '' : 's'}
+            </span>
+          </div>
+
+          {latestSubmission && (
+            <div className="bg-gray-800/40 rounded-lg p-3 text-sm space-y-1">
+              <p className="text-gray-500">Latest submission</p>
+              <p className="text-gray-300">{latestSubmission.summary || 'No summary provided.'}</p>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <input
+              className="input text-sm"
+              value={spendForm.vendor}
+              onChange={e => setSpendForm(f => ({ ...f, vendor: e.target.value }))}
+              placeholder="vendor"
+            />
+            <input
+              className="input text-sm"
+              value={spendForm.purpose}
+              onChange={e => setSpendForm(f => ({ ...f, purpose: e.target.value }))}
+              placeholder="purpose"
+            />
+            <input
+              type="number"
+              className="input text-sm"
+              min={0.0001}
+              step={0.0001}
+              value={spendForm.amountUsd}
+              onChange={e => setSpendForm(f => ({ ...f, amountUsd: parseFloat(e.target.value) }))}
+            />
+            <select
+              className="input text-sm"
+              value={spendForm.settlementRail}
+              onChange={e => setSpendForm(f => ({ ...f, settlementRail: e.target.value as 'demo' | 'arc' }))}
+            >
+              <option value="arc">arc</option>
+              <option value="demo">demo</option>
+            </select>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              className="btn-primary"
+              onClick={() => spendMutation.mutate()}
+              disabled={spendMutation.isPending || !job.activeClaimWorkerId}
+            >
+              {spendMutation.isPending ? 'Recording...' : 'Add Spend Event'}
+            </button>
+            <p className="text-xs text-gray-500">
+              Use this to demonstrate per-tool or per-inference costs that an agent incurred while finishing the job.
+            </p>
+          </div>
+
+          {spendEvents.length === 0 ? (
+            <p className="text-sm text-gray-500">No spend events recorded yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {spendEvents.map(event => (
+                <div key={event.eventId} className="bg-gray-800/30 rounded-lg p-3 flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-sm text-white">
+                      {event.vendor} · {event.purpose}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {event.workerId} · {new Date(event.createdAt).toLocaleString()} · {event.settlementRail}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-sm font-semibold text-emerald-300">${event.amountUsd}</p>
+                    {event.txHash && <p className="text-[11px] text-gray-500 font-mono">{event.txHash.slice(0, 10)}...</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Accept / Reject CTAs */}
