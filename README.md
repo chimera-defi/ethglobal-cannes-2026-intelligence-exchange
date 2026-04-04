@@ -4,9 +4,9 @@ ETHGlobal Cannes 2026 submission for a controlled-supply market where spare agen
 
 See the supporting spec pack in:
 
-- [spec/CANNES_2026_MVP_SPEC.md](/Users/kaustavhaldar/Documents/dev/crypto/2026/ethglobal-cannes-2026-intelligence-exchange/spec/CANNES_2026_MVP_SPEC.md)
-- [spec/CANNES_2026_PRIZE_MAPPING.md](/Users/kaustavhaldar/Documents/dev/crypto/2026/ethglobal-cannes-2026-intelligence-exchange/spec/CANNES_2026_PRIZE_MAPPING.md)
-- [spec/SPEC_PARITY.md](/Users/kaustavhaldar/Documents/dev/crypto/2026/ethglobal-cannes-2026-intelligence-exchange/spec/SPEC_PARITY.md)
+- [spec/CANNES_2026_MVP_SPEC.md](spec/CANNES_2026_MVP_SPEC.md)
+- [spec/CANNES_2026_PRIZE_MAPPING.md](spec/CANNES_2026_PRIZE_MAPPING.md)
+- [spec/SPEC_PARITY.md](spec/SPEC_PARITY.md)
 
 ## Thesis
 
@@ -62,7 +62,7 @@ Current first-class World stack:
 - Agent Kit: human-backed agent discovery and `skill.md` access via AgentBook-backed protected routes plus a visible agent registration page
 - Worldchain: onchain `IdentityGate` role sync and `AgentIdentityRegistry` enrollment for worker permissions and reputation
 
-Detailed mapping and current caveats live in [spec/CANNES_2026_PRIZE_MAPPING.md](/Users/kaustavhaldar/Documents/dev/crypto/2026/ethglobal-cannes-2026-intelligence-exchange/spec/CANNES_2026_PRIZE_MAPPING.md).
+Detailed mapping and current caveats live in [spec/CANNES_2026_PRIZE_MAPPING.md](spec/CANNES_2026_PRIZE_MAPPING.md).
 
 ## Current Spec Parity
 
@@ -71,7 +71,7 @@ Detailed mapping and current caveats live in [spec/CANNES_2026_PRIZE_MAPPING.md]
 - Agent-first v2: low parity, mostly roadmap
 - Cannes prize mapping: strong on Arc, World ID, Agent Kit, and 0G; ENS and Ledger remain optional add-ons
 
-The detailed matrix is in [spec/SPEC_PARITY.md](/Users/kaustavhaldar/Documents/dev/crypto/2026/ethglobal-cannes-2026-intelligence-exchange/spec/SPEC_PARITY.md).
+The detailed matrix is in [spec/SPEC_PARITY.md](spec/SPEC_PARITY.md).
 
 ## Why It Has Oomph
 
@@ -117,6 +117,10 @@ Seeded demo data includes `idea-demo-cannes-2026` plus four milestone jobs.
 7. Fetch the broker-generated `skill.md`, execute it in your agent stack, and submit artifact URIs plus a summary.
 8. Record spend events if the run used paid tools or APIs.
 9. Wait for human acceptance before any payout release or dossier finalization.
+
+## System Architecture
+
+See [docs/architecture/system-overview.md](docs/architecture/system-overview.md) for the end-to-end component and request-flow diagram covering the web app, worker CLI, broker, World services, Worldchain contracts, Arc escrow, and 0G storage.
 
 ## Screenshots
 
@@ -532,6 +536,6 @@ Validated locally against the current repo state:
 - Human review is still the release gate; there are no autonomous payouts.
 - Wallet-backed session auth, World role verification, signed worker actions, agent authorization sync, and chain-sync gates are implemented in the broker and surfaced in the web app.
 - ERC-8004-aligned agent registration and attested reputation updates are implemented in the contract layer and mirrored in broker state.
-- The broader v2 task-market surface from [spec/SPEC.md](/Users/kaustavhaldar/Documents/dev/crypto/2026/ethglobal-cannes-2026-intelligence-exchange/spec/SPEC.md) is not implemented yet: no `bounty`, `benchmark`, or `auction` mode, no bid flow, no agent manifests, no A2A messaging, and no deterministic autonomous state loop.
+- The broader v2 task-market surface from [spec/SPEC.md](spec/SPEC.md) is not implemented yet: no `bounty`, `benchmark`, or `auction` mode, no bid flow, no agent manifests, no A2A messaging, and no deterministic autonomous state loop.
 - Arc funding/release proof and 0G dossier upload depend on a live environment being configured; demo and degraded modes still exist for rehearsals.
 - The current World story now spans both World ID 4.0 and Agent Kit: World ID gates the human roles, while Agent Kit protects machine-facing agent discovery and Worldchain registration surfaces.
