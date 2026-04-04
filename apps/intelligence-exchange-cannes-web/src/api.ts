@@ -28,6 +28,40 @@ export interface IdeaResponse {
   worldIdVerified: boolean;
 }
 
+export interface IntegrationsStatusResponse {
+  world: {
+    mode: 'live' | 'demo';
+    appId: string | null;
+    rpId: string | null;
+    action: string | null;
+    environment: 'production' | 'staging';
+    strict: boolean;
+  };
+  arc: {
+    rpcUrl: string;
+    chainId: number;
+    escrowContractAddress: string | null;
+    usdcAddress: string | null;
+  };
+  zeroG: {
+    mode: 'live' | 'demo';
+    rpcUrl: string;
+    indexerRpcUrl: string;
+    chainId: number;
+  };
+}
+
+export interface WorldVerificationResponse {
+  verificationToken: string;
+  proof: {
+    nullifierHash: string;
+    proof: string;
+    merkleRoot: string;
+    verificationLevel: string;
+  };
+  worldResult: unknown;
+}
+
 export interface IdeaDetailResponse {
   idea: {
     ideaId: string;
@@ -80,6 +114,8 @@ export function createIdea(body: {
   title: string;
   prompt: string;
   budgetUsdMax: number;
+  posterAccountAddress?: string;
+  worldVerificationToken?: string;
   worldIdProof?: { nullifierHash: string; proof: string; merkleRoot: string; verificationLevel: string };
 }) {
   return post<IdeaResponse>('/ideas', body);
@@ -119,6 +155,25 @@ export interface JobResponse {
     ideaId: string;
     submission?: SubmissionDetail;
   };
+  spendEvents: Array<{
+    eventId: string;
+    workerId: string;
+    vendor: string;
+    purpose: string;
+    amountUsd: string;
+    settlementRail: 'demo' | 'arc';
+    txHash?: string | null;
+    createdAt: string;
+  }>;
+  latestSubmission: {
+    submissionId: string;
+    artifactUris: string[];
+    summary?: string | null;
+    agentFingerprint?: string | null;
+    scoreStatus?: string | null;
+    scoreBreakdown?: SubmissionResponse['scoreBreakdown'] | null;
+    submittedAt: string;
+  } | null;
 }
 
 export interface SubmissionResponse {
@@ -139,6 +194,29 @@ export function getJobs(status = 'queued') {
   return get<{ jobs: JobResponse['job'][]; count: number }>(`/jobs?status=${status}`);
 }
 
+export function claimJob(jobId: string, body: {
+  workerId: string;
+  agentMetadata?: {
+    agentType?: string;
+    agentVersion?: string;
+    operatorAddress?: string;
+    fingerprint?: string;
+  };
+}) {
+  return post<{ claimId: string; expiresAt: string; skillMdUrl: string }>(`/jobs/${jobId}/claim`, body);
+}
+
+export function recordJobSpend(jobId: string, body: {
+  workerId: string;
+  vendor: string;
+  purpose: string;
+  amountUsd: number;
+  settlementRail: 'demo' | 'arc';
+  txHash?: string;
+}) {
+  return post<{ eventId: string; recordedAt: string; settlementRail: 'demo' | 'arc' }>(`/jobs/${jobId}/spend`, body);
+}
+
 // ─── Review ───────────────────────────────────────────────────────────────
 
 export function acceptMilestone(ideaId: string, jobId: string, reviewerId: string) {
@@ -147,4 +225,15 @@ export function acceptMilestone(ideaId: string, jobId: string, reviewerId: strin
 
 export function rejectMilestone(ideaId: string, jobId: string, reviewerId: string, reason?: string) {
   return post<{ rework: boolean }>(`/ideas/${ideaId}/reject`, { jobId, reviewerId, reason });
+}
+
+export function getIntegrationsStatus() {
+  return get<IntegrationsStatusResponse>('/integrations/status');
+}
+
+export function verifyWorldProof(idkitResponse: unknown, role: 'poster' | 'worker' | 'reviewer' = 'poster') {
+  return post<WorldVerificationResponse>('/integrations/world/verify', {
+    role,
+    idkitResponse,
+  });
 }
