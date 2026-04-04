@@ -40,6 +40,8 @@ Task market modes:
   - API connector (LLM API execution against user-supplied keys)
 - Pulls job bundle, executes task plan, submits artifacts and trace.
 - Enforces local controls: spend caps, active windows, pause switch, allowed task classes.
+- Current repo implementation: `iex-worker` / `iex-bridge` exposes `verify`, `list`, `status`, `claim`, `submit`, and `start`.
+- `start` is a guarded local poll/claim/execute/submit loop: it writes `skill.md` plus claim metadata into a run folder, invokes a local executor command, then reads `result.json` for artifact paths/URIs and summary before submission.
 
 ### 4) Prompt Packaging + Execution Sandbox
 - Converts job payload into standardized execution package:
@@ -121,7 +123,11 @@ Protocol adapters (v2):
 2. `scheduled`: worker runs on fixed windows (example: nights/weekends).
 3. `autonomous`: worker runs continuously with local guardrails and idle detection.
 
-MVP defaults to `manual` and `scheduled`; `autonomous` is phase-gated.
+Current repo support is:
+1. manual bridge commands (`list`, `claim`, `submit`)
+2. guarded local auto-run via `start`
+
+Human review and payout approval remain gated at the broker. Richer scheduled orchestration and the deterministic state/action contract below are still phase-gated.
 
 ### Deterministic Orchestration Contract (V2)
 All autonomous workers follow:

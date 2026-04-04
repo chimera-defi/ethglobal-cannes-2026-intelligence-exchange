@@ -1,48 +1,35 @@
 # Intelligence Exchange First 60 Minutes
 
-> **Pre-build status:** No implementation exists yet. This runbook defines the target acceptance surface for when a build agent scaffolds the project. Use the Stack Bootstrap section first.
-
-## Stack Bootstrap (run once before first `pnpm dev:up`)
-```bash
-# Broker API (Hono + Bun)
-mkdir iex-broker && cd iex-broker
-bun create hono .
-bun add drizzle-orm postgres bullmq ioredis stripe
-
-# Worker CLI (Node + TypeScript)
-mkdir ../iex-worker && cd ../iex-worker
-bun init -y
-bun add @anthropic-ai/sdk openai axios commander dotenv  # connectors
-
-# Local deps
-docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=dev postgres:16
-docker run -d -p 6379:6379 redis:7  # for job queue (BullMQ)
-```
+This repo already contains the broker, web app, contracts, and worker CLI. The fastest local proof is a seeded broker plus one small worker run against a `brief` milestone.
 
 ## Goal
-Run local broker + worker simulation, process seed jobs, and verify deterministic settlement.
+Run the local broker, verify one worker, auto-claim one seeded milestone, and submit a deterministic artifact back to the broker.
 
 ## Commands
 ```bash
-cd .
 cp .env.example .env.local
 
 pnpm install
-pnpm dev:up
+pnpm demo:bootstrap
 
-pnpm seed:workers --fixture ./fixtures/workers.seed.json
-pnpm seed:jobs --fixture ./fixtures/jobs.seed.jsonl
+# start this in a separate terminal
+pnpm --filter intelligence-exchange-cannes-broker start
 
-pnpm contracts:validate --dir ./contracts/v1 --examples ./contracts/v1/examples
+pnpm worker:cli -- verify --worker-id demo-auto-brief --wallet-address 0x0000000000000000000000000000000000000001
 
-pnpm test:acceptance --filter iex:submit-job
-pnpm test:acceptance --filter iex:claim-job
-pnpm test:acceptance --filter iex:settlement
+pnpm worker:cli -- start \
+  --once \
+  --worker-id demo-auto-brief \
+  --agent-type codex \
+  --milestone-type brief \
+  --executor ./apps/intelligence-exchange-cannes-worker/examples/complete-brief-task.sh
 
-pnpm dev:down
+pnpm worker:cli -- list --status submitted
+pnpm test:acceptance
 ```
 
 ## Success Criteria (within 60 min)
-1. Broker and worker simulator boot locally.
-2. Jobs route and complete deterministically from fixtures.
-3. Settlement output matches `fixtures/expected.settlement.json`.
+1. Broker boots against the seeded demo state.
+2. `pnpm worker:cli -- start --once ...` claims one queued `brief` job.
+3. The worker writes a run folder under `.iex-worker-runs/` with `skill.md`, `job.json`, `claim.json`, and `result.json`.
+4. The broker marks the job `submitted`.
