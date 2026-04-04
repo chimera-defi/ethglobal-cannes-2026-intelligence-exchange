@@ -4,7 +4,97 @@ This document provides a comprehensive view of how all components in the Intelli
 
 ## Package-Level Architecture
 
-![Package Level Architecture](./diagrams/package-level.png)
+```mermaid
+flowchart TB
+    subgraph Packages["Package Structure"]
+        direction TB
+        
+        subgraph Apps["apps/"]
+            Web["intelligence-exchange-cannes-web
+            React + Vite + RainbowKit
+            Port: 3000"]
+            Broker["intelligence-exchange-cannes-broker
+            Hono + Bun
+            Port: 3001"]
+            Worker["intelligence-exchange-cannes-worker
+            CLI + TypeScript"]
+        end
+        
+        subgraph PackagesLib["packages/"]
+            Contracts["intelligence-exchange-cannes-contracts
+            Solidity + Foundry"]
+            Shared["intelligence-exchange-cannes-shared
+            Types + Schemas"]
+            Fixtures["intelligence-exchange-cannes-fixtures
+            Test Data"]
+        end
+    end
+    
+    subgraph External["External Services"]
+        Postgres[("Postgres
+        Jobs, Reputation
+        Chain Events")]
+        Redis[("Redis
+        Queues, Sessions
+        AgentKit Nonces")]
+    end
+    
+    subgraph Blockchain["Blockchain Networks"]
+        Worldchain["Worldchain (ID: 480)
+        - AgentIdentityRegistry
+        - IdentityGate"]
+        Arc["Arc Testnet (ID: 5042002)
+        - AdvancedArcEscrow
+        - USDC Native"]
+    end
+    
+    subgraph WorldServices["World Services"]
+        AgentBook["AgentBook
+Human Verification"]
+        WorldID["World ID
+Proof of Human"]
+    end
+
+    %% Web App connections
+    Web <-->|"HTTP API Calls
+JSON"| Broker
+    Web -->|"Wallet Connection
+RainbowKit"| WorldID
+    
+    %% Worker CLI connections
+    Worker <-->|"HTTP API
+Signed Requests"| Broker
+    Worker -->|"Local Execution
+skill.md"| Worker
+    
+    %% Broker connections
+    Broker <-->|"SQL
+Drizzle ORM"| Postgres
+    Broker <-->|"Redis Protocol
+BullMQ"| Redis
+    Broker <-->|"Contract Calls
+Viem/Ethers"| Worldchain
+    Broker <-->|"Contract Calls
+Viem/Ethers"| Arc
+    Broker <-->|"API Calls
+AgentKit SDK"| AgentBook
+    Broker <-->|"Verify Proofs
+IDKit"| WorldID
+    
+    %% Shared package usage
+    Web -->|"Imports types"| Shared
+    Broker -->|"Imports types"| Shared
+    Worker -->|"Imports types"| Shared
+
+    style Web fill:#dbeafe,stroke:#3b82f6
+    style Broker fill:#dcfce7,stroke:#22c55e
+    style Worker fill:#fef3c7,stroke:#f59e0b
+    style Contracts fill:#fce7f3,stroke:#ec4899
+    style Postgres fill:#f3e8ff,stroke:#a855f7
+    style Redis fill:#fef3c7,stroke:#f97316
+    style Worldchain fill:#fce7f3,stroke:#8b5cf6
+    style Arc fill:#dbeafe,stroke:#3b82f6
+```
 
 ## Data Flow Architecture
 
@@ -17,8 +107,6 @@ sequenceDiagram
     participant World as Worldchain
     participant Arc as Arc
     participant Worker as Worker CLI
-    participant WorkerStake as WorkerStakeManager
-    participant Dispute as DisputeResolution
 
     %% Job Creation Flow
     Web->>Broker: POST /ideas (with wallet sig)
@@ -51,20 +139,79 @@ sequenceDiagram
     Broker->>DB: Get pending reviews
     Broker-->>Web: Review queue
     Web->>Broker: POST /jobs/{id}/accept
-    Broker->>WorkerStakeManager: Check worker stake (if high-value task)
-    WorkerStakeManager-->>Broker: Stake sufficient
     Broker->>DB: Update job status
     Broker->>Arc: Build release transaction
     Arc-->>Broker: Transaction hash
-    Broker->>DisputeResolution: Check for active disputes (if contested)
-    DisputeResolution-->>Broker: No active disputes
     Broker->>World: Record attestation (if agent syncs)
     Broker-->>Web: Acceptance recorded
 ```
 
 ## Component Interaction Map
 
-![Component Interaction Map](./diagrams/component-interaction.png)
+```mermaid
+flowchart LR
+    subgraph Frontend["Frontend Layer"]
+        WebApp["Web App
+(React + Vite)"]
+    end
+
+    subgraph APILayer["API Layer"]
+        BrokerAPI["Broker API
+(Hono)"]
+        AuthSvc["Auth Service"]
+        JobSvc["Job Service"]
+        ChainSvc["Chain Sync Service"]
+        AgentKitSvc["Agent Kit Service"]
+    end
+
+    subgraph DataLayer["Data Layer"]
+        PG[(Postgres)]
+        RD[(Redis)]
+    end
+
+    subgraph WorkerLayer["Worker Layer"]
+        CLI["Worker CLI
+(TypeScript)"]
+    end
+
+    subgraph ChainLayer["Blockchain Layer"]
+        WC[Worldchain Contracts]
+        AC[Arc Contracts]
+    end
+
+    %% Frontend to API
+    WebApp -->|HTTP/JSON| BrokerAPI
+    
+    %% API Internal
+    BrokerAPI --> AuthSvc
+    BrokerAPI --> JobSvc
+    BrokerAPI --> ChainSvc
+    BrokerAPI --> AgentKitSvc
+    
+    %% API to Data
+    AuthSvc --> PG
+    JobSvc --> PG
+    JobSvc --> RD
+    ChainSvc --> PG
+    
+    %% Worker to API
+    CLI -->|HTTP + Signature| BrokerAPI
+    
+    %% API to Chain
+    ChainSvc -->|Read/Write| WC
+    ChainSvc -->|Read/Write| AC
+    
+    %% Agent Kit
+    AgentKitSvc -->|Verify| AgentBook
+
+    style WebApp fill:#e0f2fe
+    style BrokerAPI fill:#dcfce7
+    style CLI fill:#fef3c7
+    style PG fill:#f3e8ff
+    style RD fill:#fef3c7
+    style WC fill:#fce7f3
+    style AC fill:#dbeafe
+```
 
 ## Request Flow Detail
 
@@ -184,30 +331,127 @@ erDiagram
 
 ## Contract Architecture
 
-| Contract | Role | Integrates With |
-|----------|------|-----------------|
-| `AgentIdentityRegistry` | Agent identity and reputation tier tracking | Broker, Worker CLI |
-| `WorkReceipt1155` | Soulbound ERC-1155 NFTs for task completion | Broker, Settlement |
-| `WorkerStakeManager` | Worker INTEL staking for high-value task claims with slashing | Broker, IntelMintController |
-| `ReviewerStakeManager` | Reviewer INTEL bond, fee share, and slash on overturned reviews | Broker, IntelStaking |
-| `DisputeResolution` | Staker jury for contested acceptances with quorum-based resolution | Broker, WorkerStakeManager, ReviewerStakeManager |
-| `BuybackBurn` | Treasury ETH → INTEL buyback on UniV3 → burn (TWAP-gated) | IntelPOLManager, IntelMintController |
-| `EpochRewardDistributor` | Top-percentile worker bonus INTEL ranked by AIU score | Broker, IntelMintController |
-| `IntelMintController` | Dynamic epoch-based minting with activity caps | All mint-consuming contracts |
-| `IntelVesting` | Team token vesting with 6-mo cliff, 24-mo linear vesting | Treasury |
-| `IntelTimelockController` | 48h delay governance for treasury operations | Treasury, BuybackBurn |
-| `IntelPOLManager` | Protocol-owned liquidity in Uniswap V3 INTEL/WETH pool | BuybackBurn, IntelStaking |
-| `IntelStaking` | INTEL staking with worker yield share and ETH distribution | WorkerStakeManager, ReviewerStakeManager |
-| `IdeaEscrow` | Legacy escrow module (not wired to current settlement path) | None (legacy) |
+```mermaid
+flowchart TB
+    subgraph WorldchainContracts["Worldchain Contracts"]
+        IG["IdentityGate
+- verifyRole()
+- assignRole()"]
+        AIR["AgentIdentityRegistry
+- registerAgent()
+- recordAcceptedSubmission()
+- getReputation()"]
+    end
+
+    subgraph ArcContracts["Arc Contracts"]
+        AAE["AdvancedArcEscrow
+- fundIdea()
+- reserveMilestone()
+- submitMilestone()
+- approveMilestone()
+- releaseMilestone()"]
+    end
+
+    subgraph BrokerIntegration["Broker Integration"]
+        Broker["Broker API"]
+        IdentitySvc["identityService.ts"]
+        ChainSvc["chainService.ts"]
+        ArcSvc["arcEscrowService.ts"]
+    end
+
+    Broker --> IdentitySvc
+    Broker --> ChainSvc
+    Broker --> ArcSvc
+
+    IdentitySvc -->|Calls| IG
+    ChainSvc -->|Calls| AIR
+    ArcSvc -->|Calls| AAE
+
+    style WorldchainContracts fill:#fce7f3
+    style ArcContracts fill:#dbeafe
+    style BrokerIntegration fill:#dcfce7
+```
 
 ## Environment Variables Map
 
-![Environment Variables](./diagrams/environment-variables.png)
+```mermaid
+flowchart LR
+    subgraph Web["Web App (.env)"]
+        VITE_BROKER["VITE_BROKER_URL"]
+        VITE_WALLET["VITE_WALLET_CONNECT_PROJECT_ID"]
+    end
+
+    subgraph BrokerEnv["Broker (.env)"]
+        DB["DATABASE_URL"]
+        RED["REDIS_URL"]
+        WORLD["WORLDCHAIN_RPC_URL"]
+        ARC["ARC_RPC_URL"]
+        AGENTKIT["AGENTKIT_ENABLED"]
+    end
+
+    subgraph WorkerEnv["Worker CLI (.env)"]
+        BROKER_URL["BROKER_URL"]
+        WORKER_KEY["WORKER_PRIVATE_KEY"]
+    end
+
+    Web -->|Calls| BrokerEnv
+    WorkerEnv -->|Calls| BrokerEnv
+```
 
 ## Security Boundaries
 
-![Security Boundaries](./diagrams/security-boundaries.png)
+```mermaid
+flowchart TB
+    subgraph Public["Public Zone"]
+        Web["Web App"]
+    end
+
+    subgraph Protected["Protected Zone"]
+        BrokerAPI["Broker API"]
+        AgentKit["Agent Kit Guards"]
+        WorldID["World ID Verification"]
+    end
+
+    subgraph Internal["Internal Zone"]
+        DB["Database"]
+        Chain["Blockchain"]
+    end
+
+    Web -->|HTTPS + CORS| BrokerAPI
+    BrokerAPI -->|Internal calls| AgentKit
+    BrokerAPI -->|Internal calls| WorldID
+    BrokerAPI -->|Private network| DB
+    BrokerAPI -->|RPC + Keys| Chain
+
+    style Public fill:#fee2e2
+    style Protected fill:#fef3c7
+    style Internal fill:#dcfce7
+```
 
 ## Deployment View
 
-![Deployment View](./diagrams/deployment-view.png)
+```mermaid
+flowchart TB
+    subgraph LocalDev["Local Development"]
+        WebDev["Web (Vite Dev)"]
+        BrokerDev["Broker (Bun Watch)"]
+        Docker["Docker Compose"]
+        Docker --> PGDev["Postgres"]
+        Docker --> RedisDev["Redis"]
+    end
+
+    subgraph Production["Production (Future)"]
+        WebProd["Web (Vercel/Netlify)"]
+        BrokerProd["Broker (Fly.io/Railway)"]
+        PGProd["Postgres (Managed)"]
+        RedisProd["Redis (Managed)"]
+    end
+
+    WebDev --> BrokerDev
+    BrokerDev --> PGDev
+    BrokerDev --> RedisDev
+
+    WebProd --> BrokerProd
+    BrokerProd --> PGProd
+    BrokerProd --> RedisProd
+```
