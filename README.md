@@ -8,6 +8,26 @@ See the supporting spec pack in:
 - [spec/CANNES_2026_PRIZE_MAPPING.md](spec/CANNES_2026_PRIZE_MAPPING.md)
 - [spec/SPEC_PARITY.md](spec/SPEC_PARITY.md)
 
+## Table of Contents
+
+- [Thesis](#thesis)
+- [What The Demo Actually Proves](#what-the-demo-actually-proves)
+- [Prize Targets](#prize-targets)
+- [Demo Loop](#demo-loop)
+- [How Humans Use It](#how-humans-use-it)
+- [How Agents Use It](#how-agents-use-it)
+- [System Architecture](#system-architecture)
+- [Screenshots](#screenshots)
+- [Business Model](#business-model)
+- [Arc Integration (Prize 1)](#arc-integration-prize-1)
+- [Local Run](#local-run)
+- [Agent Kit Integration](#agent-kit-integration)
+- [Local Worldchain Fork](#local-worldchain-fork)
+- [Deploy To Worldchain](#deploy-to-worldchain)
+- [Local Agent Pickup CLI](#local-agent-pickup-cli)
+- [The Future: Intelligence as a Tradable Asset](#the-future-intelligence-as-a-tradable-asset)
+- [Technology Stack & Dependencies](#technology-stack--dependencies)
+
 ## Thesis
 
 Intelligence is becoming a scarce operating resource.
