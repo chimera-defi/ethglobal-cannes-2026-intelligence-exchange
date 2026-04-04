@@ -8,6 +8,7 @@
  *
  * Usage:
  *   iex-bridge claim --job-id <id> --agent-type claude-code
+ *   iex-bridge unclaim --job-id <id> --agent-type claude-code
  *   iex-bridge submit --job-id <id> --claim-id <id> --artifact <uri> --summary "..."
  *   iex-bridge list
  *   iex-bridge status --job-id <id>
@@ -40,6 +41,30 @@ async function brokerGet(path: string) {
   return res.json() as Promise<unknown>;
 }
 
+type FlatJobsListResponse = {
+  jobs: Array<{ jobId: string; milestoneType: string; budgetUsd: string; status: string }>;
+  count: number;
+};
+
+type GroupedJobsListResponse = {
+  groups: Array<{
+    briefId: string;
+    title: string;
+    prompt: string;
+    briefSummary: string;
+    matchingMilestoneCount: number;
+    milestones: Array<{
+      jobId: string;
+      milestoneType: string;
+      title: string;
+      skillMdUrl: string;
+      status: string;
+      budgetUsd: string;
+    }>;
+  }>;
+  count: number;
+};
+
 export function getOperatorAccount(privateKeyOverride?: string) {
   const privateKey = (privateKeyOverride ?? WORKER_PRIVATE_KEY) as `0x${string}` | undefined;
   if (!privateKey) {
@@ -57,7 +82,7 @@ export function computeAgentFingerprint(agentType: string, agentVersion: string,
 
 export async function createSignedAction(input: {
   accountAddress: string;
-  purpose: 'worker_claim' | 'worker_submit';
+  purpose: 'worker_claim' | 'worker_submit' | 'worker_unclaim';
   agentFingerprint: string;
   jobId: string;
   privateKey?: string;
@@ -90,17 +115,58 @@ program
 
 program
   .command('list')
-  .description('List available jobs')
+  .description('List available jobs or grouped request briefs')
   .option('--status <status>', 'Filter by status', 'queued')
+  .option('--view <view>', 'Browse view: grouped or flat', 'grouped')
+  .option('--json', 'Print machine-readable JSON')
   .action(async (opts) => {
-    const data = await brokerGet(`/v1/cannes/jobs?status=${opts.status}`) as { jobs: unknown[]; count: number };
-    if (data.jobs.length === 0) {
-      console.log('No jobs available.');
+    if (!['grouped', 'flat'].includes(opts.view)) {
+      throw new Error(`Unsupported view: ${opts.view}. Use grouped or flat.`);
+    }
+
+    if (opts.view === 'flat') {
+      const data = await brokerGet(`/v1/cannes/jobs?status=${opts.status}`) as FlatJobsListResponse;
+      if (opts.json) {
+        console.log(JSON.stringify(data, null, 2));
+        return;
+      }
+      if (data.jobs.length === 0) {
+        console.log('No jobs available.');
+        return;
+      }
+      console.log(`\n${data.count} job(s) available:\n`);
+      for (const job of data.jobs) {
+        console.log(`  ${job.jobId}  type=${job.milestoneType}  budget=$${job.budgetUsd}  status=${job.status}`);
+      }
       return;
     }
-    console.log(`\n${data.count} job(s) available:\n`);
-    for (const job of data.jobs as Array<{ jobId: string; milestoneType: string; budgetUsd: string; status: string }>) {
-      console.log(`  ${job.jobId}  type=${job.milestoneType}  budget=$${job.budgetUsd}  status=${job.status}`);
+
+    const data = await brokerGet(`/v1/cannes/jobs?status=${opts.status}&view=grouped`) as GroupedJobsListResponse;
+    if (opts.json) {
+      console.log(JSON.stringify(data, null, 2));
+      return;
+    }
+    if (data.groups.length === 0) {
+      console.log('No request briefs available.');
+      return;
+    }
+
+    console.log(`\n${data.count} request brief(s) with ${opts.status} task(s):\n`);
+    for (const group of data.groups) {
+      console.log(`${group.title}`);
+      console.log(`  Brief ID: ${group.briefId}`);
+      console.log(`  Request: ${group.prompt}`);
+      console.log(`  Plan:    ${group.briefSummary}`);
+      console.log(`  Matching ${opts.status} tasks: ${group.matchingMilestoneCount}`);
+      console.log('  Tasks:');
+      for (const milestone of group.milestones) {
+        const marker = milestone.status === opts.status ? '>' : '-';
+        console.log(
+          `    ${marker} ${milestone.milestoneType}  job=${milestone.jobId}  status=${milestone.status}  budget=$${milestone.budgetUsd}`
+        );
+        console.log(`      ${milestone.title}`);
+      }
+      console.log('');
     }
   });
 
@@ -158,6 +224,42 @@ program
     console.log('─'.repeat(60));
     console.log('\nAfter completing the task, submit with:');
     console.log(`  iex-bridge submit --job-id ${opts.jobId} --claim-id ${claimRes.claimId} --artifact <uri> --summary "..." --agent-type ${opts.agentType}`);
+  });
+
+program
+  .command('unclaim')
+  .description('Release a claimed job back to the queue')
+  .requiredOption('--job-id <id>', 'Job ID to unclaim')
+  .option('--agent-type <type>', 'Authorized agent type', 'claude-code')
+  .option('--agent-version <ver>', 'Authorized agent version', '1.0.0')
+  .option('--agent-fingerprint <fp>', 'Authorized agent fingerprint override')
+  .option('--private-key <key>', 'Operator wallet private key override')
+  .action(async (opts) => {
+    const operator = getOperatorAccount(opts.privateKey);
+    const agentFingerprint = opts.agentFingerprint ?? computeAgentFingerprint(
+      opts.agentType,
+      opts.agentVersion,
+      operator.address,
+    );
+
+    console.log(`\nReleasing claim on job ${opts.jobId} for operator ${operator.address}...`);
+
+    const signedAction = await createSignedAction({
+      accountAddress: operator.address,
+      purpose: 'worker_unclaim',
+      agentFingerprint,
+      jobId: opts.jobId,
+      privateKey: opts.privateKey,
+    });
+
+    const result = await brokerPost(`/v1/cannes/jobs/${opts.jobId}/unclaim`, {
+      signedAction,
+    }) as { unclaimed: boolean; status: string };
+
+    console.log('\n✓ Claim released.');
+    console.log(`  Job ID:  ${opts.jobId}`);
+    console.log(`  Status:  ${result.status}`);
+    console.log(`  Skill:   ${BROKER_URL}/v1/cannes/jobs/${opts.jobId}/skill.md`);
   });
 
 program

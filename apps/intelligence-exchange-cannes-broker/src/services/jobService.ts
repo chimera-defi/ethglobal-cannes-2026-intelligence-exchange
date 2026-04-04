@@ -152,6 +152,48 @@ export async function claimJob(jobId: string, accountAddress: string, agentFinge
   return { claimId, expiresAt };
 }
 
+export async function unclaimJob(jobId: string, accountAddress: string, agentFingerprint?: string) {
+  const [job] = await db.select().from(jobs).where(eq(jobs.jobId, jobId));
+  if (!job) throw httpError('Job not found', 404, 'JOB_NOT_FOUND');
+  if (job.status !== 'claimed') {
+    throw httpError(`Job not unclaimable: status=${job.status}`, 409, 'JOB_NOT_UNCLAIMABLE');
+  }
+  if (!job.activeClaimId || !job.activeClaimWorkerId) {
+    throw httpError('Job has no active claim to release', 409, 'JOB_NOT_CLAIMED');
+  }
+  if (job.activeClaimWorkerId !== accountAddress) {
+    throw httpError(
+      `Claim ownership violation: job claimed by ${job.activeClaimWorkerId}, released by ${accountAddress}`,
+      409,
+      'CLAIM_OWNERSHIP_VIOLATION',
+    );
+  }
+
+  const now = new Date();
+
+  await db.update(jobs).set({
+    status: 'queued',
+    activeClaimId: null,
+    activeClaimWorkerId: null,
+    leaseExpiry: null,
+    updatedAt: now,
+  }).where(eq(jobs.jobId, jobId));
+
+  await db.update(claims)
+    .set({ status: 'cancelled' })
+    .where(eq(claims.claimId, job.activeClaimId));
+
+  await logJobEvent(jobId, 'queued', accountAddress, {
+    releasedClaimId: job.activeClaimId,
+    previousWorkerId: job.activeClaimWorkerId,
+    reason: 'worker_unclaim',
+    agentFingerprint: agentFingerprint ?? null,
+  });
+  console.log(`[job:unclaimed] jobId=${jobId} worker=${accountAddress}`);
+
+  return { unclaimed: true, status: 'queued' as const };
+}
+
 // ─── Job Submission ───────────────────────────────────────────────────────────
 
 export async function submitJob(jobId: string, req: JobResultSubmitRequest, accountAddress: string, agentFingerprint: string) {
