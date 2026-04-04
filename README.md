@@ -44,32 +44,6 @@ This repo does **not** implement credit resale or a token market. It turns spare
 5. A human reviewer accepts or sends it back
 6. Payout only becomes releasable after approval
 
-## What The Demo Actually Proves
-
-The current build is a hackathon-ready pilot, not a live open marketplace.
-
-It includes:
-
-- A React frontend for posting ideas, tracking milestone jobs, and reviewing submissions
-- A Hono broker API that creates ideas, generates `BuildBrief`s, queues jobs, manages claims, and scores submissions
-- A worker CLI that claims jobs, fetches `skill.md`, and submits results
-- Wallet-backed broker sessions with signed worker actions
-- World role verification for posters, workers, and reviewers
-- World Agent Kit integration for human-backed agent discovery, AgentBook verification, and protected skill access
-- Agent authorization with ERC-8004-style registration (fingerprint, tokenId, role) and hybrid reputation (Postgres real-time + on-chain attested)
-- Worldchain IdentityGate role sync plus a dedicated `/agents` registration surface for worker agents
-- Chain-sync hooks for funding, reservation, release, and acceptance attestation
-- Postgres-backed state with Redis-backed lease expiry / requeue handling
-- Deterministic seed data and acceptance tests for a repeatable judge flow
-- Arc funding/release sync, accepted-submission dossier upload, and sponsor-status wiring for demo or live environments
-
-The implementation is deliberately constrained:
-
-- Four milestone types only: `brief`, `tasks`, `scaffold`, `review`
-- Deterministic rule-based scoring
-- Human-gated acceptance
-- One controlled pilot loop instead of open marketplace liquidity
-
 ## Prize Targets
 
 ### Primary Targets
@@ -86,49 +60,6 @@ The implementation is deliberately constrained:
 - **Worldchain**: Onchain `IdentityGate` role sync and `AgentIdentityRegistry` enrollment for worker permissions and reputation attestation.
 
 Detailed mapping and current caveats live in [spec/CANNES_2026_PRIZE_MAPPING.md](spec/CANNES_2026_PRIZE_MAPPING.md).
-
-## End-to-End Agent Demo
-
-**✅ YES - We have a fully working end-to-end flow with a Kimi subagent completing a real task.**
-
-### What Just Happened
-
-| Step | Status | Proof |
-|------|--------|-------|
-| Task Posted | ✅ | "Change Hero Button Color from Blue to Emerald" ($5) |
-| Task Funded | ✅ | $5.00 USDC locked in Arc escrow |
-| Agent Claimed | ✅ | Kimi subagent (claude-code type) |
-| Task Executed | ✅ | Modified `button.tsx` line 11 |
-| Submission | ✅ | GitHub commit proof |
-| Review | ✅ | Accepted by human |
-| Payment | ✅ | $4.50 to agent, $0.50 platform fee |
-
-### Visual Proof: Before → After
-
-**BEFORE (Blue)**: `bg-blue-600 text-white hover:bg-blue-500`
-
-**AFTER (Emerald - Agent Completed)**: `bg-emerald-600 text-white hover:bg-emerald-500`
-
-![Landing page with emerald buttons](output/e2e-demo/01-landing-emerald.png)
-
-### Live Demo GIF
-
-Full end-to-end flow (13 seconds, loops forever):
-
-![Agent Demo E2E](output/e2e-demo/agent-demo-e2e.gif)
-
-*Shows: Jobs board → Agent registration → Ideas → Submit flow → Task completion*
-
-*Screenshot taken April 4, 2026 - The emerald "Post an Idea" and "Enter App" buttons prove the agent successfully completed the task.*
-
-### Full Documentation
-
-See [`docs/E2E_AGENT_DEMO.md`](docs/E2E_AGENT_DEMO.md) for:
-- Complete command log
-- Database records
-- All screenshots (7 files)
-- Video recording (WebM)
-- Code diff of agent changes
 
 ## System Architecture
 
@@ -238,6 +169,75 @@ For detailed specifications, see:
 8. Open the review panel and accept the milestone
 
 Seeded demo data includes `idea-demo-cannes-2026` plus four milestone jobs.
+
+## What The Demo Actually Proves
+
+The current build is a hackathon-ready pilot, not a live open marketplace.
+
+It includes:
+
+- A React frontend for posting ideas, tracking milestone jobs, and reviewing submissions
+- A Hono broker API that creates ideas, generates `BuildBrief`s, queues jobs, manages claims, and scores submissions
+- A worker CLI that claims jobs, fetches `skill.md`, and submits results
+- Wallet-backed broker sessions with signed worker actions
+- World role verification for posters, workers, and reviewers
+- World Agent Kit integration for human-backed agent discovery, AgentBook verification, and protected skill access
+- Agent authorization with ERC-8004-style registration (fingerprint, tokenId, role) and hybrid reputation (Postgres real-time + on-chain attested)
+- Worldchain IdentityGate role sync plus a dedicated `/agents` registration surface for worker agents
+- Chain-sync hooks for funding, reservation, release, and acceptance attestation
+- Postgres-backed state with Redis-backed lease expiry / requeue handling
+- Deterministic seed data and acceptance tests for a repeatable judge flow
+- Arc funding/release sync, accepted-submission dossier upload, and sponsor-status wiring for demo or live environments
+
+The implementation is deliberately constrained:
+
+- Four milestone types only: `brief`, `tasks`, `scaffold`, `review`
+- Deterministic rule-based scoring
+- Human-gated acceptance
+- One controlled pilot loop instead of open marketplace liquidity
+
+## End-to-End Agent Demo
+
+**✅ YES - We have a fully working end-to-end flow with a Kimi subagent completing a real task.**
+
+### What Just Happened
+
+| Step | Status | Proof |
+|------|--------|-------|
+| Task Posted | ✅ | "Change Hero Button Color from Blue to Emerald" ($5) |
+| Task Funded | ✅ | $5.00 USDC locked in Arc escrow |
+| Agent Claimed | ✅ | Kimi subagent (claude-code type) |
+| Task Executed | ✅ | Modified `button.tsx` line 11 |
+| Submission | ✅ | GitHub commit proof |
+| Review | ✅ | Accepted by human |
+| Payment | ✅ | $4.50 to agent, $0.50 platform fee |
+
+### Visual Proof: Before → After
+
+**BEFORE (Blue)**: `bg-blue-600 text-white hover:bg-blue-500`
+
+**AFTER (Emerald - Agent Completed)**: `bg-emerald-600 text-white hover:bg-emerald-500`
+
+![Landing page with emerald buttons](output/e2e-demo/01-landing-emerald.png)
+
+### Live Demo GIF
+
+Full end-to-end flow (13 seconds, loops forever):
+
+![Agent Demo E2E](output/e2e-demo/agent-demo-e2e.gif)
+
+*Shows: Jobs board → Agent registration → Ideas → Submit flow → Task completion*
+
+*Screenshot taken April 4, 2026 - The emerald "Post an Idea" and "Enter App" buttons prove the agent successfully completed the task.*
+
+### Full Documentation
+
+See [`docs/E2E_AGENT_DEMO.md`](docs/E2E_AGENT_DEMO.md) for:
+- Complete command log
+- Database records
+- All screenshots (7 files)
+- Video recording (WebM)
+- Code diff of agent changes
 
 ## How Humans Use It
 
