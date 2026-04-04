@@ -1,10 +1,11 @@
 const BROKER = import.meta.env.VITE_BROKER_URL ?? '/v1/cannes';
 
-async function post<T>(path: string, body: unknown): Promise<T> {
+async function post<T>(path: string, body: unknown, authed = false): Promise<T> {
   const res = await fetch(`${BROKER}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
+    ...(authed ? { credentials: 'include' } : {}),
   });
   const data = await res.json() as T;
   if (!res.ok) {
@@ -14,10 +15,107 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   return data;
 }
 
-async function get<T>(path: string): Promise<T> {
-  const res = await fetch(`${BROKER}${path}`);
+async function get<T>(path: string, authed = false): Promise<T> {
+  const res = await fetch(`${BROKER}${path}`, authed ? { credentials: 'include' } : {});
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json() as Promise<T>;
+}
+
+// ─── Auth ──────────────────────────────────────────────────────────────────
+
+export interface AuthChallengeResponse {
+  challengeId: string;
+  message: string;
+}
+
+export interface AuthMeResponse {
+  accountAddress: string;
+  sessionId: string;
+  worldRoles?: Array<'poster' | 'worker' | 'reviewer'>;
+}
+
+export function createAuthChallenge(accountAddress: string, purpose: 'web_login' | 'worker_claim' = 'web_login') {
+  return post<AuthChallengeResponse>('/auth/challenge', { accountAddress, purpose });
+}
+
+export function verifyAuthChallenge(challengeId: string, accountAddress: string, signature: string) {
+  return post<{ success: boolean; sessionId: string }>('/auth/verify', { challengeId, accountAddress, signature });
+}
+
+export function logout() {
+  return post<{ success: boolean }>('/auth/logout', {}, true);
+}
+
+export function getMe() {
+  return get<AuthMeResponse>('/auth/me', true);
+}
+
+// ─── World ID ─────────────────────────────────────────────────────────────
+
+export interface WorldStatusResponse {
+  verified: boolean;
+  roles: Array<'poster' | 'worker' | 'reviewer'>;
+}
+
+export function verifyWorldRole(role: 'poster' | 'worker' | 'reviewer', proof: {
+  nullifierHash: string;
+  proof: string;
+  merkleRoot: string;
+  verificationLevel: string;
+}) {
+  return post<{ success: boolean; role: string }>('/world/verify', { role, proof }, true);
+}
+
+export function getWorldStatus() {
+  return get<WorldStatusResponse>('/world/status', true);
+}
+
+// ─── Agents ───────────────────────────────────────────────────────────────
+
+export interface AgentAuthorization {
+  authorizationId: string;
+  agentType: string;
+  agentVersion: string;
+  role: 'poster' | 'worker';
+  permissionScope: string[];
+  status: string;
+  onChainTokenId?: string;
+  fingerprint?: string;
+}
+
+export function listAgentAuthorizations() {
+  return get<{ authorizations: AgentAuthorization[] }>('/agents/authorizations', true);
+}
+
+export function createAgentAuthorization(body: {
+  agentType: string;
+  agentVersion: string;
+  role: 'poster' | 'worker';
+  permissionScope: string[];
+}) {
+  return post<AgentAuthorization>('/agents/authorizations', body, true);
+}
+
+export function syncAgentRegistration(authorizationId: string, body: {
+  txHash: string;
+  contractAddress: string;
+  blockNumber: number;
+  payload: unknown;
+  status: string;
+  onChainTokenId?: string;
+}) {
+  return post<{ synced: boolean }>(`/agents/authorizations/${authorizationId}/sync-registration`, body, true);
+}
+
+// ─── Chain Sync ───────────────────────────────────────────────────────────
+
+export function syncChainReceipt(body: {
+  eventType: 'milestone_reserved' | 'milestone_released' | 'accepted_submission_attested';
+  txHash: string;
+  blockNumber?: number;
+  payload: unknown;
+}) {
+  return post<{ synced: boolean }>('/chain/sync', body, true);
 }
 
 // ─── Ideas ─────────────────────────────────────────────────────────────────
@@ -51,17 +149,6 @@ export interface IntegrationsStatusResponse {
   };
 }
 
-export interface WorldVerificationResponse {
-  verificationToken: string;
-  proof: {
-    nullifierHash: string;
-    proof: string;
-    merkleRoot: string;
-    verificationLevel: string;
-  };
-  worldResult: unknown;
-}
-
 export interface IdeaDetailResponse {
   idea: {
     ideaId: string;
@@ -72,6 +159,9 @@ export interface IdeaDetailResponse {
     posterId: string;
     createdAt: string;
     escrowTxHash?: string;
+    reservationTxHash?: string;
+    releaseTxHash?: string;
+    attestationTxHash?: string;
   };
   brief: {
     briefId: string;
@@ -99,38 +189,37 @@ export interface IdeaListResponse {
   count: number;
 }
 
-export function getIdeas(posterId?: string) {
-  const qs = posterId ? `?posterId=${encodeURIComponent(posterId)}` : '';
-  return get<IdeaListResponse>(`/ideas${qs}`);
+export function getIdeas() {
+  return get<IdeaListResponse>('/ideas', true);
 }
 
 export function cancelIdea(ideaId: string) {
-  return post<{ ideaId: string; cancelled: boolean }>(`/ideas/${ideaId}/cancel`, {});
+  return post<{ ideaId: string; cancelled: boolean }>(`/ideas/${ideaId}/cancel`, {}, true);
 }
 
 export function createIdea(body: {
-  buyerId: string;
   taskType: string;
   title: string;
   prompt: string;
   budgetUsdMax: number;
-  posterAccountAddress?: string;
-  worldVerificationToken?: string;
-  worldIdProof?: { nullifierHash: string; proof: string; merkleRoot: string; verificationLevel: string };
 }) {
-  return post<IdeaResponse>('/ideas', body);
+  return post<IdeaResponse>('/ideas', body, true);
 }
 
 export function fundIdea(ideaId: string, txHash: string, amountUsd: number) {
-  return post<{ ideaId: string; fundingStatus: string; txHash: string }>(`/ideas/${ideaId}/fund`, { txHash, amountUsd });
+  return post<{ ideaId: string; fundingStatus: string; txHash: string }>(
+    `/ideas/${ideaId}/fund`,
+    { txHash, amountUsd },
+    true
+  );
 }
 
 export function planIdea(ideaId: string) {
-  return post<{ briefId: string; status: string }>(`/ideas/${ideaId}/plan`, {});
+  return post<{ briefId: string; status: string }>(`/ideas/${ideaId}/plan`, {}, true);
 }
 
 export function getIdea(ideaId: string) {
-  return get<IdeaDetailResponse>(`/ideas/${ideaId}`);
+  return get<IdeaDetailResponse>(`/ideas/${ideaId}`, true);
 }
 
 // ─── Jobs ──────────────────────────────────────────────────────────────────
@@ -187,53 +276,40 @@ export interface SubmissionResponse {
 }
 
 export function getJob(jobId: string) {
-  return get<JobResponse>(`/jobs/${jobId}`);
+  return get<JobResponse>(`/jobs/${jobId}`, true);
 }
 
 export function getJobs(status = 'queued') {
-  return get<{ jobs: JobResponse['job'][]; count: number }>(`/jobs?status=${status}`);
+  return get<{ jobs: JobResponse['job'][]; count: number }>(`/jobs?status=${status}`, true);
 }
 
-export function claimJob(jobId: string, body: {
-  workerId: string;
-  agentMetadata?: {
-    agentType?: string;
-    agentVersion?: string;
-    operatorAddress?: string;
-    fingerprint?: string;
-  };
-}) {
-  return post<{ claimId: string; expiresAt: string; skillMdUrl: string }>(`/jobs/${jobId}/claim`, body);
+export interface SignedAction {
+  accountAddress: string;
+  agentFingerprint: string;
+  challengeId: string;
+  signature: string;
 }
 
-export function recordJobSpend(jobId: string, body: {
-  workerId: string;
-  vendor: string;
-  purpose: string;
-  amountUsd: number;
-  settlementRail: 'demo' | 'arc';
-  txHash?: string;
-}) {
-  return post<{ eventId: string; recordedAt: string; settlementRail: 'demo' | 'arc' }>(`/jobs/${jobId}/spend`, body);
+export function claimJob(jobId: string, signedAction: SignedAction) {
+  return post<{ claimId: string; expiresAt: string; skillMdUrl: string }>(
+    `/jobs/${jobId}/claim`,
+    { signedAction },
+    true
+  );
 }
 
 // ─── Review ───────────────────────────────────────────────────────────────
 
-export function acceptMilestone(ideaId: string, jobId: string, reviewerId: string) {
-  return post<{ accepted: boolean }>(`/ideas/${ideaId}/accept`, { jobId, reviewerId });
+export function acceptMilestone(ideaId: string, jobId: string) {
+  return post<{ accepted: boolean; attestationPayload?: unknown }>(`/ideas/${ideaId}/accept`, { jobId }, true);
 }
 
-export function rejectMilestone(ideaId: string, jobId: string, reviewerId: string, reason?: string) {
-  return post<{ rework: boolean }>(`/ideas/${ideaId}/reject`, { jobId, reviewerId, reason });
+export function rejectMilestone(ideaId: string, jobId: string, reason?: string) {
+  return post<{ rework: boolean }>(`/ideas/${ideaId}/reject`, { jobId, reason }, true);
 }
+
+// ─── Integrations ──────────────────────────────────────────────────────────
 
 export function getIntegrationsStatus() {
   return get<IntegrationsStatusResponse>('/integrations/status');
-}
-
-export function verifyWorldProof(idkitResponse: unknown, role: 'poster' | 'worker' | 'reviewer' = 'poster') {
-  return post<WorldVerificationResponse>('/integrations/world/verify', {
-    role,
-    idkitResponse,
-  });
 }
