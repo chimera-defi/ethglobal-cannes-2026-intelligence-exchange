@@ -1,68 +1,127 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { createIdea, fundIdea, planIdea } from '../api';
+import { formatUsd } from '../lib/formatters';
+import { StatusBadge } from '../components/StatusBadge';
 
 type Step = 'form' | 'world-verify' | 'fund' | 'funding' | 'planning' | 'done' | 'error';
+
+const FLOW_STEPS = [
+  {
+    id: 'form',
+    label: 'Scope the brief',
+    detail: 'Define the task, success criteria, and budget envelope.',
+  },
+  {
+    id: 'world-verify',
+    label: 'Verify the buyer',
+    detail: 'Only a verified human can open a funded brief.',
+  },
+  {
+    id: 'fund',
+    label: 'Fund the escrow',
+    detail: 'Arc becomes the visible source of spend before execution starts.',
+  },
+  {
+    id: 'planning',
+    label: 'Generate the lane',
+    detail: 'The brief expands into milestone jobs ready for workers to claim.',
+  },
+] as const;
+
+const STEP_COPY: Record<Step, { title: string; description: string }> = {
+  form: {
+    title: 'Open a buyer lane with enough structure to delegate safely.',
+    description: 'The exchange works when scope, spend, and review criteria are legible before agents start.',
+  },
+  'world-verify': {
+    title: 'Human identity stays ahead of capital deployment.',
+    description: 'Verification prevents anonymous spam briefs from entering the funded queue.',
+  },
+  fund: {
+    title: 'Escrow funding is the market open.',
+    description: 'Once the budget is locked, the planner can create milestone jobs for workers to claim.',
+  },
+  funding: {
+    title: 'Recording escrow and buyer intent.',
+    description: 'The brief is being anchored and prepared for milestone generation.',
+  },
+  planning: {
+    title: 'Constructing the first operating lanes.',
+    description: 'Milestones are being generated so workers can claim against explicit states.',
+  },
+  done: {
+    title: 'The brief is live and milestone planning is complete.',
+    description: 'Workers can now claim jobs, and each output will route back into a human review gate.',
+  },
+  error: {
+    title: 'The buyer lane failed before the market opened.',
+    description: 'The brief was not fully funded and planned. Review the step rail, then retry.',
+  },
+};
 
 export function IdeaSubmission() {
   const navigate = useNavigate();
   const [step, setStep] = useState<Step>('form');
   const [error, setError] = useState<string | null>(null);
   const [ideaId, setIdeaId] = useState<string | null>(null);
-
   const [form, setForm] = useState({
     title: '',
     prompt: '',
     budgetUsdMax: 10,
     taskType: 'coding' as const,
   });
-
-  // Demo: simulate World ID verification (in production, use @worldcoin/idkit-core)
-  const [worldVerified, setWorldVerified] = useState(false);
   const [nullifierHash, setNullifierHash] = useState<string | null>(null);
 
   async function handleWorldVerify() {
-    // Demo: use a pre-seeded nullifier hash (represents "verified human")
-    const demoNullifierHash = '0x' + Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+    const demoNullifierHash =
+      '0x' +
+      Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+
     setNullifierHash(demoNullifierHash);
-    setWorldVerified(true);
     setStep('fund');
   }
 
-  async function handleSubmitForm(e: React.FormEvent) {
-    e.preventDefault();
-    if (!form.title.trim() || !form.prompt.trim()) return;
+  async function handleSubmitForm(event: React.FormEvent) {
+    event.preventDefault();
+
+    if (!form.title.trim() || !form.prompt.trim()) {
+      return;
+    }
+
     setStep('world-verify');
   }
 
   async function handleFund() {
     setError(null);
+
     try {
       setStep('funding');
 
-      // 1. Create idea in broker
       const idea = await createIdea({
         buyerId: 'demo-poster',
         taskType: form.taskType,
         title: form.title,
         prompt: form.prompt,
         budgetUsdMax: form.budgetUsdMax,
-        worldIdProof: nullifierHash ? {
-          nullifierHash,
-          proof: '0xdemo-proof',
-          merkleRoot: '0xdemo-root',
-          verificationLevel: 'device',
-        } : undefined,
+        worldIdProof: nullifierHash
+          ? {
+              nullifierHash,
+              proof: '0xdemo-proof',
+              merkleRoot: '0xdemo-root',
+              verificationLevel: 'device',
+            }
+          : undefined,
       });
 
       setIdeaId(idea.ideaId);
 
-      // 2. Simulate Arc escrow funding (in production: use wagmi to call fundIdea())
-      // For demo: record a simulated tx hash
-      const demoTxHash = '0x' + Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+      const demoTxHash =
+        '0x' +
+        Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+
       await fundIdea(idea.ideaId, demoTxHash, form.budgetUsdMax);
 
-      // 3. Generate brief (milestones + jobs)
       setStep('planning');
       await planIdea(idea.ideaId);
 
@@ -73,230 +132,376 @@ export function IdeaSubmission() {
     }
   }
 
-  if (step === 'done' && ideaId) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="card max-w-lg w-full text-center space-y-6">
-          <div className="text-5xl">✅</div>
-          <h1 className="text-2xl font-bold text-green-400">Idea Funded & Planned!</h1>
-          <p className="text-gray-400">
-            Your idea has been funded and milestone jobs have been created.
-            AI agents can now claim and execute them.
-          </p>
-          <div className="bg-gray-800 rounded-lg p-3 text-left text-xs font-mono text-gray-300 break-all">
-            Idea ID: {ideaId}
-          </div>
-          <div className="flex gap-3 justify-center">
-            <button
-              className="btn-primary"
-              onClick={() => navigate(`/ideas/${ideaId}`)}
-            >
-              View Idea Dashboard →
-            </button>
-            <button
-              className="btn-primary bg-gray-700 hover:bg-gray-600"
-              onClick={() => { setStep('form'); setIdeaId(null); setWorldVerified(false); }}
-            >
-              Submit Another
-            </button>
-          </div>
-        </div>
-      </div>
-    );
+  function resetFlow() {
+    setStep('form');
+    setError(null);
+    setIdeaId(null);
+    setNullifierHash(null);
+    setForm({
+      title: '',
+      prompt: '',
+      budgetUsdMax: 10,
+      taskType: 'coding',
+    });
   }
 
-  if (step === 'error') {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="card max-w-lg w-full text-center space-y-4">
-          <div className="text-5xl">❌</div>
-          <h1 className="text-xl font-bold text-red-400">Something went wrong</h1>
-          <p className="text-gray-400 text-sm font-mono">{error}</p>
-          <button className="btn-primary" onClick={() => setStep('fund')}>Try Again</button>
-        </div>
-      </div>
-    );
-  }
+  const activeStage = getStageIndex(step);
+  const copy = STEP_COPY[step];
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <div className="card max-w-2xl w-full space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold text-white">Intelligence Exchange</h1>
-          <p className="text-gray-400 mt-1">Post a funded idea. AI agents compete to build it.</p>
-        </div>
-
-        {/* Progress steps */}
-        <div className="flex items-center gap-2 text-sm">
-          {(['form', 'world-verify', 'fund', 'funding', 'planning'] as Step[]).map((s, i) => (
-            <div key={s} className="flex items-center gap-2">
-              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                step === s ? 'bg-blue-600 text-white' :
-                ['fund', 'funding', 'planning', 'done'].includes(step) && i < 3 ? 'bg-green-700 text-white' :
-                'bg-gray-800 text-gray-500'
-              }`}>{i + 1}</div>
-              {i < 4 && <div className="w-8 h-px bg-gray-700" />}
-            </div>
-          ))}
-          <span className="text-gray-500 ml-2 text-xs">
-            {step === 'form' ? 'Fill in details' :
-             step === 'world-verify' ? 'Verify identity' :
-             step === 'fund' ? 'Fund with Arc' :
-             step === 'funding' ? 'Processing...' :
-             step === 'planning' ? 'Generating brief...' : ''}
-          </span>
-        </div>
-
-        {/* Step: Form */}
-        {step === 'form' && (
-          <form onSubmit={handleSubmitForm} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">Idea Title</label>
-              <input
-                className="input"
-                placeholder="e.g. Build a DeFi yield optimizer for Uniswap v4"
-                value={form.title}
-                onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">Describe what you want built</label>
-              <textarea
-                className="input min-h-32 resize-none"
-                placeholder="Be specific. Include tech stack, acceptance criteria, and what a good output looks like..."
-                value={form.prompt}
-                onChange={e => setForm(f => ({ ...f, prompt: e.target.value }))}
-                required
-                minLength={10}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Task Type</label>
-                <select
-                  className="input"
-                  value={form.taskType}
-                  onChange={e => setForm(f => ({ ...f, taskType: e.target.value as typeof form.taskType }))}
-                >
-                  <option value="coding">Coding</option>
-                  <option value="analysis">Analysis</option>
-                  <option value="research">Research</option>
-                  <option value="summarization">Summarization</option>
-                </select>
+    <div className="page-shell">
+      <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+        <section className="surface surface-strong motion-rise">
+          <div className="max-w-3xl space-y-8">
+            <div className="space-y-4">
+              <p className="section-kicker">Buyer Console</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <StatusBadge status={step === 'done' ? 'funded' : step === 'error' ? 'rework' : 'queued'} label={getStepBadgeLabel(step)} />
+                <span className="badge">{form.taskType}</span>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Budget (USD)</label>
-                <input
-                  type="number"
-                  className="input"
-                  min={1}
-                  max={1000}
-                  step={0.5}
-                  value={form.budgetUsdMax}
-                  onChange={e => setForm(f => ({ ...f, budgetUsdMax: parseFloat(e.target.value) }))}
-                />
-              </div>
-            </div>
-            <div className="bg-gray-800/50 rounded-lg p-4 text-sm text-gray-400">
-              <p className="font-medium text-gray-300 mb-1">How it works:</p>
-              <ol className="list-decimal list-inside space-y-1">
-                <li>Verify your identity with World ID (once)</li>
-                <li>Fund your idea with Arc USDC escrow</li>
-                <li>AI agents claim milestones and execute them</li>
-                <li>You review and approve — Arc releases payment + agent identity recorded on-chain</li>
-              </ol>
-            </div>
-            <button type="submit" className="btn-primary w-full text-base py-3">
-              Continue to Identity Verification →
-            </button>
-          </form>
-        )}
-
-        {/* Step: World ID Verify */}
-        {step === 'world-verify' && (
-          <div className="space-y-6 text-center">
-            <div className="bg-gray-800/50 rounded-xl p-6 space-y-4">
-              <div className="text-4xl">🌍</div>
-              <h2 className="text-xl font-bold">Verify with World ID</h2>
-              <p className="text-gray-400 text-sm">
-                Only verified humans can post funded ideas. This prevents spam and ensures
-                accountable buyers in the marketplace.
-              </p>
-              <div className="bg-blue-900/30 border border-blue-800 rounded-lg p-4 text-left">
-                <p className="text-blue-300 text-sm font-medium">Idea to fund:</p>
-                <p className="text-white font-semibold mt-1">{form.title}</p>
-                <p className="text-gray-400 text-xs mt-1">Budget: ${form.budgetUsdMax} USDC</p>
-              </div>
-              {/* In production: IDKit component. For demo: button simulates verification. */}
-              <button className="btn-primary w-full" onClick={handleWorldVerify}>
-                Verify with World ID (Demo Mode)
-              </button>
-              <p className="text-gray-600 text-xs">
-                Demo: using pre-verified operator account. In production, World ID modal appears here.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Step: Fund */}
-        {step === 'fund' && (
-          <div className="space-y-6">
-            <div className="flex items-center gap-2 text-green-400 text-sm">
-              <span>✓</span>
-              <span>Identity verified via World ID</span>
-            </div>
-            <div className="bg-gray-800/50 rounded-xl p-6 space-y-4">
-              <h2 className="text-xl font-bold">Fund Your Idea with Arc</h2>
               <div className="space-y-3">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">Idea</span>
-                  <span className="text-white font-medium">{form.title}</span>
+                <h1 className="section-title max-w-3xl">{copy.title}</h1>
+                <p className="eyebrow-copy">{copy.description}</p>
+              </div>
+            </div>
+
+            {step === 'form' && (
+              <form onSubmit={handleSubmitForm} className="space-y-6">
+                <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_17rem]">
+                  <div className="space-y-6">
+                    <div>
+                      <label className="metric-label">Brief title</label>
+                      <input
+                        className="input mt-3"
+                        placeholder="Ship a policy-aware research worker for protocol diligence"
+                        value={form.title}
+                        onChange={event => setForm(current => ({ ...current, title: event.target.value }))}
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="metric-label">Execution brief</label>
+                      <textarea
+                        className="input mt-3 min-h-[14rem] resize-none"
+                        placeholder="Describe the desired output, operating constraints, acceptance criteria, and any required artifacts."
+                        value={form.prompt}
+                        onChange={event => setForm(current => ({ ...current, prompt: event.target.value }))}
+                        required
+                        minLength={10}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="rounded-[1.75rem] border border-white/8 bg-black/15 p-4">
+                    <p className="metric-label">Default lane</p>
+                    <p className="mt-3 text-sm leading-6 text-stone-300">
+                      Buyers define the work once. The planner breaks it into jobs with explicit review states.
+                    </p>
+                  </div>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">Total Budget</span>
-                  <span className="text-white font-bold">${form.budgetUsdMax} USDC</span>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <label className="metric-label">Task type</label>
+                    <select
+                      className="input mt-3"
+                      value={form.taskType}
+                      onChange={event => setForm(current => ({ ...current, taskType: event.target.value as typeof form.taskType }))}
+                    >
+                      <option value="coding">Coding</option>
+                      <option value="analysis">Analysis</option>
+                      <option value="research">Research</option>
+                      <option value="summarization">Summarization</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="metric-label">Budget ceiling</label>
+                    <input
+                      type="number"
+                      className="input mt-3"
+                      min={1}
+                      max={1000}
+                      step={0.5}
+                      value={form.budgetUsdMax}
+                      onChange={event => setForm(current => ({ ...current, budgetUsdMax: parseFloat(event.target.value) }))}
+                    />
+                  </div>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">Platform Fee (10%)</span>
-                  <span className="text-gray-400">${(form.budgetUsdMax * 0.1).toFixed(2)} USDC</span>
+
+                <div className="grid gap-4 rounded-[1.75rem] border border-white/8 bg-black/15 p-4 md:grid-cols-4">
+                  <LaneNote title="Verify" detail="Buyer proves humanity before spend enters the system." />
+                  <LaneNote title="Fund" detail="Arc escrow records budget availability for the lane." />
+                  <LaneNote title="Plan" detail="The brief becomes milestone jobs with explicit budgets." />
+                  <LaneNote title="Review" detail="Each submission comes back through a human approval rail." />
                 </div>
-                <div className="border-t border-gray-700 pt-2 flex justify-between text-sm">
-                  <span className="text-gray-400">Worker Payout Pool</span>
-                  <span className="text-green-400 font-bold">${(form.budgetUsdMax * 0.9).toFixed(2)} USDC</span>
+
+                <div className="flex flex-wrap gap-3">
+                  <button type="submit" className="btn-primary">
+                    Continue to Identity Check
+                  </button>
+                  <Link to="/" className="btn-secondary">
+                    Back to Exchange
+                  </Link>
+                </div>
+              </form>
+            )}
+
+            {step === 'world-verify' && (
+              <div className="space-y-6">
+                <div className="rounded-[1.75rem] border border-white/8 bg-black/15 p-5">
+                  <p className="metric-label">Human gate</p>
+                  <div className="mt-4 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+                    <div className="max-w-xl">
+                      <h2 className="text-2xl font-semibold text-stone-50">This buyer must verify before the brief can touch escrow.</h2>
+                      <p className="mt-3 text-sm leading-6 text-stone-300">
+                        Demo mode seeds a verified human signal. In production, the World ID flow would open here.
+                      </p>
+                    </div>
+                    <div className="rounded-[1.5rem] border border-white/8 bg-white/5 px-4 py-4 text-right">
+                      <p className="metric-label">Budget</p>
+                      <p className="mt-2 text-3xl font-semibold text-stone-50">{formatUsd(form.budgetUsdMax)}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-[1.75rem] border border-[color:var(--border)] bg-[rgba(248,213,154,0.06)] p-5">
+                  <p className="metric-label">Queued brief</p>
+                  <p className="mt-3 text-lg font-medium text-stone-50">{form.title}</p>
+                  <p className="mt-2 text-sm leading-6 text-stone-300">{form.prompt}</p>
+                </div>
+
+                <div className="flex flex-wrap gap-3">
+                  <button className="btn-primary" onClick={handleWorldVerify}>
+                    Verify with World ID
+                  </button>
+                  <button className="btn-secondary" onClick={() => setStep('form')}>
+                    Revise Brief
+                  </button>
                 </div>
               </div>
-              <p className="text-gray-500 text-xs">
-                Funds are held in Arc USDC escrow. Released only after you approve each milestone.
-                No autonomous payouts — you stay in control.
-              </p>
-              {/* In production: wagmi ConnectButton + call IdeaEscrow.fundIdea() */}
-              <button className="btn-primary w-full text-base py-3" onClick={handleFund}>
-                Fund ${form.budgetUsdMax} USDC via Arc Escrow (Demo)
-              </button>
+            )}
+
+            {step === 'fund' && (
+              <div className="space-y-6">
+                <div className="grid gap-4 rounded-[1.75rem] border border-white/8 bg-black/15 p-5 md:grid-cols-2">
+                  <div>
+                    <p className="metric-label">Verified buyer</p>
+                    <p className="mt-3 text-xl font-semibold text-stone-50">Identity signal recorded</p>
+                    <p className="mt-3 text-sm leading-6 text-stone-300">
+                      The brief can now be funded. Once the escrow lands, the planner generates the milestone queue.
+                    </p>
+                  </div>
+                  <div className="rounded-[1.5rem] border border-white/8 bg-white/5 p-4">
+                    <p className="metric-label">Funding summary</p>
+                    <div className="mt-4 space-y-3 text-sm text-stone-300">
+                      <div className="flex items-center justify-between gap-4">
+                        <span>Brief</span>
+                        <span className="font-medium text-stone-50">{form.title}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-4">
+                        <span>Budget</span>
+                        <span className="font-medium text-stone-50">{formatUsd(form.budgetUsdMax)}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-4">
+                        <span>Task class</span>
+                        <span className="font-medium text-stone-50">{form.taskType}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-3">
+                  <button className="btn-primary" onClick={handleFund}>
+                    Fund Escrow and Generate Lane
+                  </button>
+                  <button className="btn-secondary" onClick={() => setStep('world-verify')}>
+                    Re-check Identity
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {(step === 'funding' || step === 'planning') && (
+              <div className="space-y-6">
+                <div className="rounded-[1.75rem] border border-white/8 bg-black/15 p-5">
+                  <p className="metric-label">{step === 'funding' ? 'Escrow entry' : 'Lane generation'}</p>
+                  <h2 className="mt-4 text-2xl font-semibold text-stone-50">
+                    {step === 'funding' ? 'Locking capital and creating the brief record.' : 'Expanding the brief into milestone jobs.'}
+                  </h2>
+                  <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-300">
+                    Demo mode simulates the escrow transaction and planner run. The next state becomes the live control room for this idea.
+                  </p>
+                  <div className="mt-6 space-y-3">
+                    <div className="h-2 rounded-full bg-white/5">
+                      <div
+                        className={`h-2 rounded-full bg-[color:var(--accent-strong)] transition-all duration-700 ${
+                          step === 'funding' ? 'w-1/2' : 'w-full'
+                        }`}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between text-xs uppercase tracking-[0.24em] text-stone-500">
+                      <span>Buyer verified</span>
+                      <span>{step === 'funding' ? 'Funding' : 'Planning'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <button className="btn-secondary" disabled>
+                  {step === 'funding' ? 'Funding in progress' : 'Generating milestones'}
+                </button>
+              </div>
+            )}
+
+            {step === 'done' && ideaId && (
+              <div className="space-y-6">
+                <div className="rounded-[1.75rem] border border-emerald-500/20 bg-emerald-500/10 p-5">
+                  <p className="metric-label text-emerald-300">Market opened</p>
+                  <h2 className="mt-4 text-3xl font-semibold text-stone-50">Funding recorded and milestone jobs created.</h2>
+                  <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-300">
+                    The idea now has a visible queue. Workers can claim milestones, and every submission routes back through human review before payout.
+                  </p>
+                </div>
+
+                <div className="rounded-[1.75rem] border border-white/8 bg-black/15 p-5">
+                  <p className="metric-label">Idea ID</p>
+                  <p className="mt-3 break-all font-mono text-sm text-stone-300">{ideaId}</p>
+                </div>
+
+                <div className="flex flex-wrap gap-3">
+                  <button className="btn-primary" onClick={() => navigate(`/ideas/${ideaId}`)}>
+                    Open Idea Control Room
+                  </button>
+                  <button className="btn-secondary" onClick={resetFlow}>
+                    Start Another Brief
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {step === 'error' && (
+              <div className="space-y-6">
+                <div className="rounded-[1.75rem] border border-rose-500/25 bg-rose-500/10 p-5">
+                  <p className="metric-label text-rose-300">Flow interrupted</p>
+                  <h2 className="mt-4 text-3xl font-semibold text-stone-50">The buyer lane did not complete.</h2>
+                  <p className="mt-3 break-all font-mono text-sm text-rose-100/90">{error}</p>
+                </div>
+
+                <div className="flex flex-wrap gap-3">
+                  <button className="btn-primary" onClick={() => setStep('fund')}>
+                    Retry Funding
+                  </button>
+                  <button className="btn-secondary" onClick={resetFlow}>
+                    Reset Flow
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+
+        <aside className="surface h-fit motion-rise motion-rise-delay-1 xl:sticky xl:top-28">
+          <div className="space-y-8">
+            <div>
+              <p className="section-kicker">Step Rail</p>
+              <h2 className="mt-3 text-2xl font-semibold text-stone-50">Buyer progression</h2>
+            </div>
+
+            <div className="space-y-4">
+              {FLOW_STEPS.map((flowStep, index) => {
+                const complete = activeStage > index || step === 'done';
+                const active = activeStage === index && step !== 'done';
+
+                return (
+                  <div
+                    key={flowStep.id}
+                    className={`rounded-[1.5rem] border px-4 py-4 transition-colors ${
+                      active
+                        ? 'border-[color:var(--border-strong)] bg-[rgba(248,213,154,0.08)]'
+                        : complete
+                          ? 'border-emerald-500/20 bg-emerald-500/10'
+                          : 'border-white/8 bg-black/15'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <p className="metric-label">{String(index + 1).padStart(2, '0')}</p>
+                        <p className="mt-2 text-base font-medium text-stone-50">{flowStep.label}</p>
+                      </div>
+                      <StatusBadge
+                        status={complete ? 'accepted' : active ? 'claimed' : 'queued'}
+                        label={complete ? 'Done' : active ? 'Live' : 'Idle'}
+                      />
+                    </div>
+                    <p className="mt-3 text-sm leading-6 text-stone-400">{flowStep.detail}</p>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="surface-line pt-6">
+              <p className="section-kicker">Current brief</p>
+              <div className="mt-4 space-y-4">
+                <div>
+                  <p className="metric-label">Title</p>
+                  <p className="mt-2 text-base text-stone-50">{form.title || 'Untitled brief'}</p>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <p className="metric-label">Budget</p>
+                    <p className="mt-2 text-xl font-semibold text-stone-50">{formatUsd(form.budgetUsdMax)}</p>
+                  </div>
+                  <div>
+                    <p className="metric-label">Task type</p>
+                    <p className="mt-2 text-xl font-semibold capitalize text-stone-50">{form.taskType}</p>
+                  </div>
+                </div>
+                {ideaId && (
+                  <div>
+                    <p className="metric-label">Idea ID</p>
+                    <p className="mt-2 break-all font-mono text-xs text-stone-400">{ideaId}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="surface-line pt-6">
+              <p className="section-kicker">Operating rules</p>
+              <div className="mt-4 space-y-4 text-sm leading-6 text-stone-300">
+                <p>Funding happens before lane generation, not after agent work has started.</p>
+                <p>Every milestone created here routes into the review console before payout can clear.</p>
+                <p>Identity, escrow, and review remain visible artifacts rather than hidden backend steps.</p>
+              </div>
             </div>
           </div>
-        )}
-
-        {/* Step: Funding in progress */}
-        {step === 'funding' && (
-          <div className="text-center space-y-4 py-8">
-            <div className="animate-spin text-4xl">⚙️</div>
-            <h2 className="text-xl font-semibold">Funding in progress...</h2>
-            <p className="text-gray-400 text-sm">Submitting to Arc escrow. This usually takes 10–30 seconds on testnet.</p>
-          </div>
-        )}
-
-        {/* Step: Planning */}
-        {step === 'planning' && (
-          <div className="text-center space-y-4 py-8">
-            <div className="animate-pulse text-4xl">🤔</div>
-            <h2 className="text-xl font-semibold">Generating BuildBrief...</h2>
-            <p className="text-gray-400 text-sm">Breaking your idea into milestones: brief → tasks → scaffold → review</p>
-          </div>
-        )}
+        </aside>
       </div>
     </div>
   );
+}
+
+function LaneNote({ title, detail }: { title: string; detail: string }) {
+  return (
+    <div>
+      <p className="metric-label">{title}</p>
+      <p className="mt-2 text-sm leading-6 text-stone-300">{detail}</p>
+    </div>
+  );
+}
+
+function getStageIndex(step: Step) {
+  if (step === 'form') return 0;
+  if (step === 'world-verify') return 1;
+  if (step === 'fund' || step === 'funding' || step === 'error') return 2;
+  return 3;
+}
+
+function getStepBadgeLabel(step: Step) {
+  if (step === 'done') return 'Live';
+  if (step === 'error') return 'Attention';
+  if (step === 'planning' || step === 'funding') return 'Processing';
+  if (step === 'fund') return 'Ready to fund';
+  if (step === 'world-verify') return 'Human gate';
+  return 'Draft';
 }

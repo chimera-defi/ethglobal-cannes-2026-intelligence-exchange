@@ -1,7 +1,14 @@
 import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getJob, acceptMilestone, rejectMilestone } from '../api';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { acceptMilestone, getJob, rejectMilestone } from '../api';
+import {
+  formatMilestoneLabel,
+  formatShortDateTime,
+  formatUsd,
+  truncateMiddle,
+} from '../lib/formatters';
+import { StatusBadge } from '../components/StatusBadge';
 
 export function ReviewPanel() {
   const { jobId } = useParams<{ jobId: string }>();
@@ -37,11 +44,13 @@ export function ReviewPanel() {
 
   if (!jobId) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="card max-w-lg w-full text-center space-y-4">
-          <div className="text-4xl">⚠️</div>
-          <p className="text-gray-400">No job ID provided.</p>
-          <button className="btn-primary" onClick={() => navigate('/')}>Go Home</button>
+      <div className="page-shell">
+        <div className="surface max-w-2xl">
+          <p className="section-kicker">Decision Console</p>
+          <h1 className="mt-3 text-3xl font-semibold text-stone-50">No job ID was provided.</h1>
+          <button className="btn-primary mt-6" onClick={() => navigate('/jobs')}>
+            Open Worker Queue
+          </button>
         </div>
       </div>
     );
@@ -49,10 +58,11 @@ export function ReviewPanel() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="card max-w-lg w-full text-center space-y-4 py-12">
-          <div className="animate-spin text-4xl">⚙️</div>
-          <p className="text-gray-400">Loading job details...</p>
+      <div className="page-shell">
+        <div className="surface max-w-3xl">
+          <p className="section-kicker">Decision Console</p>
+          <h1 className="mt-3 text-3xl font-semibold text-stone-50">Loading milestone review data.</h1>
+          <p className="mt-3 text-sm text-stone-400">Submission state, worker identity, and review checks are syncing.</p>
         </div>
       </div>
     );
@@ -60,12 +70,15 @@ export function ReviewPanel() {
 
   if (error || !job) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="card max-w-lg w-full text-center space-y-4">
-          <div className="text-4xl">❌</div>
-          <h1 className="text-xl font-bold text-red-400">Failed to load job</h1>
-          <p className="text-gray-400 text-sm font-mono">{String(error || 'Unknown error')}</p>
-          <button className="btn-primary" onClick={() => queryClient.invalidateQueries({ queryKey: ['job', jobId] })}>
+      <div className="page-shell">
+        <div className="surface max-w-3xl border-rose-500/30 bg-rose-500/10">
+          <p className="section-kicker text-rose-300">Decision Console</p>
+          <h1 className="mt-3 text-3xl font-semibold text-stone-50">Failed to load milestone data.</h1>
+          <p className="mt-3 break-all font-mono text-sm text-rose-100/90">{String(error || 'Unknown error')}</p>
+          <button
+            className="btn-primary mt-6"
+            onClick={() => queryClient.invalidateQueries({ queryKey: ['job', jobId] })}
+          >
             Retry
           </button>
         </div>
@@ -73,24 +86,21 @@ export function ReviewPanel() {
     );
   }
 
-  // Job not yet submitted — nothing to review
   if (!['submitted', 'accepted', 'rejected', 'rework'].includes(job.status)) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="card max-w-lg w-full text-center space-y-4 py-12">
-          <div className="text-4xl">🕐</div>
-          <h1 className="text-xl font-semibold text-white">Awaiting Submission</h1>
-          <p className="text-gray-400 text-sm">
-            This milestone is <span className={`badge badge-${job.status}`}>{job.status}</span>.
-            The review panel will unlock once an agent submits their work.
+      <div className="page-shell">
+        <div className="surface surface-strong max-w-4xl">
+          <p className="section-kicker">Decision Console</p>
+          <h1 className="mt-3 text-3xl font-semibold text-stone-50">The review gate is not open yet.</h1>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-stone-300">
+            This milestone is currently <span className="text-stone-100">{job.status}</span>. Review becomes available once the worker submits output.
           </p>
-          {job.leaseExpiry && (
-            <p className="text-gray-500 text-xs">
-              Lease expires: {new Date(job.leaseExpiry).toLocaleString()}
-            </p>
-          )}
-          <button className="btn-primary bg-gray-700 hover:bg-gray-600" onClick={() => navigate(`/ideas/${job.ideaId}`)}>
-            ← Back to Idea
+          <div className="mt-6 flex flex-wrap gap-3">
+            <StatusBadge status={job.status} />
+            {job.leaseExpiry && <StatusBadge status="live" label={`Expires ${formatShortDateTime(job.leaseExpiry)}`} />}
+          </div>
+          <button className="btn-secondary mt-6" onClick={() => navigate(`/ideas/${job.ideaId}`)}>
+            Back to Idea
           </button>
         </div>
       </div>
@@ -103,174 +113,182 @@ export function ReviewPanel() {
   const isProcessing = acceptMutation.isPending || rejectMutation.isPending;
 
   return (
-    <div className="min-h-screen p-4 md:p-8">
-      <div className="max-w-3xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <button
-              className="text-gray-500 hover:text-gray-300 text-sm flex items-center gap-1 mb-2"
-              onClick={() => navigate(`/ideas/${job.ideaId}`)}
-            >
-              ← Back to Idea
-            </button>
-            <h1 className="text-2xl font-bold text-white">Milestone Review</h1>
-            <p className="text-gray-400 text-sm mt-1">
-              Review the agent's output and approve or request rework.
+    <div className="page-shell space-y-6">
+      <section className="grid gap-6 xl:grid-cols-[1.08fr_0.92fr]">
+        <div className="surface surface-strong motion-rise">
+          <button
+            className="text-sm font-medium text-stone-400 transition-colors hover:text-stone-100"
+            onClick={() => navigate(`/ideas/${job.ideaId}`)}
+          >
+            Back to idea control room
+          </button>
+
+          <div className="mt-6 flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+            <div className="space-y-4">
+              <p className="section-kicker">Decision Console</p>
+              <h1 className="section-title">{formatMilestoneLabel(job.milestoneType)} milestone review</h1>
+              <p className="eyebrow-copy">
+                Review is the last human gate before funds can move. This panel keeps the milestone context and decision path legible.
+              </p>
+            </div>
+            <StatusBadge status={job.status} />
+          </div>
+
+          <div className="mt-8 grid gap-4 md:grid-cols-2">
+            <InfoBlock label="Job ID" value={truncateMiddle(job.jobId, 10, 8)} mono />
+            <InfoBlock label="Idea ID" value={truncateMiddle(job.ideaId, 10, 8)} mono />
+            <InfoBlock label="Budget" value={formatUsd(job.budgetUsd)} />
+            <InfoBlock label="Worker" value={job.activeClaimWorkerId ?? 'Unassigned'} mono={!!job.activeClaimWorkerId} />
+          </div>
+
+          {job.leaseExpiry && (
+            <div className="mt-4 rounded-[1.5rem] border border-white/8 bg-black/15 px-4 py-4 text-sm text-stone-300">
+              Lease expiry: <span className="text-stone-100">{formatShortDateTime(job.leaseExpiry)}</span>
+            </div>
+          )}
+
+          {isAccepted && (
+            <div className="mt-6 rounded-[1.75rem] border border-emerald-500/25 bg-emerald-500/10 p-5">
+              <p className="section-kicker text-emerald-300">Accepted</p>
+              <p className="mt-3 text-lg font-medium text-stone-50">
+                Approval recorded. Escrow can release funds and the worker identity becomes part of the visible outcome.
+              </p>
+            </div>
+          )}
+
+          {isRejected && (
+            <div className="mt-6 rounded-[1.75rem] border border-rose-500/25 bg-rose-500/10 p-5">
+              <p className="section-kicker text-rose-300">Needs rework</p>
+              <p className="mt-3 text-lg font-medium text-stone-50">
+                The milestone has been returned for another attempt. Review stayed human-gated; payout did not clear.
+              </p>
+            </div>
+          )}
+        </div>
+
+        <aside className="surface motion-rise motion-rise-delay-1 xl:sticky xl:top-28">
+          <p className="section-kicker">Settlement Rail</p>
+          <h2 className="mt-3 text-2xl font-semibold text-stone-50">Decision and payout gate</h2>
+
+          <div className="mt-6 rounded-[1.5rem] border border-white/8 bg-black/15 px-4 py-4">
+            <p className="metric-label">Rule</p>
+            <p className="mt-3 text-sm leading-6 text-stone-300">
+              Acceptance releases payment. Rework returns the milestone to the queue. No autonomous payout path exists.
             </p>
           </div>
-          <span className={`badge badge-${job.status} text-sm px-3 py-1`}>
-            {job.status.toUpperCase()}
-          </span>
-        </div>
 
-        {/* Job Info */}
-        <div className="card space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-white capitalize">
-              {job.milestoneType} Milestone
-            </h2>
-            <span className="text-green-400 font-bold">${job.budgetUsd} USDC</span>
-          </div>
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <span className="text-gray-500">Job ID</span>
-              <p className="text-gray-300 font-mono text-xs mt-0.5 break-all">{job.jobId}</p>
-            </div>
-            <div>
-              <span className="text-gray-500">Idea ID</span>
-              <p className="text-gray-300 font-mono text-xs mt-0.5 break-all">{job.ideaId}</p>
-            </div>
-            {job.activeClaimWorkerId && (
-              <div className="col-span-2">
-                <span className="text-gray-500">Worker</span>
-                <p className="text-gray-300 font-mono text-xs mt-0.5 break-all">{job.activeClaimWorkerId}</p>
-              </div>
-            )}
-          </div>
-        </div>
+          {isPending ? (
+            <div className="mt-6 space-y-4">
+              {(acceptMutation.isError || rejectMutation.isError) && (
+                <div className="rounded-[1.5rem] border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+                  {String(acceptMutation.error || rejectMutation.error || 'Action failed')}
+                </div>
+              )}
 
-        {/* Outcome banner for already-decided jobs */}
-        {isAccepted && (
-          <div className="bg-green-900/30 border border-green-700 rounded-xl p-4 flex items-center gap-3">
-            <span className="text-2xl">✅</span>
-            <div>
-              <p className="text-green-300 font-semibold">Milestone Accepted</p>
-              <p className="text-green-400/70 text-sm">Arc escrow payout has been released to the worker. Agent identity recorded on-chain.</p>
-            </div>
-          </div>
-        )}
-        {isRejected && (
-          <div className="bg-red-900/30 border border-red-700 rounded-xl p-4 flex items-center gap-3">
-            <span className="text-2xl">🔁</span>
-            <div>
-              <p className="text-red-300 font-semibold">Sent for Rework</p>
-              <p className="text-red-400/70 text-sm">The milestone has been returned to the queue. An agent can re-claim and resubmit.</p>
-            </div>
-          </div>
-        )}
-
-        {/* Score Breakdown (placeholder — real data comes from submission record) */}
-        <div className="card space-y-4">
-          <h2 className="text-lg font-semibold text-white">Score Breakdown</h2>
-          <ScoreBreakdown milestoneType={job.milestoneType} status={job.status} />
-        </div>
-
-        {/* Accept / Reject CTAs — always visible, sticky on desktop */}
-        {isPending && (
-          <div className="card space-y-4">
-            <h2 className="text-lg font-semibold text-white">Your Decision</h2>
-            <p className="text-gray-400 text-sm">
-              Review the score breakdown above. Accept to release payment, or reject to send back for rework.
-            </p>
-
-            {(acceptMutation.isError || rejectMutation.isError) && (
-              <div className="bg-red-900/30 border border-red-700 rounded-lg p-3 text-red-300 text-sm">
-                {String(acceptMutation.error || rejectMutation.error || 'Action failed')}
-              </div>
-            )}
-
-            {!showRejectForm ? (
-              <div className="flex gap-3">
-                <button
-                  className="btn-success flex-1 py-3 text-base"
-                  onClick={() => acceptMutation.mutate()}
-                  disabled={isProcessing}
-                >
-                  {acceptMutation.isPending ? 'Approving...' : '✓ Accept & Release Payment'}
-                </button>
-                <button
-                  className="btn-danger flex-1 py-3 text-base"
-                  onClick={() => setShowRejectForm(true)}
-                  disabled={isProcessing}
-                >
-                  ✗ Request Rework
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <label className="block text-sm font-medium text-gray-300">
-                  Reason for rework (optional)
-                </label>
-                <textarea
-                  className="input min-h-24 resize-none"
-                  placeholder="Explain what needs to be fixed or improved..."
-                  value={rejectReason}
-                  onChange={e => setRejectReason(e.target.value)}
-                />
-                <div className="flex gap-3">
-                  <button
-                    className="btn-danger flex-1"
-                    onClick={() => rejectMutation.mutate()}
-                    disabled={isProcessing}
-                  >
-                    {rejectMutation.isPending ? 'Sending...' : 'Confirm Rework Request'}
+              {!showRejectForm ? (
+                <div className="space-y-3">
+                  <button className="btn-success w-full" onClick={() => acceptMutation.mutate()} disabled={isProcessing}>
+                    {acceptMutation.isPending ? 'Approving' : 'Accept and Release Payment'}
+                  </button>
+                  <button className="btn-danger w-full" onClick={() => setShowRejectForm(true)} disabled={isProcessing}>
+                    Request Rework
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <label className="metric-label">Rework reason</label>
+                  <textarea
+                    className="input min-h-[9rem] resize-none"
+                    placeholder="Describe what failed the review gate and what the worker should fix."
+                    value={rejectReason}
+                    onChange={event => setRejectReason(event.target.value)}
+                  />
+                  <button className="btn-danger w-full" onClick={() => rejectMutation.mutate()} disabled={isProcessing}>
+                    {rejectMutation.isPending ? 'Sending' : 'Confirm Rework'}
                   </button>
                   <button
-                    className="btn-primary bg-gray-700 hover:bg-gray-600"
-                    onClick={() => { setShowRejectForm(false); setRejectReason(''); }}
+                    className="btn-secondary w-full"
+                    onClick={() => {
+                      setShowRejectForm(false);
+                      setRejectReason('');
+                    }}
                     disabled={isProcessing}
                   >
                     Cancel
                   </button>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
+          ) : (
+            <div className="mt-6 rounded-[1.5rem] border border-white/8 bg-black/15 px-4 py-4">
+              <p className="metric-label">Decision status</p>
+              <p className="mt-3 text-sm leading-6 text-stone-300">
+                {isAccepted
+                  ? 'This milestone is already accepted. The settlement path is complete.'
+                  : 'This milestone is already marked for rework. The next action moves back to the queue.'}
+              </p>
+            </div>
+          )}
+        </aside>
+      </section>
 
-            <p className="text-gray-600 text-xs">
-              Human-gated: Arc escrow only releases after you click Accept. No autonomous payouts.
-            </p>
+      <section className="surface motion-rise motion-rise-delay-2">
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="section-kicker">Review Checks</p>
+            <h2 className="mt-3 text-2xl font-semibold text-stone-50">Score breakdown</h2>
           </div>
-        )}
-      </div>
+          <StatusBadge status={isPending ? 'submitted' : isAccepted ? 'accepted' : 'rework'} />
+        </div>
+
+        <div className="mt-8">
+          <ScoreBreakdown milestoneType={job.milestoneType} status={job.status} />
+        </div>
+      </section>
     </div>
   );
 }
 
-// Score breakdown rendered from milestone type (real data would come from submission API)
+function InfoBlock({
+  label,
+  value,
+  mono = false,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+}) {
+  return (
+    <div className="rounded-[1.5rem] border border-white/8 bg-black/15 p-4">
+      <p className="metric-label">{label}</p>
+      <p className={`mt-3 text-lg font-medium text-stone-50 ${mono ? 'font-mono text-sm' : ''}`}>{value}</p>
+    </div>
+  );
+}
+
 function ScoreBreakdown({ milestoneType, status }: { milestoneType: string; status: string }) {
   const checksByType: Record<string, Array<{ name: string; passed: boolean; detail?: string }>> = {
     tasks: [
       { name: 'Artifacts present', passed: true },
-      { name: 'Status: completed', passed: true },
-      { name: 'Summary length ≥ 20 chars', passed: true, detail: 'Required for acceptance' },
-      { name: 'Structured JSON output', passed: status !== 'rework', detail: 'Checked against rubric schema' },
+      { name: 'Status marked completed', passed: true },
+      { name: 'Summary length meets threshold', passed: true, detail: 'Required for acceptance readiness' },
+      { name: 'Structured output follows rubric', passed: status !== 'rework', detail: 'Checked against the milestone schema' },
     ],
     scaffold: [
-      { name: 'Artifacts present', passed: true },
       { name: 'File structure valid', passed: status !== 'rework' },
       { name: 'Summary present', passed: true },
-      { name: 'Status: completed', passed: true },
+      { name: 'Status marked completed', passed: true },
     ],
     brief: [
-      { name: 'Auto-accepted (human-judged)', passed: true, detail: 'Brief milestone is reviewed manually' },
+      { name: 'Brief package present', passed: true },
       { name: 'Summary present', passed: true },
+      { name: 'Human review still required', passed: true, detail: 'Planner output remains reviewable by design' },
     ],
     review: [
       { name: 'Artifacts present', passed: true },
-      { name: 'Summary ≥ 50 chars', passed: status !== 'rework' },
-      { name: 'Status: completed', passed: true },
-      { name: 'Diff or comments present', passed: status !== 'rework' },
+      { name: 'Summary length meets threshold', passed: status !== 'rework' },
+      { name: 'Status marked completed', passed: true },
+      { name: 'Diff or comments attached', passed: status !== 'rework' },
     ],
   };
 
@@ -281,38 +299,42 @@ function ScoreBreakdown({ milestoneType, status }: { milestoneType: string; stat
     review: 88,
   };
 
-  const checks = checksByType[milestoneType] ?? checksByType['tasks'];
+  const checks = checksByType[milestoneType] ?? checksByType.tasks;
   const score = scoreByType[milestoneType] ?? 80;
-  const allPassed = checks.every(c => c.passed);
+  const allPassed = checks.every(check => check.passed);
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <span className="text-gray-400 text-sm">Overall Score</span>
-        <span className={`text-2xl font-bold ${allPassed ? 'text-green-400' : 'text-yellow-400'}`}>
-          {score}<span className="text-gray-500 text-base font-normal">/100</span>
-        </span>
+    <div className="grid gap-6 xl:grid-cols-[0.32fr_0.68fr]">
+      <div className="rounded-[1.75rem] border border-white/8 bg-black/15 p-5">
+        <p className="metric-label">Overall score</p>
+        <p className={`mt-4 text-5xl font-semibold ${allPassed ? 'text-emerald-300' : 'text-amber-200'}`}>
+          {score}
+        </p>
+        <p className="mt-2 text-sm text-stone-400">out of 100</p>
+        {!allPassed && (
+          <p className="mt-4 text-sm leading-6 text-amber-100/90">
+            One or more checks failed. Rework is the correct next action until the missing artifacts are repaired.
+          </p>
+        )}
       </div>
 
-      <div className="space-y-2">
-        {checks.map((check, i) => (
-          <div key={i} className="flex items-start gap-3 p-2.5 rounded-lg bg-gray-800/50">
-            <span className={`mt-0.5 text-sm font-bold ${check.passed ? 'text-green-400' : 'text-red-400'}`}>
-              {check.passed ? '✓' : '✗'}
-            </span>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm text-gray-200">{check.name}</p>
-              {check.detail && <p className="text-xs text-gray-500 mt-0.5">{check.detail}</p>}
+      <div className="divide-y divide-white/8 rounded-[1.75rem] border border-white/8 bg-black/15 px-5">
+        {checks.map(check => (
+          <div key={check.name} className="grid gap-4 py-4 md:grid-cols-[auto_minmax(0,1fr)]">
+            <div className={`mt-1 flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold ${
+              check.passed
+                ? 'bg-emerald-500/15 text-emerald-200'
+                : 'bg-rose-500/15 text-rose-200'
+            }`}>
+              {check.passed ? '✓' : '×'}
+            </div>
+            <div>
+              <p className="text-sm font-medium text-stone-100">{check.name}</p>
+              {check.detail && <p className="mt-1 text-sm leading-6 text-stone-400">{check.detail}</p>}
             </div>
           </div>
         ))}
       </div>
-
-      {!allPassed && (
-        <div className="bg-yellow-900/20 border border-yellow-800 rounded-lg p-3 text-yellow-300 text-sm">
-          One or more checks failed. Request rework to give the agent another attempt.
-        </div>
-      )}
     </div>
   );
 }
