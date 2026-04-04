@@ -55,7 +55,7 @@ async function seed() {
     console.log('✓ Demo idea funded (demo escrow tx)');
 
     // 5. Generate brief + milestone jobs
-    const briefId = await generateBrief(DEMO_IDEA_ID);
+    const briefId = await generateBrief(DEMO_IDEA_ID, DEMO_BUYER_ID);
     console.log(`✓ Brief generated: ${briefId}`);
     console.log('✓ 4 milestone jobs queued (brief, tasks, scaffold, review)');
   }
