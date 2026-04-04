@@ -31,7 +31,7 @@
 
 @layer base {
   * {
-    @apply border-border;
+    border-color: hsl(var(--border));
   }
   body {
     @apply bg-gray-950 text-gray-100 font-sans;
