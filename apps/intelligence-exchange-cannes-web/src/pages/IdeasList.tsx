@@ -1,6 +1,10 @@
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Loader2, Plus, Eye, XCircle, AlertCircle } from 'lucide-react';
 import { getIdeas, cancelIdea } from '../api';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 
 export function IdeasList() {
   const navigate = useNavigate();
@@ -25,17 +29,17 @@ export function IdeasList() {
     .filter(i => i.fundingStatus === 'funded')
     .reduce((sum, i) => sum + parseFloat(i.budgetUsd || '0'), 0);
 
-  const fundingColor: Record<string, string> = {
-    funded: 'badge-funded',
-    unfunded: 'badge-unfunded',
-    cancelled: 'badge bg-gray-700 text-gray-400',
+  const fundingVariant: Record<string, 'funded' | 'unfunded' | 'default'> = {
+    funded: 'funded',
+    unfunded: 'unfunded',
+    cancelled: 'default',
   };
 
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center space-y-3">
-          <div className="spinner" />
+          <Loader2 className="animate-spin h-8 w-8 text-gray-400 mx-auto" />
           <p className="text-gray-400 text-sm">Loading ideas...</p>
         </div>
       </div>
@@ -56,78 +60,98 @@ export function IdeasList() {
               )}
             </p>
           </div>
-          <button className="btn-primary shrink-0" onClick={() => navigate('/submit')}>
-            + Post New Idea
-          </button>
+          <Button className="shrink-0" onClick={() => navigate('/submit')}>
+            <Plus className="h-4 w-4" />
+            Post New Idea
+          </Button>
         </div>
 
         {error && (
-          <div className="card text-center py-6 space-y-3">
-            <p className="text-red-400 text-sm">{String(error)}</p>
-            <button className="btn-primary" onClick={() => refetch()}>Retry</button>
-          </div>
+          <Card>
+            <CardContent className="text-center py-6 space-y-3">
+              <AlertCircle className="h-6 w-6 text-red-400 mx-auto" />
+              <p className="text-red-400 text-sm">{String(error)}</p>
+              <Button onClick={() => refetch()}>Retry</Button>
+            </CardContent>
+          </Card>
         )}
 
         {cancelMutation.isError && (
-          <div className="bg-red-900/30 border border-red-700 rounded-lg p-3 text-red-300 text-sm">
+          <div className="flex items-center gap-2 bg-red-900/30 border border-red-700 rounded-lg p-3 text-red-300 text-sm">
+            <AlertCircle className="h-4 w-4 shrink-0" />
             Cancel failed: {String(cancelMutation.error)}
           </div>
         )}
 
         {ideas.length === 0 ? (
-          <div className="card text-center py-16 space-y-4">
-            <div className="text-4xl">💡</div>
-            <h2 className="text-xl font-semibold text-white">No ideas yet</h2>
-            <p className="text-gray-400 text-sm">Post your first funded idea and let worker capacity pick it up.</p>
-            <button className="btn-primary" onClick={() => navigate('/submit')}>
-              Post an Idea →
-            </button>
-          </div>
+          <Card>
+            <CardContent className="text-center py-16 space-y-4">
+              <div className="h-12 w-12 rounded-full bg-yellow-900/40 flex items-center justify-center mx-auto">
+                <Plus className="h-6 w-6 text-yellow-300" />
+              </div>
+              <h2 className="text-xl font-semibold text-white">No ideas yet</h2>
+              <p className="text-gray-400 text-sm">Post your first funded idea and let worker capacity pick it up.</p>
+              <Button onClick={() => navigate('/submit')}>
+                <Plus className="h-4 w-4" />
+                Post an Idea
+              </Button>
+            </CardContent>
+          </Card>
         ) : (
           <div className="space-y-3">
             {ideas.map(idea => (
-              <div key={idea.ideaId} className="card flex flex-col md:flex-row gap-4">
-                <div className="flex-1 min-w-0 space-y-2">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3
-                      className="text-white font-semibold hover:text-blue-400 cursor-pointer transition-colors"
+              <Card key={idea.ideaId}>
+                <CardContent className="flex flex-col md:flex-row gap-4 py-4">
+                  <div className="flex-1 min-w-0 space-y-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3
+                        className="text-white font-semibold hover:text-blue-400 cursor-pointer transition-colors"
+                        onClick={() => navigate(`/ideas/${idea.ideaId}`)}
+                      >
+                        {idea.title}
+                      </h3>
+                      <Badge variant={fundingVariant[idea.fundingStatus] ?? 'default'}>
+                        {idea.fundingStatus.toUpperCase()}
+                      </Badge>
+                    </div>
+                    <div className="flex gap-4 text-xs text-gray-500 flex-wrap">
+                      <span>Budget: <span className="text-white font-medium">${idea.budgetUsd} USDC</span></span>
+                      <span>Posted: {new Date(idea.createdAt).toLocaleDateString()}</span>
+                      <span className="font-mono text-gray-600">{idea.ideaId.slice(0, 16)}...</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Button
+                      size="sm"
+                      variant="outline"
                       onClick={() => navigate(`/ideas/${idea.ideaId}`)}
                     >
-                      {idea.title}
-                    </h3>
-                    <span className={fundingColor[idea.fundingStatus] ?? 'badge bg-gray-700 text-gray-300'}>
-                      {idea.fundingStatus.toUpperCase()}
-                    </span>
+                      <Eye className="h-3 w-3" />
+                      View
+                    </Button>
+                    {['unfunded', 'funded'].includes(idea.fundingStatus) && (
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => {
+                          if (confirm(`Cancel "${idea.title}"? This cannot be undone.`)) {
+                            cancelMutation.mutate(idea.ideaId);
+                          }
+                        }}
+                        disabled={cancelMutation.isPending}
+                      >
+                        {cancelMutation.isPending ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <XCircle className="h-3 w-3" />
+                        )}
+                        Cancel
+                      </Button>
+                    )}
                   </div>
-                  <div className="flex gap-4 text-xs text-gray-500 flex-wrap">
-                    <span>Budget: <span className="text-white font-medium">${idea.budgetUsd} USDC</span></span>
-                    <span>Posted: {new Date(idea.createdAt).toLocaleDateString()}</span>
-                    <span className="font-mono text-gray-600">{idea.ideaId.slice(0, 16)}...</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    className="btn-primary text-sm"
-                    onClick={() => navigate(`/ideas/${idea.ideaId}`)}
-                  >
-                    View →
-                  </button>
-                  {['unfunded', 'funded'].includes(idea.fundingStatus) && (
-                    <button
-                      className="btn-danger text-sm"
-                      onClick={() => {
-                        if (confirm(`Cancel "${idea.title}"? This cannot be undone.`)) {
-                          cancelMutation.mutate(idea.ideaId);
-                        }
-                      }}
-                      disabled={cancelMutation.isPending}
-                    >
-                      Cancel
-                    </button>
-                  )}
-                </div>
-              </div>
+                </CardContent>
+              </Card>
             ))}
           </div>
         )}
