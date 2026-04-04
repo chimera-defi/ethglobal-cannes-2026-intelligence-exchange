@@ -115,7 +115,7 @@ function WorkerOnboarding({
   isCreatingAuth: boolean;
 }) {
   const isRegistrationSynced =
-    activeAuthorization?.status === 'registered' ||
+    activeAuthorization?.status === 'active' ||
     !!activeAuthorization?.onChainTokenId;
 
   return (
@@ -233,11 +233,14 @@ function ClaimDialog({
     setStatus('challenging');
     setErrorMessage(null);
     try {
-      const { challengeId, message } = await createAuthChallenge(address, 'worker_claim');
+      const fingerprint = authorization.fingerprint ?? authorization.authorizationId;
+      const { challengeId, message } = await createAuthChallenge(address, 'worker_claim', {
+        agentFingerprint: fingerprint,
+        jobId,
+      });
       setStatus('signing');
       const signature = await signMessageAsync({ message });
       setStatus('claiming');
-      const fingerprint = authorization.fingerprint ?? authorization.authorizationId;
       const result = await claimJob(jobId, {
         accountAddress: address,
         agentFingerprint: fingerprint,
@@ -523,11 +526,11 @@ export function JobsBoard() {
   const workerAuths =
     authsData?.authorizations.filter(a => a.role === 'worker') ?? [];
   const activeAuthorization = workerAuths.find(
-    a => a.status === 'registered' || a.status === 'active' || a.status === 'pending'
+    a => a.status === 'active' || a.status === 'pending_registration'
   ) ?? workerAuths[0] ?? null;
 
   const isRegistrationSynced =
-    activeAuthorization?.status === 'registered' ||
+    activeAuthorization?.status === 'active' ||
     !!activeAuthorization?.onChainTokenId;
 
   const canClaim =
@@ -559,7 +562,7 @@ export function JobsBoard() {
         agentType: 'claude-code',
         agentVersion: '1.0.0',
         role: 'worker',
-        permissionScope: ['job.claim', 'job.submit'],
+        permissionScope: ['claim_jobs', 'submit_results'],
       });
       await refetchAuths();
     } catch (err) {

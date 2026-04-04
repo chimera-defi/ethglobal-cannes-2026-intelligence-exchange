@@ -28,22 +28,50 @@ export interface AuthChallengeResponse {
   message: string;
 }
 
-export interface AuthMeResponse {
+export type AccountRole = 'poster' | 'worker' | 'reviewer';
+
+export interface SessionAccount {
   accountAddress: string;
-  sessionId: string;
-  worldRoles?: Array<'poster' | 'worker' | 'reviewer'>;
+  activeSessionId?: string;
+  worldRoles: AccountRole[];
 }
 
-export function createAuthChallenge(accountAddress: string, purpose: 'web_login' | 'worker_claim' = 'web_login') {
-  return post<AuthChallengeResponse>('/auth/challenge', { accountAddress, purpose });
+export interface WorldVerification {
+  verificationId: string;
+  accountAddress: string;
+  role: AccountRole;
+  nullifierHash: string;
+  verificationLevel: string;
+  verifiedAt: string;
+}
+
+export interface AuthMeResponse {
+  account: SessionAccount | null;
+  authorizations: AgentAuthorization[];
+  worldVerifications: WorldVerification[];
+}
+
+export function createAuthChallenge(
+  accountAddress: string,
+  purpose: 'web_login' | 'worker_claim' | 'worker_submit' = 'web_login',
+  metadata?: { agentFingerprint?: string; jobId?: string }
+) {
+  return post<AuthChallengeResponse>('/auth/challenge', {
+    accountAddress,
+    purpose,
+    ...metadata,
+  });
 }
 
 export function verifyAuthChallenge(challengeId: string, accountAddress: string, signature: string) {
-  return post<{ success: boolean; sessionId: string }>('/auth/verify', { challengeId, accountAddress, signature });
+  return post<{ sessionId: string; accountAddress: string; expiresAt: string }>(
+    '/auth/verify',
+    { challengeId, accountAddress, signature }
+  );
 }
 
 export function logout() {
-  return post<{ success: boolean }>('/auth/logout', {}, true);
+  return post<{ loggedOut: boolean }>('/auth/logout', {}, true);
 }
 
 export function getMe() {
@@ -53,17 +81,17 @@ export function getMe() {
 // ─── World ID ─────────────────────────────────────────────────────────────
 
 export interface WorldStatusResponse {
-  verified: boolean;
-  roles: Array<'poster' | 'worker' | 'reviewer'>;
+  accountAddress: string;
+  verifications: WorldVerification[];
 }
 
-export function verifyWorldRole(role: 'poster' | 'worker' | 'reviewer', proof: {
+export function verifyWorldRole(role: AccountRole, proof: {
   nullifierHash: string;
   proof: string;
   merkleRoot: string;
   verificationLevel: string;
 }) {
-  return post<{ success: boolean; role: string }>('/world/verify', { role, proof }, true);
+  return post<{ verification: WorldVerification }>('/world/verify', { role, proof }, true);
 }
 
 export function getWorldStatus() {
@@ -78,7 +106,7 @@ export interface AgentAuthorization {
   agentVersion: string;
   role: 'poster' | 'worker';
   permissionScope: string[];
-  status: string;
+  status: 'pending_registration' | 'active' | 'revoked';
   onChainTokenId?: string;
   fingerprint?: string;
 }
@@ -93,7 +121,7 @@ export function createAgentAuthorization(body: {
   role: 'poster' | 'worker';
   permissionScope: string[];
 }) {
-  return post<AgentAuthorization>('/agents/authorizations', body, true);
+  return post<{ authorization: AgentAuthorization }>('/agents/authorizations', body, true);
 }
 
 export function syncAgentRegistration(authorizationId: string, body: {
@@ -104,7 +132,11 @@ export function syncAgentRegistration(authorizationId: string, body: {
   status: string;
   onChainTokenId?: string;
 }) {
-  return post<{ synced: boolean }>(`/agents/authorizations/${authorizationId}/sync-registration`, body, true);
+  return post<{ authorization: AgentAuthorization }>(
+    `/agents/authorizations/${authorizationId}/sync-registration`,
+    body,
+    true
+  );
 }
 
 // ─── Chain Sync ───────────────────────────────────────────────────────────
@@ -112,10 +144,13 @@ export function syncAgentRegistration(authorizationId: string, body: {
 export function syncChainReceipt(body: {
   eventType: 'milestone_reserved' | 'milestone_released' | 'accepted_submission_attested';
   txHash: string;
+  subjectId: string;
+  contractAddress?: string;
   blockNumber?: number;
-  payload: unknown;
+  payload: Record<string, unknown>;
+  status?: 'pending' | 'confirmed' | 'failed';
 }) {
-  return post<{ synced: boolean }>('/chain/sync', body, true);
+  return post<{ sync: { eventType: string } }>('/chain/sync', body, true);
 }
 
 // ─── Ideas ─────────────────────────────────────────────────────────────────
