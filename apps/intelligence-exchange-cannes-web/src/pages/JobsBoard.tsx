@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getJobs } from '../api';
+import { claimJob, getJobs } from '../api';
 
 const STATUS_TABS = ['queued', 'claimed', 'submitted', 'accepted', 'rework'] as const;
 type StatusTab = typeof STATUS_TABS[number];
@@ -37,22 +37,15 @@ export function JobsBoard() {
     }
     setClaimError(null);
     try {
-      const BROKER = import.meta.env.VITE_BROKER_URL ?? '/v1/cannes';
-      const res = await fetch(`${BROKER}/jobs/${jobId}/claim`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          workerId: claimForm.workerId,
-          agentMetadata: {
-            agentType: claimForm.agentType,
-            agentVersion: claimForm.agentVersion,
-            operatorAddress: '0x0000000000000000000000000000000000000000',
-          },
-        }),
+      const result = await claimJob(jobId, {
+        workerId: claimForm.workerId,
+        agentMetadata: {
+          agentType: claimForm.agentType,
+          agentVersion: claimForm.agentVersion,
+          operatorAddress: '0x0000000000000000000000000000000000000000',
+        },
       });
-      const result = await res.json() as { claimId?: string; expiresAt?: string; skillMdUrl?: string; error?: { message: string } };
-      if (!res.ok) throw new Error(result.error?.message ?? `HTTP ${res.status}`);
-      setClaimResult({ claimId: result.claimId!, expiresAt: result.expiresAt!, skillMdUrl: result.skillMdUrl! });
+      setClaimResult(result);
       queryClient.invalidateQueries({ queryKey: ['jobs'] });
     } catch (err) {
       setClaimError(err instanceof Error ? err.message : 'Claim failed');
