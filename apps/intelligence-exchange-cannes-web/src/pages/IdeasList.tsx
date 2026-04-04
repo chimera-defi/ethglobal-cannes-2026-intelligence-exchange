@@ -5,14 +5,17 @@ import { getIdeas, cancelIdea } from '../api';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { useSession } from '../hooks/useSession';
 
 export function IdeasList() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { session } = useSession();
+  const posterId = session?.accountAddress;
 
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['ideas'],
-    queryFn: () => getIdeas(),
+    queryKey: ['ideas', posterId ?? 'all'],
+    queryFn: () => getIdeas(posterId),
     refetchInterval: 10000,
   });
 

@@ -9,11 +9,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 
 export function BuyerWorkspace() {
   const navigate = useNavigate();
-  const { isConnected, address } = useSession();
+  const { isConnected, address, session } = useSession();
+  const posterId = session?.accountAddress;
 
   const ideasQuery = useQuery({
-    queryKey: ['ideas'],
-    queryFn: () => getIdeas(),
+    queryKey: ['ideas', posterId ?? 'all'],
+    queryFn: () => getIdeas(posterId),
     refetchInterval: 15000,
   });
 
@@ -24,8 +25,11 @@ export function BuyerWorkspace() {
   });
 
   const ideas = ideasQuery.data?.ideas ?? [];
-  const pendingJobs = pendingQuery.data?.jobs ?? [];
-  const pendingCount = pendingQuery.data?.count ?? pendingJobs.length;
+  const ideaIds = new Set(ideas.map((idea) => idea.ideaId));
+  const pendingJobs = posterId
+    ? (pendingQuery.data?.jobs ?? []).filter((job) => ideaIds.has(job.ideaId))
+    : (pendingQuery.data?.jobs ?? []);
+  const pendingCount = pendingJobs.length;
 
   const totalFunded = ideas
     .filter(i => i.fundingStatus === 'funded')
@@ -44,7 +48,9 @@ export function BuyerWorkspace() {
     );
   }
 
-  const greeting = isConnected && address
+  const greeting = posterId
+    ? `Welcome, ${posterId.slice(0, 6)}…${posterId.slice(-4)}`
+    : isConnected && address
     ? `Welcome, ${address.slice(0, 6)}…${address.slice(-4)}`
     : 'Buyer Workspace';
 

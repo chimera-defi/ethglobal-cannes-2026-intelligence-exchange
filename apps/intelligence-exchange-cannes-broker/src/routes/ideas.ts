@@ -12,7 +12,7 @@ import { briefs, ideas, jobs } from '../db/schema';
 import { syncIdeaFunding, syncMilestoneReservation } from '../services/chainService';
 import { getSessionAccountAddress, requireSessionAccountAddress, requireSessionWorldRole, requireWorldRole } from '../services/accessService';
 import { httpError } from '../services/errors';
-import { normalizeAccountAddress } from '../services/identityService';
+import { deriveDeterministicAddress, normalizeAccountAddress } from '../services/identityService';
 import { createIdea, generateBrief, acceptJob, rejectJob } from '../services/jobService';
 import { getWorldConfig } from '../services/sponsorConfig';
 import { readWorldVerificationToken } from '../services/worldId';
@@ -169,7 +169,7 @@ ideasRouter.post('/:ideaId/accept', zValidator('json', AcceptJobRequestSchema), 
     const sessionAccountAddress = await getSessionAccountAddress(c);
     const accountAddress = worldConfig.strict
       ? await requireSessionAccountAddress(c)
-      : sessionAccountAddress ?? 'demo-reviewer';
+      : sessionAccountAddress ?? deriveDeterministicAddress('demo-reviewer');
 
     if (
       normalizeAccountAddress(idea.posterId) !== normalizeAccountAddress(accountAddress)
@@ -219,7 +219,7 @@ ideasRouter.post('/:ideaId/reject', zValidator('json', RejectJobRequestSchema), 
     const sessionAccountAddress = await getSessionAccountAddress(c);
     const accountAddress = worldConfig.strict
       ? await requireSessionAccountAddress(c)
-      : sessionAccountAddress ?? 'demo-reviewer';
+      : sessionAccountAddress ?? deriveDeterministicAddress('demo-reviewer');
 
     if (
       normalizeAccountAddress(idea.posterId) !== normalizeAccountAddress(accountAddress)

@@ -36,13 +36,16 @@ import {
 } from '@/components/ui/dialog';
 import {
   claimJob,
+  claimJobDemo,
   createAuthChallenge,
   listAgentAuthorizations,
   createAgentAuthorization,
   getJobs,
+  getIntegrationsStatus,
   type AgentAuthorization,
 } from '../api';
 import { useSession } from '../hooks/useSession';
+import { makeDemoAddress } from '../lib/demo';
 
 const STATUS_TABS = ['queued', 'claimed', 'submitted', 'accepted', 'rework'] as const;
 type StatusTab = (typeof STATUS_TABS)[number];
@@ -54,8 +57,8 @@ type Job = {
   budgetUsd: string;
   ideaId: string;
   briefId: string;
-  leaseExpiry?: string;
-  activeClaimWorkerId?: string;
+  leaseExpiry?: string | null;
+  activeClaimWorkerId?: string | null;
 };
 
 // ─── Onboarding checklist ────────────────────────────────────────────────────
@@ -396,12 +399,16 @@ function ClaimSuccessBanner({
 function JobCard({
   job,
   canClaim,
+  claimDisabled,
+  claimLabel,
   onClaim,
   onView,
   onViewIdea,
 }: {
   job: Job;
   canClaim: boolean;
+  claimDisabled?: boolean;
+  claimLabel?: string;
   onClaim: () => void;
   onView: () => void;
   onViewIdea: () => void;
@@ -469,10 +476,10 @@ function JobCard({
             <Button
               size="sm"
               onClick={onClaim}
-              disabled={!canClaim}
+              disabled={!canClaim || claimDisabled}
               title={canClaim ? undefined : 'Complete worker setup to claim jobs'}
             >
-              Claim
+              {claimLabel ?? 'Claim'}
               <ChevronRight className="h-3.5 w-3.5" />
             </Button>
           )}
@@ -502,6 +509,7 @@ export function JobsBoard() {
     expiresAt: string;
     skillMdUrl: string;
   } | null>(null);
+  const [demoClaimingJobId, setDemoClaimingJobId] = useState<string | null>(null);
 
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [signInError, setSignInError] = useState<string | null>(null);
@@ -514,6 +522,11 @@ export function JobsBoard() {
     queryKey: ['jobs', activeTab],
     queryFn: () => getJobs(activeTab),
     refetchInterval: 10_000,
+  });
+  const { data: integrations } = useQuery({
+    queryKey: ['integrations-status'],
+    queryFn: getIntegrationsStatus,
+    staleTime: 30_000,
   });
 
   const { data: authsData, refetch: refetchAuths } = useQuery({
@@ -533,12 +546,14 @@ export function JobsBoard() {
     activeAuthorization?.status === 'active' ||
     !!activeAuthorization?.onChainTokenId;
 
-  const canClaim =
+  const strictClaimReady =
     isConnected &&
     hasSession &&
     isWorkerVerified &&
     !!activeAuthorization &&
     isRegistrationSynced;
+  const demoClaimEnabled = integrations?.world.strict === false;
+  const canClaim = strictClaimReady || demoClaimEnabled;
 
   const jobs = jobsData?.jobs ?? [];
 
@@ -578,6 +593,28 @@ export function JobsBoard() {
     setClaimResult(null);
   }
 
+  async function handleDemoClaim(job: Job) {
+    setDemoClaimingJobId(job.jobId);
+    setSignInError(null);
+    setAuthError(null);
+    try {
+      const result = await claimJobDemo(job.jobId, {
+        workerId: makeDemoAddress(`demo-worker:${job.jobId}`),
+        agentMetadata: {
+          agentType: 'demo-web-worker',
+          agentVersion: '0.1.0',
+          operatorAddress: makeDemoAddress('demo-web-operator'),
+        },
+      });
+      setClaimResult(result);
+      await queryClient.invalidateQueries({ queryKey: ['jobs'] });
+    } catch (err) {
+      setAuthError(err instanceof Error ? err.message : 'Demo claim failed');
+    } finally {
+      setDemoClaimingJobId(null);
+    }
+  }
+
   return (
     <div className="page">
       <div className="max-w-4xl mx-auto space-y-6">
@@ -590,6 +627,11 @@ export function JobsBoard() {
             stack.
           </p>
         </div>
+        {demoClaimEnabled && (
+          <div className="bg-blue-900/20 border border-blue-800 rounded-lg px-3 py-2 text-blue-200 text-sm">
+            Demo mode is enabled. Unsigned browser claims are allowed while World strict mode is off.
+          </div>
+        )}
 
         {/* Identity summary strip */}
         {isConnected && (
@@ -627,7 +669,7 @@ export function JobsBoard() {
         )}
 
         {/* Worker onboarding checklist */}
-        {!canClaim && (
+        {!strictClaimReady && !demoClaimEnabled && (
           <WorkerOnboarding
             isConnected={isConnected}
             address={address}
@@ -712,9 +754,21 @@ export function JobsBoard() {
                 key={job.jobId}
                 job={job}
                 canClaim={canClaim}
+                claimDisabled={demoClaimingJobId === job.jobId}
+                claimLabel={
+                  strictClaimReady
+                    ? 'Claim'
+                    : demoClaimingJobId === job.jobId
+                    ? 'Claiming...'
+                    : 'Demo Claim'
+                }
                 onClaim={() => {
                   setClaimResult(null);
-                  setClaimingJob(job);
+                  if (strictClaimReady) {
+                    setClaimingJob(job);
+                    return;
+                  }
+                  void handleDemoClaim(job);
                 }}
                 onView={() => navigate(`/review/${job.jobId}`)}
                 onViewIdea={() => navigate(`/ideas/${job.ideaId}`)}
@@ -725,7 +779,7 @@ export function JobsBoard() {
       </div>
 
       {/* Claim dialog */}
-      {claimingJob && address && activeAuthorization && (
+      {claimingJob && address && activeAuthorization && strictClaimReady && (
         <ClaimDialog
           open={!!claimingJob}
           jobId={claimingJob.jobId}
