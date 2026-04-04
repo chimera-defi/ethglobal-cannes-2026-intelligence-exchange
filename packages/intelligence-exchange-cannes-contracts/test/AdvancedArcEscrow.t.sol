@@ -418,18 +418,18 @@ contract AdvancedArcEscrowTest is Test {
         
         vm.warp(block.timestamp + 4 days);
         
+        uint256 platformBalanceBefore = IERC20(USDC).balanceOf(platformWallet);
+        uint256 workerBalanceBefore = IERC20(USDC).balanceOf(worker);
+        
         vm.prank(worker);
         escrow.releaseMilestone(milestoneId);
         
-        uint256 platformBalanceBefore = IERC20(USDC).balanceOf(platformWallet);
-        
-        // Just verify withdrawal succeeds and balance increases
-        vm.prank(platformWallet);
-        escrow.withdrawPlatformFees();
-        
         uint256 platformBalanceAfter = IERC20(USDC).balanceOf(platformWallet);
-        // Platform gets 10% fee = 100 USDC (from milestone) + initial fee from funding
-        assertGt(platformBalanceAfter, platformBalanceBefore, "Platform balance should increase");
+        uint256 workerBalanceAfter = IERC20(USDC).balanceOf(worker);
+        
+        // Platform gets 10% fee immediately on release
+        assertEq(platformBalanceAfter - platformBalanceBefore, 100e6, "Platform gets 10% fee");
+        assertEq(workerBalanceAfter - workerBalanceBefore, 900e6, "Worker gets 90%");
     }
 
     function test_PlatformFee_CorrectCalculation() public {
