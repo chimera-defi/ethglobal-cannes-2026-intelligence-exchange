@@ -1,199 +1,58 @@
 # System Architecture
 
-## Overview
-
-Intelligence Exchange is a milestone-based marketplace for AI agent work with three main application layers:
-
-1. **Web Application** (`apps/intelligence-exchange-cannes-web`) - React frontend for posters and reviewers
-2. **Broker API** (`apps/intelligence-exchange-cannes-broker`) - Hono backend that orchestrates everything
-3. **Worker CLI** (`apps/intelligence-exchange-cannes-worker`) - TypeScript CLI for agents to claim and execute work
-
-Plus smart contracts on **Worldchain** (identity/reputation), **Arc** (USDC escrow), and **0G** (decentralized storage).
-
-For a detailed package-level architecture, see [high-level-architecture.md](./high-level-architecture.md).
-
-## Component Diagram
+This diagram shows the current Cannes demo loop as implemented in the repo: web and CLI clients talk to the broker, the broker enforces human and agent gates, and settlement or reputation state syncs outward to Arc, Worldchain, and 0G.
 
 ```mermaid
-flowchart TB
-  subgraph Apps["Application Layer"]
-    Web["Web App (React + Vite)"]
-    Broker["Broker API (Hono + Bun)"]
-    Worker["Worker CLI (TypeScript)"]
+flowchart LR
+  subgraph Clients["Human and Agent Entry Points"]
+    Web["Web app\nposters, reviewers, worker operators"]
+    CLI["Worker CLI\nclaim, fetch skill.md, submit"]
   end
 
-  subgraph Data["Data Layer"]
+  subgraph Broker["Broker"]
+    Auth["Wallet auth\nWorld role checks\nAgent Kit guards"]
+    Jobs["Idea intake\nbrief generation\njob claim/review flow"]
+    Queue["Lease expiry + requeue"]
     Postgres[("Postgres")]
     Redis[("Redis")]
   end
 
-  subgraph Identity["Identity Layer"]
+  subgraph WorldStack["World Stack"]
     WorldID["World ID"]
     AgentBook["AgentBook"]
-    IdentityGate["IdentityGate"]
-    Registry["AgentIdentityRegistry"]
+    IdentityGate["IdentityGate\nWorldchain"]
+    Registry["AgentIdentityRegistry\nWorldchain"]
   end
 
-  subgraph Settlement["Settlement Layer"]
-    Arc["AdvancedArcEscrow"]
+  subgraph Settlement["Settlement and Artifacts"]
+    Arc["AdvancedArcEscrow\nArc"]
+    ZeroG["0G dossier storage"]
   end
 
-  subgraph Storage["Storage Layer"]
-    ZeroG["0G Storage (Dossiers)"]
-  end
+  Web -->|sign in, post ideas,\nreview output| Auth
+  CLI -->|signed claim/submit flow| Auth
+  Auth --> Jobs
+  Jobs --> Queue
+  Jobs --> Postgres
+  Queue --> Redis
 
-  subgraph DataAvailability["Data Availability Layer"]
-    ZeroGDA["0G Testnet (Chain ID: 16602)"]
-  end
-
-  Web <-->|HTTP/JSON| Broker
-  Worker <-->|HTTP + Signature| Broker
-  
-  Broker <-->|SQL| Postgres
-  Broker <-->|Redis Protocol| Redis
-  
-  Broker <-->|Proof Verification| WorldID
-  Broker <-->|API Calls| AgentBook
-  Broker <-->|Contract Calls| IdentityGate
-  Broker <-->|Contract Calls| Registry
-  
-  Broker <-->|Contract Calls| Arc
-  Broker -->|Upload Dossiers| ZeroG
-  Broker <-->|Contract Calls| ZeroGDA
-
-  style Web fill:#e0f2fe
-  style Broker fill:#dcfce7
-  style Worker fill:#fef3c7
-  style Postgres fill:#f3e8ff
-  style Redis fill:#fef3c7
-  style Arc fill:#dbeafe
-  style Registry fill:#fce7f3
-  style ZeroG fill:#e0f2fe
-  style ZeroGDA fill:#e0f2fe
+  Auth <--> |poster / worker / reviewer proofs| WorldID
+  Auth <--> |human-backed agent discovery| AgentBook
+  Jobs <--> |worker role sync| IdentityGate
+  Jobs <--> |registration + reputation sync| Registry
+  Jobs <--> |tx builders, funding,\nrelease and dispute sync| Arc
+  Jobs -->|accepted dossier upload| ZeroG
 ```
 
-## Data Flow
+## Current Responsibilities
 
-```mermaid
-sequenceDiagram
-    participant Web as Web App
-    participant Broker as Broker API
-    participant DB as Postgres
-    participant Chain as Smart Contracts
-    participant Worker as Worker CLI
-
-    %% Job Creation
-    Web->>Broker: POST /ideas (funded idea)
-    Broker->>Chain: Verify World ID
-    Chain-->>Broker: Valid
-    Broker->>DB: Store idea + milestones
-    Broker-->>Web: Idea created
-
-    %% Job Discovery
-    Worker->>Broker: GET /jobs (AgentKit)
-    Broker->>Chain: Verify AgentBook
-    Chain-->>Broker: Registered
-    Broker->>DB: List jobs
-    Broker-->>Worker: Available jobs
-
-    %% Claim & Execute
-    Worker->>Broker: POST /claim
-    Broker->>DB: Create claim
-    Broker-->>Worker: skill.md
-    Worker->>Worker: Execute locally
-    Worker->>Broker: POST /submit
-    Broker->>DB: Store submission
-
-    %% Review & Settle
-    Web->>Broker: POST /accept
-    Broker->>Chain: Build release tx
-    Chain-->>Broker: Tx hash
-    Broker->>DB: Update status
-```
-
-## Package Structure
-
-```
-apps/
-├── intelligence-exchange-cannes-web/      # React frontend
-│   ├── src/pages/                         # Page components
-│   └── package.json                       # Vite + RainbowKit
-├── intelligence-exchange-cannes-broker/   # Hono API
-│   ├── src/services/                      # Business logic
-│   ├── src/routes/                        # API endpoints
-│   └── package.json                       # Bun runtime
-├── intelligence-exchange-cannes-worker/   # CLI tool
-│   └── src/cli.ts                         # Worker commands
-packages/
-├── intelligence-exchange-cannes-contracts/# Solidity
-│   ├── src/AgentIdentityRegistry.sol      # ERC-8004 style
-│   ├── src/IdentityGate.sol               # Role verification
-│   └── src/AdvancedArcEscrow.sol          # USDC escrow
-├── intelligence-exchange-cannes-shared/   # Shared types
-└── intelligence-exchange-cannes-fixtures/ # Test data
-```
-
-## Responsibilities
-
-| Component | Responsibility |
-|-----------|---------------|
-| **Web App** | Browser UI, wallet connection, idea submission, review interface |
-| **Broker API** | API endpoints, job orchestration, chain sync, Agent Kit integration |
-| **Worker CLI** | Local job execution, claim/submit via CLI, skill.md runner |
-| **AgentIdentityRegistry** | ERC-8004 style agent registration, reputation tracking |
-| **IdentityGate** | Role-based access control (poster/worker/reviewer) |
-| **AdvancedArcEscrow** | USDC escrow with vesting, disputes, auto-release |
-
-## Network Architecture
-
-| Service | Local | Testnet |
-|---------|-------|---------|
-| Web App | localhost:3000 | Vercel/Netlify |
-| Broker API | localhost:3001 | Fly.io/Railway |
-| Postgres | localhost:5432 | Managed |
-| Redis | localhost:6379 | Managed |
-| Worldchain | Local fork | worldchain-mainnet |
-| Arc | Local fork | Arc testnet |
-
-## Key Integration Points
-
-### Web → Broker
-- **Protocol**: HTTP/REST
-- **Auth**: Wallet signature (SIWE style)
-- **Endpoints**: `/v1/cannes/ideas`, `/v1/cannes/jobs`, `/v1/cannes/review`
-
-### Worker → Broker
-- **Protocol**: HTTP/REST
-- **Auth**: Agent Kit headers + wallet signatures
-- **Endpoints**: `/v1/cannes/agentkit/jobs`, `/v1/cannes/jobs/{id}/claim`
-
-### Broker → Smart Contracts
-- **Protocol**: JSON-RPC (Viem/Ethers)
-- **Networks**: Worldchain (480), Arc (5042002)
-- **Key Operations**: `registerAgent()`, `fundIdea()`, `approveMilestone()`
-
-## Security Model
-
-1. **Authentication**: Wallet signatures verify identity
-2. **Authorization**: World ID proves human, AgentBook proves agent registration
-3. **Reputation**: Broker-signed attestations prevent fake reputation
-4. **Settlement**: Multi-sig style - reviewer approval + attestation required
-
-## Economic Security Layer
-
-The protocol implements a three-layer economic security stack on top of the core settlement flow:
-
-1. **WorkerStakeManager**: Workers must stake INTEL to claim high-value tasks, with slashing on fraud detection. This creates economic alignment between workers and output quality.
-
-2. **ReviewerStakeManager**: Reviewers post INTEL bonds that are slashed if their decisions are overturned, ensuring careful review. Reviewers also earn a share of protocol fees for correct decisions.
-
-3. **DisputeResolution**: Contested acceptances go to a staker jury system with quorum-based resolution. INTEL stakers vote on disputes, with incentives for correct outcomes and penalties for malicious voting.
-
-Together, these layers create slashable economic guarantees that reinforce the human review gate and provide on-chain enforcement mechanisms for quality control.
+- `apps/intelligence-exchange-cannes-web`: browser UI for posters, reviewers, and worker operators
+- `apps/intelligence-exchange-cannes-worker`: CLI bridge for claiming work, fetching `skill.md`, and submitting results
+- `apps/intelligence-exchange-cannes-broker`: Hono API, policy enforcement, queue orchestration, review loop, and chain-sync edges
+- `packages/intelligence-exchange-cannes-contracts`: Worldchain identity / registry contracts plus Arc escrow contract
 
 ## Notes
 
-- The broker is the control plane - all state changes flow through it
-- Human review is the final gate for payouts
-- On-chain reputation is agent-triggered (agent pays gas)
-- Postgres is source of truth for "hot" data; chain is "cold" attested backup
+- The broker remains the control plane. Human review still decides whether work is accepted.
+- Arc release and dispute state are synced into broker state; the broker does not claim autonomous settlement beyond those visible hooks.
+- World ID, AgentBook, IdentityGate, and the worker registry are separate gates with different purposes: human proof, agent discovery access, worker role sync, and reputation / registration state.

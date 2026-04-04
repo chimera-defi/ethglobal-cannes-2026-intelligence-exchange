@@ -46,6 +46,15 @@ import { getIntegrationStatus } from '../services/sponsorConfig';
 
 export const arcRouter = new Hono();
 
+function toBytes32Id(value: string): `0x${string}` {
+  return `0x${Buffer.from(value).toString('hex').padStart(64, '0')}`;
+}
+
+function getDisputeResolutionName(resolution: number) {
+  const entry = Object.entries(DisputeResolution).find(([, value]) => value === resolution);
+  return entry?.[0] ?? 'None';
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 // Schemas
 // ═════════════════════════════════════════════════════════════════════════════
@@ -168,7 +177,7 @@ arcRouter.get('/config', async (c) => {
  */
 arcRouter.get('/ideas/:ideaId/balance', async (c) => {
   const ideaId = c.req.param('ideaId');
-  const ideaIdHash = `0x${Buffer.from(ideaId).toString('hex').padStart(64, '0')}` as `0x${string}`;
+  const ideaIdHash = toBytes32Id(ideaId);
   
   try {
     const balance = await getEscrowIdeaBalance(ideaIdHash);
@@ -208,7 +217,7 @@ arcRouter.get('/jobs/:jobId/escrow', async (c) => {
   const [milestone] = await db.select().from(milestones).where(eq(milestones.milestoneId, job.milestoneId));
   if (!milestone) throw httpError('Milestone not found', 404, 'MILESTONE_NOT_FOUND');
   
-  const milestoneIdHash = `0x${Buffer.from(milestone.milestoneId).toString('hex').padStart(64, '0')}` as `0x${string}`;
+  const milestoneIdHash = toBytes32Id(milestone.milestoneId);
   
   try {
     const [
@@ -271,7 +280,7 @@ arcRouter.get('/jobs/:jobId/escrow', async (c) => {
         reasonHash: dispute.reasonHash,
         raisedAt: dispute.raisedAt,
         resolutionDeadline: dispute.resolutionDeadline,
-        resolution: dispute.resolved ? DisputeResolution[dispute.resolution] : 'pending',
+        resolution: dispute.resolved ? getDisputeResolutionName(dispute.resolution) : 'pending',
         resolved: dispute.resolved,
         resolver: dispute.resolver,
         canAutoResolve: autoResolvePossible,
@@ -302,7 +311,7 @@ arcRouter.get('/jobs/:jobId/vesting', async (c) => {
   const [job] = await db.select().from(jobs).where(eq(jobs.jobId, jobId));
   if (!job) throw httpError('Job not found', 404, 'JOB_NOT_FOUND');
   
-  const milestoneIdHash = `0x${Buffer.from(job.milestoneId).toString('hex').padStart(64, '0')}` as `0x${string}`;
+  const milestoneIdHash = toBytes32Id(job.milestoneId);
   
   try {
     const progress = await getVestingProgress(milestoneIdHash);
@@ -355,7 +364,7 @@ arcRouter.post('/tx/fund-idea', zValidator('json', FundIdeaSchema), async (c) =>
   await requireWorldRole(accountAddress, 'poster');
   
   const { ideaId, amount } = c.req.valid('json');
-  const ideaIdHash = `0x${Buffer.from(ideaId).toString('hex').padStart(64, '0')}` as `0x${string}`;
+  const ideaIdHash = toBytes32Id(ideaId);
   const amountUSDC = parseUSDC(amount);
   
   // Calculate platform fee
@@ -364,6 +373,9 @@ arcRouter.post('/tx/fund-idea', zValidator('json', FundIdeaSchema), async (c) =>
   
   // Build approval + fund transactions
   const status = getArcIntegrationStatus();
+  if (!status.escrowContractAddress) {
+    throw httpError('Arc escrow contract not configured', 503, 'ARC_ESCROW_NOT_CONFIGURED');
+  }
   
   const approvalTx = buildUSDCApprovalTx(
     status.escrowContractAddress as `0x${string}`,
@@ -402,8 +414,8 @@ arcRouter.post('/tx/reserve-milestone', zValidator('json', ReserveMilestoneSchem
     throw httpError('Only idea poster can reserve milestones', 403, 'UNAUTHORIZED');
   }
   
-  const ideaIdHash = `0x${Buffer.from(ideaId).toString('hex').padStart(64, '0')}` as `0x${string}`;
-  const milestoneIdHash = `0x${Buffer.from(milestoneId).toString('hex').padStart(64, '0')}` as `0x${string}`;
+  const ideaIdHash = toBytes32Id(ideaId);
+  const milestoneIdHash = toBytes32Id(milestoneId);
   const amountUSDC = parseUSDC(amount);
   
   const tx = buildReserveMilestoneTx(
@@ -442,13 +454,13 @@ arcRouter.post('/tx/submit-milestone', zValidator('json', SubmitMilestoneSchema)
   // Get job milestone
   const [job] = await db.select().from(jobs).where(eq(jobs.jobId, jobId));
   if (!job) throw httpError('Job not found', 404, 'JOB_NOT_FOUND');
-  if (job.workerId !== accountAddress) {
+  if (job.activeClaimWorkerId !== accountAddress) {
     throw httpError('Only assigned worker can submit', 403, 'UNAUTHORIZED');
   }
   
-  const milestoneIdHash = `0x${Buffer.from(job.milestoneId).toString('hex').padStart(64, '0')}` as `0x${string}`;
+  const milestoneIdHash = toBytes32Id(job.milestoneId);
   
-  const tx = buildSubmitMilestoneTx(milestoneIdHash, submissionHash);
+  const tx = buildSubmitMilestoneTx(milestoneIdHash, submissionHash as `0x${string}`);
   
   return c.json({
     jobId,
@@ -471,7 +483,7 @@ arcRouter.post('/tx/start-review', async (c) => {
   const [job] = await db.select().from(jobs).where(eq(jobs.jobId, jobId));
   if (!job) throw httpError('Job not found', 404, 'JOB_NOT_FOUND');
   
-  const milestoneIdHash = `0x${Buffer.from(job.milestoneId).toString('hex').padStart(64, '0')}` as `0x${string}`;
+  const milestoneIdHash = toBytes32Id(job.milestoneId);
   
   const tx = buildStartReviewTx(milestoneIdHash);
   
@@ -498,15 +510,10 @@ arcRouter.post('/tx/review-milestone', zValidator('json', ReviewMilestoneSchema)
   const [idea] = await db.select().from(ideas).where(eq(ideas.ideaId, job.ideaId));
   if (!idea) throw httpError('Idea not found', 404, 'IDEA_NOT_FOUND');
   
-  const milestoneIdHash = `0x${Buffer.from(job.milestoneId).toString('hex').padStart(64, '0')}` as `0x${string}`;
+  const milestoneIdHash = toBytes32Id(job.milestoneId);
   
   if (action === 'approve') {
-    const tx = buildApproveMilestoneTx(milestoneIdHash, attestationHash);
-    
-    // Update job status in database
-    await db.update(jobs)
-      .set({ status: 'accepted', updatedAt: new Date() })
-      .where(eq(jobs.jobId, jobId));
+    const tx = buildApproveMilestoneTx(milestoneIdHash, attestationHash as `0x${string}`);
     
     return c.json({
       jobId,
@@ -518,11 +525,7 @@ arcRouter.post('/tx/review-milestone', zValidator('json', ReviewMilestoneSchema)
       throw httpError('Dispute reason hash required', 400, 'MISSING_DISPUTE_REASON');
     }
     
-    const tx = buildRaiseDisputeTx(milestoneIdHash, disputeReasonHash);
-    
-    await db.update(jobs)
-      .set({ status: 'disputed', updatedAt: new Date() })
-      .where(eq(jobs.jobId, jobId));
+    const tx = buildRaiseDisputeTx(milestoneIdHash, disputeReasonHash as `0x${string}`);
     
     return c.json({
       jobId,
@@ -556,7 +559,7 @@ arcRouter.post('/tx/release-milestone', zValidator('json', ReleaseMilestoneSchem
   
   // Can be called by worker (for their own jobs) or poster
   const isAuthorized = (
-    job.workerId === accountAddress ||
+    job.activeClaimWorkerId === accountAddress ||
     idea.posterId === accountAddress
   );
   
@@ -564,7 +567,7 @@ arcRouter.post('/tx/release-milestone', zValidator('json', ReleaseMilestoneSchem
     throw httpError('Unauthorized to release', 403, 'UNAUTHORIZED');
   }
   
-  const milestoneIdHash = `0x${Buffer.from(job.milestoneId).toString('hex').padStart(64, '0')}` as `0x${string}`;
+  const milestoneIdHash = toBytes32Id(job.milestoneId);
   
   const tx = buildReleaseMilestoneTx(milestoneIdHash);
   
