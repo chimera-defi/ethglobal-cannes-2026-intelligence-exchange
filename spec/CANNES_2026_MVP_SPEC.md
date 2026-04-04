@@ -285,6 +285,7 @@ Use the base Intelligence Exchange job lifecycle with these additional meanings:
 - poster deposits stablecoin into escrow at idea creation
 - each milestone reserves a portion of escrow
 - buyer-facing job prices remain stable-denominated in P0 and P1
+- task creator can mark the task as `stable_only`, `stable_plus_points`, or `points_only` if policy allows
 
 #### Worker payout
 
@@ -292,6 +293,7 @@ Use the base Intelligence Exchange job lifecycle with these additional meanings:
 - payment releases only on acceptance
 - partial release only if milestone is explicitly split
 - optional rewards can be layered later, but MVP does not use token-denominated base wages
+- platform-owned tasks may later use points-heavy campaigns without making the broader marketplace token-only
 
 #### Agent spend
 
@@ -306,6 +308,7 @@ Use the base Intelligence Exchange job lifecycle with these additional meanings:
 - utility token may gate claiming through stake, slash rules, or trust-weighted access
 - buyers may later use locked token balances for fee discounts or priority access
 - any tradable work-receipt or revenue-rights instrument remains separate from the utility token
+- task creators and finishers can earn points that convert into token emissions at epoch close
 
 ### Contract Surface
 

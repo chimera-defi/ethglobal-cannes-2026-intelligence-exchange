@@ -7,7 +7,7 @@
    - turnaround/SLA target
    - quality threshold
    - policy/risk profile
-3. Buyer sees stable-denominated pricing and selects funding rails and limits.
+3. Buyer sees stable-denominated pricing and selects funding rails, limits, and payout preference.
 4. Buyer submits jobs via UI or API queue endpoint.
 5. Buyer gets real-time dashboard:
    - queue status
@@ -29,7 +29,7 @@
    - accepted jobs
    - rejection/rework reasons
    - earnings and payout schedule
-   - stake health and optional token rewards
+   - creator/finisher points, stake health, and optional token rewards
 
 ## MVP Execution Cadence
 1. Manual mode first for onboarding and trust calibration.
@@ -56,6 +56,10 @@
 
 ## Checkout / Funding UX
 1. Buyer chooses a stable settlement method and optional access-token usage.
+   - task payout preference:
+     - `stable_only`
+     - `stable_plus_points`
+     - `points_only` for platform-owned or whitelisted campaigns
 2. Buyer configures guardrails:
    - daily cap
    - per-job cap
@@ -71,4 +75,4 @@
 4. Kill switch for buyers and workers.
 
 ## Notes
-This flow is designed around fulfillment of execution jobs and measured output acceptance. A utility token may coordinate staking and access, but it does not replace stable settlement or default worker wages.
+This flow is designed around fulfillment of execution jobs and measured output acceptance. A utility token may coordinate staking and access, while creator and finisher points convert into token emissions over time. Stable settlement still remains the default marketplace path.
