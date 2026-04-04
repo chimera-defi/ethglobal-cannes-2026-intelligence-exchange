@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test';
 import { encodePacked, keccak256 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { sql } from '../../db/client';
@@ -152,6 +152,14 @@ beforeAll(async () => {
   process.env.DISABLE_LEASE_REQUEUE = '1';
   broker = await import('../../index');
   await broker.bootstrap();
+  await truncateAllTables();
+});
+
+beforeEach(async () => {
+  process.env.WORLD_ID_STRICT = '1';
+  posterClient.cookie = undefined;
+  workerClient.cookie = undefined;
+  reviewerClient.cookie = undefined;
   await truncateAllTables();
 });
 
@@ -453,5 +461,113 @@ describe('spec-compliance acceptance', () => {
     expect(reputationAfterAttestation.data.acceptedCount).toBe(1);
     expect(Number(reputationAfterAttestation.data.avgScore)).toBeGreaterThan(0);
     expect(reputationAfterAttestation.data.onChainTokenId).toBe(8004);
+  });
+
+  test('demo fallback supports rework reclaim and anonymous review without partial accept failures', async () => {
+    process.env.WORLD_ID_STRICT = '0';
+
+    const createIdeaRes = await api<{ ideaId: string }>(undefined, 'POST', '/v1/cannes/ideas', {
+      taskType: 'coding',
+      title: 'Demo fallback flow',
+      prompt: 'Exercise the local Cannes demo flow without wallet login so reclaim and review are still demoable.',
+      budgetUsdMax: 12,
+      posterAccountAddress: 'demo-poster-a',
+      worldIdProof: {
+        nullifierHash: 'demo-nullifier-a',
+        proof: 'demo-proof-a',
+        merkleRoot: 'demo-root-a',
+        verificationLevel: 'device',
+      },
+    });
+    expect(createIdeaRes.status).toBe(201);
+
+    const ideaId = createIdeaRes.data.ideaId;
+
+    const fundRes = await api<{ fundingStatus: string }>(undefined, 'POST', `/v1/cannes/ideas/${ideaId}/fund`, {
+      txHash: txHash('6'),
+      amountUsd: 12,
+    });
+    expect(fundRes.status).toBe(200);
+    expect(fundRes.data.fundingStatus).toBe('funded');
+
+    const planRes = await api<{ briefId: string; status: string }>(undefined, 'POST', `/v1/cannes/ideas/${ideaId}/plan`);
+    expect(planRes.status).toBe(200);
+
+    const ideaState = await api<{
+      jobs: Array<{ jobId: string; milestoneType: string; status: string }>;
+    }>(undefined, 'GET', `/v1/cannes/ideas/${ideaId}`);
+    expect(ideaState.status).toBe(200);
+
+    const reviewJob = ideaState.data.jobs.find((job) => job.milestoneType === 'review');
+    expect(reviewJob).toBeTruthy();
+    expect(reviewJob?.status).toBe('queued');
+
+    const firstClaim = await api<{ claimId: string }>(undefined, 'POST', `/v1/cannes/jobs/${reviewJob!.jobId}/claim`, {
+      workerId: 'demo-worker-a',
+      agentMetadata: {
+        agentType: 'codex',
+        agentVersion: '1.0.0',
+      },
+    });
+    expect(firstClaim.status).toBe(200);
+
+    const failedSubmit = await api<{
+      scoreBreakdown: { scoreStatus: string };
+    }>(undefined, 'POST', `/v1/cannes/jobs/${reviewJob!.jobId}/submit`, {
+      workerId: 'demo-worker-a',
+      claimId: firstClaim.data.claimId,
+      status: 'completed',
+      artifactUris: ['https://example.com/demo-review.md'],
+      summary: 'too short',
+    });
+    expect(failedSubmit.status).toBe(200);
+    expect(failedSubmit.data.scoreBreakdown.scoreStatus).toBe('rework');
+
+    const reworkState = await api<{
+      job: { status: string; activeClaimId: string | null; activeClaimWorkerId: string | null };
+      latestSubmission: { scoreStatus?: string | null } | null;
+    }>(undefined, 'GET', `/v1/cannes/jobs/${reviewJob!.jobId}`);
+    expect(reworkState.status).toBe(200);
+    expect(reworkState.data.job.status).toBe('rework');
+    expect(reworkState.data.job.activeClaimId).toBeNull();
+    expect(reworkState.data.job.activeClaimWorkerId).toBeNull();
+    expect(reworkState.data.latestSubmission?.scoreStatus).toBe('rework');
+
+    const secondClaim = await api<{ claimId: string }>(undefined, 'POST', `/v1/cannes/jobs/${reviewJob!.jobId}/claim`, {
+      workerId: 'demo-worker-b',
+      agentMetadata: {
+        agentType: 'codex',
+        agentVersion: '1.0.0',
+      },
+    });
+    expect(secondClaim.status).toBe(200);
+    expect(secondClaim.data.claimId).not.toBe(firstClaim.data.claimId);
+
+    const passingSubmit = await api<{
+      scoreBreakdown: { scoreStatus: string; totalScore: number };
+    }>(undefined, 'POST', `/v1/cannes/jobs/${reviewJob!.jobId}/submit`, {
+      workerId: 'demo-worker-b',
+      claimId: secondClaim.data.claimId,
+      status: 'completed',
+      artifactUris: ['https://example.com/demo-review-fixed.md'],
+      summary: 'This resubmission is long enough to satisfy the review rubric and demonstrate reclaim after rework.',
+    });
+    expect(passingSubmit.status).toBe(200);
+    expect(passingSubmit.data.scoreBreakdown.scoreStatus).toBe('passed');
+
+    const acceptRes = await api<{
+      accepted: boolean;
+      attestation: { reviewerAddress: string; signature: string };
+    }>(undefined, 'POST', `/v1/cannes/ideas/${ideaId}/accept`, {
+      jobId: reviewJob!.jobId,
+    });
+    expect(acceptRes.status).toBe(200);
+    expect(acceptRes.data.accepted).toBe(true);
+    expect(acceptRes.data.attestation.reviewerAddress).toMatch(/^0x[a-f0-9]{40}$/);
+    expect(acceptRes.data.attestation.signature).toMatch(/^0x[a-f0-9]+$/);
+
+    const acceptedState = await api<{ job: { status: string } }>(undefined, 'GET', `/v1/cannes/jobs/${reviewJob!.jobId}`);
+    expect(acceptedState.status).toBe(200);
+    expect(acceptedState.data.job.status).toBe('accepted');
   });
 });

@@ -32,6 +32,7 @@ import {
   syncChainReceipt,
 } from '../api';
 import { useSession } from '../hooks/useSession';
+import { makeDemoAddress, makeDemoTxHash, makeDemoWorldProof } from '../lib/demo';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -124,6 +125,7 @@ export function IdeaSubmission() {
   const [worldProof, setWorldProof] = useState<WorldProof | null>(null);
   const [fundTxHash, setFundTxHash] = useState('');
   const [reservationSynced, setReservationSynced] = useState(false);
+  const [demoPosterMode, setDemoPosterMode] = useState(false);
 
   const [form, setForm] = useState<IdeaForm>({
     title: '',
@@ -143,9 +145,14 @@ export function IdeaSubmission() {
       integrations.world.appId &&
       integrations.world.action
   );
+  const demoPosterAvailable = integrations?.world.strict === false;
+  const demoPosterAddress = makeDemoAddress('demo-poster:web');
 
   // Derive the current effective step based on auth state transitions
   function getEffectiveStep(): FlowStep {
+    if (demoPosterMode && demoPosterAvailable) {
+      return ['connect-wallet', 'sign-in', 'world-verify'].includes(step) ? 'form' : step;
+    }
     if (!isConnected) return 'connect-wallet';
     if (!session) return 'sign-in';
     if (!isPosterVerified) return 'world-verify';
@@ -225,17 +232,22 @@ export function IdeaSubmission() {
   // ─── Fund ───────────────────────────────────────────────────────────────────
 
   async function handleCreateAndFund() {
-    if (!fundTxHash.trim()) {
+    const fundingHash = fundTxHash.trim()
+      || (demoPosterMode ? makeDemoTxHash(`fund:${form.title}:${form.budgetUsdMax}`) : '');
+    if (!fundingHash) {
       setError('Enter the wallet transaction hash from the Arc escrow deposit.');
       return;
     }
-    if (!/^0x[0-9a-fA-F]{64}$/.test(fundTxHash.trim())) {
+    if (!/^0x[0-9a-fA-F]{64}$/.test(fundingHash)) {
       setError('Transaction hash must be a 0x-prefixed 32-byte hex string.');
       return;
     }
     setError(null);
     setIsWorking(true);
     setStep('funding');
+    if (demoPosterMode && !fundTxHash.trim()) {
+      setFundTxHash(fundingHash);
+    }
 
     try {
       const idea = await createIdea({
@@ -243,11 +255,17 @@ export function IdeaSubmission() {
         title: form.title,
         prompt: form.prompt,
         budgetUsdMax: form.budgetUsdMax,
+        ...(demoPosterMode
+          ? {
+              posterAccountAddress: demoPosterAddress,
+              worldIdProof: makeDemoWorldProof(demoPosterAddress),
+            }
+          : {}),
       });
 
       setIdeaId(idea.ideaId);
 
-      await fundIdea(idea.ideaId, fundTxHash.trim(), form.budgetUsdMax);
+      await fundIdea(idea.ideaId, fundingHash, form.budgetUsdMax);
 
       setStep('plan');
     } catch (err) {
@@ -268,6 +286,11 @@ export function IdeaSubmission() {
 
     try {
       await planIdea(ideaId);
+      if (demoPosterAvailable) {
+        setReservationSynced(true);
+        setStep('done');
+        return;
+      }
       setStep('reserve');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Planning failed');
@@ -327,6 +350,18 @@ export function IdeaSubmission() {
   function handleSkipReservation() {
     setReservationSynced(false);
     setStep('done');
+  }
+
+  function handleEnterDemoPosterMode() {
+    setDemoPosterMode(true);
+    setError(null);
+    setStep('form');
+  }
+
+  function handleExitDemoPosterMode() {
+    setDemoPosterMode(false);
+    setError(null);
+    setStep(isConnected ? (session ? (isPosterVerified ? 'form' : 'world-verify') : 'sign-in') : 'connect-wallet');
   }
 
   // ─── Render ──────────────────────────────────────────────────────────────────
@@ -415,6 +450,20 @@ export function IdeaSubmission() {
             Fund your idea through the escrow. Verified agents claim and deliver the milestones.
           </p>
         </div>
+        {demoPosterAvailable && (
+          <div className="bg-blue-900/20 border border-blue-800 rounded-lg px-3 py-2 text-blue-200 text-sm flex items-center justify-between gap-3">
+            <span>
+              Demo mode is enabled. You can use a browser-only poster flow with generated proof and tx hashes.
+            </span>
+            <Button
+              size="sm"
+              variant={demoPosterMode ? 'secondary' : 'outline'}
+              onClick={demoPosterMode ? handleExitDemoPosterMode : handleEnterDemoPosterMode}
+            >
+              {demoPosterMode ? 'Use Wallet Flow' : 'Use Demo Poster Mode'}
+            </Button>
+          </div>
+        )}
 
         {/* Progress stepper */}
         <div className="flex items-start gap-1">
@@ -473,6 +522,11 @@ export function IdeaSubmission() {
                 <GateRow ok={isPosterVerified} label="Poster World ID verified" />
               </div>
               <ConnectButton />
+              {demoPosterAvailable && (
+                <Button variant="secondary" className="w-full" onClick={handleEnterDemoPosterMode}>
+                  Continue in Demo Poster Mode
+                </Button>
+              )}
             </CardContent>
           </Card>
         )}
@@ -507,6 +561,11 @@ export function IdeaSubmission() {
                 )}
                 Sign In with Wallet
               </Button>
+              {demoPosterAvailable && (
+                <Button variant="secondary" className="w-full" onClick={handleEnterDemoPosterMode}>
+                  Skip to Demo Poster Mode
+                </Button>
+              )}
             </CardContent>
           </Card>
         )}
@@ -566,6 +625,11 @@ export function IdeaSubmission() {
                   </p>
                 </div>
               )}
+              {demoPosterAvailable && (
+                <Button variant="secondary" className="w-full" onClick={handleEnterDemoPosterMode}>
+                  Use Demo Poster Mode Instead
+                </Button>
+              )}
             </CardContent>
           </Card>
         )}
@@ -586,9 +650,18 @@ export function IdeaSubmission() {
               <form onSubmit={handleFormSubmit} className="space-y-4">
                 <div className="flex items-center gap-2 text-xs text-green-400 mb-2">
                   <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Posting as {address ? address.slice(0, 8) + '…' + address.slice(-6) : ''}</span>
-                  {isPosterVerified && (
+                  <span>
+                    Posting as {demoPosterMode
+                      ? `${demoPosterAddress.slice(0, 8)}…${demoPosterAddress.slice(-6)}`
+                      : address
+                      ? `${address.slice(0, 8)}…${address.slice(-6)}`
+                      : 'browser demo poster'}
+                  </span>
+                  {!demoPosterMode && isPosterVerified && (
                     <Badge variant="success" className="ml-1">Poster Verified</Badge>
+                  )}
+                  {demoPosterMode && (
+                    <Badge variant="warning" className="ml-1">Demo Poster</Badge>
                   )}
                 </div>
 
@@ -710,6 +783,16 @@ export function IdeaSubmission() {
                   Paste the transaction hash from your wallet after the escrow deposit confirms.
                   Do not fabricate a hash — the broker verifies it on Arc.
                 </p>
+                {demoPosterAvailable && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="px-0 text-xs text-blue-400 hover:text-blue-300"
+                    onClick={() => setFundTxHash(makeDemoTxHash(`fund:${form.title}:${form.budgetUsdMax}`))}
+                  >
+                    Use demo tx hash
+                  </Button>
+                )}
               </div>
 
               <Button
@@ -759,6 +842,11 @@ export function IdeaSubmission() {
                 <CheckCircle2 className="w-4 h-4 shrink-0" />
                 <span>Idea created and funded — ID: <span className="font-mono text-xs">{ideaId}</span></span>
               </div>
+              {demoPosterAvailable && (
+                <p className="text-xs text-blue-300 bg-blue-900/20 border border-blue-800 rounded-lg px-3 py-2">
+                  Demo mode auto-queues milestone reservations after planning, so the browser can continue without a manual reservation tx.
+                </p>
+              )}
               <Button className="w-full text-base" size="lg" onClick={handlePlan} disabled={isWorking}>
                 {isWorking ? (
                   <Loader2 className="animate-spin" />

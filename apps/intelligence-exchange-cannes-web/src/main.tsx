@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { WagmiProvider, createConfig, http } from 'wagmi';
+import { injected } from 'wagmi/connectors';
 import { defineChain } from 'viem';
 import { RainbowKitProvider, getDefaultWallets, darkTheme } from '@rainbow-me/rainbowkit';
 import { connectorsForWallets } from '@rainbow-me/rainbowkit';
@@ -22,20 +23,26 @@ const arcTestnet = defineChain({
   testnet: true,
 });
 
-const projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID ?? 'cannes2026demo';
+const projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID;
 
-const { wallets } = getDefaultWallets({ appName: 'Intelligence Exchange', projectId });
-
-const connectors = connectorsForWallets(
-  [
-    ...wallets,
-    {
-      groupName: 'Other',
-      wallets: [metaMaskWallet, rainbowWallet, walletConnectWallet],
-    },
-  ],
-  { appName: 'Intelligence Exchange', projectId }
-);
+const connectors = projectId
+  ? (() => {
+      const { wallets } = getDefaultWallets({ appName: 'Intelligence Exchange', projectId });
+      return connectorsForWallets(
+        [
+          ...wallets,
+          {
+            groupName: 'Other',
+            wallets: [metaMaskWallet, rainbowWallet, walletConnectWallet],
+          },
+        ],
+        { appName: 'Intelligence Exchange', projectId }
+      );
+    })()
+  : [
+      injected({ target: 'metaMask' }),
+      injected(),
+    ];
 
 const wagmiConfig = createConfig({
   chains: [arcTestnet],

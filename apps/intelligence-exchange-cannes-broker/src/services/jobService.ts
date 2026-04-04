@@ -114,7 +114,9 @@ export async function generateBrief(ideaId: string, posterAddress: string): Prom
 export async function claimJob(jobId: string, accountAddress: string, agentFingerprint: string) {
   const [job] = await db.select().from(jobs).where(eq(jobs.jobId, jobId));
   if (!job) throw httpError('Job not found', 404, 'JOB_NOT_FOUND');
-  if (job.status !== 'queued') throw httpError(`Job not claimable: status=${job.status}`, 409, 'JOB_NOT_CLAIMABLE');
+  if (!['queued', 'rework'].includes(job.status)) {
+    throw httpError(`Job not claimable: status=${job.status}`, 409, 'JOB_NOT_CLAIMABLE');
+  }
 
   const claimId = randomUUID();
   const now = new Date();
@@ -180,6 +182,7 @@ export async function submitJob(jobId: string, req: JobResultSubmitRequest, acco
 
   // Score the submission
   const scoreBreakdown = scoreSubmission(req, milestoneType);
+  const newStatus = scoreBreakdown.scoreStatus === 'passed' ? 'submitted' : 'rework';
 
   await db.insert(submissions).values({
     submissionId,
@@ -198,8 +201,18 @@ export async function submitJob(jobId: string, req: JobResultSubmitRequest, acco
     submittedAt: now,
   });
 
-  const newStatus = scoreBreakdown.scoreStatus === 'passed' ? 'submitted' : 'rework';
-  await db.update(jobs).set({ status: newStatus, updatedAt: now }).where(eq(jobs.jobId, jobId));
+  await db.update(jobs).set({
+    status: newStatus,
+    updatedAt: now,
+    activeClaimId: newStatus === 'rework' ? null : job.activeClaimId,
+    activeClaimWorkerId: newStatus === 'rework' ? null : job.activeClaimWorkerId,
+    leaseExpiry: newStatus === 'rework' ? null : job.leaseExpiry,
+  }).where(eq(jobs.jobId, jobId));
+  if (job.activeClaimId) {
+    await db.update(claims)
+      .set({ status: newStatus === 'rework' ? 'cancelled' : 'submitted' })
+      .where(eq(claims.claimId, job.activeClaimId));
+  }
   await logJobEvent(jobId, newStatus, accountAddress, {
     submissionId,
     scoreStatus: scoreBreakdown.scoreStatus,
@@ -221,17 +234,6 @@ export async function acceptJob(jobId: string, reviewerId: string) {
     throw httpError(`Job not in submitted state: ${job.status}`, 409, 'JOB_NOT_REVIEWABLE');
   }
 
-  const now = new Date();
-  await db.update(jobs).set({ status: 'accepted', updatedAt: now }).where(eq(jobs.jobId, jobId));
-  await logJobEvent(jobId, 'accepted', reviewerId, { humanApproved: true });
-
-  console.log(`[job:accepted] jobId=${jobId} reviewer=${reviewerId}`);
-
-  // Update claim status
-  if (job.activeClaimId) {
-    await db.update(claims).set({ status: 'submitted' }).where(eq(claims.claimId, job.activeClaimId));
-  }
-
   const [sub] = await db.select().from(submissions)
     .where(and(eq(submissions.jobId, jobId), eq(submissions.workerId, job.activeClaimWorkerId ?? '')));
   if (!sub?.agentFingerprint) {
@@ -246,6 +248,17 @@ export async function acceptJob(jobId: string, reviewerId: string) {
     reviewerAddress: reviewerId,
     payoutReleased: false,
   });
+
+  const now = new Date();
+  await db.update(jobs).set({ status: 'accepted', updatedAt: now }).where(eq(jobs.jobId, jobId));
+  await logJobEvent(jobId, 'accepted', reviewerId, { humanApproved: true });
+
+  console.log(`[job:accepted] jobId=${jobId} reviewer=${reviewerId}`);
+
+  // Update claim status
+  if (job.activeClaimId) {
+    await db.update(claims).set({ status: 'submitted' }).where(eq(claims.claimId, job.activeClaimId));
+  }
 
   void (async () => {
     try {
@@ -285,7 +298,16 @@ export async function rejectJob(jobId: string, reviewerId: string, reason?: stri
   }
 
   const now = new Date();
-  await db.update(jobs).set({ status: 'rework', updatedAt: now }).where(eq(jobs.jobId, jobId));
+  await db.update(jobs).set({
+    status: 'rework',
+    updatedAt: now,
+    activeClaimId: null,
+    activeClaimWorkerId: null,
+    leaseExpiry: null,
+  }).where(eq(jobs.jobId, jobId));
+  if (job.activeClaimId) {
+    await db.update(claims).set({ status: 'cancelled' }).where(eq(claims.claimId, job.activeClaimId));
+  }
   await logJobEvent(jobId, 'rework', reviewerId, { reason });
 
   console.log(`[job:rejected→rework] jobId=${jobId} reason=${reason}`);
