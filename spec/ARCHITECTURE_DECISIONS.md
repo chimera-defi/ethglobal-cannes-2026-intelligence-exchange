@@ -28,10 +28,10 @@
 - Tradeoff: Worker job economics depend on their negotiated model pricing vs. the job payout floor. Platform must set minimum payout rates high enough to ensure margin after compute.
 - Open: see OPEN_QUESTIONS.md Q2.
 
-## Decision 6: Payments — Stripe Connect (marketplace payouts)
-- Choice: Stripe Connect for buyer charging and worker payouts.
-- Why: Handles marketplace KYC/KYB, pay-out rails, and dispute tooling out of the box.
-- Tradeoff: Workers must complete Stripe KYC before receiving payouts; non-trivial onboarding step for international workers.
+## Decision 6: Payments — stablecoin escrow first
+- Choice: Buyer funding and default worker payout use stablecoin escrow on a supported chain for the Cannes build. Fiat on/off-ramp remains an adapter, not the core settlement path.
+- Why: Matches the current demo architecture, preserves predictable job pricing, and keeps settlement observable onchain.
+- Tradeoff: Wallet/onchain UX is harder than card checkout; fiat accessibility shifts to optional adapters.
 - Open: see OPEN_QUESTIONS.md Q5.
 
 ## Decision 7: Curated Seller Pool for MVP
@@ -72,3 +72,13 @@
 - Choice: Machine-readable state transitions for autonomous workers in V2.
 - Why: Improves reliability, replayability, and auditability for fully automated agent execution.
 - Tradeoff: Tighter contract constraints and migration overhead from V1 manual/scheduled modes.
+
+## Decision 14: Utility token is a phase-gated coordination layer
+- Choice: If launched after the Cannes MVP, the protocol token is limited to worker staking/slashing, buyer fee discounts, access tiers, and optional reward routing.
+- Why: This preserves stable settlement while still creating a real demand loop around participation and trust.
+- Tradeoff: Weaker speculative narrative than token-denominated wages; utility must be earned through actual marketplace usage.
+
+## Decision 15: Success-rights remain a separate instrument
+- Choice: Any later work receipts, royalty claims, or revenue-rights products are separate from the utility token and outside MVP scope.
+- Why: Mixing labor settlement, governance utility, and upside exposure in one token creates bad economics and confusing product semantics.
+- Tradeoff: More contract surface area if the protocol later adds tradable success-linked products.

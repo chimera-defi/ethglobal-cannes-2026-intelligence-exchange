@@ -7,7 +7,7 @@
    - turnaround/SLA target
    - quality threshold
    - policy/risk profile
-3. Buyer selects payment rails and funding limits.
+3. Buyer sees stable-denominated pricing and selects funding rails and limits.
 4. Buyer submits jobs via UI or API queue endpoint.
 5. Buyer gets real-time dashboard:
    - queue status
@@ -29,6 +29,7 @@
    - accepted jobs
    - rejection/rework reasons
    - earnings and payout schedule
+   - stake health and optional token rewards
 
 ## MVP Execution Cadence
 1. Manual mode first for onboarding and trust calibration.
@@ -37,26 +38,30 @@
 
 ## Payment Rails Strategy (MVP -> Phase 2)
 
-### Rail A: Stripe (cards and standard billing)
-- Default for broad B2B/B2C checkout compatibility.
-- Supports card payments, invoicing, and subscription-like billing patterns.
+### Rail A: Stablecoin escrow and payout
+- Default for the Cannes build and protocol-visible settlement.
+- Buyer prices and milestone budgets remain stable-denominated.
 
-### Rail B: Agentic commerce rails (ACP)
+### Rail B: Utility-token coordination layer (phase-gated)
+- Optional token for worker staking/slashing, buyer fee discounts, and access tiers.
+- Token is not the default wage or job-pricing unit.
+
+### Rail C: Agentic commerce rails (ACP)
 - Support machine-to-machine purchasing and delegated payment authorization where available.
 - Use as optional rail for autonomous agents and enterprise automation workflows.
 
-### Rail C: Crypto/BTC settlement via Strike-style rail (optional)
-- Optional settlement/funding rail for users preferring BTC/Lightning style flows.
+### Rail D: Fiat on/off-ramp or card/invoice bridge (optional)
+- Optional bridge for users who need familiar checkout or cashout.
 - Keep this additive; do not make it core for initial GTM.
 
 ## Checkout / Funding UX
-1. Buyer chooses one or more payment methods.
+1. Buyer chooses a stable settlement method and optional access-token usage.
 2. Buyer configures guardrails:
    - daily cap
    - per-job cap
    - approved job categories
    - required minimum quality score
-3. Buyer confirms funding and receives route token/credentials.
+3. Buyer confirms funding and receives route credentials.
 4. Broker starts metering and displays running budget burn.
 
 ## Risk Controls in UX
@@ -66,4 +71,4 @@
 4. Kill switch for buyers and workers.
 
 ## Notes
-This flow is designed around fulfillment of execution jobs and measured output acceptance, not tokenized credit transfers.
+This flow is designed around fulfillment of execution jobs and measured output acceptance. A utility token may coordinate staking and access, but it does not replace stable settlement or default worker wages.
