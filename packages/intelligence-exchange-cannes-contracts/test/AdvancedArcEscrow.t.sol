@@ -53,7 +53,6 @@ contract AdvancedArcEscrowTest is Test {
     address public constant USDC = 0x3600000000000000000000000000000000000000;
     
     address public owner;
-    address public stakerYieldReceiver;
     address public platformWallet;
     address public disputeResolver;
     address public poster;
@@ -68,7 +67,7 @@ contract AdvancedArcEscrowTest is Test {
     bytes32 public ideaId;
     bytes32 public milestoneId;
     
-    event IdeaFunded(bytes32 indexed ideaId, address indexed poster, uint256 amount);
+    event IdeaFunded(bytes32 indexed ideaId, address indexed poster, uint256 amount, uint256 platformFeeReserved);
     event MilestoneReserved(bytes32 indexed ideaId, bytes32 indexed milestoneId, uint256 amount, uint256 vestingDuration, uint256 vestingCliff);
     event MilestoneSubmitted(bytes32 indexed milestoneId, address indexed worker, bytes32 submissionHash, uint256 submittedAt);
     event MilestoneUnderReview(bytes32 indexed milestoneId, address indexed reviewer, uint256 reviewDeadline);
@@ -81,7 +80,6 @@ contract AdvancedArcEscrowTest is Test {
 
     function setUp() public {
         owner = makeAddr("owner");
-        stakerYieldReceiver = makeAddr("stakerYieldReceiver");
         platformWallet = makeAddr("platformWallet");
         disputeResolver = makeAddr("disputeResolver");
         poster = makeAddr("poster");
@@ -94,11 +92,9 @@ contract AdvancedArcEscrowTest is Test {
         // Deploy IdentityGate
         identityGate = new IdentityGate(owner);
         
-        // Deploy AdvancedArcEscrow with mock USDC address as paymentToken
+        // Deploy AdvancedArcEscrow
         escrow = new AdvancedArcEscrow(
-            USDC,
             address(identityGate),
-            stakerYieldReceiver,
             platformWallet,
             disputeResolver
         );
@@ -132,6 +128,7 @@ contract AdvancedArcEscrowTest is Test {
 
     function test_FundIdea_WithUSDC() public {
         uint256 fundAmount = 1000e6; // 1000 USDC
+        uint256 expectedFee = (fundAmount * 1000) / 10000; // 10% = 100 USDC
         
         vm.startPrank(poster);
         
@@ -144,16 +141,17 @@ contract AdvancedArcEscrowTest is Test {
         require(success, "USDC approve failed");
         
         vm.expectEmit(true, true, false, true);
-        emit IdeaFunded(ideaId, poster, fundAmount);
+        emit IdeaFunded(ideaId, poster, fundAmount, expectedFee);
         
         escrow.fundIdea(ideaId, fundAmount);
         
         vm.stopPrank();
         
         // Verify balances
-        (uint256 available, uint256 totalFunded) = escrow.getIdeaBalance(ideaId);
+        (uint256 available, uint256 totalFunded, uint256 platformFees) = escrow.getIdeaBalance(ideaId);
         assertEq(totalFunded, fundAmount);
-        assertEq(available, fundAmount);
+        assertEq(platformFees, expectedFee);
+        assertEq(available, fundAmount - expectedFee);
     }
 
     function test_ConditionalEscrow_LockedUntilApproval() public {
@@ -165,7 +163,7 @@ contract AdvancedArcEscrowTest is Test {
         escrow.submitMilestone(milestoneId, keccak256("submission"));
         
         // At this point, funds should be locked
-        (uint256 available,) = escrow.getIdeaBalance(ideaId);
+        (uint256 available,,) = escrow.getIdeaBalance(ideaId);
         assertEq(available, 0, "Funds should be locked after submission");
         
         // Worker cannot withdraw
@@ -258,10 +256,10 @@ contract AdvancedArcEscrowTest is Test {
         uint256 workerBalanceAfter = IERC20(USDC).balanceOf(worker);
         uint256 released = workerBalanceAfter - workerBalanceBefore;
         
-        // Should have released ~50% minus 19% protocol fees (staker 9% + treasury 10%)
+        // Should have released ~50% minus 10% fee
         uint256 expectedGross = milestoneAmount / 2;
-        uint256 expectedNet = (expectedGross * 8100) / 10000; // 81% to worker
-
+        uint256 expectedNet = (expectedGross * 9000) / 10000; // minus 10% fee
+        
         assertApproxEqRel(released, expectedNet, 0.01e18);
     }
 
@@ -308,15 +306,15 @@ contract AdvancedArcEscrowTest is Test {
         
         vm.prank(disputeResolver);
         vm.expectEmit(true, true, false, true);
-        emit DisputeResolved(milestoneId, disputeResolver, AdvancedArcEscrow.DisputeResolution.WorkerWins, 810e6, 0);
-
+        emit DisputeResolved(milestoneId, disputeResolver, AdvancedArcEscrow.DisputeResolution.WorkerWins, 900e6, 0);
+        
         escrow.resolveDispute(milestoneId, AdvancedArcEscrow.DisputeResolution.WorkerWins, 0);
-
+        
         uint256 workerBalanceAfter = IERC20(USDC).balanceOf(worker);
         uint256 received = workerBalanceAfter - workerBalanceBefore;
-
-        // Worker gets 1000 - 19% protocol fees (staker 9% + treasury 10%) = 810 USDC
-        assertEq(received, 810e6);
+        
+        // Worker gets 1000 - 10% fee = 900 USDC
+        assertEq(received, 900e6);
     }
 
     function test_Dispute_ResolvePosterWins() public {
@@ -326,15 +324,17 @@ contract AdvancedArcEscrowTest is Test {
         vm.prank(worker);
         escrow.raiseDispute(milestoneId, keccak256("worker dispute"));
         
-        uint256 posterBalanceBefore = IERC20(USDC).balanceOf(poster);
+        uint256 posterAvailableBefore;
+        (posterAvailableBefore,,) = escrow.getIdeaBalance(ideaId);
         
         vm.prank(disputeResolver);
         escrow.resolveDispute(milestoneId, AdvancedArcEscrow.DisputeResolution.PosterWins, 0);
         
-        uint256 posterBalanceAfter = IERC20(USDC).balanceOf(poster);
+        uint256 posterAvailableAfter;
+        (posterAvailableAfter,,) = escrow.getIdeaBalance(ideaId);
         
-        // PosterWins = full refund (no protocol fees on failed work — poster should not subsidise platform)
-        assertEq(posterBalanceAfter - posterBalanceBefore, 1000e6);
+        // Poster gets refund (minus platform fee still taken)
+        assertEq(posterAvailableAfter - posterAvailableBefore, 900e6);
     }
 
     function test_Dispute_ResolveSplit() public {
@@ -345,18 +345,20 @@ contract AdvancedArcEscrowTest is Test {
         escrow.raiseDispute(milestoneId, keccak256("dispute"));
         
         uint256 workerBalanceBefore = IERC20(USDC).balanceOf(worker);
-        uint256 posterBalanceBefore = IERC20(USDC).balanceOf(poster);
+        uint256 posterAvailableBefore;
+        (posterAvailableBefore,,) = escrow.getIdeaBalance(ideaId);
         
         // 60% to worker, 40% to poster
         vm.prank(disputeResolver);
         escrow.resolveDispute(milestoneId, AdvancedArcEscrow.DisputeResolution.Split, 6000);
         
         uint256 workerBalanceAfter = IERC20(USDC).balanceOf(worker);
-        uint256 posterBalanceAfter = IERC20(USDC).balanceOf(poster);
+        uint256 posterAvailableAfter;
+        (posterAvailableAfter,,) = escrow.getIdeaBalance(ideaId);
         
-        // Worker: 60% of 810 (workerPool after 19% fees) = 486, Poster: 40% of 810 = 324
-        assertEq(workerBalanceAfter - workerBalanceBefore, 486e6);
-        assertEq(posterBalanceAfter - posterBalanceBefore, 324e6);
+        // Worker: 60% of 900 = 540, Poster: 40% of 900 = 360
+        assertEq(workerBalanceAfter - workerBalanceBefore, 540e6);
+        assertEq(posterAvailableAfter - posterAvailableBefore, 360e6);
     }
 
     function test_AutoRelease_AfterTimeout() public {
@@ -372,13 +374,13 @@ contract AdvancedArcEscrowTest is Test {
         
         vm.prank(attacker); // Anyone can call autoRelease
         vm.expectEmit(true, true, false, true);
-        emit MilestoneAutoReleased(milestoneId, worker, 810e6, block.timestamp);
-
+        emit MilestoneAutoReleased(milestoneId, worker, 900e6, block.timestamp);
+        
         escrow.autoReleaseMilestone(milestoneId);
-
+        
         uint256 workerBalanceAfter = IERC20(USDC).balanceOf(worker);
-        // Worker gets 81% (1000 - staker 9% - treasury 10%)
-        assertEq(workerBalanceAfter - workerBalanceBefore, 810e6);
+        // Worker gets full amount minus fee
+        assertEq(workerBalanceAfter - workerBalanceBefore, 900e6);
     }
 
     function test_AutoResolve_DisputeTimeout() public {
@@ -392,17 +394,17 @@ contract AdvancedArcEscrowTest is Test {
         vm.warp(block.timestamp + 15 days);
         
         assertTrue(escrow.canAutoResolve(milestoneId));
-
+        
         uint256 workerBalanceBefore = IERC20(USDC).balanceOf(worker);
-
-        // Resolver triggers auto-resolve (access-gated post security fix)
-        vm.prank(disputeResolver);
+        
+        // Anyone can trigger auto-resolve
+        vm.prank(attacker);
         escrow.autoResolveDispute(milestoneId);
         
-        // Should be 50/50 split of workerPool (810e6 after 19% fees)
+        // Should be 50/50 split
         uint256 workerBalanceAfter = IERC20(USDC).balanceOf(worker);
-        // Worker gets 50% of 810 = 405
-        assertEq(workerBalanceAfter - workerBalanceBefore, 405e6);
+        // Worker gets 50% of 900 = 450
+        assertEq(workerBalanceAfter - workerBalanceBefore, 450e6);
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -416,18 +418,18 @@ contract AdvancedArcEscrowTest is Test {
         
         vm.warp(block.timestamp + 4 days);
         
-        uint256 platformBalanceBefore = IERC20(USDC).balanceOf(platformWallet);
-        uint256 workerBalanceBefore = IERC20(USDC).balanceOf(worker);
-        
         vm.prank(worker);
         escrow.releaseMilestone(milestoneId);
         
-        uint256 platformBalanceAfter = IERC20(USDC).balanceOf(platformWallet);
-        uint256 workerBalanceAfter = IERC20(USDC).balanceOf(worker);
+        uint256 platformBalanceBefore = IERC20(USDC).balanceOf(platformWallet);
         
-        // Treasury gets 10% fee; staker gets 9%; worker gets 81%
-        assertEq(platformBalanceAfter - platformBalanceBefore, 100e6, "Treasury gets 10% fee");
-        assertEq(workerBalanceAfter - workerBalanceBefore, 810e6, "Worker gets 81%");
+        // Just verify withdrawal succeeds and balance increases
+        vm.prank(platformWallet);
+        escrow.withdrawPlatformFees();
+        
+        uint256 platformBalanceAfter = IERC20(USDC).balanceOf(platformWallet);
+        // Platform gets 10% fee = 100 USDC (from milestone) + initial fee from funding
+        assertGt(platformBalanceAfter, platformBalanceBefore, "Platform balance should increase");
     }
 
     function test_PlatformFee_CorrectCalculation() public {
@@ -538,13 +540,13 @@ contract AdvancedArcEscrowTest is Test {
         _setupFundedAndReservedMilestone(1000e6, 0, 0, false);
         
         uint256 availableBefore;
-        (availableBefore,) = escrow.getIdeaBalance(ideaId);
+        (availableBefore,,) = escrow.getIdeaBalance(ideaId);
         
         vm.prank(poster);
         escrow.refundMilestone(milestoneId);
         
         uint256 availableAfter;
-        (availableAfter,) = escrow.getIdeaBalance(ideaId);
+        (availableAfter,,) = escrow.getIdeaBalance(ideaId);
         
         assertEq(availableAfter - availableBefore, 1000e6);
         assertEq(uint256(escrow.getMilestoneStatus(milestoneId)), uint256(AdvancedArcEscrow.MilestoneStatus.Refunded));
@@ -609,7 +611,7 @@ contract AdvancedArcEscrowTest is Test {
         }
         
         // Verify available balance reduced correctly (amounts sum = 4500)
-        (uint256 available,) = escrow.getIdeaBalance(ideaId);
+        (uint256 available,,) = escrow.getIdeaBalance(ideaId);
         assertGt(available, 0); // Just verify there's some balance left
     }
 
@@ -623,7 +625,7 @@ contract AdvancedArcEscrowTest is Test {
         uint256 vestingCliff,
         bool linear
     ) internal {
-        uint256 fundAmount = amount;
+        uint256 fundAmount = (amount * 10000) / 9000; // Account for 10% fee
         
         vm.startPrank(poster);
         

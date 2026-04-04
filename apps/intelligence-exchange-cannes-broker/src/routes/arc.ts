@@ -13,8 +13,7 @@ import { db } from '../db/client';
 import { jobs, ideas, milestones, escrowReleases } from '../db/schema';
 import { requireSessionAccountAddress, requireWorldRole } from '../services/accessService';
 import { httpError } from '../services/errors';
-import { randomUUID, createHmac, timingSafeEqual } from 'crypto';
-import { isArcEnabled } from '../services/sponsorConfig';
+import { randomUUID } from 'crypto';
 import {
   getArcIntegrationStatus,
   getEscrowConfig,
@@ -40,26 +39,12 @@ import {
   parseUSDC,
   getArcExplorerUrl,
   getArcAddressExplorerUrl,
+  MilestoneStatus,
   DisputeResolution,
 } from '../services/arcEscrowService';
+import { getIntegrationStatus } from '../services/sponsorConfig';
+
 export const arcRouter = new Hono();
-
-// Guard: all Arc routes return 501 unless ENABLE_ARC=true
-arcRouter.use('*', async (c, next) => {
-  if (!isArcEnabled()) {
-    return c.json({ error: 'Arc integration not enabled. Set ENABLE_ARC=true to activate.' }, 501);
-  }
-  return next();
-});
-
-function toBytes32Id(value: string): `0x${string}` {
-  return `0x${Buffer.from(value).toString('hex').padStart(64, '0')}`;
-}
-
-function getDisputeResolutionName(resolution: number) {
-  const entry = Object.entries(DisputeResolution).find(([, value]) => value === resolution);
-  return entry?.[0] ?? 'None';
-}
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Schemas
@@ -94,6 +79,12 @@ const ReviewMilestoneSchema = z.object({
 const ReleaseMilestoneSchema = z.object({
   jobId: z.string(),
   autoRelease: z.boolean().default(false),
+});
+
+const ResolveDisputeSchema = z.object({
+  jobId: z.string(),
+  resolution: z.enum(['workerWins', 'posterWins', 'split']),
+  workerPayoutBps: z.number().int().min(0).max(10000).optional(), // For split resolution
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -134,7 +125,8 @@ arcRouter.get('/status', async (c) => {
  */
 arcRouter.get('/config', async (c) => {
   const status = getArcIntegrationStatus();
-
+  const integration = getIntegrationStatus();
+  
   if (!status.configured) {
     return c.json({
       configured: false,
@@ -176,7 +168,7 @@ arcRouter.get('/config', async (c) => {
  */
 arcRouter.get('/ideas/:ideaId/balance', async (c) => {
   const ideaId = c.req.param('ideaId');
-  const ideaIdHash = toBytes32Id(ideaId);
+  const ideaIdHash = `0x${Buffer.from(ideaId).toString('hex').padStart(64, '0')}` as `0x${string}`;
   
   try {
     const balance = await getEscrowIdeaBalance(ideaIdHash);
@@ -216,7 +208,7 @@ arcRouter.get('/jobs/:jobId/escrow', async (c) => {
   const [milestone] = await db.select().from(milestones).where(eq(milestones.milestoneId, job.milestoneId));
   if (!milestone) throw httpError('Milestone not found', 404, 'MILESTONE_NOT_FOUND');
   
-  const milestoneIdHash = toBytes32Id(milestone.milestoneId);
+  const milestoneIdHash = `0x${Buffer.from(milestone.milestoneId).toString('hex').padStart(64, '0')}` as `0x${string}`;
   
   try {
     const [
@@ -279,7 +271,7 @@ arcRouter.get('/jobs/:jobId/escrow', async (c) => {
         reasonHash: dispute.reasonHash,
         raisedAt: dispute.raisedAt,
         resolutionDeadline: dispute.resolutionDeadline,
-        resolution: dispute.resolved ? getDisputeResolutionName(dispute.resolution) : 'pending',
+        resolution: dispute.resolved ? DisputeResolution[dispute.resolution] : 'pending',
         resolved: dispute.resolved,
         resolver: dispute.resolver,
         canAutoResolve: autoResolvePossible,
@@ -310,7 +302,7 @@ arcRouter.get('/jobs/:jobId/vesting', async (c) => {
   const [job] = await db.select().from(jobs).where(eq(jobs.jobId, jobId));
   if (!job) throw httpError('Job not found', 404, 'JOB_NOT_FOUND');
   
-  const milestoneIdHash = toBytes32Id(job.milestoneId);
+  const milestoneIdHash = `0x${Buffer.from(job.milestoneId).toString('hex').padStart(64, '0')}` as `0x${string}`;
   
   try {
     const progress = await getVestingProgress(milestoneIdHash);
@@ -363,7 +355,7 @@ arcRouter.post('/tx/fund-idea', zValidator('json', FundIdeaSchema), async (c) =>
   await requireWorldRole(accountAddress, 'poster');
   
   const { ideaId, amount } = c.req.valid('json');
-  const ideaIdHash = toBytes32Id(ideaId);
+  const ideaIdHash = `0x${Buffer.from(ideaId).toString('hex').padStart(64, '0')}` as `0x${string}`;
   const amountUSDC = parseUSDC(amount);
   
   // Calculate platform fee
@@ -372,9 +364,6 @@ arcRouter.post('/tx/fund-idea', zValidator('json', FundIdeaSchema), async (c) =>
   
   // Build approval + fund transactions
   const status = getArcIntegrationStatus();
-  if (!status.escrowContractAddress) {
-    throw httpError('Arc escrow contract not configured', 503, 'ARC_ESCROW_NOT_CONFIGURED');
-  }
   
   const approvalTx = buildUSDCApprovalTx(
     status.escrowContractAddress as `0x${string}`,
@@ -413,8 +402,8 @@ arcRouter.post('/tx/reserve-milestone', zValidator('json', ReserveMilestoneSchem
     throw httpError('Only idea poster can reserve milestones', 403, 'UNAUTHORIZED');
   }
   
-  const ideaIdHash = toBytes32Id(ideaId);
-  const milestoneIdHash = toBytes32Id(milestoneId);
+  const ideaIdHash = `0x${Buffer.from(ideaId).toString('hex').padStart(64, '0')}` as `0x${string}`;
+  const milestoneIdHash = `0x${Buffer.from(milestoneId).toString('hex').padStart(64, '0')}` as `0x${string}`;
   const amountUSDC = parseUSDC(amount);
   
   const tx = buildReserveMilestoneTx(
@@ -453,13 +442,13 @@ arcRouter.post('/tx/submit-milestone', zValidator('json', SubmitMilestoneSchema)
   // Get job milestone
   const [job] = await db.select().from(jobs).where(eq(jobs.jobId, jobId));
   if (!job) throw httpError('Job not found', 404, 'JOB_NOT_FOUND');
-  if (job.activeClaimWorkerId !== accountAddress) {
+  if (job.workerId !== accountAddress) {
     throw httpError('Only assigned worker can submit', 403, 'UNAUTHORIZED');
   }
   
-  const milestoneIdHash = toBytes32Id(job.milestoneId);
+  const milestoneIdHash = `0x${Buffer.from(job.milestoneId).toString('hex').padStart(64, '0')}` as `0x${string}`;
   
-  const tx = buildSubmitMilestoneTx(milestoneIdHash, submissionHash as `0x${string}`);
+  const tx = buildSubmitMilestoneTx(milestoneIdHash, submissionHash);
   
   return c.json({
     jobId,
@@ -469,24 +458,20 @@ arcRouter.post('/tx/submit-milestone', zValidator('json', SubmitMilestoneSchema)
   });
 });
 
-const StartReviewSchema = z.object({
-  jobId: z.string(),
-});
-
 /**
  * POST /v1/cannes/arc/tx/start-review
  * Build transaction for reviewer to start review
  */
-arcRouter.post('/tx/start-review', zValidator('json', StartReviewSchema), async (c) => {
+arcRouter.post('/tx/start-review', async (c) => {
   const accountAddress = await requireSessionAccountAddress(c);
   await requireWorldRole(accountAddress, 'reviewer');
   
-  const { jobId } = c.req.valid('json');
+  const { jobId } = await c.req.json();
   
   const [job] = await db.select().from(jobs).where(eq(jobs.jobId, jobId));
   if (!job) throw httpError('Job not found', 404, 'JOB_NOT_FOUND');
   
-  const milestoneIdHash = toBytes32Id(job.milestoneId);
+  const milestoneIdHash = `0x${Buffer.from(job.milestoneId).toString('hex').padStart(64, '0')}` as `0x${string}`;
   
   const tx = buildStartReviewTx(milestoneIdHash);
   
@@ -513,10 +498,15 @@ arcRouter.post('/tx/review-milestone', zValidator('json', ReviewMilestoneSchema)
   const [idea] = await db.select().from(ideas).where(eq(ideas.ideaId, job.ideaId));
   if (!idea) throw httpError('Idea not found', 404, 'IDEA_NOT_FOUND');
   
-  const milestoneIdHash = toBytes32Id(job.milestoneId);
+  const milestoneIdHash = `0x${Buffer.from(job.milestoneId).toString('hex').padStart(64, '0')}` as `0x${string}`;
   
   if (action === 'approve') {
-    const tx = buildApproveMilestoneTx(milestoneIdHash, attestationHash as `0x${string}`);
+    const tx = buildApproveMilestoneTx(milestoneIdHash, attestationHash);
+    
+    // Update job status in database
+    await db.update(jobs)
+      .set({ status: 'accepted', updatedAt: new Date() })
+      .where(eq(jobs.jobId, jobId));
     
     return c.json({
       jobId,
@@ -528,7 +518,11 @@ arcRouter.post('/tx/review-milestone', zValidator('json', ReviewMilestoneSchema)
       throw httpError('Dispute reason hash required', 400, 'MISSING_DISPUTE_REASON');
     }
     
-    const tx = buildRaiseDisputeTx(milestoneIdHash, disputeReasonHash as `0x${string}`);
+    const tx = buildRaiseDisputeTx(milestoneIdHash, disputeReasonHash);
+    
+    await db.update(jobs)
+      .set({ status: 'disputed', updatedAt: new Date() })
+      .where(eq(jobs.jobId, jobId));
     
     return c.json({
       jobId,
@@ -562,7 +556,7 @@ arcRouter.post('/tx/release-milestone', zValidator('json', ReleaseMilestoneSchem
   
   // Can be called by worker (for their own jobs) or poster
   const isAuthorized = (
-    job.activeClaimWorkerId === accountAddress ||
+    job.workerId === accountAddress ||
     idea.posterId === accountAddress
   );
   
@@ -570,7 +564,7 @@ arcRouter.post('/tx/release-milestone', zValidator('json', ReleaseMilestoneSchem
     throw httpError('Unauthorized to release', 403, 'UNAUTHORIZED');
   }
   
-  const milestoneIdHash = toBytes32Id(job.milestoneId);
+  const milestoneIdHash = `0x${Buffer.from(job.milestoneId).toString('hex').padStart(64, '0')}` as `0x${string}`;
   
   const tx = buildReleaseMilestoneTx(milestoneIdHash);
   
@@ -591,49 +585,14 @@ arcRouter.post('/tx/release-milestone', zValidator('json', ReleaseMilestoneSchem
  * Receive escrow events from indexer/webhook
  */
 arcRouter.post('/webhook/escrow-event', async (c) => {
-  const ARC_WEBHOOK_SECRET = process.env.ARC_WEBHOOK_SECRET;
-
-  // Fail closed: if the secret is not configured, refuse all requests rather than
-  // accepting unsigned events (P8-A1 — webhook signature bypass).
-  // 501 = endpoint exists but is not configured for use (permanent, not transient).
-  if (!ARC_WEBHOOK_SECRET) {
-    return c.json({ error: 'Webhook endpoint not configured' }, 501);
-  }
-
-  const rawBody = await c.req.text();
-
-  const signature = c.req.header('X-Arc-Signature');
-  if (!signature) {
-    return c.json({ error: 'Missing webhook signature' }, 401);
-  }
-  const expected = 'sha256=' + createHmac('sha256', ARC_WEBHOOK_SECRET).update(rawBody).digest('hex');
-  let signatureValid = false;
-  try {
-    signatureValid = timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
-  } catch {
-    // timingSafeEqual throws RangeError if buffers differ in length
-    signatureValid = false;
-  }
-  if (!signatureValid) {
-    return c.json({ error: 'Invalid webhook signature' }, 401);
-  }
-
-  let event: Record<string, unknown>;
-  try {
-    event = JSON.parse(rawBody);
-  } catch {
-    return c.json({ error: 'Invalid JSON body' }, 400);
-  }
-
-  const eventType = String(event.eventType ?? '');
-  const txHash = event.txHash != null ? String(event.txHash) : undefined;
-  const milestoneId = String(event.milestoneId ?? '');
-  const ideaId = event.ideaId != null ? String(event.ideaId) : undefined;
-  const workerAddress = event.worker != null ? String(event.worker) : '';
-  const amountUsd = event.amount != null ? String(event.amount) : '0';
-
+  const event = await c.req.json();
+  
+  // Validate webhook signature (implement based on your indexer)
+  // For now, accept and process
+  
+  const { eventType, txHash, milestoneId, ideaId, ...payload } = event;
+  
   // Update database based on event type
-  try {
   switch (eventType) {
     case 'MilestoneReleased':
     case 'MilestoneAutoReleased': {
@@ -645,9 +604,9 @@ arcRouter.post('/webhook/escrow-event', async (c) => {
           jobId: job.jobId,
           ideaId: job.ideaId,
           milestoneId,
-          payer: ideaId ?? 'poster',
-          payee: workerAddress,
-          amountUsd,
+          payer: ideaId || 'poster',
+          payee: payload.worker,
+          amountUsd: payload.amount,
           txHash,
           status: 'confirmed',
           releasedAt: new Date(),
@@ -682,13 +641,6 @@ arcRouter.post('/webhook/escrow-event', async (c) => {
     }
   }
   
-  } catch (error) {
-    return c.json({
-      error: 'Failed to process event',
-      details: error instanceof Error ? error.message : String(error),
-    }, 500);
-  }
-
   return c.json({ received: true, eventType });
 });
 

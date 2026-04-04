@@ -1,9 +1,5 @@
 # Arc Integration Documentation
 
-> Historical archive note (2026-04-19): this document captures sponsor/prize-track integration detail from an earlier phase.
-> It is not the launch source-of-truth for current INTEL-native product behavior.
-> Use `docs/CANONICAL_PRODUCT_OVERVIEW.md` and `spec/tokenomics/INTEL_LAUNCH_ARCHITECTURE.md` for current launch design.
-
 ## ETHGlobal Cannes 2026 Prize 1: Best Smart Contract on Arc
 
 ### Submission Overview
@@ -141,20 +137,12 @@ stateDiagram-v2
 
 ### Vesting Schedule Visualization
 
-```
-Linear Vesting Example (30 days, 7-day cliff)
-
-Day 0:   0% released (cliff period)
-Day 7:   0% released (cliff ends)
-Day 14:  33% released
-Day 21:  66% released
-Day 30:  100% released
-
-Milestone-Based Alternative:
-Day 0:   25% released (at cliff)
-Day 14:  50% released
-Day 21:  75% released
-Day 30:  100% released
+```mermaid
+xychart-beta
+    title "Linear Vesting Example (30 days, 7-day cliff)"
+    x-axis [0, 7, 14, 21, 30]
+    y-axis "Released %" 0 --> 100
+    line [0, 0, 33, 66, 100]
 ```
 
 ### Contract Deployment

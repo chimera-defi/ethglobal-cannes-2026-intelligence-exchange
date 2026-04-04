@@ -9,35 +9,24 @@
 
 import { createPublicClient, createWalletClient, http, parseAbi, encodeFunctionData, type Address, type Hash } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { getArcConfig, isArcEnabled } from './sponsorConfig';
+import { getArcConfig } from './sponsorConfig';
 import { httpError } from './errors';
-
-export class ArcNotEnabledError extends Error {
-  constructor() {
-    super('Arc integration is not enabled. Set ENABLE_ARC=true to activate.');
-    this.name = 'ArcNotEnabledError';
-  }
-}
-
-function assertArcEnabled(): void {
-  if (!isArcEnabled()) throw new ArcNotEnabledError();
-}
 
 // AdvancedArcEscrow ABI (simplified for used functions)
 const ADVANCED_ARC_ESCROW_ABI = parseAbi([
   // View functions
   'function getIdeaBalance(bytes32 ideaId) view returns (uint256 available, uint256 totalFunded, uint256 platformFeesReserved)',
   'function getMilestoneStatus(bytes32 milestoneId) view returns (uint8)',
-  'function getMilestoneDetails(bytes32 milestoneId) view returns ((bytes32 ideaId, uint256 amount, uint8 status, address worker, address reviewer, uint256 submittedAt, uint256 reviewStartedAt, uint256 approvedAt, bytes32 submissionHash, bytes32 attestationHash, (uint256 duration, uint256 cliff, uint256 startTime, bool linear) vesting, uint256 releasedAmount))',
+  'function getMilestoneDetails(bytes32 milestoneId) view returns (tuple(bytes32 ideaId, uint256 amount, uint8 status, address worker, address reviewer, uint256 submittedAt, uint256 reviewStartedAt, uint256 approvedAt, bytes32 submissionHash, bytes32 attestationHash, tuple(uint256 duration, uint256 cliff, uint256 startTime, bool linear) vesting, uint256 releasedAmount))',
   'function getReleasableAmount(bytes32 milestoneId) view returns (uint256)',
   'function getVestingProgress(bytes32 milestoneId) view returns (uint256 totalAmount, uint256 releasedAmount, uint256 releasableNow, uint256 startTime, uint256 cliff, uint256 duration, bool isLinear)',
-  'function getDisputeDetails(bytes32 milestoneId) view returns ((bytes32 milestoneId, address disputant, bytes32 reasonHash, uint256 raisedAt, uint256 resolutionDeadline, uint8 resolution, bool resolved, address resolver))',
+  'function getDisputeDetails(bytes32 milestoneId) view returns (tuple(bytes32 milestoneId, address disputant, bytes32 reasonHash, uint256 raisedAt, uint256 resolutionDeadline, uint8 resolution, bool resolved, address resolver))',
   'function canAutoRelease(bytes32 milestoneId) view returns (bool)',
   'function canAutoResolve(bytes32 milestoneId) view returns (bool)',
   'function getPlatformFee(uint256 amount) pure returns (uint256)',
   'function disputes(bytes32 milestoneId) view returns (bytes32 milestoneId, address disputant, bytes32 reasonHash, uint256 raisedAt, uint256 resolutionDeadline, uint8 resolution, bool resolved, address resolver)',
   'function PLATFORM_FEE_BPS() view returns (uint256)',
-  'function paymentToken() view returns (address)',
+  'function USDC() view returns (address)',
   'function reviewTimeout() view returns (uint256)',
   'function disputeWindow() view returns (uint256)',
   
@@ -169,29 +158,6 @@ export interface ArcChainConfig {
   usdcAddress: Address;
 }
 
-type IdeaBalanceResult = readonly [bigint, bigint, bigint];
-type MilestoneDetailsResult = {
-  ideaId: `0x${string}`;
-  amount: bigint;
-  status: number;
-  worker: Address;
-  reviewer: Address;
-  submittedAt: bigint;
-  reviewStartedAt: bigint;
-  approvedAt: bigint;
-  submissionHash: `0x${string}`;
-  attestationHash: `0x${string}`;
-  vesting: {
-    duration: bigint;
-    cliff: bigint;
-    startTime: bigint;
-    linear: boolean;
-  };
-  releasedAmount: bigint;
-};
-type VestingProgressResult = readonly [bigint, bigint, bigint, bigint, bigint, bigint, boolean];
-type DisputeDetailsResult = readonly [`0x${string}`, Address, `0x${string}`, bigint, bigint, number, boolean, Address];
-
 // Client cache
 let publicClient: ReturnType<typeof createPublicClient> | null = null;
 let walletClient: ReturnType<typeof createWalletClient> | null = null;
@@ -200,21 +166,13 @@ let walletClient: ReturnType<typeof createWalletClient> | null = null;
  * Get the Arc chain configuration
  */
 export function getArcEscrowConfig(): ArcChainConfig {
-  assertArcEnabled();
-  const config = getArcConfig();
-  return {
-    rpcUrl: config.rpcUrl,
-    chainId: config.chainId,
-    escrowContractAddress: config.escrowContractAddress as Address | null,
-    usdcAddress: config.usdcAddress as Address,
-  };
+  return getArcConfig();
 }
 
 /**
  * Create a public client for reading from Arc
  */
 export function getArcPublicClient() {
-  assertArcEnabled();
   if (publicClient) return publicClient;
   
   const config = getArcConfig();
@@ -233,7 +191,6 @@ export function getArcPublicClient() {
  * Create a wallet client for writing to Arc
  */
 export function getArcWalletClient() {
-  assertArcEnabled();
   if (walletClient) return walletClient;
   
   const privateKey = process.env.ARC_PRIVATE_KEY || process.env.PRIVATE_KEY;
@@ -259,7 +216,6 @@ export function getArcWalletClient() {
  * Get the broker attestation account for Arc
  */
 export function getArcAttestorAccount() {
-  assertArcEnabled();
   const privateKey = process.env.ARC_ATTESTOR_PRIVATE_KEY || process.env.ARC_PRIVATE_KEY || process.env.PRIVATE_KEY;
   if (!privateKey) {
     throw httpError('ARC_ATTESTOR_PRIVATE_KEY not configured', 500, 'ARC_CONFIG_MISSING');
@@ -311,7 +267,7 @@ export async function getEscrowIdeaBalance(ideaId: `0x${string}`): Promise<IdeaB
     abi: ADVANCED_ARC_ESCROW_ABI,
     functionName: 'getIdeaBalance',
     args: [ideaId],
-  }) as IdeaBalanceResult;
+  });
   
   return { available, totalFunded, platformFeesReserved };
 }
@@ -327,12 +283,12 @@ export async function getMilestoneStatus(milestoneId: `0x${string}`): Promise<nu
     throw httpError('Arc escrow contract not configured', 500, 'ARC_ESCROW_NOT_CONFIGURED');
   }
   
-  return await client.readContract({
+  return client.readContract({
     address: config.escrowContractAddress as Address,
     abi: ADVANCED_ARC_ESCROW_ABI,
     functionName: 'getMilestoneStatus',
     args: [milestoneId],
-  }) as number;
+  });
 }
 
 /**
@@ -360,26 +316,26 @@ export async function getMilestoneDetails(milestoneId: `0x${string}`): Promise<M
     abi: ADVANCED_ARC_ESCROW_ABI,
     functionName: 'getMilestoneDetails',
     args: [milestoneId],
-  }) as unknown as MilestoneDetailsResult;
+  });
   
   return {
-    ideaId: result.ideaId,
-    amount: result.amount,
-    status: result.status,
-    worker: result.worker,
-    reviewer: result.reviewer,
-    submittedAt: Number(result.submittedAt),
-    reviewStartedAt: Number(result.reviewStartedAt),
-    approvedAt: Number(result.approvedAt),
-    submissionHash: result.submissionHash,
-    attestationHash: result.attestationHash,
+    ideaId: result[0],
+    amount: result[1],
+    status: result[2],
+    worker: result[3],
+    reviewer: result[4],
+    submittedAt: Number(result[5]),
+    reviewStartedAt: Number(result[6]),
+    approvedAt: Number(result[7]),
+    submissionHash: result[8],
+    attestationHash: result[9],
     vesting: {
-      duration: Number(result.vesting.duration),
-      cliff: Number(result.vesting.cliff),
-      startTime: Number(result.vesting.startTime),
-      linear: result.vesting.linear,
+      duration: Number(result[10][0]),
+      cliff: Number(result[10][1]),
+      startTime: Number(result[10][2]),
+      linear: result[10][3],
     },
-    releasedAmount: result.releasedAmount,
+    releasedAmount: result[11],
   };
 }
 
@@ -400,7 +356,7 @@ export async function getReleasableAmount(milestoneId: `0x${string}`): Promise<b
       abi: ADVANCED_ARC_ESCROW_ABI,
       functionName: 'getReleasableAmount',
       args: [milestoneId],
-    }) as bigint;
+    });
   } catch {
     return BigInt(0);
   }
@@ -422,7 +378,7 @@ export async function getVestingProgress(milestoneId: `0x${string}`): Promise<Ve
     abi: ADVANCED_ARC_ESCROW_ABI,
     functionName: 'getVestingProgress',
     args: [milestoneId],
-  }) as VestingProgressResult;
+  });
   
   return {
     totalAmount: result[0],
@@ -452,24 +408,22 @@ export async function getDisputeDetails(milestoneId: `0x${string}`): Promise<Dis
       abi: ADVANCED_ARC_ESCROW_ABI,
       functionName: 'disputes',
       args: [milestoneId],
-    }) as DisputeDetailsResult;
-
-    const [disputeMilestoneId, disputant, reasonHash, raisedAt, resolutionDeadline, resolution, resolved, resolver] = result;
+    });
     
     // Check if dispute exists
-    if (raisedAt === BigInt(0)) {
+    if (result.raisedAt === 0) {
       return null;
     }
     
     return {
-      milestoneId: disputeMilestoneId,
-      disputant,
-      reasonHash,
-      raisedAt: Number(raisedAt),
-      resolutionDeadline: Number(resolutionDeadline),
-      resolution,
-      resolved,
-      resolver,
+      milestoneId: result[0],
+      disputant: result[1],
+      reasonHash: result[2],
+      raisedAt: Number(result[3]),
+      resolutionDeadline: Number(result[4]),
+      resolution: result[5],
+      resolved: result[6],
+      resolver: result[7],
     };
   } catch {
     return null;
@@ -493,7 +447,7 @@ export async function canAutoRelease(milestoneId: `0x${string}`): Promise<boolea
       abi: ADVANCED_ARC_ESCROW_ABI,
       functionName: 'canAutoRelease',
       args: [milestoneId],
-    }) as boolean;
+    });
   } catch {
     return false;
   }
@@ -516,7 +470,7 @@ export async function canAutoResolve(milestoneId: `0x${string}`): Promise<boolea
       abi: ADVANCED_ARC_ESCROW_ABI,
       functionName: 'canAutoResolve',
       args: [milestoneId],
-    }) as boolean;
+    });
   } catch {
     return false;
   }
@@ -534,12 +488,12 @@ export async function calculatePlatformFee(amount: bigint): Promise<bigint> {
     return (amount * BigInt(1000)) / BigInt(10000);
   }
   
-  return await client.readContract({
+  return client.readContract({
     address: config.escrowContractAddress as Address,
     abi: ADVANCED_ARC_ESCROW_ABI,
     functionName: 'getPlatformFee',
     args: [amount],
-  }) as bigint;
+  });
 }
 
 /**
@@ -562,7 +516,7 @@ export async function getEscrowConfig() {
     client.readContract({
       address: config.escrowContractAddress as Address,
       abi: ADVANCED_ARC_ESCROW_ABI,
-      functionName: 'paymentToken',
+      functionName: 'USDC',
     }),
     client.readContract({
       address: config.escrowContractAddress as Address,
@@ -574,7 +528,7 @@ export async function getEscrowConfig() {
       abi: ADVANCED_ARC_ESCROW_ABI,
       functionName: 'disputeWindow',
     }),
-  ]) as [bigint, Address, bigint, bigint];
+  ]);
   
   return {
     platformFeeBps,
@@ -789,13 +743,9 @@ export async function submitArcTransaction(
   txData: { to: Address; data: `0x${string}`; value: bigint }
 ): Promise<Hash> {
   const wallet = getArcWalletClient();
-  const account = wallet.account;
-  if (!account) {
-    throw httpError('Arc wallet account not configured', 500, 'ARC_CONFIG_MISSING');
-  }
+  const config = getArcConfig();
   
   const hash = await wallet.sendTransaction({
-    account,
     chain: null, // Arc is not in viem's chain list yet
     ...txData,
   });
