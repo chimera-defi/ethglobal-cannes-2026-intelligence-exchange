@@ -108,7 +108,7 @@ export function BuyerReviewQueue() {
             {jobs.map(job => (
               <Card
                 key={job.jobId}
-                className="border-purple-900/40 hover:border-purple-700/60 transition-colors"
+                className="border-amber-800/40 hover:border-amber-700/60 transition-colors"
               >
                 <CardContent className="flex flex-col md:flex-row md:items-center gap-4 py-4">
                   <div className="flex-1 min-w-0 space-y-1.5">
@@ -143,7 +143,7 @@ export function BuyerReviewQueue() {
                     </div>
                     <Button
                       size="sm"
-                      className="bg-purple-700 hover:bg-purple-600"
+                      className="bg-amber-600 hover:bg-amber-500 text-white"
                       onClick={() => navigate(`/review/${job.jobId}`)}
                     >
                       Review

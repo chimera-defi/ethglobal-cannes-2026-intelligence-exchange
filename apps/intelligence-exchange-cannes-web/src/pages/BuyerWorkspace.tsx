@@ -68,24 +68,24 @@ export function BuyerWorkspace() {
 
         {/* Stats row */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="text-center">
+          <Card className="text-center hover:border-blue-700/40 transition-colors">
             <CardContent className="pt-6 space-y-1">
-              <p className="text-3xl font-bold text-white">{ideas.length}</p>
-              <p className="text-xs text-gray-500 uppercase tracking-wide">Ideas Posted</p>
+              <p className="text-4xl font-bold text-primary">{ideas.length}</p>
+              <p className="text-xs text-slate-400 uppercase tracking-wide">Ideas Posted</p>
             </CardContent>
           </Card>
-          <Card className={pendingCount > 0 ? 'border-purple-800' : ''}>
+          <Card className={pendingCount > 0 ? 'border-amber-700/50 hover:border-amber-600/60' : 'hover:border-blue-700/40'} style={{ transition: 'border-color 0.15s' }}>
             <CardContent className="pt-6 text-center space-y-1">
-              <p className={`text-3xl font-bold ${pendingCount > 0 ? 'text-purple-300' : 'text-white'}`}>
+              <p className={`text-4xl font-bold ${pendingCount > 0 ? 'text-amber-400' : 'text-primary'}`}>
                 {pendingCount}
               </p>
-              <p className="text-xs text-gray-500 uppercase tracking-wide">Pending Reviews</p>
+              <p className="text-xs text-slate-400 uppercase tracking-wide">Pending Reviews</p>
             </CardContent>
           </Card>
-          <Card className="text-center">
+          <Card className="text-center hover:border-blue-700/40 transition-colors">
             <CardContent className="pt-6 space-y-1">
-              <p className="text-3xl font-bold text-green-400">${totalFunded.toFixed(0)}</p>
-              <p className="text-xs text-gray-500 uppercase tracking-wide">USDC Funded</p>
+              <p className="text-4xl font-bold text-primary">${totalFunded.toFixed(0)}</p>
+              <p className="text-xs text-slate-400 uppercase tracking-wide">USDC Funded</p>
             </CardContent>
           </Card>
         </div>
@@ -98,7 +98,7 @@ export function BuyerWorkspace() {
           </Button>
           <Button
             variant={pendingCount > 0 ? 'default' : 'secondary'}
-            className={pendingCount > 0 ? 'bg-purple-700 hover:bg-purple-600' : ''}
+            className={pendingCount > 0 ? 'bg-amber-600 hover:bg-amber-500 text-white' : ''}
             onClick={() => navigate('/workspace/review')}
           >
             <Eye className="h-4 w-4" />
@@ -148,7 +148,7 @@ export function BuyerWorkspace() {
                         <span className="text-green-400 font-bold text-sm">${job.budgetUsd}</span>
                         <Button
                           size="sm"
-                          className="bg-purple-700 hover:bg-purple-600"
+                          className="bg-amber-600 hover:bg-amber-500 text-white"
                           onClick={() => navigate(`/review/${job.jobId}`)}
                         >
                           Review
@@ -193,7 +193,7 @@ export function BuyerWorkspace() {
                 {ideas.slice(0, 5).map(idea => (
                   <Card
                     key={idea.ideaId}
-                    className="flex items-center justify-between gap-4 cursor-pointer hover:border-gray-700 transition-colors"
+                    className="flex items-center justify-between gap-4 cursor-pointer hover:border-slate-600 transition-colors"
                     onClick={() => navigate(`/ideas/${idea.ideaId}`)}
                   >
                     <CardContent className="flex items-center justify-between gap-4 w-full py-4">
