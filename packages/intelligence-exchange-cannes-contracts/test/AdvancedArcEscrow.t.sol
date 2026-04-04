@@ -67,7 +67,7 @@ contract AdvancedArcEscrowTest is Test {
     bytes32 public ideaId;
     bytes32 public milestoneId;
     
-    event IdeaFunded(bytes32 indexed ideaId, address indexed poster, uint256 amount, uint256 platformFeeReserved);
+    event IdeaFunded(bytes32 indexed ideaId, address indexed poster, uint256 amount);
     event MilestoneReserved(bytes32 indexed ideaId, bytes32 indexed milestoneId, uint256 amount, uint256 vestingDuration, uint256 vestingCliff);
     event MilestoneSubmitted(bytes32 indexed milestoneId, address indexed worker, bytes32 submissionHash, uint256 submittedAt);
     event MilestoneUnderReview(bytes32 indexed milestoneId, address indexed reviewer, uint256 reviewDeadline);
@@ -128,7 +128,6 @@ contract AdvancedArcEscrowTest is Test {
 
     function test_FundIdea_WithUSDC() public {
         uint256 fundAmount = 1000e6; // 1000 USDC
-        uint256 expectedFee = (fundAmount * 1000) / 10000; // 10% = 100 USDC
         
         vm.startPrank(poster);
         
@@ -141,7 +140,7 @@ contract AdvancedArcEscrowTest is Test {
         require(success, "USDC approve failed");
         
         vm.expectEmit(true, true, false, true);
-        emit IdeaFunded(ideaId, poster, fundAmount, expectedFee);
+        emit IdeaFunded(ideaId, poster, fundAmount);
         
         escrow.fundIdea(ideaId, fundAmount);
         
@@ -150,8 +149,8 @@ contract AdvancedArcEscrowTest is Test {
         // Verify balances
         (uint256 available, uint256 totalFunded, uint256 platformFees) = escrow.getIdeaBalance(ideaId);
         assertEq(totalFunded, fundAmount);
-        assertEq(platformFees, expectedFee);
-        assertEq(available, fundAmount - expectedFee);
+        assertEq(platformFees, 0);
+        assertEq(available, fundAmount);
     }
 
     function test_ConditionalEscrow_LockedUntilApproval() public {
@@ -324,17 +323,15 @@ contract AdvancedArcEscrowTest is Test {
         vm.prank(worker);
         escrow.raiseDispute(milestoneId, keccak256("worker dispute"));
         
-        uint256 posterAvailableBefore;
-        (posterAvailableBefore,,) = escrow.getIdeaBalance(ideaId);
+        uint256 posterBalanceBefore = IERC20(USDC).balanceOf(poster);
         
         vm.prank(disputeResolver);
         escrow.resolveDispute(milestoneId, AdvancedArcEscrow.DisputeResolution.PosterWins, 0);
         
-        uint256 posterAvailableAfter;
-        (posterAvailableAfter,,) = escrow.getIdeaBalance(ideaId);
+        uint256 posterBalanceAfter = IERC20(USDC).balanceOf(poster);
         
-        // Poster gets refund (minus platform fee still taken)
-        assertEq(posterAvailableAfter - posterAvailableBefore, 900e6);
+        // Poster gets a direct refund transfer (minus platform fee)
+        assertEq(posterBalanceAfter - posterBalanceBefore, 900e6);
     }
 
     function test_Dispute_ResolveSplit() public {
@@ -345,20 +342,18 @@ contract AdvancedArcEscrowTest is Test {
         escrow.raiseDispute(milestoneId, keccak256("dispute"));
         
         uint256 workerBalanceBefore = IERC20(USDC).balanceOf(worker);
-        uint256 posterAvailableBefore;
-        (posterAvailableBefore,,) = escrow.getIdeaBalance(ideaId);
+        uint256 posterBalanceBefore = IERC20(USDC).balanceOf(poster);
         
         // 60% to worker, 40% to poster
         vm.prank(disputeResolver);
         escrow.resolveDispute(milestoneId, AdvancedArcEscrow.DisputeResolution.Split, 6000);
         
         uint256 workerBalanceAfter = IERC20(USDC).balanceOf(worker);
-        uint256 posterAvailableAfter;
-        (posterAvailableAfter,,) = escrow.getIdeaBalance(ideaId);
+        uint256 posterBalanceAfter = IERC20(USDC).balanceOf(poster);
         
         // Worker: 60% of 900 = 540, Poster: 40% of 900 = 360
         assertEq(workerBalanceAfter - workerBalanceBefore, 540e6);
-        assertEq(posterAvailableAfter - posterAvailableBefore, 360e6);
+        assertEq(posterBalanceAfter - posterBalanceBefore, 360e6);
     }
 
     function test_AutoRelease_AfterTimeout() public {
@@ -625,7 +620,7 @@ contract AdvancedArcEscrowTest is Test {
         uint256 vestingCliff,
         bool linear
     ) internal {
-        uint256 fundAmount = (amount * 10000) / 9000; // Account for 10% fee
+        uint256 fundAmount = amount;
         
         vm.startPrank(poster);
         

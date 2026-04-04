@@ -420,7 +420,7 @@ export ARC_ESCROW_CONTRACT_ADDRESS=0x...  # From deployment output
 ### Contract Functions
 
 **Poster (Buyer):**
-- `fundIdea(ideaId, amount)` - Fund idea with USDC (10% fee reserved)
+- `fundIdea(ideaId, amount)` - Fund idea with USDC; the 10% fee is split at release time
 - `reserveMilestone(ideaId, milestoneId, amount, vestingDuration, vestingCliff, linearVesting)` - Lock funds for milestone
 - `refundMilestone(milestoneId)` - Refund before submission
 
@@ -528,7 +528,13 @@ make dev
 ./scripts/dev-start.sh
 ```
 
-Then open http://localhost:3000
+The startup path automatically:
+
+- uses either `docker compose` or `docker-compose`
+- keeps the default ports when they are free
+- falls back to alternate local ports when `3000` or `3001` is already occupied
+
+Open the URL printed by the script when startup finishes.
 
 ### Manual Step-by-Step
 
@@ -537,19 +543,24 @@ If you prefer to run services in separate terminals:
 ```bash
 # Terminal 1: Infrastructure
 docker compose up -d
+# or: docker-compose up -d
 
 # Terminal 2: Broker
 DATABASE_URL=postgres://iex:iex@localhost:5432/iex_cannes \
 REDIS_URL=redis://localhost:6379 \
+BROKER_URL=http://localhost:3001 \
+PORT=3001 \
 corepack pnpm --filter intelligence-exchange-cannes-broker dev
 
 # Terminal 3: Seed database (run once)
 DATABASE_URL=postgres://iex:iex@localhost:5432/iex_cannes \
 REDIS_URL=redis://localhost:6379 \
+BROKER_URL=http://localhost:3001 \
 corepack pnpm --filter intelligence-exchange-cannes-broker seed
 
 # Terminal 4: Web
-corepack pnpm --filter intelligence-exchange-cannes-web dev
+VITE_DEV_PROXY_TARGET=http://localhost:3001 \
+corepack pnpm --filter intelligence-exchange-cannes-web exec vite --host 127.0.0.1 --port 3000
 ```
 
 ### Available Make Commands
