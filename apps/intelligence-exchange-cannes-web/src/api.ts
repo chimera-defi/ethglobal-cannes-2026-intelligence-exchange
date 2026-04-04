@@ -282,6 +282,7 @@ export interface JobResponse {
     milestoneType: string;
     status: string;
     budgetUsd: string;
+    activeClaimId?: string | null;
     activeClaimWorkerId?: string | null;
     leaseExpiry?: string | null;
     briefId: string;
@@ -304,6 +305,7 @@ export interface JobResponse {
     submissionId: string;
     artifactUris: string[];
     summary?: string | null;
+    accountAddress?: string | null;
     agentFingerprint?: string | null;
     scoreStatus?: string | null;
     scoreBreakdown?: SubmissionResponse['scoreBreakdown'] | null;
@@ -340,7 +342,18 @@ export interface JobBoardMilestone {
   status: string;
   budgetUsd: string;
   leaseExpiry?: string | null;
+  activeClaimId?: string | null;
   activeClaimWorkerId?: string | null;
+  activeClaimAgentFingerprint?: string | null;
+  latestSubmission: {
+    submissionId: string;
+    artifactUris: string[];
+    summary?: string | null;
+    submittedAt: string;
+    accountAddress?: string | null;
+    agentFingerprint?: string | null;
+    scoreStatus?: string | null;
+  } | null;
   order: number;
 }
 
@@ -377,6 +390,14 @@ export interface SignedAction {
   signature: string;
 }
 
+export interface JobSubmissionInput {
+  claimId: string;
+  artifactUris: string[];
+  summary?: string;
+  traceUri?: string;
+  status?: 'completed' | 'failed' | 'expired';
+}
+
 export function claimJob(jobId: string, signedAction: SignedAction) {
   return post<{ claimId: string; expiresAt: string; skillMdUrl: string }>(
     `/jobs/${jobId}/claim`,
@@ -396,6 +417,29 @@ export function claimJobDemo(jobId: string, body: {
 }) {
   return post<{ claimId: string; expiresAt: string; skillMdUrl: string }>(
     `/jobs/${jobId}/claim`,
+    body
+  );
+}
+
+export function submitJob(jobId: string, submission: JobSubmissionInput, signedAction: SignedAction) {
+  return post<SubmissionResponse>(
+    `/jobs/${jobId}/submit`,
+    { ...submission, signedAction },
+    true
+  );
+}
+
+export function submitJobDemo(jobId: string, body: JobSubmissionInput & {
+  workerId: string;
+  agentMetadata?: {
+    agentType?: string;
+    agentVersion?: string;
+    operatorAddress?: string;
+    fingerprint?: string;
+  };
+}) {
+  return post<SubmissionResponse>(
+    `/jobs/${jobId}/submit`,
     body
   );
 }
