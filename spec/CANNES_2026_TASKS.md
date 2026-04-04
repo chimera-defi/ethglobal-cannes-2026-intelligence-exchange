@@ -22,6 +22,8 @@
 - one Arc release
 - one 0G dossier link
 - one World-gated poster and worker flow
+- one GitHub-linked idea or submission shown in the UI
+- one public task card with a `Share on X` CTA
 
 ### Workstream 1: Contracts
 
@@ -57,6 +59,8 @@ Done criteria:
 
 - create claimable milestone queue
 - lease and expiry handling
+- canonicalize GitHub repo / issue / PR metadata on jobs and submissions
+- expose public task share payload for queued milestones
 - state transitions persisted append-only
 
 Done criteria:
@@ -94,12 +98,16 @@ Done criteria:
 
 - idea submission screen
 - milestone board
+- public jobs board cleanup
+- GitHub repo / PR badges in task and review surfaces
+- `Share on X` action on share-safe queued tasks
 - worker activity trace
 - accept / reject view
 - payout and dossier status panel
 
 Done criteria:
 - judge flow completes without terminal usage
+- shared task link renders clearly on desktop and mobile
 
 ### Workstream 8: Demo Ops
 

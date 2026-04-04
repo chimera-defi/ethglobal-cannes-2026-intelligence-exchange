@@ -16,11 +16,11 @@ Canonical values are defined in `STATE_MODEL.md`.
 | Spend Today: $214   Acceptance: 93%   Rework: 6%   Alerts: 1     |
 |------------------------------------------------------------------|
 | Job Queue (mode: claim)                                           |
-| - job_1021  Code review batch     [S:running] ETA 3m             |
-| - job_1022  Spec transform         [S:accepted]                   |
+| - job_1021  Code review batch     [S:running] ETA 3m  repo/acme  |
+| - job_1022  Spec transform         [S:accepted]      PR #81       |
 | - job_1023  Support classification [S:paused] [R:high]            |
 |------------------------------------------------------------------|
-| [Submit Jobs] [Task Market Mode] [Set Policies] [Dispute Center] |
+| [Submit Jobs] [Share Open Task] [Set Policies] [Dispute Center]  |
 +------------------------------------------------------------------+
 ```
 
@@ -45,7 +45,23 @@ Canonical values are defined in `STATE_MODEL.md`.
 +------------------------------------------------------------------+
 ```
 
-## 3) Job Detail (Agent-First State/Action Loop)
+## 3) Public Jobs Board (Discover + Share)
+
+```text
++------------------------------------------------------------------+
+| Open Tasks                                                       |
++------------------------------------------------------------------+
+| brief  $3.75  repo/acme-yield-optimizer  [S:queued]              |
+| "Define the brief for a Uniswap v4 yield optimizer."             |
+| [View Task] [Share on X]                                         |
+|------------------------------------------------------------------|
+| tasks  $3.75  no repo linked                 [S:queued]          |
+| "Break implementation work into concrete milestones."            |
+| [View Task] [Share on X]                                         |
++------------------------------------------------------------------+
+```
+
+## 4) Job Detail (Agent-First State/Action Loop)
 
 ```text
 +------------------------------------------------------------------+
@@ -68,7 +84,7 @@ Canonical values are defined in `STATE_MODEL.md`.
 +------------------------------------------------------------------+
 ```
 
-## 4) Risk and Dispute Panel
+## 5) Risk and Dispute Panel
 
 ```text
 +------------------------------------------------------------------+
@@ -83,7 +99,7 @@ Canonical values are defined in `STATE_MODEL.md`.
 +------------------------------------------------------------------+
 ```
 
-## 5) Mobile Review (MVP)
+## 6) Mobile Review (MVP)
 
 ```text
 +----------------------------------+
