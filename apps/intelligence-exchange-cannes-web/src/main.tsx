@@ -1,7 +1,7 @@
 import React, { Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { WagmiProvider, createConfig, http } from 'wagmi';
 import { injected } from 'wagmi/connectors';
 import { defineChain } from 'viem';
@@ -82,6 +82,9 @@ const BuyerReviewQueue = React.lazy(() =>
 const BuyerHistory = React.lazy(() =>
   import('./pages/BuyerHistory').then(m => ({ default: m.BuyerHistory }))
 );
+const LandingPage = React.lazy(() =>
+  import('./pages/LandingPage').then(m => ({ default: m.LandingPage }))
+);
 
 function PageFallback() {
   return (
@@ -107,7 +110,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Nav />
             <Suspense fallback={<PageFallback />}>
               <Routes>
-                <Route path="/" element={<Navigate to="/workspace" replace />} />
+                <Route path="/" element={<LandingPage />} />
                 <Route path="/submit" element={<IdeaSubmission />} />
                 <Route path="/ideas" element={<IdeasList />} />
                 <Route path="/ideas/:ideaId" element={<IdeaDetail />} />
