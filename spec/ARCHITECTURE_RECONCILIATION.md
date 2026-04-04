@@ -33,45 +33,55 @@ This document reconciles claims in the README/architecture with actual code impl
 
 ## ⚠️ Partial Implementation
 
-### On-Chain Reputation Updates
+### On-Chain Reputation Updates (ERC-8004 Style)
 **What the README says**: "attested reputation updates"
 
-**What's implemented**:
-- ✅ Broker creates signed attestations
-- ✅ Broker updates reputation in Postgres
-- ✅ Smart contract has `recordAcceptedSubmission()` ready
-- ❌ **No automatic on-chain sync** - requires separate transaction
+**Implementation approach**: **Agent-triggered** (agent pays gas)
 
 **The Flow**:
 ```
 Job Accepted
     ↓
-Broker creates attestation (signature stored in Postgres)
+Broker creates signed attestation
     ↓
-Postgres reputation updated (acceptedCount++, avgScore recalculated)
+Postgres reputation updated (real-time "hot" reputation)
     ↓
-[MANUAL STEP NEEDED] Submit attestation to AgentIdentityRegistry
+[AGENT-TRIGGERED] Agent submits attestation to AgentIdentityRegistry
     ↓
-On-chain reputation updated (if attestation submitted)
+On-chain reputation updated ("cold" attested backup)
 ```
 
-**Why this design?**
-- Gas optimization: Not every acceptance needs on-chain storage
-- Attestations can be batch-submitted or challenged
-- Postgres serves as "hot" reputation, on-chain as "cold" attested backup
+**Why agent-triggered?**
+- **Gas costs**: Agents pay for on-chain updates, not the platform
+- **Opt-in**: Agents choose when reputation matters (e.g., for high-value claims)
+- **Scalable**: No platform gas overhead for every job completion
+- **Verifiable**: On-chain record provides cross-protocol reputation proof
 
-**To complete on-chain sync**:
-```typescript
-// After job acceptance, additionally call:
+**Smart contract ready**:
+```solidity
 AgentIdentityRegistry.recordAcceptedSubmission(
   fingerprint,
-  jobIdHash,
+  jobId,
   score,
-  reviewerAddress,
+  reviewer,
   payoutReleased,
-  signature  // From attestation
+  signature  // Signed by broker attestor
 )
 ```
+
+**API for agents**:
+```
+POST /v1/cannes/workers/:fingerprint/sync-reputation
+→ Returns signed attestation payload
+→ Agent submits to contract (self-paid gas)
+```
+
+**Current status**:
+- ✅ Broker creates attestations
+- ✅ Postgres reputation tracking
+- ✅ Smart contract ready
+- ⚠️ Agent-triggered submission (by design)
+- ❌ Automatic platform-paid sync (intentionally not implemented)
 
 ## 🔍 Clarifications
 
@@ -133,10 +143,26 @@ Trade-offs:
 
 ## Recommended Path
 
-For Cannes MVP: **Option 1** (document current state)
-- Update README to be precise about what's implemented
-- Clarify "ERC-8004-aligned" vs "ERC-8004-compliant"
-- Note that on-chain reputation is capability, not automatic
+**Current (Cannes MVP)**: Agent-triggered on-chain sync
+- Broker creates attestations and updates Postgres (real-time)
+- Agents choose when to sync on-chain (self-paid gas)
+- `/v1/cannes/workers/:fingerprint/sync-reputation` endpoint provides signed attestation
+
+**Future options**:
+1. **Keep agent-triggered** (recommended)
+   - Agents pay gas
+   - Natural incentive: high-reputation agents sync more often
+   - Platform remains gas-efficient
+
+2. **Sponsored sync for high-value jobs**
+   - Platform pays gas for jobs >$X
+   - Only for top-tier workers
+   - Subsidy budget from platform fees
+
+3. **Batch sync** (if needed)
+   - Background job batches attestations
+   - Merkle proof approach for gas efficiency
+   - Overkill for current scale
 
 Post-Cannes: **Option 3** (batch sync)
 - Add background job to batch-submit attestations
