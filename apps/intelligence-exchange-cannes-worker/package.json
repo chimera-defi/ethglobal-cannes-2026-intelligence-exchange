@@ -3,11 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "bin": {
-    "iex-bridge": "./src/cli.ts"
+    "iex-bridge": "./src/cli.ts",
+    "iex-worker": "./src/cli.ts"
   },
   "scripts": {
+    "cli": "bun run src/cli.ts",
     "dev": "bun run --watch src/cli.ts",
-    "build": "bun build src/cli.ts --outfile dist/iex-bridge --target bun",
+    "build": "bun build src/cli.ts --outfile dist/iex-worker --target bun",
     "test": "bun test",
     "typecheck": "tsc --noEmit"
   },

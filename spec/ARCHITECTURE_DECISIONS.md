@@ -16,9 +16,9 @@
 - Tradeoff: Redis is an additional infrastructure dependency.
 
 ## Decision 4: Worker Daemon — TypeScript CLI (Bun)
-- Choice: Worker ships as a TypeScript CLI (`bunx iex-worker start`) for MVP; Electron app is Phase 2.
+- Choice: Worker ships as a TypeScript CLI (`pnpm worker:cli -- start` from the repo root, `iex-worker start` inside the package) for MVP; Electron app is Phase 2.
 - Why: Fastest path for developer-first supply onboarding; CLI is already familiar to the target audience.
-- Tradeoff: Workers must manage their own process uptime (`pm2`, `systemd`); always-on mode requires external process management.
+- Tradeoff: Workers must manage their own process uptime (`pm2`, `systemd`); always-on mode requires external process management. The current runtime contract is intentionally small: the executor writes `result.json`, and the CLI handles claim/submission plumbing.
 
 ## Decision 5: Worker Connectors — BYOK (Bring Your Own Key)
 - Choice: Workers supply their own API keys. MVP ships two connectors:
@@ -71,4 +71,4 @@
 ## Decision 13: Deterministic State/Action Contract (V2)
 - Choice: Machine-readable state transitions for autonomous workers in V2.
 - Why: Improves reliability, replayability, and auditability for fully automated agent execution.
-- Tradeoff: Tighter contract constraints and migration overhead from V1 manual/scheduled modes.
+- Tradeoff: Tighter contract constraints and migration overhead from the current MVP bridge, which already supports a simpler local `start` poll loop but not the full V2 state machine.
