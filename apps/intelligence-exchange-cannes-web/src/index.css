@@ -1,39 +1,305 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Space+Grotesk:wght@400;500;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  color-scheme: dark;
+  --bg: #090b10;
+  --panel: rgba(16, 18, 23, 0.82);
+  --panel-strong: rgba(19, 22, 29, 0.94);
+  --border: rgba(223, 196, 158, 0.16);
+  --border-strong: rgba(223, 196, 158, 0.28);
+  --text: #f5f2ea;
+  --accent: #e4bc7a;
+  --accent-strong: #f8d59a;
+  --font-ui: 'Space Grotesk', system-ui, sans-serif;
+  --font-display: 'Fraunces', Georgia, serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
 body {
-  @apply bg-gray-950 text-gray-100 font-sans;
+  min-height: 100vh;
+  margin: 0;
+  color: var(--text);
+  font-family: var(--font-ui);
+  background:
+    radial-gradient(circle at top left, rgba(228, 188, 122, 0.15), transparent 32%),
+    radial-gradient(circle at 82% 16%, rgba(71, 96, 138, 0.18), transparent 28%),
+    linear-gradient(180deg, #0b0d12 0%, #090b10 42%, #11161d 100%);
 }
 
-.card {
-  @apply bg-gray-900 border border-gray-800 rounded-xl p-6;
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 120px 120px;
+  opacity: 0.08;
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.65), transparent 85%);
+  pointer-events: none;
 }
 
-.btn-primary {
-  @apply bg-blue-600 hover:bg-blue-500 text-white font-semibold px-6 py-2.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+a {
+  color: inherit;
+  text-decoration: none;
 }
 
-.btn-success {
-  @apply bg-green-700 hover:bg-green-600 text-white font-semibold px-6 py-2.5 rounded-lg transition-colors disabled:opacity-50;
+button,
+input,
+select,
+textarea {
+  font: inherit;
 }
 
-.btn-danger {
-  @apply bg-red-700 hover:bg-red-600 text-white font-semibold px-6 py-2.5 rounded-lg transition-colors disabled:opacity-50;
+::selection {
+  background: rgba(228, 188, 122, 0.4);
+  color: #0d1015;
 }
 
-.input {
-  @apply bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-gray-100 w-full focus:outline-none focus:ring-2 focus:ring-blue-500;
+@layer base {
+  body {
+    @apply antialiased;
+  }
 }
 
-.badge {
-  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+@layer components {
+  .app-shell {
+    @apply relative min-h-screen overflow-x-clip;
+  }
+
+  .app-shell::before {
+    content: '';
+    position: fixed;
+    left: -10rem;
+    top: -8rem;
+    width: 42rem;
+    height: 42rem;
+    background: radial-gradient(circle, rgba(228, 188, 122, 0.22), transparent 62%);
+    filter: blur(14px);
+    opacity: 0.8;
+    pointer-events: none;
+    animation: floatAmbient 18s ease-in-out infinite;
+  }
+
+  .app-shell::after {
+    content: '';
+    position: fixed;
+    right: -12rem;
+    top: 9rem;
+    width: 34rem;
+    height: 34rem;
+    background: radial-gradient(circle, rgba(71, 96, 138, 0.24), transparent 68%);
+    filter: blur(18px);
+    opacity: 0.72;
+    pointer-events: none;
+    animation: floatAmbient 22s ease-in-out infinite reverse;
+  }
+
+  .app-grid {
+    @apply mx-auto w-full max-w-7xl px-4 md:px-8;
+  }
+
+  .page-shell {
+    @apply relative mx-auto w-full max-w-7xl px-4 py-8 md:px-8 md:py-10;
+  }
+
+  .surface {
+    @apply rounded-[2rem] border px-5 py-5 md:px-7 md:py-7;
+    background: var(--panel);
+    border-color: var(--border);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03), 0 24px 80px rgba(0, 0, 0, 0.28);
+    backdrop-filter: blur(18px);
+  }
+
+  .surface-strong {
+    background: linear-gradient(180deg, var(--panel-strong), rgba(12, 14, 19, 0.92));
+    border-color: var(--border-strong);
+  }
+
+  .surface-muted {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02));
+  }
+
+  .surface-line {
+    @apply border-t;
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .brand-mark {
+    font-family: var(--font-display);
+    letter-spacing: -0.04em;
+  }
+
+  .section-kicker {
+    @apply text-[11px] font-semibold uppercase tracking-[0.32em];
+    color: var(--accent-strong);
+  }
+
+  .section-title {
+    @apply text-3xl font-semibold tracking-tight text-stone-50 md:text-4xl;
+  }
+
+  .eyebrow-copy {
+    @apply max-w-2xl text-sm leading-6 text-stone-400 md:text-base;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-full px-5 py-3 text-sm font-semibold transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-50;
+    background: linear-gradient(135deg, var(--accent-strong), var(--accent));
+    color: #0d1015;
+    box-shadow: 0 10px 30px rgba(228, 188, 122, 0.22);
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 16px 40px rgba(228, 188, 122, 0.28);
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center rounded-full border px-5 py-3 text-sm font-semibold text-stone-100 transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-50;
+    border-color: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .btn-secondary:hover {
+    @apply border-stone-400/40 bg-white/10;
+  }
+
+  .btn-success {
+    @apply inline-flex items-center justify-center rounded-full px-5 py-3 text-sm font-semibold text-white transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-50;
+    background: linear-gradient(135deg, #1f8a5b, #2dac76);
+    box-shadow: 0 12px 32px rgba(45, 172, 118, 0.18);
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center justify-center rounded-full px-5 py-3 text-sm font-semibold text-white transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-50;
+    background: linear-gradient(135deg, #8c2f31, #c64c4f);
+    box-shadow: 0 12px 32px rgba(198, 76, 79, 0.18);
+  }
+
+  .input {
+    @apply w-full rounded-[1.4rem] border px-4 py-3 text-stone-100 outline-none transition-all;
+    border-color: rgba(255, 255, 255, 0.08);
+    background: rgba(8, 10, 14, 0.35);
+  }
+
+  .input:hover {
+    @apply border-stone-400/20;
+  }
+
+  .input:focus {
+    border-color: rgba(228, 188, 122, 0.44);
+    box-shadow: 0 0 0 4px rgba(228, 188, 122, 0.12);
+  }
+
+  .badge {
+    @apply inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em];
+    background: rgba(255, 255, 255, 0.06);
+    color: #d7d0c3;
+  }
+
+  .badge-queued {
+    background: rgba(164, 118, 29, 0.18);
+    color: #f0ca7e;
+  }
+
+  .badge-claimed,
+  .badge-running {
+    background: rgba(74, 112, 175, 0.18);
+    color: #a7c7ff;
+  }
+
+  .badge-submitted {
+    background: rgba(125, 93, 173, 0.18);
+    color: #c6b6ff;
+  }
+
+  .badge-accepted,
+  .badge-funded {
+    background: rgba(45, 172, 118, 0.16);
+    color: #82e0ac;
+  }
+
+  .badge-rejected,
+  .badge-rework,
+  .badge-cancelled {
+    background: rgba(198, 76, 79, 0.16);
+    color: #ffb1b2;
+  }
+
+  .badge-unfunded {
+    background: rgba(255, 255, 255, 0.06);
+    color: #a8a39b;
+  }
+
+  .metric-value {
+    @apply text-3xl font-semibold tracking-tight text-stone-50 md:text-4xl;
+  }
+
+  .metric-label {
+    @apply text-[11px] font-medium uppercase tracking-[0.24em] text-stone-500;
+  }
+
+  .motion-rise {
+    animation: riseIn 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .motion-rise-delay-1 {
+    animation-delay: 0.08s;
+  }
+
+  .motion-rise-delay-2 {
+    animation-delay: 0.16s;
+  }
+
+  .motion-rise-delay-3 {
+    animation-delay: 0.24s;
+  }
 }
 
-.badge-queued { @apply badge bg-yellow-900 text-yellow-200; }
-.badge-claimed { @apply badge bg-blue-900 text-blue-200; }
-.badge-submitted { @apply badge bg-purple-900 text-purple-200; }
-.badge-accepted { @apply badge bg-green-900 text-green-200; }
-.badge-rejected, .badge-rework { @apply badge bg-red-900 text-red-200; }
-.badge-funded { @apply badge bg-emerald-900 text-emerald-200; }
-.badge-unfunded { @apply badge bg-gray-800 text-gray-400; }
+@keyframes riseIn {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes floatAmbient {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+
+  50% {
+    transform: translate3d(2rem, -1.25rem, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

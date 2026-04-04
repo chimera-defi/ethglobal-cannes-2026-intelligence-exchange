@@ -1,6 +1,21 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getIdea } from '../api';
+import {
+  formatMilestoneLabel,
+  formatShortDate,
+  formatShortDateTime,
+  formatUsd,
+  truncateMiddle,
+} from '../lib/formatters';
+import { StatusBadge } from '../components/StatusBadge';
+
+const MILESTONES = [
+  { type: 'brief', detail: 'Planner creates the operating brief and worker rubric.' },
+  { type: 'tasks', detail: 'Task decomposition becomes executable job segments.' },
+  { type: 'scaffold', detail: 'Implementation artifact is produced against the brief.' },
+  { type: 'review', detail: 'Human reviewer accepts or sends the output back.' },
+] as const;
 
 export function IdeaDetail() {
   const { ideaId } = useParams<{ ideaId: string }>();
@@ -15,10 +30,13 @@ export function IdeaDetail() {
 
   if (!ideaId) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="card max-w-lg w-full text-center space-y-4">
-          <p className="text-gray-400">No idea ID provided.</p>
-          <button className="btn-primary" onClick={() => navigate('/submit')}>Submit an Idea</button>
+      <div className="page-shell">
+        <div className="surface max-w-2xl">
+          <p className="section-kicker">Idea Control Room</p>
+          <h1 className="mt-3 text-3xl font-semibold text-stone-50">No idea ID was provided.</h1>
+          <button className="btn-primary mt-6" onClick={() => navigate('/submit')}>
+            Open Buyer Console
+          </button>
         </div>
       </div>
     );
@@ -26,10 +44,11 @@ export function IdeaDetail() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="card max-w-lg w-full text-center space-y-4 py-12">
-          <div className="animate-spin text-4xl">⚙️</div>
-          <p className="text-gray-400">Loading idea...</p>
+      <div className="page-shell">
+        <div className="surface max-w-3xl">
+          <p className="section-kicker">Idea Control Room</p>
+          <h1 className="mt-3 text-3xl font-semibold text-stone-50">Loading the funded brief.</h1>
+          <p className="mt-3 text-sm text-stone-400">Milestones, escrow metadata, and job states are syncing.</p>
         </div>
       </div>
     );
@@ -37,118 +56,192 @@ export function IdeaDetail() {
 
   if (error || !data) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="card max-w-lg w-full text-center space-y-4">
-          <div className="text-4xl">❌</div>
-          <h1 className="text-xl font-bold text-red-400">Failed to load idea</h1>
-          <p className="text-gray-400 text-sm font-mono">{String(error || 'Unknown error')}</p>
-          <button className="btn-primary" onClick={() => refetch()}>Retry</button>
+      <div className="page-shell">
+        <div className="surface max-w-3xl border-rose-500/30 bg-rose-500/10">
+          <p className="section-kicker text-rose-300">Idea Control Room</p>
+          <h1 className="mt-3 text-3xl font-semibold text-stone-50">Failed to load this idea.</h1>
+          <p className="mt-3 break-all font-mono text-sm text-rose-100/90">{String(error || 'Unknown error')}</p>
+          <button className="btn-primary mt-6" onClick={() => refetch()}>
+            Retry
+          </button>
         </div>
       </div>
     );
   }
 
   const { idea, brief, jobs } = data;
-
-  const jobsByMilestone = ['brief', 'tasks', 'scaffold', 'review'].map(type => ({
-    type,
-    job: jobs.find(j => j.milestoneType === type),
+  const jobsByMilestone = MILESTONES.map(item => ({
+    ...item,
+    job: jobs.find(job => job.milestoneType === item.type),
   }));
-
-  const allAccepted = jobs.length > 0 && jobs.every(j => j.status === 'accepted');
-  const anyActive = jobs.some(j => ['claimed', 'running', 'submitted'].includes(j.status));
+  const acceptedCount = jobs.filter(job => job.status === 'accepted').length;
+  const activeCount = jobs.filter(job => ['claimed', 'running', 'submitted'].includes(job.status)).length;
+  const allAccepted = jobs.length > 0 && jobs.every(job => job.status === 'accepted');
 
   return (
-    <div className="min-h-screen p-4 md:p-8">
-      <div className="max-w-3xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <button
-              className="text-gray-500 hover:text-gray-300 text-sm flex items-center gap-1 mb-2"
-              onClick={() => navigate('/submit')}
-            >
-              ← Submit Another
-            </button>
-            <h1 className="text-2xl font-bold text-white break-words">{idea.title}</h1>
-            <p className="text-gray-400 text-sm mt-1">
-              Posted {new Date(idea.createdAt).toLocaleDateString()} · Budget: <span className="text-white font-medium">${idea.budgetUsd} USDC</span>
-            </p>
+    <div className="page-shell space-y-6">
+      <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+        <div className="surface surface-strong motion-rise">
+          <button
+            className="text-sm font-medium text-stone-400 transition-colors hover:text-stone-100"
+            onClick={() => navigate('/ideas')}
+          >
+            Back to buyer ledger
+          </button>
+
+          <div className="mt-6 flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+            <div className="max-w-3xl space-y-4">
+              <p className="section-kicker">Idea Control Room</p>
+              <h1 className="section-title break-words">{idea.title}</h1>
+              <p className="eyebrow-copy">
+                Posted {formatShortDate(idea.createdAt)}. This surface keeps the brief, milestone queue, and review state readable in one place.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2 lg:justify-end">
+              <StatusBadge status={idea.fundingStatus} />
+              {allAccepted && <StatusBadge status="complete" />}
+              {activeCount > 0 && <StatusBadge status="live" label={`${activeCount} live`} />}
+            </div>
           </div>
-          <div className="flex flex-col items-end gap-2 shrink-0">
-            <span className={`badge badge-${idea.fundingStatus}`}>{idea.fundingStatus.toUpperCase()}</span>
-            {allAccepted && <span className="badge bg-emerald-900 text-emerald-200">COMPLETE</span>}
-            {anyActive && <span className="badge bg-blue-900 text-blue-200 animate-pulse">ACTIVE</span>}
+
+          <div className="mt-8 grid gap-4 md:grid-cols-3">
+            <SummaryPanel label="Escrow budget" value={formatUsd(idea.budgetUsd)} />
+            <SummaryPanel label="Accepted milestones" value={`${acceptedCount}/${jobs.length || 0}`} />
+            <SummaryPanel label="Idea ID" value={truncateMiddle(idea.ideaId, 8, 8)} mono />
           </div>
         </div>
 
-        {/* Idea summary */}
-        <div className="card space-y-3">
-          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">Prompt</h2>
-          <p className="text-gray-200 text-sm leading-relaxed whitespace-pre-wrap">{idea.prompt}</p>
+        <aside className="surface motion-rise motion-rise-delay-1 xl:sticky xl:top-28">
+          <p className="section-kicker">Lifecycle Rail</p>
+          <h2 className="mt-3 text-2xl font-semibold text-stone-50">Funding and review state</h2>
+
+          <div className="mt-6 grid gap-4">
+            <LifecycleMetric label="Funding" detail="Arc holds spend until a reviewer explicitly accepts the output.">
+              <StatusBadge status={idea.fundingStatus} />
+            </LifecycleMetric>
+            <LifecycleMetric label="Planner" detail={brief ? 'Build brief generated and job graph is live.' : 'Planner has not generated the brief yet.'}>
+              <StatusBadge status={brief ? 'accepted' : 'queued'} label={brief ? 'Ready' : 'Pending'} />
+            </LifecycleMetric>
+            <LifecycleMetric label="Queue health" detail={`${jobs.length} milestones are attached to this idea.`}>
+              <StatusBadge status={activeCount > 0 ? 'live' : 'queued'} label={activeCount > 0 ? 'Active' : 'Idle'} />
+            </LifecycleMetric>
+          </div>
+
           {idea.escrowTxHash && (
-            <div className="pt-2 border-t border-gray-800">
-              <p className="text-gray-500 text-xs">Arc Escrow TX</p>
-              <p className="text-gray-400 font-mono text-xs break-all mt-0.5">{idea.escrowTxHash}</p>
+            <div className="surface-line mt-6 pt-6">
+              <p className="metric-label">Escrow transaction</p>
+              <p className="mt-3 break-all font-mono text-xs leading-6 text-stone-400">{idea.escrowTxHash}</p>
             </div>
           )}
+
+          <div className="surface-line mt-6 pt-6">
+            <p className="metric-label">Next actions</p>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <button className="btn-secondary px-4 py-2.5" onClick={() => navigate('/jobs')}>
+                Open Queue
+              </button>
+              <button className="btn-secondary px-4 py-2.5" onClick={() => navigate('/submit')}>
+                New Brief
+              </button>
+            </div>
+          </div>
+        </aside>
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+        <div className="surface motion-rise motion-rise-delay-2">
+          <p className="section-kicker">Original Brief</p>
+          <h2 className="mt-3 text-2xl font-semibold text-stone-50">Buyer prompt</h2>
+          <p className="mt-5 whitespace-pre-wrap text-sm leading-7 text-stone-300">{idea.prompt}</p>
         </div>
 
-        {/* BuildBrief */}
-        {brief ? (
-          <div className="card space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-white">BuildBrief</h2>
-              <span className="badge badge-accepted">GENERATED</span>
+        <div className="surface motion-rise motion-rise-delay-3">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="section-kicker">Planner Output</p>
+              <h2 className="mt-3 text-2xl font-semibold text-stone-50">Build brief</h2>
             </div>
-            <p className="text-gray-300 text-sm leading-relaxed">{brief.summary}</p>
-            {brief.dossierUri && (
-              <div className="bg-blue-900/20 border border-blue-800 rounded-lg p-3">
-                <p className="text-blue-400 text-xs font-medium mb-1">0G Dossier</p>
-                <p className="text-blue-300 font-mono text-xs break-all">{brief.dossierUri}</p>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="card text-center py-8 space-y-3">
-            <div className="text-3xl">📋</div>
-            <p className="text-gray-400 text-sm">BuildBrief not yet generated.</p>
-            <p className="text-gray-500 text-xs">The brief is auto-generated when you fund the idea.</p>
-          </div>
-        )}
-
-        {/* Milestone Jobs */}
-        <div className="card space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-white">Milestones</h2>
-            <span className="text-gray-500 text-sm">{jobs.filter(j => j.status === 'accepted').length}/{jobs.length} accepted</span>
+            {brief && <StatusBadge status="accepted" label="Generated" />}
           </div>
 
-          {jobs.length === 0 ? (
-            <div className="text-center py-6 space-y-2">
-              <div className="text-2xl">⏳</div>
-              <p className="text-gray-400 text-sm">Milestones are created when the idea is funded.</p>
+          {brief ? (
+            <div className="mt-5 space-y-5">
+              <p className="text-sm leading-7 text-stone-300">{brief.summary}</p>
+              {brief.dossierUri && (
+                <div className="rounded-[1.5rem] border border-white/8 bg-black/15 p-4">
+                  <p className="metric-label">0G dossier</p>
+                  <p className="mt-3 break-all font-mono text-xs leading-6 text-stone-400">{brief.dossierUri}</p>
+                </div>
+              )}
             </div>
           ) : (
-            <div className="space-y-3">
-              {jobsByMilestone.map(({ type, job }, i) => (
-                <MilestoneRow
-                  key={type}
-                  index={i + 1}
-                  milestoneType={type}
-                  job={job}
-                  onReview={() => job && navigate(`/review/${job.jobId}`)}
-                />
-              ))}
-            </div>
+            <p className="mt-5 text-sm leading-6 text-stone-400">
+              The planner has not produced a build brief yet. Once funding completes, this panel becomes the source of milestone structure.
+            </p>
           )}
         </div>
+      </section>
 
-        {/* Idea ID */}
-        <div className="text-center">
-          <p className="text-gray-600 text-xs font-mono">Idea ID: {ideaId}</p>
+      <section className="surface">
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="section-kicker">Milestone Queue</p>
+            <h2 className="mt-3 text-2xl font-semibold text-stone-50">State and action inspector</h2>
+          </div>
+          <p className="text-sm text-stone-400">{acceptedCount} accepted · {activeCount} active or awaiting review</p>
         </div>
+
+        <div className="mt-8 divide-y divide-white/8">
+          {jobsByMilestone.map((item, index) => (
+            <MilestoneRow
+              key={item.type}
+              index={index + 1}
+              milestoneType={item.type}
+              detail={item.detail}
+              job={item.job}
+              onReview={() => item.job && navigate(`/review/${item.job.jobId}`)}
+            />
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function SummaryPanel({
+  label,
+  value,
+  mono = false,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+}) {
+  return (
+    <div className="rounded-[1.6rem] border border-white/8 bg-black/15 p-4">
+      <p className="metric-label">{label}</p>
+      <p className={`mt-3 text-xl font-semibold text-stone-50 ${mono ? 'font-mono text-sm' : ''}`}>{value}</p>
+    </div>
+  );
+}
+
+function LifecycleMetric({
+  label,
+  detail,
+  children,
+}: {
+  label: string;
+  detail: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-[1.5rem] border border-white/8 bg-black/15 px-4 py-4">
+      <div className="flex items-center justify-between gap-4">
+        <p className="metric-label">{label}</p>
+        {children}
       </div>
+      <p className="mt-3 text-sm leading-6 text-stone-300">{detail}</p>
     </div>
   );
 }
@@ -156,24 +249,27 @@ export function IdeaDetail() {
 function MilestoneRow({
   index,
   milestoneType,
+  detail,
   job,
   onReview,
 }: {
   index: number;
   milestoneType: string;
+  detail: string;
   job?: { jobId: string; milestoneType: string; status: string; budgetUsd: string; leaseExpiry?: string };
   onReview: () => void;
 }) {
   if (!job) {
     return (
-      <div className="flex items-center gap-4 p-3 rounded-lg bg-gray-800/30 opacity-50">
-        <div className="w-7 h-7 rounded-full bg-gray-800 flex items-center justify-center text-xs text-gray-500 font-bold shrink-0">
-          {index}
+      <div className="grid gap-4 py-5 md:grid-cols-[auto_minmax(0,1fr)_auto] md:items-center">
+        <div className="flex h-11 w-11 items-center justify-center rounded-full border border-white/8 bg-black/15 text-sm font-semibold text-stone-400">
+          {String(index).padStart(2, '0')}
         </div>
-        <div className="flex-1">
-          <p className="text-gray-400 text-sm capitalize font-medium">{milestoneType}</p>
+        <div>
+          <p className="text-lg font-medium text-stone-100">{formatMilestoneLabel(milestoneType)}</p>
+          <p className="mt-2 text-sm leading-6 text-stone-400">{detail}</p>
         </div>
-        <span className="badge bg-gray-800 text-gray-600">PENDING</span>
+        <StatusBadge status="queued" label="Pending" />
       </div>
     );
   }
@@ -182,41 +278,39 @@ function MilestoneRow({
   const isActive = ['claimed', 'running'].includes(job.status);
 
   return (
-    <div className={`flex items-center gap-4 p-3 rounded-lg transition-colors ${
-      isActive ? 'bg-blue-900/20 border border-blue-900/50' :
-      job.status === 'accepted' ? 'bg-green-900/10 border border-green-900/30' :
-      'bg-gray-800/30'
-    }`}>
-      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
-        job.status === 'accepted' ? 'bg-green-700 text-white' :
-        job.status === 'submitted' ? 'bg-purple-700 text-white' :
-        isActive ? 'bg-blue-700 text-white' :
-        'bg-gray-700 text-gray-300'
+    <div className="grid gap-4 py-5 md:grid-cols-[auto_minmax(0,1fr)_auto_auto] md:items-center">
+      <div className={`flex h-11 w-11 items-center justify-center rounded-full border text-sm font-semibold ${
+        isActive
+          ? 'border-blue-400/30 bg-blue-400/10 text-blue-100'
+          : job.status === 'accepted'
+            ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-100'
+            : 'border-white/8 bg-black/15 text-stone-300'
       }`}>
-        {job.status === 'accepted' ? '✓' : index}
+        {String(index).padStart(2, '0')}
       </div>
 
-      <div className="flex-1 min-w-0">
-        <p className="text-white text-sm capitalize font-medium">{milestoneType}</p>
-        <p className="text-gray-500 text-xs mt-0.5">
-          ${job.budgetUsd} USDC
-          {job.leaseExpiry && isActive && (
-            <> · Lease expires {new Date(job.leaseExpiry).toLocaleTimeString()}</>
-          )}
-        </p>
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-lg font-medium text-stone-100">{formatMilestoneLabel(milestoneType)}</p>
+          {isActive && <StatusBadge status="live" label="Lease live" />}
+        </div>
+        <p className="mt-2 text-sm leading-6 text-stone-400">{detail}</p>
+        <div className="mt-2 flex flex-wrap gap-3 text-sm text-stone-400">
+          <span>{formatUsd(job.budgetUsd)}</span>
+          <span className="font-mono text-xs text-stone-500">{truncateMiddle(job.jobId, 8, 8)}</span>
+          {job.leaseExpiry && isActive && <span>Lease expires {formatShortDateTime(job.leaseExpiry)}</span>}
+        </div>
       </div>
 
-      <div className="flex items-center gap-2 shrink-0">
-        <span className={`badge badge-${job.status}`}>{job.status.toUpperCase()}</span>
-        {canReview && (
-          <button
-            className="btn-primary text-xs px-3 py-1.5"
-            onClick={onReview}
-          >
-            {job.status === 'submitted' ? 'Review →' : 'View →'}
-          </button>
-        )}
-      </div>
+      <StatusBadge status={job.status} />
+
+      {canReview ? (
+        <button className="btn-secondary px-4 py-2.5" onClick={onReview}>
+          {job.status === 'submitted' ? 'Review' : 'Inspect'}
+        </button>
+      ) : (
+        <div className="text-sm text-stone-500">Awaiting output</div>
+      )}
     </div>
   );
 }
