@@ -2,8 +2,38 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  @apply bg-gray-950 text-gray-100 font-sans;
+@layer base {
+  :root {
+    --background: 224 71% 4%;
+    --foreground: 213 31% 91%;
+    --card: 224 71% 6%;
+    --card-foreground: 213 31% 91%;
+    --popover: 224 71% 4%;
+    --popover-foreground: 213 31% 91%;
+    --primary: 221 83% 53%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 215 28% 17%;
+    --secondary-foreground: 213 31% 91%;
+    --muted: 215 28% 17%;
+    --muted-foreground: 215 20% 55%;
+    --accent: 215 28% 17%;
+    --accent-foreground: 213 31% 91%;
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 213 31% 91%;
+    --border: 215 28% 17%;
+    --input: 215 28% 17%;
+    --ring: 221 83% 53%;
+    --radius: 0.75rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-gray-950 text-gray-100 font-sans;
+  }
 }
 
 /* Layout */
@@ -46,6 +76,8 @@ body {
 .badge-rejected, .badge-rework { @apply badge bg-red-900 text-red-200; }
 .badge-funded { @apply badge bg-emerald-900 text-emerald-200; }
 .badge-unfunded { @apply badge bg-gray-800 text-gray-400; }
+.badge-created { @apply badge bg-gray-800 text-gray-300; }
+.badge-settled { @apply badge bg-teal-900 text-teal-200; }
 
 /* Loading spinner - CSS animation, not emoji */
 .spinner {
