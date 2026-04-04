@@ -39,6 +39,16 @@ export function Nav() {
           >
             My Ideas
           </NavLink>
+          <NavLink
+            to="/workspace"
+            className={({ isActive }) =>
+              `px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                isActive ? 'bg-gray-800 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+              }`
+            }
+          >
+            Workspace
+          </NavLink>
         </div>
       </div>
     </nav>
