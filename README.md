@@ -342,11 +342,13 @@ Prereqs:
 - Bun
 - Docker
 - `corepack` enabled, or `pnpm` available
+- Foundry, installed via `corepack pnpm tooling:install` or automatically on first contract build/test
 
 Run the demo locally:
 
 ```bash
 corepack pnpm install
+corepack pnpm tooling:install
 docker compose up -d
 
 DATABASE_URL=postgres://iex:iex@localhost:5432/iex_cannes \
@@ -363,6 +365,13 @@ corepack pnpm --filter intelligence-exchange-cannes-web dev
 Then open `http://localhost:3000`.
 
 The browser frontend proxies API calls to `http://localhost:3001`.
+
+For a full local verification pass, run:
+
+```bash
+docker compose up -d
+corepack pnpm validate:all
+```
 
 ## Agent Kit And Worldchain
 
@@ -428,6 +437,7 @@ The local fork deployment was exercised during this integration pass and produce
 - `IdentityGate`: `0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82`
 - `AgentIdentityRegistry`: `0x9A676e781A523b5d0C0e43731313A708CB607508`
 - `IdeaEscrow`: `0x0B306BF915C4d645ff596e518fAf3F9669b97016`
+- `AdvancedArcEscrow`: `0x959922bE3CAee4b8Cd9a407cc3ac1C251C2007B1`
 
 Those addresses are fork-local only. Do not reuse them for a real deployment.
 
