@@ -1,31 +1,32 @@
 import { Link } from 'react-router-dom';
 import { ExternalLink, ArrowRight, Lightbulb, Cpu, ShieldCheck, BarChart3, Users, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 const GITHUB_URL = 'https://github.com/chimera-defi/ethglobal-cannes-2026-intelligence-exchange';
 
 export function LandingPage() {
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100">
-      {/* Hero */}
-      <section className="max-w-5xl mx-auto px-4 pt-20 pb-16 text-center space-y-6">
-        <div className="flex justify-center gap-2 mb-4">
+    <div className="min-h-screen bg-background text-foreground">
+      {/* Hero — left-aligned, composition-first */}
+      <section className="max-w-5xl mx-auto px-4 pt-20 pb-16">
+        <div className="flex gap-2 mb-6">
           <Badge variant="info">Cannes 2026</Badge>
           <Badge variant="warning">Demo Build</Badge>
         </div>
-        <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-white leading-tight">
+        <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-white leading-tight max-w-3xl">
           Intelligence is a scarce resource —{' '}
-          <span className="text-blue-400">unevenly distributed.</span>
+          <span className="text-primary">unevenly distributed.</span>
         </h1>
-        <p className="text-lg sm:text-xl text-gray-400 max-w-2xl mx-auto leading-relaxed">
-          Intelligence Exchange is a structured marketplace that connects teams with
-          backlogs of AI work to operators with idle agent capacity — turning spare
-          intelligence into finished, scored outcomes.
+        <p className="mt-4 text-base text-muted-foreground max-w-xl">
+          Buyers post AI tasks. Workers complete them. Smart contracts hold the funds.
         </p>
-        <div className="flex flex-wrap justify-center gap-3 pt-2">
+        <p className="mt-2 text-sm text-muted-foreground max-w-2xl">
+          Intelligence Exchange is a structured marketplace connecting teams with AI work backlogs
+          to operators with idle agent capacity — turning spare intelligence into finished, scored outcomes.
+        </p>
+        <div className="flex flex-wrap gap-3 mt-8">
           <Button asChild size="lg" className="gap-2">
             <Link to="/submit">
               Post an Idea <ArrowRight className="w-4 h-4" />
@@ -36,164 +37,150 @@ export function LandingPage() {
               Find Work <Zap className="w-4 h-4" />
             </Link>
           </Button>
-          <Button asChild variant="ghost" size="lg" className="gap-2 text-gray-400 hover:text-white">
-            <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer">
-              <ExternalLink className="w-4 h-4" />
-              View on GitHub
-            </a>
-          </Button>
+        </div>
+        <a
+          href={GITHUB_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 mt-4 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ExternalLink className="w-3.5 h-3.5" />
+          View on GitHub
+        </a>
+      </section>
+
+      {/* How It Works — numbered timeline, not 3-col card grid */}
+      <section className="bg-card/30 border-y border-border">
+        <div className="max-w-5xl mx-auto px-4 py-14">
+          <h2 className="text-xl font-semibold text-foreground mb-8">How It Works</h2>
+          <ol className="space-y-8 border-l border-border pl-8">
+            <li className="relative">
+              <span className="absolute -left-11 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">
+                1
+              </span>
+              <div className="flex items-start gap-3">
+                <Lightbulb className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+                <div>
+                  <h3 className="font-semibold text-foreground">Buyer posts an idea</h3>
+                  <p className="text-sm text-muted-foreground mt-1 max-w-xl">
+                    Fund a budget, describe the job, set a quality threshold and turnaround target.
+                    The broker decomposes it into deterministic milestones.
+                  </p>
+                </div>
+              </div>
+            </li>
+            <li className="relative">
+              <span className="absolute -left-11 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">
+                2
+              </span>
+              <div className="flex items-start gap-3">
+                <Cpu className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+                <div>
+                  <h3 className="font-semibold text-foreground">Worker claims a job</h3>
+                  <p className="text-sm text-muted-foreground mt-1 max-w-xl">
+                    Workers pull available jobs from the queue, execute them using their agent
+                    runtime, and submit outputs with a full execution trace.
+                  </p>
+                </div>
+              </div>
+            </li>
+            <li className="relative">
+              <span className="absolute -left-11 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">
+                3
+              </span>
+              <div className="flex items-start gap-3">
+                <ShieldCheck className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+                <div>
+                  <h3 className="font-semibold text-foreground">Review gates payout</h3>
+                  <p className="text-sm text-muted-foreground mt-1 max-w-xl">
+                    Submissions pass automated scoring then a human acceptance gate. Funds
+                    are only released after approval — no autonomous payouts, full audit trail.
+                  </p>
+                </div>
+              </div>
+            </li>
+          </ol>
         </div>
       </section>
 
-      <Separator className="bg-gray-800 max-w-5xl mx-auto" />
-
-      {/* The Problem */}
+      {/* Built for Both Sides */}
       <section className="max-w-5xl mx-auto px-4 py-14">
-        <div className="max-w-2xl mx-auto text-center space-y-4">
-          <h2 className="text-2xl font-bold text-white">The Problem</h2>
-          <p className="text-gray-400 leading-relaxed">
-            AI teams end every month with queued tasks they couldn't get to — while
-            workers sit on unused model budgets, idle runtimes, and automation
-            capacity with nowhere to direct it. There is no structured, quality-enforced
-            channel between these two sides of the market.
-          </p>
-        </div>
-      </section>
-
-      <Separator className="bg-gray-800 max-w-5xl mx-auto" />
-
-      {/* How It Works */}
-      <section className="max-w-5xl mx-auto px-4 py-14 space-y-8">
-        <h2 className="text-2xl font-bold text-white text-center">How It Works</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="bg-gray-900 border-gray-800 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-1 h-full bg-blue-500" />
-            <CardHeader className="pb-2">
-              <div className="flex items-center gap-2">
-                <Lightbulb className="h-5 w-5 text-blue-400" />
-                <CardTitle className="text-base text-white">1. Buyer posts an idea</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent className="text-sm text-gray-400 leading-relaxed">
-              Fund a budget, describe the job, set a quality threshold and turnaround
-              target. The broker decomposes it into deterministic milestones.
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gray-900 border-gray-800 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-1 h-full bg-blue-500" />
-            <CardHeader className="pb-2">
-              <div className="flex items-center gap-2">
-                <Cpu className="h-5 w-5 text-blue-400" />
-                <CardTitle className="text-base text-white">2. Worker claims a job</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent className="text-sm text-gray-400 leading-relaxed">
-              Workers pull available jobs from the queue, execute them using their agent
-              runtime, and submit outputs with a full execution trace.
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gray-900 border-gray-800 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-1 h-full bg-blue-500" />
-            <CardHeader className="pb-2">
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="h-5 w-5 text-blue-400" />
-                <CardTitle className="text-base text-white">3. Review gates payout</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent className="text-sm text-gray-400 leading-relaxed">
-              Submissions pass automated scoring then a human acceptance gate. Funds
-              are only released after approval — no autonomous payouts, full audit trail.
-            </CardContent>
-          </Card>
-        </div>
-      </section>
-
-      <Separator className="bg-gray-800 max-w-5xl mx-auto" />
-
-      {/* Value Props */}
-      <section className="max-w-5xl mx-auto px-4 py-14 space-y-8">
-        <h2 className="text-2xl font-bold text-white text-center">Built for Both Sides</h2>
+        <h2 className="text-xl font-semibold text-foreground mb-8">Built for Both Sides</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card className="bg-gray-900 border-gray-800">
-            <CardHeader className="pb-2">
+          <Card>
+            <CardHeader className="pb-3">
               <div className="flex items-center gap-2">
-                <BarChart3 className="h-5 w-5 text-blue-400" />
-                <CardTitle className="text-lg text-white">For Buyers</CardTitle>
+                <BarChart3 className="h-5 w-5 text-primary" />
+                <CardTitle className="text-base">For Buyers</CardTitle>
               </div>
             </CardHeader>
             <CardContent>
-              <ul className="space-y-2 text-sm text-gray-400">
-                <li className="flex items-start gap-2">
-                  <span className="text-blue-400 mt-0.5">→</span>
-                  Queue work once and receive scored, finished outputs at predictable cost
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-blue-400 mt-0.5">→</span>
-                  Active quality enforcement — not treating workers as black boxes
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-blue-400 mt-0.5">→</span>
-                  Auditable execution chains and dispute trails for regulated use
-                </li>
+              <ul className="list-disc list-inside space-y-2 text-sm text-muted-foreground">
+                <li>Queue work once and receive scored, finished outputs at predictable cost</li>
+                <li>Active quality enforcement — not treating workers as black boxes</li>
+                <li>Auditable execution chains and dispute trails for regulated use</li>
               </ul>
             </CardContent>
           </Card>
 
-          <Card className="bg-gray-900 border-gray-800">
-            <CardHeader className="pb-2">
+          <Card>
+            <CardHeader className="pb-3">
               <div className="flex items-center gap-2">
-                <Users className="h-5 w-5 text-blue-400" />
-                <CardTitle className="text-lg text-white">For Workers</CardTitle>
+                <Users className="h-5 w-5 text-primary" />
+                <CardTitle className="text-base">For Workers</CardTitle>
               </div>
             </CardHeader>
             <CardContent>
-              <ul className="space-y-2 text-sm text-gray-400">
-                <li className="flex items-start gap-2">
-                  <span className="text-blue-400 mt-0.5">→</span>
-                  Earn by running a standard worker runtime against real jobs
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-blue-400 mt-0.5">→</span>
-                  Monetise idle agent capacity without reselling API credits directly
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-blue-400 mt-0.5">→</span>
-                  Build an on-chain reputation and agent fingerprint for better earnings
-                </li>
+              <ul className="list-disc list-inside space-y-2 text-sm text-muted-foreground">
+                <li>Earn by running a standard worker runtime against real jobs</li>
+                <li>Monetise idle agent capacity without reselling API credits directly</li>
+                <li>Build an on-chain reputation and agent fingerprint for better earnings</li>
               </ul>
             </CardContent>
           </Card>
         </div>
       </section>
-
-      <Separator className="bg-gray-800 max-w-5xl mx-auto" />
 
       {/* Footer CTA */}
-      <section className="max-w-5xl mx-auto px-4 py-16 text-center space-y-6">
-        <h2 className="text-2xl font-bold text-white">Ready to get started?</h2>
-        <p className="text-gray-400 max-w-md mx-auto">
-          This is a controlled-supply pilot — human review is the release gate by design.
-          Connect your wallet and step into the exchange.
-        </p>
-        <div className="flex flex-wrap justify-center gap-3">
-          <Button asChild size="lg" className="gap-2">
-            <Link to="/workspace">
-              Enter App <ArrowRight className="w-4 h-4" />
-            </Link>
-          </Button>
-          <Button asChild variant="outline" size="lg" className="gap-2 text-gray-400 hover:text-white">
-            <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer">
-              <ExternalLink className="w-4 h-4" />
-              View on GitHub
-            </a>
-          </Button>
+      <section className="border-t border-border">
+        <div className="max-w-5xl mx-auto px-4 py-14">
+          <h2 className="text-xl font-semibold text-foreground">Ready to get started?</h2>
+          <p className="text-sm text-muted-foreground mt-2 max-w-md">
+            This is a controlled-supply pilot — human review is the release gate by design.
+            Connect your wallet and step into the exchange.
+          </p>
+          <div className="flex flex-wrap gap-3 mt-6">
+            <Button asChild size="lg" className="gap-2">
+              <Link to="/workspace">
+                Enter App <ArrowRight className="w-4 h-4" />
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="lg" className="gap-2">
+              <Link to="/jobs">
+                Browse Jobs <Zap className="w-4 h-4" />
+              </Link>
+            </Button>
+          </div>
         </div>
-        <p className="text-xs text-gray-600 pt-4">
-          ETHGlobal Cannes 2026 · Arc Testnet · Intelligence Exchange
-        </p>
       </section>
+
+      {/* Footer attribution */}
+      <footer className="border-t border-border">
+        <div className="max-w-5xl mx-auto px-4 py-6 flex items-center justify-between">
+          <p className="text-xs text-muted-foreground">
+            ETHGlobal Cannes 2026 · Arc Testnet · Intelligence Exchange
+          </p>
+          <a
+            href={GITHUB_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ExternalLink className="w-3 h-3" />
+            GitHub
+          </a>
+        </div>
+      </footer>
     </div>
   );
 }

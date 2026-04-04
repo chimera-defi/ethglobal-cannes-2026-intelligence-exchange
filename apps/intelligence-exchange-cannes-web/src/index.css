@@ -24,6 +24,8 @@
     --input: 215 28% 17%;
     --ring: 221 83% 53%;
     --radius: 0.75rem;
+    --review: 271 91% 65%;
+    --review-foreground: 0 0% 100%;
   }
 }
 
@@ -44,19 +46,6 @@
 /* Cards */
 .card {
   @apply bg-gray-900 border border-gray-800 rounded-xl p-6;
-}
-
-/* Buttons */
-.btn-primary {
-  @apply bg-blue-600 hover:bg-blue-500 text-white font-semibold px-6 py-2.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
-}
-
-.btn-success {
-  @apply bg-green-700 hover:bg-green-600 text-white font-semibold px-6 py-2.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
-}
-
-.btn-danger {
-  @apply bg-red-700 hover:bg-red-600 text-white font-semibold px-6 py-2.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
 }
 
 /* Inputs */
