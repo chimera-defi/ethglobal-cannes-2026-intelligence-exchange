@@ -10,7 +10,22 @@ export function LandingPage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Hero — left-aligned, composition-first */}
-      <section className="max-w-5xl mx-auto px-4 pt-20 pb-16">
+      <section className="relative overflow-hidden max-w-5xl mx-auto px-4 pt-20 pb-16">
+        {/* Neural network SVG background */}
+        <svg className="absolute inset-0 w-full h-full pointer-events-none" aria-hidden="true">
+          <g stroke="currentColor" className="text-blue-500/10" strokeWidth="1">
+            <line x1="5%" y1="20%" x2="30%" y2="45%" /><line x1="30%" y1="45%" x2="60%" y2="25%" />
+            <line x1="60%" y1="25%" x2="85%" y2="50%" /><line x1="30%" y1="45%" x2="55%" y2="70%" />
+            <line x1="55%" y1="70%" x2="80%" y2="55%" /><line x1="5%" y1="20%" x2="55%" y2="70%" />
+            <line x1="60%" y1="25%" x2="55%" y2="70%" /><line x1="80%" y1="55%" x2="85%" y2="50%" />
+          </g>
+          <g fill="currentColor" className="text-blue-500/20">
+            <circle cx="5%" cy="20%" r="3" /><circle cx="30%" cy="45%" r="4" />
+            <circle cx="60%" cy="25%" r="3" /><circle cx="85%" cy="50%" r="3" />
+            <circle cx="55%" cy="70%" r="4" /><circle cx="80%" cy="55%" r="3" />
+          </g>
+        </svg>
+        <div className="relative">
         <div className="flex gap-2 mb-6">
           <Badge variant="info">Cannes 2026</Badge>
           <Badge variant="warning">Demo Build</Badge>
@@ -56,13 +71,14 @@ export function LandingPage() {
           <ExternalLink className="w-3.5 h-3.5" />
           View on GitHub
         </a>
+        </div>
       </section>
 
       <section className="border-y border-border bg-card/20">
         <div className="max-w-5xl mx-auto px-4 py-14">
           <h2 className="text-xl font-semibold text-foreground mb-8">World Agent Kit</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Card className="hover:shadow-blue-500/20 hover:shadow-xl hover:-translate-y-0.5 transition-all">
               <CardHeader className="pb-3">
                 <div className="flex items-center gap-2">
                   <Bot className="h-5 w-5 text-primary" />
@@ -75,15 +91,10 @@ export function LandingPage() {
                   Human-backed agents use AgentBook-backed access for protected job discovery and
                   task retrieval.
                 </p>
-                <p>
-                  The new <span className="font-mono text-foreground">/agents</span> page shows the
-                  full registration chain from World verification to Worldchain role sync to IEX
-                  registry enrollment.
-                </p>
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="hover:shadow-blue-500/20 hover:shadow-xl hover:-translate-y-0.5 transition-all">
               <CardHeader className="pb-3">
                 <div className="flex items-center gap-2">
                   <Globe2 className="h-5 w-5 text-primary" />
@@ -92,12 +103,23 @@ export function LandingPage() {
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground space-y-2">
                 <p>
-                  The broker can now distinguish human-backed agents from generic scripts when they
-                  browse jobs or fetch <span className="font-mono text-foreground">skill.md</span>.
+                  The broker distinguishes human-backed agents from generic scripts when they browse
+                  jobs or fetch <span className="font-mono text-foreground">skill.md</span>.
                 </p>
+              </CardContent>
+            </Card>
+
+            <Card className="hover:shadow-blue-500/20 hover:shadow-xl hover:-translate-y-0.5 transition-all">
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="h-5 w-5 text-primary" />
+                  <CardTitle className="text-base">On-chain Reputation</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="text-sm text-muted-foreground space-y-2">
                 <p>
-                  That makes the World sponsor story concrete: proof of human changes who can act,
-                  how agent access works, and how onchain reputation is attached to a worker.
+                  Accepted submissions are attested on Worldchain, building an immutable agent
+                  reputation that follows the worker across jobs.
                 </p>
               </CardContent>
             </Card>
@@ -163,7 +185,7 @@ export function LandingPage() {
       <section className="max-w-5xl mx-auto px-4 py-14">
         <h2 className="text-xl font-semibold text-foreground mb-8">Built for Both Sides</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card>
+          <Card className="hover:shadow-blue-500/20 hover:shadow-xl hover:-translate-y-0.5 transition-all">
             <CardHeader className="pb-3">
               <div className="flex items-center gap-2">
                 <BarChart3 className="h-5 w-5 text-primary" />
@@ -179,7 +201,7 @@ export function LandingPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="hover:shadow-blue-500/20 hover:shadow-xl hover:-translate-y-0.5 transition-all">
             <CardHeader className="pb-3">
               <div className="flex items-center gap-2">
                 <Users className="h-5 w-5 text-primary" />

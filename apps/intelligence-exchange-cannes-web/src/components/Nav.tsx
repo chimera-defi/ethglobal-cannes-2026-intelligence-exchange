@@ -29,7 +29,9 @@ export function Nav() {
 
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>
     `px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-      isActive ? 'bg-gray-800 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+      isActive
+        ? 'bg-blue-600/20 text-blue-300 border border-blue-700/30'
+        : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
     }`;
 
   const navLinks = [
@@ -49,7 +51,7 @@ export function Nav() {
 
   return (
     <TooltipProvider>
-      <nav className="border-b border-gray-800 bg-gray-950/80 backdrop-blur sticky top-0 z-10">
+      <nav className="border-b border-slate-800 bg-slate-950/80 backdrop-blur-md sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
           {/* Brand + desktop nav links */}
           <div className="flex items-center gap-4 min-w-0">
@@ -121,9 +123,9 @@ export function Nav() {
                   <Menu className="h-5 w-5" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="right" className="w-64 bg-gray-950 border-gray-800 p-0">
+              <SheetContent side="right" className="w-64 bg-slate-950 border-slate-800 p-0">
                 <div className="flex flex-col h-full">
-                  <div className="p-4 border-b border-gray-800">
+                  <div className="p-4 border-b border-slate-800">
                     <p className="text-sm font-semibold text-white">Intelligence Exchange</p>
                     {session?.accountAddress && (
                       <div className="flex items-center gap-2 mt-2">
@@ -144,7 +146,7 @@ export function Nav() {
                     ))}
                   </nav>
                   {isConnected && (
-                    <div className="p-4 border-t border-gray-800">
+                    <div className="p-4 border-t border-slate-800">
                       {session ? (
                         <Button variant="ghost" size="sm" onClick={signOut} className="w-full justify-start gap-2 text-gray-400">
                           <LogOut className="w-3.5 h-3.5" />

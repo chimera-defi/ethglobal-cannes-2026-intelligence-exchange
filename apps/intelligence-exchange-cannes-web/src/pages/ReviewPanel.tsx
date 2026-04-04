@@ -305,7 +305,7 @@ function AttestationPanel({
     <div className="space-y-4">
       {/* Attestation payload */}
       {attestationPayload != null && (
-        <div className="rounded-lg bg-gray-800/50 border border-gray-700 p-3 space-y-1">
+        <div className="rounded-lg bg-slate-800/50 border border-slate-700 p-3 space-y-1">
           <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">
             Attestation Payload
           </p>
@@ -323,7 +323,7 @@ function AttestationPanel({
         </Label>
         <div className="flex gap-2">
           <input
-            className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm font-mono text-gray-200 placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm font-mono text-gray-200 placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-500"
             placeholder="0x…"
             value={releaseTxHash}
             onChange={e => setReleaseTxHash(e.target.value)}
@@ -360,7 +360,7 @@ function AttestationPanel({
 
       {/* Attestation tx sync */}
       <div className="space-y-2">
-        <div className="rounded-lg border border-gray-700 bg-gray-900/40 p-3 space-y-3">
+        <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3 space-y-3">
           <div className="flex items-start justify-between gap-4">
             <div>
               <Label className="text-gray-300 text-sm">
@@ -414,7 +414,7 @@ function AttestationPanel({
         </Label>
         <div className="flex gap-2">
           <input
-            className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm font-mono text-gray-200 placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm font-mono text-gray-200 placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-500"
             placeholder="0x…"
             value={attestTxHash}
             onChange={e => setAttestTxHash(e.target.value)}
@@ -536,7 +536,7 @@ export function ReviewPanel() {
   if (!jobId) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
-        <Card className="max-w-lg w-full border-gray-700">
+        <Card className="max-w-lg w-full border-slate-800">
           <CardContent className="text-center space-y-4 py-10">
             <AlertCircle className="h-8 w-8 text-gray-500 mx-auto" />
             <p className="text-gray-400">No job ID provided.</p>
@@ -585,7 +585,7 @@ export function ReviewPanel() {
   if (!['submitted', 'accepted', 'rejected', 'rework'].includes(job.status)) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
-        <Card className="max-w-lg w-full border-gray-700">
+        <Card className="max-w-lg w-full border-slate-800">
           <CardContent className="text-center space-y-4 py-12">
             <Clock className="h-8 w-8 text-gray-500 mx-auto" />
             <h1 className="text-xl font-semibold text-white">Awaiting Submission</h1>
@@ -699,7 +699,7 @@ export function ReviewPanel() {
         />
 
         {/* Job info */}
-        <Card className="border-gray-700 bg-gray-900/40">
+        <Card className="border-slate-800 bg-slate-900/40">
           <CardContent className="space-y-3 p-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-white capitalize">
@@ -728,7 +728,7 @@ export function ReviewPanel() {
 
             {/* Submission artifact */}
             {latestSubmission && (
-              <div className="pt-3 border-t border-gray-800 space-y-2">
+              <div className="pt-3 border-t border-slate-800 space-y-2">
                 <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">
                   Submitted Work
                 </p>
@@ -757,7 +757,7 @@ export function ReviewPanel() {
 
             {/* Score breakdown from latest submission */}
             {latestSubmission?.scoreBreakdown && (
-              <div className="pt-3 border-t border-gray-800 space-y-2">
+              <div className="pt-3 border-t border-slate-800 space-y-2">
                 <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">
                   Score Breakdown
                 </p>
@@ -765,7 +765,7 @@ export function ReviewPanel() {
                   {latestSubmission.scoreBreakdown.checks.map((check, i) => (
                     <div
                       key={i}
-                      className="flex items-start gap-2.5 rounded-lg bg-gray-800/50 px-3 py-2"
+                      className="flex items-start gap-2.5 rounded-lg bg-slate-800/50 px-3 py-2"
                     >
                       {check.passed ? (
                         <CheckCircle2 className="h-4 w-4 text-green-400 shrink-0 mt-0.5" />
@@ -841,7 +841,7 @@ export function ReviewPanel() {
 
         {/* Release and reputation flow (shown after accept) */}
         {releaseFlowVisible && effectiveAttestation && (
-          <Card className="border-gray-700 bg-gray-900/40">
+          <Card className="border-slate-800 bg-slate-900/40">
             <CardHeader className="pb-2">
               <CardTitle className="text-base text-white">Release & Reputation</CardTitle>
             </CardHeader>
@@ -870,7 +870,7 @@ export function ReviewPanel() {
 
         {/* Decision panel */}
         {isPending && (
-          <Card className="border-gray-700 bg-gray-900/40">
+          <Card className="border-slate-800 bg-slate-900/40">
             <CardHeader className="pb-2">
               <CardTitle className="text-base text-white">Your Decision</CardTitle>
             </CardHeader>
