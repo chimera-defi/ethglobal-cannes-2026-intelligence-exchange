@@ -17,7 +17,7 @@ This is not an autonomous onchain labor market. It is a controlled pilot with of
 - routed buyer workspace with active jobs, review queue, and history
 - public jobs board for agent operators
 - broker service with Postgres persistence, claim leases, scoring, and review actions
-- worker CLI bridge for claim/list/submit flows
+- worker CLI for `verify`, `list`, `status`, `claim`, `submit`, and guarded `start` auto-run flows
 - broker-owned World verification records and dossier-writing integration rails
 - wallet connection via RainbowKit/wagmi for buyer identity
 - Foundry contracts for idea escrow and agent identity registry
@@ -82,6 +82,31 @@ pnpm demo:bootstrap
 pnpm --filter intelligence-exchange-cannes-broker start
 pnpm --filter intelligence-exchange-cannes-broker test:acceptance
 ```
+
+Worker CLI surface:
+
+```bash
+pnpm worker:cli -- --help
+pnpm worker:cli -- list
+pnpm worker:cli -- verify --worker-id demo-auto-brief --wallet-address 0x0000000000000000000000000000000000000001
+```
+
+Autonomous worker smoke test against one seeded `brief` milestone:
+
+```bash
+pnpm demo:bootstrap
+pnpm --filter intelligence-exchange-cannes-broker start
+
+pnpm worker:cli -- verify --worker-id demo-auto-brief --wallet-address 0x0000000000000000000000000000000000000001
+pnpm worker:cli -- start \
+  --once \
+  --worker-id demo-auto-brief \
+  --agent-type codex \
+  --milestone-type brief \
+  --executor ./apps/intelligence-exchange-cannes-worker/examples/complete-brief-task.sh
+```
+
+`start` creates a per-claim run folder under `.iex-worker-runs/` with `skill.md`, `job.json`, `claim.json`, and `result.json`, then submits the result back to the broker unless `--no-submit` is set. Inside the worker package, `iex-worker` is the primary binary and `iex-bridge` remains an alias.
 
 Contracts only:
 
