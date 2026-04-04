@@ -50,9 +50,9 @@ export function ReviewPanel() {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="card max-w-lg w-full text-center space-y-4 py-12">
-          <div className="animate-spin text-4xl">⚙️</div>
-          <p className="text-gray-400">Loading job details...</p>
+        <div className="text-center space-y-3">
+          <div className="spinner" />
+          <p className="text-gray-400 text-sm">Loading job details...</p>
         </div>
       </div>
     );
@@ -73,7 +73,6 @@ export function ReviewPanel() {
     );
   }
 
-  // Job not yet submitted — nothing to review
   if (!['submitted', 'accepted', 'rejected', 'rework'].includes(job.status)) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
@@ -103,13 +102,13 @@ export function ReviewPanel() {
   const isProcessing = acceptMutation.isPending || rejectMutation.isPending;
 
   return (
-    <div className="min-h-screen p-4 md:p-8">
+    <div className="page">
       <div className="max-w-3xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <button
-              className="text-gray-500 hover:text-gray-300 text-sm flex items-center gap-1 mb-2"
+              className="text-sm text-gray-500 hover:text-gray-300 flex items-center gap-1 mb-2"
               onClick={() => navigate(`/ideas/${job.ideaId}`)}
             >
               ← Back to Idea
@@ -148,9 +147,34 @@ export function ReviewPanel() {
               </div>
             )}
           </div>
+
+          {/* Submission artifact */}
+          {job.submission && (
+            <div className="pt-3 border-t border-gray-800 space-y-2">
+              <p className="section-label">Submitted Work</p>
+              {job.submission.artifactUri && (
+                <a
+                  href={job.submission.artifactUri}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-400 hover:text-blue-300 text-sm font-mono break-all block"
+                >
+                  {job.submission.artifactUri} →
+                </a>
+              )}
+              {job.submission.summary && (
+                <p className="text-gray-300 text-sm leading-relaxed">{job.submission.summary}</p>
+              )}
+              {job.submission.submittedAt && (
+                <p className="text-gray-500 text-xs">
+                  Submitted {new Date(job.submission.submittedAt).toLocaleString()}
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Outcome banner for already-decided jobs */}
+        {/* Outcome banners */}
         {isAccepted && (
           <div className="bg-green-900/30 border border-green-700 rounded-xl p-4 flex items-center gap-3">
             <span className="text-2xl">✅</span>
@@ -176,7 +200,7 @@ export function ReviewPanel() {
           <ScoreBreakdown milestoneType={job.milestoneType} status={job.status} />
         </div>
 
-        {/* Accept / Reject CTAs — always visible, sticky on desktop */}
+        {/* Accept / Reject CTAs */}
         {isPending && (
           <div className="card space-y-4">
             <h2 className="text-lg font-semibold text-white">Your Decision</h2>
@@ -274,12 +298,7 @@ function ScoreBreakdown({ milestoneType, status }: { milestoneType: string; stat
     ],
   };
 
-  const scoreByType: Record<string, number> = {
-    tasks: 90,
-    scaffold: 85,
-    brief: 80,
-    review: 88,
-  };
+  const scoreByType: Record<string, number> = { tasks: 90, scaffold: 85, brief: 80, review: 88 };
 
   const checks = checksByType[milestoneType] ?? checksByType['tasks'];
   const score = scoreByType[milestoneType] ?? 80;
@@ -288,12 +307,14 @@ function ScoreBreakdown({ milestoneType, status }: { milestoneType: string; stat
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <span className="text-gray-400 text-sm">Overall Score</span>
-        <span className={`text-2xl font-bold ${allPassed ? 'text-green-400' : 'text-yellow-400'}`}>
-          {score}<span className="text-gray-500 text-base font-normal">/100</span>
-        </span>
+        <span className="text-gray-400 text-sm">Estimated Score</span>
+        <div className="flex items-center gap-2">
+          <span className={`text-2xl font-bold ${allPassed ? 'text-green-400' : 'text-yellow-400'}`}>
+            {score}<span className="text-gray-500 text-base font-normal">/100</span>
+          </span>
+          <span className="text-xs text-gray-600">(rubric estimate)</span>
+        </div>
       </div>
-
       <div className="space-y-2">
         {checks.map((check, i) => (
           <div key={i} className="flex items-start gap-3 p-2.5 rounded-lg bg-gray-800/50">
@@ -307,7 +328,6 @@ function ScoreBreakdown({ milestoneType, status }: { milestoneType: string; stat
           </div>
         ))}
       </div>
-
       {!allPassed && (
         <div className="bg-yellow-900/20 border border-yellow-800 rounded-lg p-3 text-yellow-300 text-sm">
           One or more checks failed. Request rework to give the agent another attempt.
