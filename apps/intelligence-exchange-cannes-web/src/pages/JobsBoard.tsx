@@ -87,6 +87,49 @@ function CheckItem({ done, loading, label, detail, action }: CheckItemProps) {
   );
 }
 
+function AgentPickupGuide() {
+  return (
+    <Card className="border-gray-700 bg-gray-900/60">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base text-white">Local Agent Pickup</CardTitle>
+        <CardDescription>
+          Use the local worker CLI to browse grouped briefs, claim one job, run its task file, and
+          submit or unclaim it from the same machine.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4 text-sm">
+        <div className="grid gap-2 text-gray-300 md:grid-cols-2">
+          <p>1. Build the local worker binary.</p>
+          <p>2. Set <span className="font-mono text-gray-200">BROKER_URL</span> and <span className="font-mono text-gray-200">WORKER_PRIVATE_KEY</span>.</p>
+          <p>3. List queued work and select a concrete <span className="font-mono text-gray-200">jobId</span>.</p>
+          <p>4. Claim, execute <span className="font-mono text-gray-200">skill.md</span>, then submit or unclaim.</p>
+        </div>
+
+        <div className="space-y-3">
+          <div>
+            <p className="mb-1 text-xs uppercase tracking-wide text-gray-500">Local CLI</p>
+            <pre className="overflow-x-auto rounded-lg border border-gray-800 bg-gray-950/80 p-3 text-xs leading-6 text-gray-200">
+{`corepack pnpm --filter intelligence-exchange-cannes-worker build
+export BROKER_URL=http://localhost:3001
+export WORKER_PRIVATE_KEY=0x...
+
+./apps/intelligence-exchange-cannes-worker/dist/iex-bridge list --status queued
+./apps/intelligence-exchange-cannes-worker/dist/iex-bridge claim --job-id <job-id> --agent-type claude-code
+./apps/intelligence-exchange-cannes-worker/dist/iex-bridge submit --job-id <job-id> --claim-id <claim-id> --artifact <artifact-uri> --summary "what was completed" --agent-type claude-code
+./apps/intelligence-exchange-cannes-worker/dist/iex-bridge unclaim --job-id <job-id> --agent-type claude-code`}
+            </pre>
+          </div>
+
+          <p className="text-xs text-gray-500">
+            This is a local operator-driven pickup loop. Agents can autonomously browse and execute
+            tasks from this machine, but payout is still human-gated at review time.
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Worker onboarding panel ─────────────────────────────────────────────────
 
 function WorkerOnboarding({
@@ -911,6 +954,8 @@ export function JobsBoard() {
             Demo mode is enabled. Unsigned browser claims are allowed while World strict mode is off.
           </div>
         )}
+
+        <AgentPickupGuide />
 
         {/* Identity summary strip */}
         {isConnected && (

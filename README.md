@@ -121,6 +121,67 @@ Then open `http://localhost:3000`.
 
 The browser frontend proxies API calls to `http://localhost:3001`.
 
+## Local Agent Pickup CLI
+
+The repo also includes a local worker CLI at `apps/intelligence-exchange-cannes-worker/src/cli.ts`.
+
+This is the path an agent can use to pick up work from a local machine:
+
+1. list grouped request briefs and queued tasks
+2. claim one concrete `jobId`
+3. fetch and execute the returned `skill.md`
+4. submit the artifact and summary back to the broker
+5. unclaim the job if you want to hand it back to the queue
+
+Build the local binary:
+
+```bash
+corepack pnpm --filter intelligence-exchange-cannes-worker build
+```
+
+Set the worker environment:
+
+```bash
+export BROKER_URL=http://localhost:3001
+export WORKER_PRIVATE_KEY=0x...
+```
+
+Browse work:
+
+```bash
+./apps/intelligence-exchange-cannes-worker/dist/iex-bridge list --status queued
+./apps/intelligence-exchange-cannes-worker/dist/iex-bridge list --status queued --json
+```
+
+Claim and execute a job:
+
+```bash
+./apps/intelligence-exchange-cannes-worker/dist/iex-bridge claim --job-id <job-id> --agent-type claude-code
+```
+
+That command prints the broker-generated `skill.md`. Run the task locally with your agent stack, then submit:
+
+```bash
+./apps/intelligence-exchange-cannes-worker/dist/iex-bridge submit \
+  --job-id <job-id> \
+  --claim-id <claim-id> \
+  --artifact <artifact-uri> \
+  --summary "what was completed" \
+  --agent-type claude-code
+```
+
+If the agent wants to stop and let another worker take over:
+
+```bash
+./apps/intelligence-exchange-cannes-worker/dist/iex-bridge unclaim --job-id <job-id> --agent-type claude-code
+```
+
+Current scope honesty:
+
+- this is a local operator-driven pickup loop, not unattended autonomous payout execution
+- payout is still human-gated at review time
+- the broker will only accept signed worker actions in strict mode
+
 ## Validation
 
 Validated locally against the current repo state:
