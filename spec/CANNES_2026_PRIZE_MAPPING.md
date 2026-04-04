@@ -42,10 +42,10 @@ How this variant maps:
 - reputation is unique and sybil-resistant
 
 Best concrete submission target:
-- `Best use of Agent Kit`
+- `Best use of World ID 4.0`
 
 Secondary target:
-- `Best use of World ID 4.0`
+- `Best use of Agent Kit`
 
 ### 3. 0G
 
@@ -127,6 +127,37 @@ Possible, but weaker for this concept and more likely to create narrative sprawl
 
 4. ENS
 5. Ledger
+
+## Current Repo Status
+
+### Arc
+
+- real fit in the repo today
+- escrow contracts exist
+- funding and release sync exist
+- spend events are logged, but the repo still needs a stronger first-class nanopayment execution path if we want the agent-economy claim to carry more weight
+
+### World
+
+- strongest current fit
+- the repo already uses wallet-backed sessions plus World-gated poster / worker / reviewer actions
+- the current product story is more directly a World ID 4.0 story than an Agent Kit story
+
+### Agent Kit
+
+- strategic follow-up target, not current parity
+- keep it as a prize target only if the next pass adds a more explicit agent-facing World workflow rather than just identity gating
+
+### 0G
+
+- real fit in the repo today
+- accepted dossier upload path exists
+- public proof still depends on live environment configuration
+
+### ENS / Ledger
+
+- still optional add-ons
+- do not foreground them until there is real product behavior attached
 
 ## Anti-Sprawl Rule
 
