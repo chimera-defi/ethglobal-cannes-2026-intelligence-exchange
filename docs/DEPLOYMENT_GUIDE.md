@@ -155,8 +155,8 @@ services:
     ports:
       - '3001:3001'
     environment:
-      - DATABASE_URL=postgres://iex:${POSTGRES_PASSWORD}@postgres:5432/iex_cannes
-      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
+      - DATABASE_URL=postgres://iex:iex@postgres:5432/iex_cannes
+      - REDIS_URL=redis://redis:6379
       - PORT=3001
     depends_on:
       - postgres
@@ -166,16 +166,13 @@ services:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: iex
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: iex
       POSTGRES_DB: iex_cannes
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
   redis:
     image: redis:7-alpine
-    command: ['sh', '-c', 'exec redis-server --requirepass "$$REDIS_PASSWORD"']
-    environment:
-      REDIS_PASSWORD: ${REDIS_PASSWORD}
 
   nginx:
     image: nginx:alpine
@@ -318,77 +315,6 @@ vercel --prod
 
 ---
 
-## Option 4: Self-Hosted (Caddy on Hetzner/DigitalOcean VPS)
-
-Replaces Vercel (web) + Railway (broker) with a single VPS. Used for hackathon demo at ETHGlobal Cannes 2026.
-
-### Architecture
-
-```
-Internet → VPS:80 → Caddy reverse proxy
-                         │
-                         ├── /v1/*  → broker:3001  (keep /v1 prefix)
-                         ├── /api/* → broker:3001  (strip /api prefix)
-                         └── /*     → web:3100     (Vite build)
-```
-
-### Quick Start
-
-```bash
-# 1. Clone and configure
-git clone <repo> && cd intelligence-exchange-cannes-2026
-cp apps/intelligence-exchange-cannes-broker/.env.example apps/intelligence-exchange-cannes-broker/.env
-cp apps/intelligence-exchange-cannes-web/.env.example apps/intelligence-exchange-cannes-web/.env.local
-
-# 2. Edit .env files with your secrets (BROKER_ATTESTOR_PRIVATE_KEY, etc.)
-# 3. Install Caddy + configure
-./infra/scripts/deploy-caddy.sh --ip YOUR_SERVER_IP
-
-# 4. Start the stack
-./infra/scripts/server-up.sh --build
-
-# 5. Verify security
-./infra/scripts/security-scan.sh --host http://YOUR_SERVER_IP
-
-# 6. Tear down after testing
-./infra/scripts/server-down.sh --caddy
-```
-
-### Security headers (applied by Caddy automatically)
-
-| Header | Value |
-|--------|-------|
-| `X-Frame-Options` | `DENY` |
-| `X-Content-Type-Options` | `nosniff` |
-| `X-XSS-Protection` | `1; mode=block` |
-| `Referrer-Policy` | `strict-origin-when-cross-origin` |
-| `Permissions-Policy` | `geolocation=(), microphone=(), camera=()` |
-| `Server` | (stripped) |
-
-### Blocked paths (403)
-
-`.env`, `.git*`, `package.json`, `package-lock.json`, `.npmrc`
-
-### Production security checklist
-
-- [ ] Redis: `requirepass <password>` + `bind 127.0.0.1` in `redis.conf`
-- [ ] Postgres: dedicated low-privilege user, `scram-sha-256` in `pg_hba.conf`
-- [ ] Set `CORS_ALLOWED_ORIGINS=https://yourdomain.com` in broker `.env`
-- [ ] Firewall ports 3001/3100/5432/6379 from public internet
-- [ ] Enable TLS: change `auto_https off` → `auto_https on` in Caddyfile once using a domain
-
-### Comparison with managed hosting
-
-| Factor | Caddy Self-Hosted | Vercel + Railway | Fly.io |
-|--------|------------------|-----------------|--------|
-| **Setup time** | 30 min | 15 min | 20 min |
-| **Cost** | VPS only (~$5/mo) | Free → $20+/mo | Free → $10+/mo |
-| **Control** | Full | Limited | Moderate |
-| **SSL** | Manual (auto w/ domain) | Automatic | Automatic |
-| **Scripts** | `infra/scripts/` | N/A | flyctl |
-
----
-
 ## Environment Variables Summary
 
 ### Frontend (Vercel)
@@ -412,30 +338,22 @@ WORLD_ACTION_ID=...
 WORLD_SIGNING_KEY=...
 WORLD_VERIFICATION_SECRET=...
 
-# Arc Testnet (Deployed 2026-04-05)
+# Arc
 ARC_RPC_URL=https://rpc.testnet.arc.network
 ARC_CHAIN_ID=5042002
-ARC_ESCROW_CONTRACT_ADDRESS=0x04b386e36f89e5bb568295779089e91ded070057
+ARC_ESCROW_CONTRACT_ADDRESS=0x...
 ARC_PRIVATE_KEY=0x...
 ARC_USDC_ADDRESS=0x3600000000000000000000000000000000000000
 
-# Worldchain Sepolia (Deployed 2026-04-05)
-WORLDCHAIN_RPC_URL=https://worldchain-sepolia.g.alchemy.com/public
-WORLDCHAIN_CHAIN_ID=4801
-IEX_IDENTITY_GATE_ADDRESS=0x0f917a7f6c41e5e86a0f3870baadf512a4742dd2
-IEX_AGENT_REGISTRY_ADDRESS=0x88110316c5f96f3544cef90389e924c69eb8146d
-IEX_ESCROW_ADDRESS=0x65e3d3c8032795c245f461439a01b8ad348bd3a1
+# Worldchain
+WORLDCHAIN_RPC_URL=https://worldchain-mainnet.g.alchemy.com/public
+WORLDCHAIN_CHAIN_ID=480
+IEX_IDENTITY_GATE_ADDRESS=0x...
+IEX_AGENT_REGISTRY_ADDRESS=0x...
 
-# 0G Testnet (Deployed 2026-04-05)
-ZERO_G_RPC_URL=https://evmrpc-testnet.0g.ai
-ZERO_G_INDEXER_RPC=https://indexer-storage-testnet-turbo.0g.ai
-ZERO_G_CHAIN_ID=16602
-ZERO_G_EXPLORER_BASE_URL=https://chainscan-galileo.0g.ai/tx/
+# 0G (optional)
+ZERO_G_RPC_URL=
 ZERO_G_PRIVATE_KEY=0x...
-ZERO_G_IDENTITY_GATE_ADDRESS=0x77331c208e7a6d4c05b0a0f87db2df9f154321a8
-ZERO_G_AGENT_REGISTRY_ADDRESS=0xa3b182f8bc74a8bd7318c8591c1412f6e201f2e5
-ZERO_G_ESCROW_ADDRESS=0xdf7628895b46d03a084669ddfed6a025447360b8
-ZERO_G_ADVANCED_ESCROW_ADDRESS=0x04b386e36f89e5bb568295779089e91ded070057
 ```
 
 ---
