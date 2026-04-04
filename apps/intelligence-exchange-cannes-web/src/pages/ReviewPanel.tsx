@@ -180,7 +180,8 @@ function AttestationPanel({
       await syncChainReceipt({
         eventType: 'milestone_released',
         txHash: releaseTxHash.trim(),
-        payload: { ideaId, jobId },
+        subjectId: ideaId,
+        payload: { jobId },
       });
       setReleaseComplete(true);
       onReleaseSynced();
@@ -199,7 +200,8 @@ function AttestationPanel({
       await syncChainReceipt({
         eventType: 'accepted_submission_attested',
         txHash: attestTxHash.trim(),
-        payload: { ideaId, jobId, attestationPayload },
+        subjectId: ideaId,
+        payload: { jobId, attestationPayload },
       });
       setAttestComplete(true);
       onAttestationSynced();

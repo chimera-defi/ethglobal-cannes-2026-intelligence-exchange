@@ -108,7 +108,7 @@ function GateRow({ ok, label }: GateStatus) {
 
 export function IdeaSubmission() {
   const navigate = useNavigate();
-  const { isConnected, address, session, isPosterVerified, signIn, isSessionLoading } =
+  const { isConnected, address, session, isPosterVerified, signIn, isSessionLoading, refreshSession } =
     useSession();
 
   const [step, setStep] = useState<FlowStep>(() => {
@@ -123,6 +123,7 @@ export function IdeaSubmission() {
   const [ideaId, setIdeaId] = useState<string | null>(null);
   const [worldProof, setWorldProof] = useState<WorldProof | null>(null);
   const [fundTxHash, setFundTxHash] = useState('');
+  const [reservationSynced, setReservationSynced] = useState(false);
 
   const [form, setForm] = useState<IdeaForm>({
     title: '',
@@ -160,18 +161,15 @@ export function IdeaSubmission() {
     setIsWorking(true);
     setError(null);
     try {
-      await verifyWorldRole('poster', {
+      const proof = {
         nullifierHash: result.nullifier_hash,
         proof: result.proof,
         merkleRoot: result.merkle_root,
         verificationLevel: result.verification_level,
-      });
-      setWorldProof({
-        nullifierHash: result.nullifier_hash,
-        proof: result.proof,
-        merkleRoot: result.merkle_root,
-        verificationLevel: result.verification_level,
-      });
+      };
+      await verifyWorldRole('poster', proof);
+      await refreshSession();
+      setWorldProof(proof);
       setStep('form');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'World verification failed');
@@ -191,6 +189,7 @@ export function IdeaSubmission() {
         verificationLevel: 'device',
       };
       await verifyWorldRole('poster', demoProof);
+      await refreshSession();
       setWorldProof(demoProof);
       setStep('form');
     } catch (err) {
@@ -284,6 +283,10 @@ export function IdeaSubmission() {
   const [reserveJobIds, setReserveJobIds] = useState('');
 
   async function handleSyncReservation() {
+    if (!ideaId) {
+      setError('Create and plan the idea before syncing milestone reservation.');
+      return;
+    }
     if (!reserveTxHash.trim()) {
       setError('Enter the reservation transaction hash.');
       return;
@@ -307,8 +310,10 @@ export function IdeaSubmission() {
       await syncChainReceipt({
         eventType: 'milestone_reserved',
         txHash: reserveTxHash.trim(),
-        payload: { ideaId, jobIds },
+        subjectId: ideaId,
+        payload: { jobIds },
       });
+      setReservationSynced(true);
       setStep('done');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Reservation sync failed');
@@ -320,6 +325,7 @@ export function IdeaSubmission() {
   // ─── Skip reservation sync ──────────────────────────────────────────────────
 
   function handleSkipReservation() {
+    setReservationSynced(false);
     setStep('done');
   }
 
@@ -332,9 +338,13 @@ export function IdeaSubmission() {
           <CardContent className="pt-8 pb-8 text-center space-y-6">
             <CheckCircle2 className="w-12 h-12 text-green-400 mx-auto" />
             <div className="space-y-2">
-              <h1 className="text-2xl font-bold text-white">Idea Funded and Planned</h1>
+              <h1 className="text-2xl font-bold text-white">
+                {reservationSynced ? 'Idea Funded, Planned, and Reserved' : 'Idea Funded and Planned'}
+              </h1>
               <p className="text-gray-400 text-sm">
-                Milestones are queued on-chain. Agent workers can now claim and execute them.
+                {reservationSynced
+                  ? 'Milestones are queued on-chain. Agent workers can now claim and execute them.'
+                  : 'Milestones are planned but not yet queued. Workers cannot claim until reservation is synced.'}
               </p>
             </div>
             <div className="bg-gray-800 rounded-lg p-3 text-left text-xs font-mono text-gray-300 break-all">
@@ -353,6 +363,7 @@ export function IdeaSubmission() {
                   setFundTxHash('');
                   setReserveTxHash('');
                   setReserveJobIds('');
+                  setReservationSynced(false);
                   setForm({ title: '', prompt: '', budgetUsdMax: 10, taskType: 'coding' });
                 }}
               >
