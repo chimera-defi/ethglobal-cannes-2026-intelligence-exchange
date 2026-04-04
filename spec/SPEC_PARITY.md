@@ -1,73 +1,148 @@
 ## Current Spec Parity
 
-Snapshot date: 2026-04-19
+Snapshot as of 2026-04-04.
 
-This file is a compact status snapshot. It is not the full launch checklist.
+Short version:
 
-Launch source-of-truth docs:
+- Cannes MVP spec: high parity for the core judgeable loop
+- Full `SPEC.md` v1 surface: medium parity
+- Agent-first v2: mostly roadmap
+- Cannes prize mapping: strongest today on Arc, World ID 4.0, and 0G
 
-- `docs/CANONICAL_PRODUCT_OVERVIEW.md`
-- `spec/CANNES_2026_MVP_SPEC.md`
-- `spec/tokenomics/INTEL_LAUNCH_ARCHITECTURE.md`
+## Cannes MVP Parity
 
-## Short Status
+Implemented in the repo today:
 
-- Cannes MVP loop: high parity for the scoped demo flow.
-- Full `SPEC.md` product surface: partial parity.
-- Autonomous, fully unattended marketplace behavior: not launch-ready.
+- poster wallet sign-in plus World-gated idea creation
+- funded idea flow with planning and milestone reservation sync
+- worker authorization, signed claim, `skill.md` pickup, submit, and unclaim
+- human accept / reject flow
+- release sync plus accepted-submission attestation sync
+- accepted dossier upload to 0G when a live environment is configured
+- local deterministic demo mode with seeded jobs and acceptance coverage
 
-## Implemented and Demoable Today
+Still conditional or incomplete:
 
-- Buyer idea submission and milestone decomposition through broker flow.
-- Worker claim/submit/unclaim loop via web and local CLI.
-- Human reviewer accept/reject gate for release decisions.
-- Reputation + scoring updates tied to accepted output.
-- INTEL-native tokenomics policy and actor-flow simulation coverage.
-- Mainnet-fork liquidity smoke path for `INTEL/WETH` validation.
+- public-network proof depends on real Arc, World, and 0G environment configuration
+- demo fallbacks still exist in parts of the UI so rehearsals do not block on sponsor uptime
+- the marketplace remains controlled-supply rather than open-liquidity
 
-## Partial or Out-of-Scope for Launch
+## Full Spec Parity (`SPEC.md`)
 
-- Fully autonomous payout execution without human acceptance gates.
-- Open-liquidity task market modes (`auction`, live bidding, etc.).
-- Production-hardening for all sponsor-network dependency paths.
-- Broad v2 expansion surfaces (A2A messaging, hosted always-on worker runtime).
-
-## Parity by Area
-
-### 1) Buyer Ingress and Job Lifecycle
-
-Status: partial-high
-
-- Scoped Cannes ingestion path is implemented and testable.
-- Full generic multi-product ingress in `SPEC.md` remains larger than current runtime.
-
-### 2) Worker Runtime
+### 1. Buyer API and job ingress
 
 Status: partial
 
-- Local pickup CLI is implemented and validated.
-- Unattended hosted worker-daemon model is still a future extension.
+- implemented as Cannes-specific idea ingress and milestone planning
+- not yet exposed as the broader generic `/v1/jobs` product surface described in the base spec
 
-### 3) Quality, Trust, and Abuse
+### 2. Broker and matching engine
 
 Status: partial
 
-- Deterministic scoring and human-gated acceptance are implemented.
-- Advanced semantic grading and anti-abuse expansion are not launch-complete.
+- queueing, lease-based claims, and requeue handling are implemented
+- multi-objective routing, shadow workers, and richer pricing policy are not
 
-### 4) Settlement and Token Rail
+### 3. Worker runtime
 
-Status: launch-target aligned
+Status: partial
 
-- `INTEL` rail and launch policy splits are documented and test-covered.
-- Stable is treated as optional acquisition/on-ramp UX only.
+- local worker CLI exists and the web app supports signed worker actions
+- no always-on hosted runner or true autonomous worker daemon
 
-## Historical Sponsor-Track Context
+### 4. Prompt packaging and execution sandbox
 
-Arc/World/0G docs remain in-repo as historical context and demo references, but they are not the primary launch spec entrypoint.
+Status: partial
 
-References:
+- broker-generated `skill.md` packaging exists
+- deterministic sandbox checks and deeper telemetry remain limited
 
-- `spec/ARC_INTEGRATION.md`
-- `spec/CANNES_2026_PRIZE_MAPPING.md`
-- `spec/archive/README.md`
+### 5. Quality, trust, and abuse layer
+
+Status: partial
+
+- deterministic scoring, World gating, agent authorization, and reputation attestation exist
+- semantic grader pipelines, abuse heuristics, and validation registries are not first-class yet
+
+### 6. Ledger and settlement
+
+Status: partial
+
+- funding, reservation, release, and attestation sync exist
+- settlement batches, dispute cases, and adapterized payment rails are still spec-level
+
+## Agent-First V2 Parity
+
+Status: low
+
+Not implemented yet:
+
+- `claim` / `bounty` / `benchmark` / `auction` task-market modes as live broker behavior
+- bid flow
+- agent manifest ingestion
+- A2A messaging
+- deterministic autonomous state / action loop
+- clean payment, identity, and messaging adapter interfaces
+
+What does exist as groundwork:
+
+- signed worker actions
+- agent fingerprints and on-chain registration sync
+- attested reputation updates
+
+Those are useful foundations, but they are not v2 parity on their own.
+
+## Cannes Prize Mapping Parity
+
+### Arc
+
+Status: strong but partial
+
+- escrow contracts exist
+- funding and release sync are wired
+- spend events can be recorded against the job lifecycle
+- repo still needs stronger proof of real onchain nanopayment execution to fully lean on the agent-economy story
+
+### World ID 4.0
+
+Status: strong
+
+- posters, workers, and reviewers can be role-gated
+- wallet-backed sessions and signed worker actions are already part of the flow
+
+### Agent Kit
+
+Status: weak / follow-up
+
+- there is no explicit Agent Kit-specific workflow or user-facing product surface in the repo today
+- current World alignment is more honest as World ID 4.0 than as Agent Kit
+
+### 0G
+
+Status: strong but environment-dependent
+
+- accepted dossiers can upload through the live 0G SDK path
+- public proof still depends on real environment configuration
+
+### ENS and Ledger
+
+Status: planned only
+
+- narrative-level add-ons in the spec
+- not implemented in the current product
+
+## README And Landing Page Changes To Keep Honest
+
+README should:
+
+- name the actual primary prize targets
+- distinguish current implementation from v2 roadmap
+- include separate usage guidance for humans and for agents
+- point reviewers to the MVP spec, prize mapping, and this parity snapshot
+
+Landing page should:
+
+- say "controlled-supply pilot" explicitly
+- show separate "For humans" and "For agents" usage paths
+- show sponsor targets with honest status, not blanket logo claims
+- avoid implying open liquidity, autonomous payouts, or Agent Kit parity that the repo does not yet prove
