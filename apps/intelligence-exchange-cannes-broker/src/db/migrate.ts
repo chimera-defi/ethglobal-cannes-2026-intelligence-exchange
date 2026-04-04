@@ -59,6 +59,8 @@ export async function migrate() {
       status TEXT NOT NULL DEFAULT 'pending_registration',
       on_chain_token_id INTEGER,
       registration_tx_hash TEXT,
+      agentbook_human_id TEXT,
+      agentbook_registered_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       activated_at TIMESTAMPTZ,
@@ -193,9 +195,28 @@ export async function migrate() {
       operator_address TEXT,
       on_chain_token_id INTEGER,
       registration_tx_hash TEXT,
+      agentbook_human_id TEXT,
+      agentbook_registered_at TIMESTAMPTZ,
       accepted_count INTEGER NOT NULL DEFAULT 0,
       avg_score NUMERIC(5,2) NOT NULL DEFAULT 0,
       registered_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS agentkit_usage_counters (
+      endpoint TEXT NOT NULL,
+      human_id TEXT NOT NULL,
+      uses INTEGER NOT NULL DEFAULT 0,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (endpoint, human_id)
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS agentkit_nonces (
+      nonce TEXT PRIMARY KEY,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
@@ -267,6 +288,11 @@ export async function migrate() {
   await sql`ALTER TABLE agent_identities ADD COLUMN IF NOT EXISTS role TEXT`;
   await sql`ALTER TABLE agent_identities ADD COLUMN IF NOT EXISTS permissions_hash TEXT`;
   await sql`ALTER TABLE agent_identities ADD COLUMN IF NOT EXISTS registration_tx_hash TEXT`;
+  await sql`ALTER TABLE agent_identities ADD COLUMN IF NOT EXISTS agentbook_human_id TEXT`;
+  await sql`ALTER TABLE agent_identities ADD COLUMN IF NOT EXISTS agentbook_registered_at TIMESTAMPTZ`;
+
+  await sql`ALTER TABLE agent_authorizations ADD COLUMN IF NOT EXISTS agentbook_human_id TEXT`;
+  await sql`ALTER TABLE agent_authorizations ADD COLUMN IF NOT EXISTS agentbook_registered_at TIMESTAMPTZ`;
 
   await sql`
     CREATE UNIQUE INDEX IF NOT EXISTS world_verifications_account_role_idx
@@ -281,6 +307,11 @@ export async function migrate() {
   await sql`
     CREATE UNIQUE INDEX IF NOT EXISTS chain_syncs_tx_event_idx
     ON chain_syncs (tx_hash, event_type)
+  `;
+
+  await sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS agentkit_usage_counters_endpoint_human_idx
+    ON agentkit_usage_counters (endpoint, human_id)
   `;
 
   console.log('✓ Database schema ready');

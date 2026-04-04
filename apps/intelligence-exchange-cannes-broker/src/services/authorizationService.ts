@@ -6,6 +6,7 @@ import { agentAuthorizations, agentIdentities } from '../db/schema';
 import { recordChainSync } from './chainService';
 import { httpError } from './errors';
 import { computeAgentFingerprint, hashPermissionScope, normalizeAccountAddress } from './identityService';
+import { lookupAgentBookHuman } from './agentkitService';
 
 export async function listAgentAuthorizations(accountAddress: string) {
   const normalized = normalizeAccountAddress(accountAddress);
@@ -99,10 +100,13 @@ export async function syncAgentRegistration(accountAddress: string, authorizatio
   });
 
   const activatedAt = new Date();
+  const agentbookHumanId = await lookupAgentBookHuman(normalized).catch(() => null);
   await db.update(agentAuthorizations).set({
     status: 'active',
     onChainTokenId: input.onChainTokenId,
     registrationTxHash: input.txHash,
+    agentbookHumanId,
+    agentbookRegisteredAt: agentbookHumanId ? activatedAt : null,
     updatedAt: activatedAt,
     activatedAt,
   }).where(eq(agentAuthorizations.authorizationId, authorizationId));
@@ -122,6 +126,8 @@ export async function syncAgentRegistration(accountAddress: string, authorizatio
       operatorAddress: normalized,
       onChainTokenId: input.onChainTokenId,
       registrationTxHash: input.txHash,
+      agentbookHumanId,
+      agentbookRegisteredAt: agentbookHumanId ? activatedAt : null,
       registeredAt: activatedAt,
     }).where(eq(agentIdentities.fingerprint, authorization.fingerprint));
   } else {
@@ -135,6 +141,8 @@ export async function syncAgentRegistration(accountAddress: string, authorizatio
       operatorAddress: normalized,
       onChainTokenId: input.onChainTokenId,
       registrationTxHash: input.txHash,
+      agentbookHumanId,
+      agentbookRegisteredAt: agentbookHumanId ? activatedAt : null,
       acceptedCount: 0,
       avgScore: '0',
       registeredAt: activatedAt,

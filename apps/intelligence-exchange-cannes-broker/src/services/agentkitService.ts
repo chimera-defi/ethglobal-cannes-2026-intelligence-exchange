@@ -60,23 +60,13 @@ async function tryIncrementUsage(endpoint: string, humanId: string, limit: numbe
   return rows.length > 0;
 }
 
-async function claimNonce(nonce: string) {
-  const rows = await sql<[{ nonce: string }?]>`
-    INSERT INTO agentkit_nonces (nonce)
-    VALUES (${nonce})
-    ON CONFLICT (nonce) DO NOTHING
-    RETURNING nonce
-  `;
-
-  return rows.length > 0;
+async function hasUsedNonce(nonce: string) {
+  const [existing] = await db.select().from(agentkitNonces).where(eq(agentkitNonces.nonce, nonce));
+  return Boolean(existing);
 }
 
-function parseAgentkitHeaderOrThrow(header: string) {
-  try {
-    return parseAgentkitHeader(header);
-  } catch {
-    throw httpError('Invalid Agent Kit header', 401, 'AGENTKIT_INVALID_HEADER');
-  }
+async function recordNonce(nonce: string) {
+  await db.insert(agentkitNonces).values({ nonce }).onConflictDoNothing();
 }
 
 export async function requireAgentKitAccess(input: {
@@ -92,8 +82,10 @@ export async function requireAgentKitAccess(input: {
     throw httpError(`Missing ${AGENTKIT} header`, 401, 'AGENTKIT_HEADER_REQUIRED');
   }
 
-  const payload = parseAgentkitHeaderOrThrow(input.header);
-  const validation = await validateAgentkitMessage(payload, input.resourceUri);
+  const payload = parseAgentkitHeader(input.header);
+  const validation = await validateAgentkitMessage(payload, input.resourceUri, {
+    checkNonce: async (nonce) => !(await hasUsedNonce(nonce)),
+  });
   if (!validation.valid) {
     throw httpError(validation.error ?? 'Invalid Agent Kit payload', 401, 'AGENTKIT_INVALID');
   }
@@ -103,10 +95,7 @@ export async function requireAgentKitAccess(input: {
     throw httpError(verification.error ?? 'Invalid Agent Kit signature', 401, 'AGENTKIT_INVALID_SIGNATURE');
   }
 
-  const nonceClaimed = await claimNonce(payload.nonce);
-  if (!nonceClaimed) {
-    throw httpError('Agent Kit nonce has already been used', 401, 'AGENTKIT_INVALID');
-  }
+  await recordNonce(payload.nonce);
 
   const humanId = await lookupAgentBookHuman(verification.address, payload.chainId);
   if (!humanId) {

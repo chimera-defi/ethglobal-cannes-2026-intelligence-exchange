@@ -88,7 +88,7 @@ export async function syncIdentityGateRole(accountAddress: string, role: 'poster
     chain: getWorldchainChain(),
   });
 
-  const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash, timeout: 60_000 });
+  const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
 
   return {
     txHash,

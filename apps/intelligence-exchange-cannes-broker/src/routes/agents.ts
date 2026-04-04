@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
+import { z } from 'zod';
 import {
   AgentAuthorizationCreateRequestSchema,
   AgentAuthorizationSyncRequestSchema,
@@ -7,6 +8,7 @@ import {
 import { getSessionAccountAddress, requireWorldRole } from '../services/accessService';
 import { createOrUpdateAgentAuthorization, listAgentAuthorizations, syncAgentRegistration } from '../services/authorizationService';
 import { httpError } from '../services/errors';
+import { syncIdentityGateRole } from '../services/worldchainService';
 
 export const agentsRouter = new Hono();
 
@@ -33,4 +35,16 @@ agentsRouter.post('/authorizations/:authorizationId/sync-registration', zValidat
   const req = c.req.valid('json');
   const authorization = await syncAgentRegistration(accountAddress, c.req.param('authorizationId'), req);
   return c.json({ authorization });
+});
+
+agentsRouter.post('/worldchain/sync-role', zValidator('json', z.object({
+  role: z.enum(['poster', 'worker', 'reviewer']),
+})), async (c) => {
+  const accountAddress = await getSessionAccountAddress(c);
+  if (!accountAddress) throw httpError('Authenticated session required', 401, 'AUTH_REQUIRED');
+
+  const { role } = c.req.valid('json');
+  await requireWorldRole(accountAddress, role);
+  const sync = await syncIdentityGateRole(accountAddress, role);
+  return c.json({ sync });
 });

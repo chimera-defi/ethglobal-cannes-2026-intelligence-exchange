@@ -141,12 +141,14 @@ Possible, but weaker for this concept and more likely to create narrative sprawl
 
 - strongest current fit
 - the repo already uses wallet-backed sessions plus World-gated poster / worker / reviewer actions
-- the current product story is more directly a World ID 4.0 story than an Agent Kit story
+- the product story now covers both World ID 4.0 and Agent Kit without collapsing them into one layer
 
 ### Agent Kit
 
-- strategic follow-up target, not current parity
-- keep it as a prize target only if the next pass adds a more explicit agent-facing World workflow rather than just identity gating
+- real fit in the repo today
+- AgentBook-backed checks protect the new worker-agent discovery and `skill.md` routes
+- the web app now exposes a dedicated `/agents` flow for AgentBook status, IdentityGate sync, and Worldchain registry enrollment
+- still narrower than a full x402 payment narrative because post-trial settlement is not yet wired
 
 ### 0G
 
