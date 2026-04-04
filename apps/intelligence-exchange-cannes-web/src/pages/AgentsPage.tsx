@@ -1,23 +1,23 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { IDKitWidget, VerificationLevel, type ISuccessResult } from '@worldcoin/idkit';
 import { useAccount, usePublicClient, useSwitchChain, useWriteContract } from 'wagmi';
 import { parseEventLogs, keccak256, toBytes } from 'viem';
 import {
-  ShieldCheck,
   Bot,
   Loader2,
   Copy,
-  KeyRound,
   Globe2,
   ExternalLink,
   Link2,
+  Sparkles,
   Wallet,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Input } from '@/components/ui/input';
 import {
   createAgentAuthorization,
   getAgentKitStatus,
@@ -27,6 +27,12 @@ import {
   syncWorldchainRole,
   verifyWorldRole,
 } from '../api';
+import {
+  DEFAULT_AGENT_PROFILE,
+  matchesAgentProfile,
+  pickPreferredWorkerAuthorization,
+  useAgentProfileDraft,
+} from '../hooks/useAgentProfileDraft';
 import { useSession } from '../hooks/useSession';
 import { makeDemoWorldProof } from '../lib/demo';
 import { agentIdentityRegistryAbi } from '../lib/agentIdentityRegistryAbi';
@@ -73,15 +79,13 @@ export function AgentsPage() {
   const { switchChainAsync } = useSwitchChain();
   const { writeContractAsync } = useWriteContract();
   const { session, signIn, isWorkerVerified, refreshSession } = useSession();
+  const [agentDraft, setAgentDraft] = useAgentProfileDraft();
   const [copyState, setCopyState] = useState<string | null>(null);
-  const [isSigningIn, setIsSigningIn] = useState(false);
-  const [signInError, setSignInError] = useState<string | null>(null);
-  const [authError, setAuthError] = useState<string | null>(null);
-  const [worldError, setWorldError] = useState<string | null>(null);
-  const [syncError, setSyncError] = useState<string | null>(null);
+  const [setupError, setSetupError] = useState<string | null>(null);
   const [registrationError, setRegistrationError] = useState<string | null>(null);
-  const [isCreatingAuth, setIsCreatingAuth] = useState(false);
-  const [isSyncingRole, setIsSyncingRole] = useState(false);
+  const [isSigningIn, setIsSigningIn] = useState(false);
+  const [isCompletingSetup, setIsCompletingSetup] = useState(false);
+  const [isRefreshingStatus, setIsRefreshingStatus] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
 
   const integrationsQuery = useQuery({
@@ -98,9 +102,10 @@ export function AgentsPage() {
     staleTime: 30_000,
   });
 
-  const workerAuthorization = (authsQuery.data?.authorizations ?? []).find(
-    (authorization) => authorization.role === 'worker',
-  ) ?? null;
+  const workerAuthorization = useMemo(
+    () => pickPreferredWorkerAuthorization(authsQuery.data?.authorizations ?? [], agentDraft),
+    [agentDraft, authsQuery.data?.authorizations],
+  );
 
   const agentKitStatusQuery = useQuery({
     queryKey: ['agentkit-status', address, workerAuthorization?.fingerprint],
@@ -117,54 +122,25 @@ export function AgentsPage() {
   const worldchainRoleSynced = Boolean(agentKitStatus?.identityGate.verified);
   const registryRegistered = Boolean(workerAuthorization?.onChainTokenId || agentKitStatus?.identity?.onChainTokenId);
   const authReady = Boolean(workerAuthorization);
+  const selectedAgentLabel = `${agentDraft.agentType || DEFAULT_AGENT_PROFILE.agentType} ${agentDraft.agentVersion || DEFAULT_AGENT_PROFILE.agentVersion}`;
+  const selectedProfileReady = matchesAgentProfile(workerAuthorization, agentDraft);
+  const agentFingerprint = workerAuthorization?.fingerprint ?? agentKitStatus?.identity?.fingerprint ?? null;
+  const agentReputation = agentKitStatus?.identity
+    ? `${agentKitStatus.identity.acceptedCount} accepted • ${agentKitStatus.identity.avgScore}/100 avg`
+    : 'No accepted work yet';
+  const setupReady = Boolean(session && isWorkerVerified && workerAuthorization && worldchainRoleSynced);
 
   async function handleSignIn() {
     setIsSigningIn(true);
-    setSignInError(null);
+    setSetupError(null);
     try {
       await signIn();
     } catch (err) {
-      setSignInError(err instanceof Error ? err.message : 'Sign-in failed');
+      const message = err instanceof Error ? err.message : 'Sign-in failed';
+      setSetupError(message);
+      throw err instanceof Error ? err : new Error(message);
     } finally {
       setIsSigningIn(false);
-    }
-  }
-
-  async function handleCreateAuthorization() {
-    setIsCreatingAuth(true);
-    setAuthError(null);
-    try {
-      await createAgentAuthorization({
-        agentType: 'claude-code',
-        agentVersion: '1.0.0',
-        role: 'worker',
-        permissionScope: ['claim_jobs', 'submit_results'],
-      });
-      await queryClient.invalidateQueries({ queryKey: ['agent-authorizations'] });
-      await queryClient.invalidateQueries({ queryKey: ['agentkit-status'] });
-    } catch (err) {
-      setAuthError(err instanceof Error ? err.message : 'Failed to create worker authorization');
-    } finally {
-      setIsCreatingAuth(false);
-    }
-  }
-
-  async function handleWorkerVerify(result?: ISuccessResult) {
-    setWorldError(null);
-    try {
-      const proof = result
-        ? {
-            nullifierHash: result.nullifier_hash,
-            proof: result.proof,
-            merkleRoot: result.merkle_root,
-            verificationLevel: result.verification_level,
-          }
-        : makeDemoWorldProof(address ?? 'demo-agent-page');
-      await verifyWorldRole('worker', proof);
-      await refreshSession();
-      await queryClient.invalidateQueries({ queryKey: ['session'] });
-    } catch (err) {
-      setWorldError(err instanceof Error ? err.message : 'Worker verification failed');
     }
   }
 
@@ -174,17 +150,98 @@ export function AgentsPage() {
     window.setTimeout(() => setCopyState((current) => (current === key ? null : current)), 1500);
   }
 
-  async function handleSyncRole() {
-    setIsSyncingRole(true);
-    setSyncError(null);
+  async function refreshAgentStatus() {
+    setIsRefreshingStatus(true);
     try {
-      await syncWorldchainRole('worker');
-      await queryClient.invalidateQueries({ queryKey: ['agentkit-status'] });
-    } catch (err) {
-      setSyncError(err instanceof Error ? err.message : 'Failed to sync IdentityGate role');
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['session'] }),
+        queryClient.invalidateQueries({ queryKey: ['agent-authorizations'] }),
+        queryClient.invalidateQueries({ queryKey: ['agentkit-status'] }),
+      ]);
     } finally {
-      setIsSyncingRole(false);
+      setIsRefreshingStatus(false);
     }
+  }
+
+  async function completeWorkerSetup(result?: ISuccessResult, skipSignIn = false) {
+    if (!isConnected || !address) {
+      setSetupError('Connect a wallet before starting the worker setup flow.');
+      return;
+    }
+    if (!agentDraft.agentType.trim()) {
+      setSetupError('Choose an agent type before creating the worker authorization.');
+      return;
+    }
+
+    setSetupError(null);
+    setIsCompletingSetup(true);
+
+    try {
+      if (!session && !skipSignIn) {
+        await handleSignIn();
+      }
+
+      if (!isWorkerVerified) {
+        const proof = result
+          ? {
+              nullifierHash: result.nullifier_hash,
+              proof: result.proof,
+              merkleRoot: result.merkle_root,
+              verificationLevel: result.verification_level,
+            }
+          : makeDemoWorldProof(address);
+        await verifyWorldRole('worker', proof);
+        await refreshSession();
+      }
+
+      const normalizedDraft = {
+        agentType: agentDraft.agentType.trim(),
+        agentVersion: agentDraft.agentVersion.trim() || DEFAULT_AGENT_PROFILE.agentVersion,
+      };
+
+      await createAgentAuthorization({
+        agentType: normalizedDraft.agentType,
+        agentVersion: normalizedDraft.agentVersion,
+        role: 'worker',
+        permissionScope: ['claim_jobs', 'submit_results'],
+      });
+      setAgentDraft(normalizedDraft);
+
+      if (integrations?.worldchain.identityGateAddress && !worldchainRoleSynced) {
+        await syncWorldchainRole('worker');
+      }
+
+      await refreshAgentStatus();
+    } catch (err) {
+      setSetupError(err instanceof Error ? err.message : 'Worker setup failed');
+    } finally {
+      setIsCompletingSetup(false);
+    }
+  }
+
+  async function handleSetupClick(openWorldVerification?: () => void) {
+    setSetupError(null);
+    if (!isConnected || !address) {
+      setSetupError('Connect a wallet before starting the worker setup flow.');
+      return;
+    }
+
+    let signedInNow = false;
+    if (!session) {
+      await handleSignIn();
+      signedInNow = true;
+    }
+
+    if (!demoMode && !isWorkerVerified) {
+      if (!integrations?.world.appId || !integrations?.world.action) {
+        setSetupError('World verification is not configured for this environment.');
+        return;
+      }
+      openWorldVerification?.();
+      return;
+    }
+
+    await completeWorkerSetup(undefined, signedInNow);
   }
 
   async function handleRegisterOnChain() {
@@ -201,6 +258,10 @@ export function AgentsPage() {
     setIsRegistering(true);
 
     try {
+      if (integrations?.worldchain.identityGateAddress && !worldchainRoleSynced) {
+        await syncWorldchainRole('worker');
+      }
+
       if (chainId !== worldchainChainId) {
         await switchChainAsync({ chainId: worldchainChainId });
       }
@@ -260,10 +321,37 @@ export function AgentsPage() {
           </div>
           <h1 className="text-3xl font-bold text-white">Agents</h1>
           <p className="max-w-3xl text-sm text-gray-400">
-            This page wires World Agent Kit into the worker flow. Human-backed agents register in
-            AgentBook, sync their worker role into IdentityGate on Worldchain, then register in the
-            Intelligence Exchange registry before using the protected agent routes.
+            This page binds one human-backed operator wallet to one reusable worker identity. The
+            browser handles broker login, worker verification, authorization creation, IdentityGate
+            sync, and Worldchain registration so claims, submissions, and accepted-score updates all
+            point to the same contractor token.
           </p>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-3">
+          <div className="rounded-2xl border border-gray-800 bg-gray-950/70 p-4">
+            <p className="text-xs uppercase tracking-[0.24em] text-gray-500">Selected Agent</p>
+            <p className="mt-3 text-lg font-semibold text-white">{selectedAgentLabel}</p>
+            <p className="mt-1 text-xs text-gray-500">
+              The fingerprint is derived from agent type, agent version, and this wallet.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-gray-800 bg-gray-950/70 p-4">
+            <p className="text-xs uppercase tracking-[0.24em] text-gray-500">Fingerprint</p>
+            <p className="mt-3 text-lg font-semibold text-white">{shortHex(agentFingerprint, 14, 10)}</p>
+            <p className="mt-1 text-xs text-gray-500">
+              Keep the same identity in the CLI so accepted work lands on the correct token.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-gray-800 bg-gray-950/70 p-4">
+            <p className="text-xs uppercase tracking-[0.24em] text-gray-500">Reputation</p>
+            <p className="mt-3 text-lg font-semibold text-white">
+              {registryRegistered
+                ? `Token #${workerAuthorization?.onChainTokenId ?? agentKitStatus?.identity?.onChainTokenId ?? 'Pending'}`
+                : 'Not minted yet'}
+            </p>
+            <p className="mt-1 text-xs text-gray-500">{agentReputation}</p>
+          </div>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
@@ -275,61 +363,114 @@ export function AgentsPage() {
               </CardTitle>
               <CardDescription>
                 The product keeps three layers separate: World worker verification, AgentBook
-                registration, and IEX-specific onchain permissions plus reputation.
+                registration, and the IEX registry token that accrues accepted-work reputation.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
               <div className="space-y-3 rounded-xl border border-gray-800 bg-gray-950/70 p-4">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className="text-sm font-semibold text-white">1. Broker + worker authorization</p>
+                    <p className="text-sm font-semibold text-white">1. Choose the worker identity</p>
                     <p className="mt-1 text-xs text-gray-500">
-                      Sign in, verify the worker role with World ID, and create the worker
-                      authorization that binds the agent fingerprint to this wallet.
+                      This identity becomes the reusable fingerprint for claim, submit, and
+                      accepted-score attribution. Use the same values in the local worker CLI.
                     </p>
                   </div>
-                  <Badge variant={authReady && isWorkerVerified && !!session ? 'success' : 'warning'}>
-                    {authReady && isWorkerVerified && !!session ? 'Complete' : 'Required'}
+                  <Badge variant={selectedProfileReady ? 'success' : 'warning'}>
+                    {selectedProfileReady ? 'Aligned' : 'Needs sync'}
                   </Badge>
                 </div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Agent type</p>
+                    <Input
+                      value={agentDraft.agentType}
+                      onChange={(event) => setAgentDraft((current) => ({
+                        ...current,
+                        agentType: event.target.value,
+                      }))}
+                      placeholder="codex"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Agent version</p>
+                    <Input
+                      value={agentDraft.agentVersion}
+                      onChange={(event) => setAgentDraft((current) => ({
+                        ...current,
+                        agentVersion: event.target.value,
+                      }))}
+                      placeholder={DEFAULT_AGENT_PROFILE.agentVersion}
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500">
+                  Examples: <span className="font-mono text-gray-300">codex</span>,
+                  <span className="ml-1 font-mono text-gray-300">claude-code</span>,
+                  <span className="ml-1 font-mono text-gray-300">custom-cli</span>.
+                </p>
+              </div>
+
+              <div className="space-y-3 rounded-xl border border-gray-800 bg-gray-950/70 p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-semibold text-white">2. Complete worker setup in-browser</p>
+                    <p className="mt-1 text-xs text-gray-500">
+                      One action handles broker sign-in, worker verification, authorization
+                      creation, and IdentityGate sync. AgentBook registration remains the only
+                      external step.
+                    </p>
+                  </div>
+                  <Badge variant={setupReady ? 'success' : 'warning'}>
+                    {setupReady ? 'Ready' : 'Required'}
+                  </Badge>
+                </div>
+                <pre className="overflow-x-auto rounded-lg border border-gray-800 bg-black/40 p-3 text-xs text-gray-200">
+{`Wallet session: ${session ? 'active' : 'missing'}
+Worker verification: ${isWorkerVerified ? 'verified' : 'pending'}
+Authorization: ${workerAuthorization ? `${workerAuthorization.agentType} ${workerAuthorization.agentVersion ?? DEFAULT_AGENT_PROFILE.agentVersion}` : 'not created'}
+IdentityGate: ${worldchainRoleSynced ? 'synced on Worldchain' : 'not synced yet'}`}
+                </pre>
                 <div className="flex flex-wrap gap-2">
-                  {!session && (
-                    <Button onClick={handleSignIn} disabled={!isConnected || isSigningIn}>
-                      {isSigningIn ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wallet className="h-4 w-4" />}
-                      Sign in
+                  {demoMode ? (
+                    <Button
+                      onClick={() => void handleSetupClick()}
+                      disabled={!isConnected || isCompletingSetup || isSigningIn}
+                    >
+                      {isCompletingSetup || isSigningIn ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-4 w-4" />
+                      )}
+                      {setupReady ? 'Refresh worker setup' : 'Complete worker setup'}
                     </Button>
+                  ) : (
+                    <IDKitWidget
+                      app_id={integrations?.world.appId ?? ''}
+                      action={integrations?.world.action ?? ''}
+                      signal={address}
+                      verification_level={VerificationLevel.Device}
+                      onSuccess={(result: ISuccessResult) => void completeWorkerSetup(result, true)}
+                    >
+                      {({ open }: { open: () => void }) => (
+                        <Button
+                          onClick={() => void handleSetupClick(open)}
+                          disabled={!isConnected || isCompletingSetup || isSigningIn}
+                        >
+                          {isCompletingSetup || isSigningIn ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Sparkles className="h-4 w-4" />
+                          )}
+                          {setupReady ? 'Refresh worker setup' : 'Complete worker setup'}
+                        </Button>
+                      )}
+                    </IDKitWidget>
                   )}
-                  {!isWorkerVerified && (
-                    demoMode ? (
-                      <Button
-                        variant="outline"
-                        onClick={() => void handleWorkerVerify()}
-                        disabled={!session}
-                      >
-                        <ShieldCheck className="h-4 w-4" />
-                        Demo worker verify
-                      </Button>
-                    ) : (
-                      <IDKitWidget
-                        app_id={integrations?.world.appId ?? ''}
-                        action={integrations?.world.action ?? ''}
-                        signal={address}
-                        verification_level={VerificationLevel.Device}
-                        onSuccess={(result: ISuccessResult) => void handleWorkerVerify(result)}
-                      >
-                        {({ open }: { open: () => void }) => (
-                          <Button variant="outline" onClick={open} disabled={!address || !integrations?.world.appId}>
-                            <ShieldCheck className="h-4 w-4" />
-                            Verify worker
-                          </Button>
-                        )}
-                      </IDKitWidget>
-                    )
-                  )}
-                  {!authReady && !!session && isWorkerVerified && (
-                    <Button variant="outline" onClick={handleCreateAuthorization} disabled={isCreatingAuth}>
-                      {isCreatingAuth ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
-                      Create authorization
+                  {!session && (
+                    <Button variant="outline" onClick={() => void handleSignIn()} disabled={!isConnected || isSigningIn}>
+                      {isSigningIn ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wallet className="h-4 w-4" />}
+                      Sign in first
                     </Button>
                   )}
                 </div>
@@ -338,14 +479,15 @@ export function AgentsPage() {
               <div className="space-y-3 rounded-xl border border-gray-800 bg-gray-950/70 p-4">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className="text-sm font-semibold text-white">2. Register in AgentBook</p>
+                    <p className="text-sm font-semibold text-white">3. Register in AgentBook</p>
                     <p className="mt-1 text-xs text-gray-500">
-                      Agent Kit uses AgentBook to resolve the wallet into an anonymous human ID at
-                      request time. This app reads the official Worldchain AgentBook deployment.
+                      Agent Kit resolves the wallet into an anonymous human ID at request time.
+                      This app reads the official AgentBook on Worldchain, but the registration
+                      itself still happens with the World CLI today.
                     </p>
                   </div>
                   <Badge variant={agentBookRegistered ? 'success' : 'warning'}>
-                    {agentBookRegistered ? 'Registered' : 'Not registered'}
+                    {agentBookRegistered ? 'Registered' : 'External step'}
                   </Badge>
                 </div>
                 <pre className="overflow-x-auto rounded-lg border border-gray-800 bg-black/40 p-3 text-xs text-gray-200">
@@ -362,9 +504,14 @@ export function AgentsPage() {
                     </Button>
                   )}
                   <Button
-                    variant="ghost"
-                    asChild
+                    variant="outline"
+                    onClick={() => void refreshAgentStatus()}
+                    disabled={isRefreshingStatus}
                   >
+                    {isRefreshingStatus ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
+                    Refresh AgentBook
+                  </Button>
+                  <Button variant="ghost" asChild>
                     <a href="https://docs.world.org/agents/agent-kit/integrate" target="_blank" rel="noreferrer">
                       <ExternalLink className="h-4 w-4" />
                       Docs
@@ -376,33 +523,11 @@ export function AgentsPage() {
               <div className="space-y-3 rounded-xl border border-gray-800 bg-gray-950/70 p-4">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className="text-sm font-semibold text-white">3. Sync IdentityGate role on Worldchain</p>
+                    <p className="text-sm font-semibold text-white">4. Mint the IEX worker token</p>
                     <p className="mt-1 text-xs text-gray-500">
-                      The broker attestor mirrors the verified worker role into the deployed
-                      IdentityGate contract so your wallet can call the onchain registry.
-                    </p>
-                  </div>
-                  <Badge variant={worldchainRoleSynced ? 'success' : 'warning'}>
-                    {worldchainRoleSynced ? 'Synced' : 'Pending'}
-                  </Badge>
-                </div>
-                <Button
-                  variant="outline"
-                  onClick={handleSyncRole}
-                  disabled={!session || !isWorkerVerified || !agentKitStatus?.worldchain.identityGateAddress || isSyncingRole}
-                >
-                  {isSyncingRole ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
-                  Sync worker role
-                </Button>
-              </div>
-
-              <div className="space-y-3 rounded-xl border border-gray-800 bg-gray-950/70 p-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-sm font-semibold text-white">4. Register in the IEX registry</p>
-                    <p className="mt-1 text-xs text-gray-500">
-                      This app keeps its own Worldchain registry for permission scope and reputation.
-                      Registration is done from the wallet and then synced back into the broker.
+                      This wallet transaction mints the IEX contractor token on Worldchain. That
+                      token is the reputation anchor that increments when accepted submissions are
+                      later recorded onchain.
                     </p>
                   </div>
                   <Badge variant={registryRegistered ? 'success' : 'warning'}>
@@ -410,11 +535,10 @@ export function AgentsPage() {
                   </Badge>
                 </div>
                 <Button
-                  onClick={handleRegisterOnChain}
+                  onClick={() => void handleRegisterOnChain()}
                   disabled={
                     !workerAuthorization ||
                     !agentBookRegistered ||
-                    !worldchainRoleSynced ||
                     !integrations?.worldchain.agentRegistryAddress ||
                     isRegistering
                   }
@@ -452,8 +576,13 @@ export function AgentsPage() {
                 />
                 <StatusRow
                   label="Worker authorization"
-                  value={workerAuthorization ? `${workerAuthorization.agentType} ${workerAuthorization.agentVersion ?? '1.0.0'}` : 'Create a worker authorization'}
+                  value={workerAuthorization ? `${workerAuthorization.agentType} ${workerAuthorization.agentVersion ?? DEFAULT_AGENT_PROFILE.agentVersion}` : 'Create a worker authorization'}
                   ready={authReady}
+                />
+                <StatusRow
+                  label="Fingerprint"
+                  value={agentFingerprint ? shortHex(agentFingerprint, 14, 10) : 'Fingerprint appears after authorization'}
+                  ready={Boolean(agentFingerprint)}
                 />
                 <StatusRow
                   label="AgentBook"
@@ -468,6 +597,11 @@ export function AgentsPage() {
                 <StatusRow
                   label="IEX registry"
                   value={registryRegistered ? `Token #${workerAuthorization?.onChainTokenId ?? agentKitStatus?.identity?.onChainTokenId}` : 'Worldchain registration pending'}
+                  ready={registryRegistered}
+                />
+                <StatusRow
+                  label="Accepted work"
+                  value={agentReputation}
                   ready={registryRegistered}
                 />
               </CardContent>
@@ -485,7 +619,8 @@ export function AgentsPage() {
                 <pre className="overflow-x-auto rounded-lg border border-gray-800 bg-black/40 p-3 text-xs text-gray-200">
 {`./apps/intelligence-exchange-cannes-worker/dist/iex-bridge agentkit-status
 ./apps/intelligence-exchange-cannes-worker/dist/iex-bridge list --status queued --agentkit
-./apps/intelligence-exchange-cannes-worker/dist/iex-bridge status --job-id <job-id> --agentkit`}
+./apps/intelligence-exchange-cannes-worker/dist/iex-bridge status --job-id <job-id> --agentkit
+./apps/intelligence-exchange-cannes-worker/dist/iex-bridge claim --job-id <job-id> --agent-type ${workerAuthorization?.agentType ?? agentDraft.agentType} --agent-version ${workerAuthorization?.agentVersion ?? agentDraft.agentVersion}`}
                 </pre>
                 <p className="text-xs text-gray-500">
                   Claims and submissions still use the wallet-signed broker challenges. Agent Kit is
@@ -518,7 +653,7 @@ export function AgentsPage() {
           </CardContent>
         </Card>
 
-        {[signInError, authError, worldError, syncError, registrationError]
+        {[setupError, registrationError]
           .filter(Boolean)
           .map((message) => (
             <Alert key={message} variant="destructive">
