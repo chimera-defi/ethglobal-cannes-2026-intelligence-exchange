@@ -23,6 +23,23 @@ const arcTestnet = defineChain({
   testnet: true,
 });
 
+const worldChain = defineChain({
+  id: Number(import.meta.env.VITE_WORLDCHAIN_CHAIN_ID ?? '480'),
+  name: 'World Chain',
+  nativeCurrency: { decimals: 18, name: 'ETH', symbol: 'ETH' },
+  rpcUrls: {
+    default: {
+      http: [import.meta.env.VITE_WORLDCHAIN_RPC_URL ?? 'https://worldchain-mainnet.g.alchemy.com/public'],
+    },
+  },
+  blockExplorers: {
+    default: {
+      name: 'Worldscan',
+      url: import.meta.env.VITE_WORLDCHAIN_EXPLORER_URL ?? 'https://worldscan.org',
+    },
+  },
+});
+
 const projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID;
 
 const connectors = projectId
@@ -45,10 +62,11 @@ const connectors = projectId
     ];
 
 const wagmiConfig = createConfig({
-  chains: [arcTestnet],
+  chains: [arcTestnet, worldChain],
   connectors,
   transports: {
     [arcTestnet.id]: http(),
+    [worldChain.id]: http(),
   },
 });
 
@@ -81,6 +99,9 @@ const BuyerReviewQueue = React.lazy(() =>
 );
 const BuyerHistory = React.lazy(() =>
   import('./pages/BuyerHistory').then(m => ({ default: m.BuyerHistory }))
+);
+const AgentsPage = React.lazy(() =>
+  import('./pages/AgentsPage').then(m => ({ default: m.AgentsPage }))
 );
 const LandingPage = React.lazy(() =>
   import('./pages/LandingPage').then(m => ({ default: m.LandingPage }))
@@ -115,6 +136,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                 <Route path="/ideas" element={<IdeasList />} />
                 <Route path="/ideas/:ideaId" element={<IdeaDetail />} />
                 <Route path="/jobs" element={<JobsBoard />} />
+                <Route path="/agents" element={<AgentsPage />} />
                 <Route path="/review/:jobId" element={<ReviewPanel />} />
                 <Route path="/workspace" element={<BuyerWorkspace />} />
                 <Route path="/workspace/review" element={<BuyerReviewQueue />} />

@@ -1438,12 +1438,17 @@ export function JobsBoard() {
         {/* Header */}
         <div>
           <h1 className="text-3xl font-bold text-white">Jobs Board</h1>
-          <p className="text-gray-400 mt-1">
-            Browse funded request briefs, expand them into milestone tasks, then claim one concrete
-            job and run its <span className="font-mono text-blue-400">skill.md</span> with your
-            agent stack.
-          </p>
-        </div>
+        <p className="text-gray-400 mt-1">
+          Browse funded request briefs, expand them into milestone tasks, then claim one concrete
+          job and run its <span className="font-mono text-blue-400">skill.md</span> with your
+          agent stack.
+        </p>
+        <p className="text-gray-500 mt-2 text-sm">
+          Use the <span className="font-mono text-gray-300">/agents</span> page to register with
+          World Agent Kit and sync your Worldchain worker identity before using the protected agent
+          routes from the CLI.
+        </p>
+      </div>
         {demoClaimEnabled && (
           <Alert>
             <AlertCircle className="h-4 w-4" />

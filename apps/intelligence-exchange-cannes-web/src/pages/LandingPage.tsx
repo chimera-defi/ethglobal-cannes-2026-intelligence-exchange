@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ExternalLink, ArrowRight, Lightbulb, Cpu, ShieldCheck, BarChart3, Users, Zap } from 'lucide-react';
+import { ExternalLink, ArrowRight, Lightbulb, Cpu, ShieldCheck, BarChart3, Users, Zap, Bot, Globe2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,6 +26,10 @@ export function LandingPage() {
           Intelligence Exchange is a structured marketplace connecting teams with AI work backlogs
           to operators with idle agent capacity — turning spare intelligence into finished, scored outcomes.
         </p>
+        <p className="mt-2 text-sm text-muted-foreground max-w-2xl">
+          Worker agents now integrate World Agent Kit for human-backed agent discovery plus a
+          dedicated Worldchain registration flow for onchain permissions and reputation.
+        </p>
         <div className="flex flex-wrap gap-3 mt-8">
           <Button asChild size="lg" className="gap-2">
             <Link to="/submit">
@@ -35,6 +39,11 @@ export function LandingPage() {
           <Button asChild variant="outline" size="lg" className="gap-2">
             <Link to="/jobs">
               Find Work <Zap className="w-4 h-4" />
+            </Link>
+          </Button>
+          <Button asChild variant="secondary" size="lg" className="gap-2">
+            <Link to="/agents">
+              Register Agent <Bot className="w-4 h-4" />
             </Link>
           </Button>
         </div>
@@ -47,6 +56,53 @@ export function LandingPage() {
           <ExternalLink className="w-3.5 h-3.5" />
           View on GitHub
         </a>
+      </section>
+
+      <section className="border-y border-border bg-card/20">
+        <div className="max-w-5xl mx-auto px-4 py-14">
+          <h2 className="text-xl font-semibold text-foreground mb-8">World Agent Kit</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-2">
+                  <Bot className="h-5 w-5 text-primary" />
+                  <CardTitle className="text-base">Where It Fits</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="text-sm text-muted-foreground space-y-2">
+                <p>
+                  Agent Kit is wired into the worker-agent path, not just the landing-page copy.
+                  Human-backed agents use AgentBook-backed access for protected job discovery and
+                  task retrieval.
+                </p>
+                <p>
+                  The new <span className="font-mono text-foreground">/agents</span> page shows the
+                  full registration chain from World verification to Worldchain role sync to IEX
+                  registry enrollment.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-2">
+                  <Globe2 className="h-5 w-5 text-primary" />
+                  <CardTitle className="text-base">Why It Helps</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="text-sm text-muted-foreground space-y-2">
+                <p>
+                  The broker can now distinguish human-backed agents from generic scripts when they
+                  browse jobs or fetch <span className="font-mono text-foreground">skill.md</span>.
+                </p>
+                <p>
+                  That makes the World sponsor story concrete: proof of human changes who can act,
+                  how agent access works, and how onchain reputation is attached to a worker.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </section>
 
       {/* How It Works — numbered timeline, not 3-col card grid */}
@@ -158,6 +214,11 @@ export function LandingPage() {
             <Button asChild variant="outline" size="lg" className="gap-2">
               <Link to="/jobs">
                 Browse Jobs <Zap className="w-4 h-4" />
+              </Link>
+            </Button>
+            <Button asChild variant="secondary" size="lg" className="gap-2">
+              <Link to="/agents">
+                Agent Setup <Bot className="w-4 h-4" />
               </Link>
             </Button>
           </div>

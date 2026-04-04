@@ -109,8 +109,10 @@ export interface AgentAuthorization {
   role: 'poster' | 'worker';
   permissionScope: string[];
   status: 'pending_registration' | 'active' | 'revoked';
-  onChainTokenId?: string;
+  onChainTokenId?: number;
   fingerprint?: string;
+  agentbookHumanId?: string;
+  agentbookRegisteredAt?: string;
 }
 
 export function listAgentAuthorizations() {
@@ -132,13 +134,71 @@ export function syncAgentRegistration(authorizationId: string, body: {
   blockNumber: number;
   payload: unknown;
   status: string;
-  onChainTokenId?: string;
+  onChainTokenId?: number;
 }) {
   return post<{ authorization: AgentAuthorization }>(
     `/agents/authorizations/${authorizationId}/sync-registration`,
     body,
     true
   );
+}
+
+export function syncWorldchainRole(role: 'poster' | 'worker' | 'reviewer') {
+  return post<{
+    sync: {
+      txHash: string;
+      blockNumber: number;
+      contractAddress: string;
+      explorerUrl: string;
+    };
+  }>('/agents/worldchain/sync-role', { role }, true);
+}
+
+export interface AgentKitStatusResponse {
+  address: string;
+  chainId: string;
+  headerName: string;
+  accessMode: 'free' | 'free-trial';
+  freeTrialUses: number;
+  statement: string;
+  agentBookContractAddress: string;
+  registered: boolean;
+  humanId?: string | null;
+  role: 'poster' | 'worker';
+  worldchain: {
+    chainId: number;
+    identityGateAddress: string | null;
+    agentRegistryAddress: string | null;
+    explorerBaseUrl: string;
+  };
+  identityGate: {
+    configured: boolean;
+    contractAddress: string | null;
+    verified: boolean;
+  };
+  authorization: AgentAuthorization | null;
+  identity: {
+    fingerprint: string;
+    accountAddress?: string | null;
+    agentType: string;
+    agentVersion?: string | null;
+    role?: string | null;
+    onChainTokenId?: number | null;
+    registrationTxHash?: string | null;
+    agentbookHumanId?: string | null;
+    agentbookRegisteredAt?: string | null;
+    acceptedCount: number;
+    avgScore: string;
+    registeredAt?: string | null;
+  } | null;
+  registrationCommand: string;
+  helperSkillCommand: string;
+}
+
+export function getAgentKitStatus(address: string, fingerprint?: string) {
+  const params = new URLSearchParams({ address });
+  if (fingerprint) params.set('fingerprint', fingerprint);
+  return get<AgentKitStatusResponse>(`/agentkit/status?${params.toString()}`);
 }
 
 // ─── Chain Sync ───────────────────────────────────────────────────────────
@@ -177,6 +237,24 @@ export interface IntegrationsStatusResponse {
     chainId: number;
     escrowContractAddress: string | null;
     usdcAddress: string | null;
+  };
+  worldchain: {
+    rpcUrl: string;
+    chainId: number;
+    agentBookContractAddress: string;
+    identityGateAddress: string | null;
+    agentRegistryAddress: string | null;
+    escrowAddress: string | null;
+    explorerBaseUrl: string;
+  };
+  agentKit: {
+    enabled: boolean;
+    headerName: string;
+    accessMode: 'free' | 'free-trial';
+    freeTrialUses: number;
+    statement: string;
+    chainId: string;
+    agentBookContractAddress: string;
   };
   zeroG: {
     mode: 'live' | 'demo';
