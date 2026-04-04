@@ -66,13 +66,22 @@ Trust registries (v2):
 ### 6) Ledger + Settlement
 - Immutable records for claims, execution, acceptance, and payout state.
 - Daily/weekly netting windows.
-- Payment rails abstraction (fiat first, optional agentic and crypto rails).
+- Stablecoin escrow and payout is the default settlement path for the Cannes build.
+- Payment rails abstraction (stable settlement first, optional fiat and agentic rails).
+- Optional utility-token coordination layer for staking, slashing, fee discounts, and buyer access tiers.
+- Utility token does not replace stable job pricing or default worker wages.
 - Dispute workflow with replayable artifacts.
 
 Protocol adapters (v2):
-- Payment adapter interface (`fiat`, `x402-style`, optional `onchain`).
+- Payment adapter interface (`stable`, optional `fiat`, `x402-style`, and other onchain variants).
 - Agent manifest adapter (agent card metadata ingestion).
 - A2A messaging adapter for agent-to-agent negotiation and delegation.
+
+Protocol value layer (phase-gated):
+- `WorkerStakeManager` for job-claim stake, slash, and cooldown rules.
+- `FeeRouter` for routing protocol take-rate to treasury, reward pool, and optional burn sink.
+- `AccessTier` rules for buyer fee discounts and priority access.
+- Optional work receipts or revenue-rights products remain separate from the utility token.
 
 ### Data Model (MVP Core)
 - `BuyerAccount`
@@ -84,6 +93,9 @@ Protocol adapters (v2):
 - `QualityScore` (auto score, reviewer override, final acceptance)
 - `SettlementBatch`
 - `DisputeCase`
+- `WorkerStakePosition`
+- `ProtocolFeeEvent`
+- `BuyerAccessTier`
 
 ### APIs (MVP)
 1. `POST /v1/jobs` (buyer submits job)
@@ -136,7 +148,7 @@ Canonical lifecycle states are defined in `STATE_MODEL.md`.
 ### Phase Plan
 1. Phase 1: centralized broker + local worker beta + constrained task set.
 2. Phase 2: always-on worker daemon + stronger quality scoring + explicit task market modes.
-3. Phase 3: protocol adapters (payment/identity/A2A) + advanced SLA tiers + managed pools.
+3. Phase 3: protocol adapters (payment/identity/A2A) + advanced SLA tiers + managed pools + utility-token coordination layer.
 
 ### Build Cost Categories
 1. Core broker engineering (queue, matching, claims, ledger).
@@ -146,17 +158,21 @@ Canonical lifecycle states are defined in `STATE_MODEL.md`.
 
 ### Decision Note
 Do not model tradable credits in core architecture. Keep the platform anchored to fulfilled execution jobs and measured outcomes.
+Do not denominate core job pricing or default worker compensation in volatile protocol tokens.
 
 ### Related Docs
 1. `UX_AND_PAYMENTS_FLOW.md`
-2. `UX_PRINCIPLES.md`
-3. `USER_FLOWS.md`
-4. `FRONTEND_VISION.md`
-5. `WIREFRAMES.md`
-6. `STATE_MODEL.md`
-7. `TASKMARKET_COMPATIBILITY.md`
-8. `VALIDATION_PLAN.md`
-9. `ALTERNATIVES_AND_VARIANTS.md`
-10. `contracts/README.md`
-11. `ACCEPTANCE_TEST_MATRIX.md`
-12. `FIRST_60_MINUTES.md`
+2. `TOKEN_ARCHITECTURE.md`
+3. `TOKENOMICS.md`
+4. `TOKEN_HANDOFF_PACKAGE.md`
+5. `UX_PRINCIPLES.md`
+6. `USER_FLOWS.md`
+7. `FRONTEND_VISION.md`
+8. `WIREFRAMES.md`
+9. `STATE_MODEL.md`
+10. `TASKMARKET_COMPATIBILITY.md`
+11. `VALIDATION_PLAN.md`
+12. `ALTERNATIVES_AND_VARIANTS.md`
+13. `contracts/README.md`
+14. `ACCEPTANCE_TEST_MATRIX.md`
+15. `FIRST_60_MINUTES.md`

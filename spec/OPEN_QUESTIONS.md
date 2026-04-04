@@ -64,7 +64,7 @@ Daydreams (taskmarket + router) is the closest existing competitor. From their d
 - OpenRouter integration for model routing.
 
 **The gap Intelligence Exchange must own:**
-1. **Fiat-first supply onboarding**: Daydreams is crypto-native (payment rails require wallet setup). Intelligence Exchange's Stripe Connect onboarding is accessible to non-crypto developers.
+1. **Stable-settlement onboarding**: Daydreams is crypto-native. Intelligence Exchange uses stable-denominated budgets, acceptance-gated payout, and optional fiat bridging instead of volatile-token wages.
 2. **Worker runtime + quality assurance**: Daydreams treats workers as black boxes. Intelligence Exchange actively scores outputs and enforces quality thresholds.
 3. **Enterprise compliance posture**: Daydreams is open protocol. Intelligence Exchange can target regulated buyers who need auditable execution chains.
 
@@ -72,18 +72,18 @@ Daydreams (taskmarket + router) is the closest existing competitor. From their d
 
 ---
 
-### Q5: What is the Stripe Connect KYC implication for worker onboarding?
+### Q5: What is the worker payout onboarding path?
 
-Stripe Connect requires workers (as "connected accounts") to provide:
-- Name, date of birth, address (for individuals).
-- Tax ID or EIN (for businesses).
-- Bank account for payouts.
+Stablecoin-first payout simplifies protocol settlement, but it still leaves onboarding choices:
 
-This is a significant onboarding friction for a "side income from spare compute" positioning. Options:
+1. **Wallet-first only**: workers receive stablecoin to a connected wallet after identity verification.
+2. **Wallet-first + fiat bridge**: workers receive stablecoin by default, with an optional off-ramp or card/invoice bridge later.
+3. **Wallet-first + optional token rewards**: workers receive stablecoin payout plus opt-in utility-token rewards or stake requirements for premium job classes.
 
-1. **Accept the friction**: use Stripe Express accounts (easiest), workers see a Stripe-hosted form.
-2. **Platform holds funds**: platform accumulates worker earnings in a ledger balance; worker withdraws manually via a simpler flow (but delays platform regulatory classification).
-3. **Crypto payout rail**: allow workers to receive payment to a crypto address (no KYC needed for the platform, but regulatory gray area).
+Tradeoffs:
+- Wallet-first is fastest for protocol delivery and best matches the current escrow demo.
+- Fiat bridges improve accessibility but add operator and compliance complexity.
+- Token rewards can improve stickiness, but mandatory token exposure for all workers is likely too much friction early.
 
 **Decision needed from:** founder (risk tolerance) + legal review.
 
@@ -91,10 +91,10 @@ This is a significant onboarding friction for a "side income from spare compute"
 
 ### Q6: What is the provider ToS compliance strategy?
 
-Using Claude API or OpenAI API to complete jobs for third parties may violate provider Terms of Service. Key provisions:
+Using Claude API or OpenAI API to complete jobs for third parties may violate provider terms. Current official constraints point to the same risk boundary:
 
-- Anthropic ToS: prohibits "use the API to build products that compete with Anthropic" and requires users to not share API keys.
-- OpenAI ToS: prohibits "resale" and requires user accounts to be the actual account holder.
+- Anthropic Commercial Terms (effective 2025-06-17): customers may power their own products for end users, but may not resell the services without approval; Anthropic Credit Terms prohibit transferring or selling credits.
+- OpenAI Service Credit Terms (updated 2026-01-01): service credits may not be transferred, sold, gifted, or traded; OpenAI Services Agreement also prohibits buying, selling, or transferring API keys.
 
 **The BYOK model partially mitigates this**: workers use their own keys, executing jobs for their own account. The platform never holds or routes through provider credentials. However, this is a novel legal position.
 
@@ -131,6 +131,23 @@ Options:
 
 ---
 
+### Q9: What is the minimum useful utility-token loop?
+
+If the platform later launches a utility token, it needs a concrete job-facing purpose that does not replace stable settlement. Candidate utilities:
+
+1. **Worker staking**: premium claims require stake that can be slashed for fraud or severe quality failures.
+2. **Buyer access tiers**: buyers lock tokens for lower fees, larger caps, or faster routing.
+3. **Reward routing**: a bounded portion of protocol take-rate funds rewards, rebates, or an optional burn sink.
+
+Non-goals for the first token version:
+- no token-denominated base wages
+- no provider-credit resale
+- no claim that the token itself is a futures contract on "intelligence"
+
+**Decision needed:** Pick the initial utility set, define whether worker stake is optional or mandatory by job class, and cap how much token exposure workers can take versus stable payout.
+
+---
+
 ## Resolved Decisions
 
 | Question | Resolution | Source |
@@ -139,7 +156,7 @@ Options:
 | Job queue | BullMQ + Redis | ARCHITECTURE_DECISIONS.md D3 |
 | Worker daemon | TypeScript CLI | ARCHITECTURE_DECISIONS.md D4 |
 | Worker auth model | BYOK (bring own API key) | ARCHITECTURE_DECISIONS.md D5 |
-| Payment rail | Stripe Connect (fiat-first) | ARCHITECTURE_DECISIONS.md D6 |
+| Payment rail | stablecoin escrow first; fiat bridge optional | ARCHITECTURE_DECISIONS.md D6 |
 | MVP task market mode | claim only | ARCHITECTURE_DECISIONS.md D12 |
 | Supply onboarding | Curated (manual review) | ARCHITECTURE_DECISIONS.md D7 |
 | Database | Postgres + Redis | ARCHITECTURE_DECISIONS.md D1/D3 |

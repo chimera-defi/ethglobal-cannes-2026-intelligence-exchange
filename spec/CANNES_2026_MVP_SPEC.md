@@ -284,11 +284,14 @@ Use the base Intelligence Exchange job lifecycle with these additional meanings:
 
 - poster deposits stablecoin into escrow at idea creation
 - each milestone reserves a portion of escrow
+- buyer-facing job prices remain stable-denominated in P0 and P1
 
 #### Worker payout
 
+- default worker payout is stablecoin
 - payment releases only on acceptance
 - partial release only if milestone is explicitly split
+- optional rewards can be layered later, but MVP does not use token-denominated base wages
 
 #### Agent spend
 
@@ -296,6 +299,13 @@ Use the base Intelligence Exchange job lifecycle with these additional meanings:
 - spend event must be bounded and attributable
 - spend event is not automatically reimbursed in P0 unless explicitly modeled
 - reviewer must be able to see whether spend affected the submission outcome
+
+#### Utility-token compatibility (post-MVP, not P0)
+
+- utility token does not fund escrow or reserve milestones
+- utility token may gate claiming through stake, slash rules, or trust-weighted access
+- buyers may later use locked token balances for fee discounts or priority access
+- any tradable work-receipt or revenue-rights instrument remains separate from the utility token
 
 ### Contract Surface
 
@@ -316,6 +326,11 @@ Required events:
 
 - `isVerifiedPoster(address account) -> bool`
 - `isVerifiedWorker(address account) -> bool`
+
+Future utility-token modules (not P0):
+- `WorkerStakeManager`
+- `FeeRouter`
+- `WorkReceipt1155`
 
 ### API Surface
 

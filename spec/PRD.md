@@ -1,6 +1,6 @@
 ## Intelligence Exchange PRD
 
-**Status**: Draft | **Last Updated**: 2026-03-06 | **Owner**: TBD
+**Status**: Draft | **Last Updated**: 2026-04-04 | **Owner**: TBD
 
 ### Problem
 AI teams have growing backlogs of AI jobs (coding, analysis, content, support operations), while potential executors have idle time, underused AI access, and no standardized way to earn on that spare capacity.
@@ -37,7 +37,7 @@ Agent-first interpretation:
 ### Strategic Delta vs Daydreams (Primary Competitor)
 Daydreams is the closest competitor (see `COMPETITOR_MATRIX.md`). Key differences:
 
-1. **Fiat-first supply**: Daydreams requires crypto wallet setup. Intelligence Exchange uses Stripe Connect — accessible to developers without on-chain experience.
+1. **Stable-settlement discipline**: Daydreams is crypto-native. Intelligence Exchange anchors jobs to stable-denominated budgets, acceptance-gated payout, and optional fiat bridging instead of volatile-token wages.
 2. **Active quality enforcement**: Daydreams treats workers as black boxes. Intelligence Exchange scores every output with automated rubrics and enforces acceptance thresholds.
 3. **Compliance posture**: Daydreams is open protocol. Intelligence Exchange targets regulated buyers (enterprises, fintech) who need auditable execution chains and dispute trails.
 4. **Constrained task types first**: Intelligence Exchange starts with code-scorable tasks (code review, test gen, PR summary) where quality can be verified objectively. This builds trust before expanding.
@@ -59,9 +59,10 @@ V2 protocol upgrade path: add `claim`, `bounty`, `benchmark`, `auction` modes an
 4. Optional escrow and fast-payout fees.
 
 ### Payments and Commerce Rails
-1. **Default rail:** card/invoice billing for mainstream buyer onboarding.
-2. **Agentic rail:** ACP-style delegated payment flows for machine-to-machine commerce.
-3. **Optional crypto rail:** Strike-style/BTC settlement as additive path, not core dependency.
+1. **Default rail:** stablecoin escrow and onchain payout for predictable job pricing and observable settlement.
+2. **Utility layer:** optional protocol token for staking, fee discounts, and access tiers; not the default wage or job-pricing unit.
+3. **Agentic rail:** ACP-style delegated payment flows for machine-to-machine commerce.
+4. **Optional fiat bridge:** card/invoice or off-ramp path as additive infrastructure, not core dependency.
 
 ### TAM/SAM/SOM Framing (Bottom-Up)
 Use execution-based TAM modeling instead of top-down market reports:
