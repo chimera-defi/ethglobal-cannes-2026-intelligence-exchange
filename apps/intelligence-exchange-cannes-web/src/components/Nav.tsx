@@ -43,7 +43,9 @@ export function Nav() {
         {/* Brand + nav links */}
         <div className="flex items-center gap-4 min-w-0">
           <div className="flex items-center gap-2 shrink-0">
-            <span className="text-white font-bold text-base tracking-tight">Intelligence Exchange</span>
+            <NavLink to="/" className="text-white font-bold text-base tracking-tight hover:text-blue-400 transition-colors">
+              Intelligence Exchange
+            </NavLink>
             <Badge variant="info" className="hidden sm:inline-flex">Cannes 2026</Badge>
           </div>
           <div className="flex items-center gap-1 overflow-x-auto">
