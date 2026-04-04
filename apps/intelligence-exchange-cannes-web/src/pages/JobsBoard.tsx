@@ -42,6 +42,8 @@ import {
   createAgentAuthorization,
   getJobBoard,
   getIntegrationsStatus,
+  unclaimJob,
+  unclaimJobDemo,
   type AgentAuthorization,
   type JobBoardGroup,
   type JobBoardMilestone,
@@ -339,6 +341,150 @@ function ClaimDialog({
   );
 }
 
+interface UnclaimDialogProps {
+  open: boolean;
+  job: JobBoardMilestone;
+  demoMode: boolean;
+  address?: string;
+  authorization?: AgentAuthorization | null;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+function UnclaimDialog({
+  open,
+  job,
+  demoMode,
+  address,
+  authorization,
+  onClose,
+  onSuccess,
+}: UnclaimDialogProps) {
+  const { signMessageAsync } = useSignMessage();
+  const [status, setStatus] = useState<'idle' | 'challenging' | 'signing' | 'releasing' | 'error'>(
+    'idle'
+  );
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  async function handleUnclaim() {
+    setStatus('challenging');
+    setErrorMessage(null);
+    try {
+      if (demoMode) {
+        setStatus('releasing');
+        await unclaimJobDemo(job.jobId, {
+          workerId: job.activeClaimWorkerId ?? makeDemoAddress(`demo-worker:${job.jobId}`),
+        });
+        onSuccess();
+        setStatus('idle');
+        return;
+      }
+
+      if (!address || !authorization) {
+        throw new Error('Wallet-connected worker authorization required');
+      }
+
+      const fingerprint = authorization.fingerprint ?? authorization.authorizationId;
+      const { challengeId, message } = await createAuthChallenge(address, 'worker_unclaim', {
+        agentFingerprint: fingerprint,
+        jobId: job.jobId,
+      });
+      setStatus('signing');
+      const signature = await signMessageAsync({ message });
+      setStatus('releasing');
+      await unclaimJob(job.jobId, {
+        accountAddress: address,
+        agentFingerprint: fingerprint,
+        challengeId,
+        signature,
+      });
+      onSuccess();
+      setStatus('idle');
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Unclaim failed');
+      setStatus('error');
+    }
+  }
+
+  function handleClose() {
+    setStatus('idle');
+    setErrorMessage(null);
+    onClose();
+  }
+
+  const isProcessing = ['challenging', 'signing', 'releasing'].includes(status);
+
+  const statusLabel: Record<typeof status, string> = {
+    idle: 'Unclaim Job',
+    challenging: 'Creating challenge…',
+    signing: 'Waiting for signature…',
+    releasing: 'Releasing claim…',
+    error: 'Retry',
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(value) => !value && handleClose()}>
+      <DialogContent className="max-w-md border-gray-700 bg-gray-900">
+        <DialogHeader>
+          <DialogTitle className="text-white">Unclaim Job</DialogTitle>
+          <DialogDescription>
+            Release this claimed job back to the queue so another worker can claim it.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3 text-sm">
+          <div className="space-y-2 rounded-lg bg-gray-800/60 p-3">
+            <div className="flex justify-between gap-4">
+              <span className="text-gray-500">Milestone</span>
+              <span className="capitalize text-gray-300">{job.milestoneType}</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-gray-500">Job ID</span>
+              <span className="font-mono text-xs text-gray-300">{job.jobId.slice(0, 14)}…</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-gray-500">Claimed by</span>
+              <span className="font-mono text-xs text-gray-300">
+                {job.activeClaimWorkerId ?? 'unknown'}
+              </span>
+            </div>
+          </div>
+
+          {status === 'signing' && (
+            <div className="flex items-center gap-2 rounded-lg border border-yellow-800 bg-yellow-900/20 px-3 py-2 text-xs text-yellow-400">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+              Check your wallet for a signature request.
+            </div>
+          )}
+
+          {status === 'error' && errorMessage && (
+            <div className="flex items-start gap-2 rounded-lg border border-red-800 bg-red-900/20 px-3 py-2 text-xs text-red-400">
+              <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              {errorMessage}
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="gap-2">
+          <Button variant="secondary" onClick={handleClose} disabled={isProcessing}>
+            Cancel
+          </Button>
+          <Button variant="destructive" onClick={handleUnclaim} disabled={isProcessing}>
+            {isProcessing ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {statusLabel[status]}
+              </>
+            ) : (
+              statusLabel[status]
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Claim success banner ─────────────────────────────────────────────────────
 
 function ClaimSuccessBanner({
@@ -368,7 +514,7 @@ function ClaimSuccessBanner({
       </div>
       <p className="text-gray-400 text-xs">
         Fetch <span className="font-mono text-blue-400">skill.md</span> and run it with your agent
-        stack. Submit your artifact URI and summary back to the broker once done.
+        stack. If you dismiss this banner, you can reopen it from the claimed job row.
       </p>
       <div className="flex gap-2 flex-wrap">
         <Button size="sm" asChild>
@@ -393,6 +539,8 @@ function MilestoneTaskRow({
   canClaim,
   claimDisabled,
   claimLabel,
+  canUnclaim,
+  onUnclaim,
   onClaim,
   onView,
 }: {
@@ -401,6 +549,8 @@ function MilestoneTaskRow({
   canClaim: boolean;
   claimDisabled?: boolean;
   claimLabel?: string;
+  canUnclaim?: boolean;
+  onUnclaim?: () => void;
   onClaim: () => void;
   onView: () => void;
 }) {
@@ -408,6 +558,7 @@ function MilestoneTaskRow({
   const isReviewable = ['submitted', 'accepted', 'rework'].includes(milestone.status);
   const isActive = ['claimed', 'running'].includes(milestone.status);
   const isMatchingTab = milestone.status === activeTab;
+  const canResume = milestone.status === 'claimed';
 
   const statusVariant = (
     ['queued', 'claimed', 'submitted', 'accepted', 'rejected', 'rework', 'settled', 'created'] as const
@@ -458,11 +609,24 @@ function MilestoneTaskRow({
           )}
         </div>
 
-        <div className="flex shrink-0 items-center gap-3">
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
           <div className="text-right">
             <p className="font-bold text-green-400">${milestone.budgetUsd}</p>
             <p className="text-xs text-gray-500">USDC</p>
           </div>
+          {canResume && (
+            <Button size="sm" variant="secondary" asChild>
+              <a href={milestone.skillMdUrl} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="h-3.5 w-3.5" />
+                Open skill.md
+              </a>
+            </Button>
+          )}
+          {canResume && canUnclaim && onUnclaim && (
+            <Button size="sm" variant="outline" onClick={onUnclaim}>
+              Unclaim
+            </Button>
+          )}
           {isClaimable && (
             <Button
               size="sm"
@@ -493,8 +657,10 @@ function JobGroupCard({
   canClaim,
   claimDisabledJobId,
   claimLabelFor,
+  canUnclaim,
   onToggle,
   onClaim,
+  onUnclaim,
   onView,
   onViewIdea,
 }: {
@@ -504,8 +670,10 @@ function JobGroupCard({
   canClaim: boolean;
   claimDisabledJobId?: string | null;
   claimLabelFor: (milestone: JobBoardMilestone) => string;
+  canUnclaim: (milestone: JobBoardMilestone) => boolean;
   onToggle: () => void;
   onClaim: (milestone: JobBoardMilestone) => void;
+  onUnclaim: (milestone: JobBoardMilestone) => void;
   onView: (milestone: JobBoardMilestone) => void;
   onViewIdea: () => void;
 }) {
@@ -565,7 +733,9 @@ function JobGroupCard({
                 canClaim={canClaim}
                 claimDisabled={claimDisabledJobId === milestone.jobId}
                 claimLabel={claimLabelFor(milestone)}
+                canUnclaim={canUnclaim(milestone)}
                 onClaim={() => onClaim(milestone)}
+                onUnclaim={() => onUnclaim(milestone)}
                 onView={() => onView(milestone)}
               />
             ))}
@@ -591,6 +761,7 @@ export function JobsBoard() {
     skillMdUrl: string;
   } | null>(null);
   const [demoClaimingJobId, setDemoClaimingJobId] = useState<string | null>(null);
+  const [releasingJob, setReleasingJob] = useState<JobBoardMilestone | null>(null);
   const [expandedBriefs, setExpandedBriefs] = useState<Record<string, boolean>>({});
 
   const [isSigningIn, setIsSigningIn] = useState(false);
@@ -636,6 +807,7 @@ export function JobsBoard() {
     isRegistrationSynced;
   const demoClaimEnabled = integrations?.world.strict === false;
   const canClaim = strictClaimReady || demoClaimEnabled;
+  const currentWorkerAddress = (session?.accountAddress ?? address ?? '').toLowerCase();
 
   const groups = jobsData?.groups ?? [];
 
@@ -672,6 +844,7 @@ export function JobsBoard() {
   function switchTab(tab: StatusTab) {
     setActiveTab(tab);
     setClaimingJob(null);
+    setReleasingJob(null);
     setClaimResult(null);
   }
 
@@ -708,6 +881,17 @@ export function JobsBoard() {
   function getClaimLabel(job: JobBoardMilestone) {
     if (strictClaimReady) return 'Claim';
     return demoClaimingJobId === job.jobId ? 'Claiming...' : 'Demo Claim';
+  }
+
+  function canUnclaimJob(job: JobBoardMilestone) {
+    if (job.status !== 'claimed') return false;
+    if (demoClaimEnabled) return Boolean(job.activeClaimWorkerId);
+    return Boolean(
+      strictClaimReady
+      && currentWorkerAddress
+      && job.activeClaimWorkerId
+      && job.activeClaimWorkerId.toLowerCase() === currentWorkerAddress
+    );
   }
 
   return (
@@ -853,6 +1037,7 @@ export function JobsBoard() {
                 canClaim={canClaim}
                 claimDisabledJobId={demoClaimingJobId}
                 claimLabelFor={getClaimLabel}
+                canUnclaim={canUnclaimJob}
                 onToggle={() => toggleGroup(group.briefId)}
                 onClaim={(job) => {
                   setClaimResult(null);
@@ -861,6 +1046,10 @@ export function JobsBoard() {
                     return;
                   }
                   void handleDemoClaim(job);
+                }}
+                onUnclaim={(job) => {
+                  setClaimResult(null);
+                  setReleasingJob(job);
                 }}
                 onView={(job) => navigate(`/review/${job.jobId}`)}
                 onViewIdea={() => navigate(`/ideas/${group.ideaId}`)}
@@ -881,6 +1070,22 @@ export function JobsBoard() {
           onSuccess={result => {
             setClaimingJob(null);
             setClaimResult(result);
+            queryClient.invalidateQueries({ queryKey: ['job-board'] });
+            queryClient.invalidateQueries({ queryKey: ['jobs'] });
+          }}
+        />
+      )}
+
+      {releasingJob && (
+        <UnclaimDialog
+          open={!!releasingJob}
+          job={releasingJob}
+          demoMode={demoClaimEnabled}
+          address={address}
+          authorization={activeAuthorization}
+          onClose={() => setReleasingJob(null)}
+          onSuccess={() => {
+            setReleasingJob(null);
             queryClient.invalidateQueries({ queryKey: ['job-board'] });
             queryClient.invalidateQueries({ queryKey: ['jobs'] });
           }}
