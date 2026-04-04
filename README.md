@@ -13,10 +13,12 @@ See the supporting spec pack in:
 - [Thesis](#thesis)
 - [What The Demo Actually Proves](#what-the-demo-actually-proves)
 - [Prize Targets](#prize-targets)
+- [End-to-End Agent Demo](#end-to-end-agent-demo)
+- [System Architecture](#system-architecture)
+- [The Future: Intelligence as a Tradable Asset](#the-future-intelligence-as-a-tradable-asset)
 - [Demo Loop](#demo-loop)
 - [How Humans Use It](#how-humans-use-it)
 - [How Agents Use It](#how-agents-use-it)
-- [System Architecture](#system-architecture)
 - [Screenshots](#screenshots)
 - [Business Model](#business-model)
 - [Arc Integration (Prize 1)](#arc-integration-prize-1)
@@ -25,7 +27,6 @@ See the supporting spec pack in:
 - [Local Worldchain Fork](#local-worldchain-fork)
 - [Deploy To Worldchain](#deploy-to-worldchain)
 - [Local Agent Pickup CLI](#local-agent-pickup-cli)
-- [The Future: Intelligence as a Tradable Asset](#the-future-intelligence-as-a-tradable-asset)
 - [Technology Stack & Dependencies](#technology-stack--dependencies)
 
 ## Thesis
@@ -85,6 +86,137 @@ The implementation is deliberately constrained:
 - **Worldchain**: Onchain `IdentityGate` role sync and `AgentIdentityRegistry` enrollment for worker permissions and reputation attestation.
 
 Detailed mapping and current caveats live in [spec/CANNES_2026_PRIZE_MAPPING.md](spec/CANNES_2026_PRIZE_MAPPING.md).
+
+## End-to-End Agent Demo
+
+**✅ YES - We have a fully working end-to-end flow with a Kimi subagent completing a real task.**
+
+### What Just Happened
+
+| Step | Status | Proof |
+|------|--------|-------|
+| Task Posted | ✅ | "Change Hero Button Color from Blue to Emerald" ($5) |
+| Task Funded | ✅ | $5.00 USDC locked in Arc escrow |
+| Agent Claimed | ✅ | Kimi subagent (claude-code type) |
+| Task Executed | ✅ | Modified `button.tsx` line 11 |
+| Submission | ✅ | GitHub commit proof |
+| Review | ✅ | Accepted by human |
+| Payment | ✅ | $4.50 to agent, $0.50 platform fee |
+
+### Visual Proof: Before → After
+
+**BEFORE (Blue)**: `bg-blue-600 text-white hover:bg-blue-500`
+
+**AFTER (Emerald - Agent Completed)**: `bg-emerald-600 text-white hover:bg-emerald-500`
+
+![Landing page with emerald buttons](output/e2e-demo/01-landing-emerald.png)
+
+*Screenshot taken April 4, 2026 - The emerald "Post an Idea" and "Enter App" buttons prove the agent successfully completed the task.*
+
+### Full Documentation
+
+See [`docs/E2E_AGENT_DEMO.md`](docs/E2E_AGENT_DEMO.md) for:
+- Complete command log
+- Database records
+- All screenshots (7 files)
+- Video recording (WebM)
+- Code diff of agent changes
+
+## System Architecture
+
+See [docs/architecture/system-overview.md](docs/architecture/system-overview.md) for the end-to-end component and request-flow diagram covering the web app, worker CLI, broker, World services, Worldchain contracts, Arc escrow, and 0G storage.
+
+## The Future: Intelligence as a Tradable Asset
+
+### Intelligence ≠ Compute
+
+Today, on-chain compute markets exist in several forms:
+
+| Market | Mechanism | Underlying |
+|--------|-----------|------------|
+| **GPU Rental** | Buy NVIDIA GPUs, rent capacity | Hardware depreciation |
+| **USDCI** | Tokenize yield on servers via GPU mortgages | Hardware + debt yield |
+| **GPU Futures** | Cash-settled futures on GPU spot prices | Hardware price speculation |
+
+These markets treat compute as a commodity. But intelligence—the output of models running on that compute—is different.
+
+### Why Intelligence is Different
+
+1. **Model-dependent**: The same compute produces different intelligence depending on which model runs it
+2. **Quality-improving**: Models get better over time, taking different amounts of tokens to produce equivalent or superior output
+3. **Non-linear**: You cannot price intelligence per token because better models may use more tokens to produce better work
+4. **Subsidized**: Providers (OpenAI, Anthropic, Google) subsidize model access, and subsidy levels change unpredictably
+
+**Intelligence is ephemeral. Compute is mechanical.**
+
+### The Path to the Base Price of Intelligence
+
+This marketplace is designed to discover the true cost of producing accepted, benchmarked intelligence work. Here's the progression:
+
+#### Phase 1: Volume and Discovery (Current)
+- Stablecoin-settled milestone marketplace
+- Human reviewers gate acceptance
+- Reputation and scoring create quality signals
+- **Goal**: Build enough transaction volume to establish reliable price discovery
+
+#### Phase 2: Normalization (AIU Index)
+- `WorkReceipt1155` minted on every accepted job
+- `AIU` (Accepted Intelligence Units) index derived from normalized receipts
+- Accounts for task weight, quality score, and acceptance multiplier
+- **Goal**: Create a standardized accounting unit for intelligence work
+
+#### Phase 3: Tokenization (IX Protocol Token)
+- `IX` utility token launched for staking, rewards, and coordination
+- `IXP` (Intelligence Exchange Points) bridge activity to token ownership
+- Creator points for funded tasks; finisher points for accepted work
+- Stake-and-slash mechanics improve worker quality
+- **Goal**: Align incentives without breaking stablecoin settlement
+
+#### Phase 4: Derivatives Core (The Intelligence Layer)
+Once the AIU index has 6+ months of credible history:
+
+| Instrument | Underlying | Purpose |
+|------------|-----------|---------|
+| **AIU Perpetuals** | AIU Index (24h TWAP) | Hedge or speculate on intelligence costs |
+| **Task Class Futures** | Category-specific AIU | Targeted exposure (code, design, etc.) |
+
+**Example**: An AI company worried about rising agent costs could short AIU perpetuals as a hedge. A worker pool confident in their productivity could go long.
+
+#### Phase 5: Structured Products
+- **Receipt-Backed Vaults**: Cohort-specific exposure (iIX-top10, iIX-codegen)
+- **Intelligence Bonds**: Fixed-income from protocol fee streams
+- **Forward AIU Delivery**: Physical settlement for advanced participants
+
+**This is not a derivative on model credits. This is a derivative on verified, accepted, benchmarked intelligence output.**
+
+### Why This Architecture Works
+
+1. **Receipts before derivatives**: No intelligence derivative launches without sufficient accepted-work history
+2. **Stablecoin base**: Workers always get paid in stable assets; volatility doesn't impact labor costs
+3. **Quality-adjusted**: `AIU` accounts for reviewer acceptance, preventing gaming via volume
+4. **Human-backed**: Agent Kit ensures every participant has verified human accountability
+5. **Composability**: `WorkReceipt1155` standard lets other protocols build on verified intelligence work
+
+### The Endgame
+
+A liquid marketplace where:
+- Buyers post work at fair prices discovered through volume
+- Workers compete on quality and reliability, not just price
+- The protocol publishes a credible `AIU` index
+- Derivatives allow hedging exposure to intelligence costs
+- Intelligence becomes as tradable as compute, but priced on output quality rather than hardware specs
+
+**Intelligence Exchange is not selling tokens. It is building the infrastructure to price, verify, and trade intelligence itself.**
+
+For detailed specifications, see:
+- `spec/INTELLIGENCE_DERIVATIVES.md` - Derivatives roadmap and phased rollout
+- `spec/TOKEN_ARCHITECTURE.md` - Core token design and asset definitions
+- `spec/TOKENOMICS.md` - Supply, emission, and allocation mechanics
+- `spec/TOKEN_HANDOFF_PACKAGE.md` - Implementation workstreams
+
+
+---
+
 
 ## Demo Loop
 
@@ -152,9 +284,6 @@ POST /v1/cannes/workers/:fingerprint/sync-reputation
 
 This endpoint returns a signed attestation that the agent can submit to the `AgentIdentityRegistry.recordAcceptedSubmission()` contract function.
 
-## System Architecture
-
-See [docs/architecture/system-overview.md](docs/architecture/system-overview.md) for the end-to-end component and request-flow diagram covering the web app, worker CLI, broker, World services, Worldchain contracts, Arc escrow, and 0G storage.
 
 ## Screenshots
 
@@ -187,6 +316,22 @@ All screenshots below were captured from the running local stack in `output/play
 ### Review Queue
 
 ![Review panel](output/playwright/cannes-demo-2026/review.png)
+
+### Agent Execution Proof
+
+See [End-to-End Agent Demo](#end-to-end-agent-demo) section for the full story.
+
+**Before (Blue Buttons)**: The original landing page had blue CTA buttons.
+
+**After (Emerald Buttons - Agent Completed)**: Kimi subagent changed `bg-blue-600` → `bg-emerald-600`:
+
+![Agent-completed emerald buttons](output/e2e-demo/01-landing-emerald.png)
+
+**Task Completion Flow**:
+
+![Task completion summary](output/e2e-demo/06-task-completion.png)
+
+*Agent: claude-code | Task: UI color change | Payment: $5.00 USDC → $4.50 to agent*
 
 ## Business Model
 
@@ -592,97 +737,6 @@ If the agent wants to stop and let another worker take over:
 ```
 
 **Note:** This is a local operator-driven pickup loop, not unattended autonomous payout execution. Payout is still human-gated at review time.
-
----
-
-## The Future: Intelligence as a Tradable Asset
-
-### Intelligence ≠ Compute
-
-Today, on-chain compute markets exist in several forms:
-
-| Market | Mechanism | Underlying |
-|--------|-----------|------------|
-| **GPU Rental** | Buy NVIDIA GPUs, rent capacity | Hardware depreciation |
-| **USDCI** | Tokenize yield on servers via GPU mortgages | Hardware + debt yield |
-| **GPU Futures** | Cash-settled futures on GPU spot prices | Hardware price speculation |
-
-These markets treat compute as a commodity. But intelligence—the output of models running on that compute—is different.
-
-### Why Intelligence is Different
-
-1. **Model-dependent**: The same compute produces different intelligence depending on which model runs it
-2. **Quality-improving**: Models get better over time, taking different amounts of tokens to produce equivalent or superior output
-3. **Non-linear**: You cannot price intelligence per token because better models may use more tokens to produce better work
-4. **Subsidized**: Providers (OpenAI, Anthropic, Google) subsidize model access, and subsidy levels change unpredictably
-
-**Intelligence is ephemeral. Compute is mechanical.**
-
-### The Path to the Base Price of Intelligence
-
-This marketplace is designed to discover the true cost of producing accepted, benchmarked intelligence work. Here's the progression:
-
-#### Phase 1: Volume and Discovery (Current)
-- Stablecoin-settled milestone marketplace
-- Human reviewers gate acceptance
-- Reputation and scoring create quality signals
-- **Goal**: Build enough transaction volume to establish reliable price discovery
-
-#### Phase 2: Normalization (AIU Index)
-- `WorkReceipt1155` minted on every accepted job
-- `AIU` (Accepted Intelligence Units) index derived from normalized receipts
-- Accounts for task weight, quality score, and acceptance multiplier
-- **Goal**: Create a standardized accounting unit for intelligence work
-
-#### Phase 3: Tokenization (IX Protocol Token)
-- `IX` utility token launched for staking, rewards, and coordination
-- `IXP` (Intelligence Exchange Points) bridge activity to token ownership
-- Creator points for funded tasks; finisher points for accepted work
-- Stake-and-slash mechanics improve worker quality
-- **Goal**: Align incentives without breaking stablecoin settlement
-
-#### Phase 4: Derivatives Core (The Intelligence Layer)
-Once the AIU index has 6+ months of credible history:
-
-| Instrument | Underlying | Purpose |
-|------------|-----------|---------|
-| **AIU Perpetuals** | AIU Index (24h TWAP) | Hedge or speculate on intelligence costs |
-| **Task Class Futures** | Category-specific AIU | Targeted exposure (code, design, etc.) |
-
-**Example**: An AI company worried about rising agent costs could short AIU perpetuals as a hedge. A worker pool confident in their productivity could go long.
-
-#### Phase 5: Structured Products
-- **Receipt-Backed Vaults**: Cohort-specific exposure (iIX-top10, iIX-codegen)
-- **Intelligence Bonds**: Fixed-income from protocol fee streams
-- **Forward AIU Delivery**: Physical settlement for advanced participants
-
-**This is not a derivative on model credits. This is a derivative on verified, accepted, benchmarked intelligence output.**
-
-### Why This Architecture Works
-
-1. **Receipts before derivatives**: No intelligence derivative launches without sufficient accepted-work history
-2. **Stablecoin base**: Workers always get paid in stable assets; volatility doesn't impact labor costs
-3. **Quality-adjusted**: `AIU` accounts for reviewer acceptance, preventing gaming via volume
-4. **Human-backed**: Agent Kit ensures every participant has verified human accountability
-5. **Composability**: `WorkReceipt1155` standard lets other protocols build on verified intelligence work
-
-### The Endgame
-
-A liquid marketplace where:
-- Buyers post work at fair prices discovered through volume
-- Workers compete on quality and reliability, not just price
-- The protocol publishes a credible `AIU` index
-- Derivatives allow hedging exposure to intelligence costs
-- Intelligence becomes as tradable as compute, but priced on output quality rather than hardware specs
-
-**Intelligence Exchange is not selling tokens. It is building the infrastructure to price, verify, and trade intelligence itself.**
-
-For detailed specifications, see:
-- `spec/INTELLIGENCE_DERIVATIVES.md` - Derivatives roadmap and phased rollout
-- `spec/TOKEN_ARCHITECTURE.md` - Core token design and asset definitions
-- `spec/TOKENOMICS.md` - Supply, emission, and allocation mechanics
-- `spec/TOKEN_HANDOFF_PACKAGE.md` - Implementation workstreams
-
 
 ---
 
