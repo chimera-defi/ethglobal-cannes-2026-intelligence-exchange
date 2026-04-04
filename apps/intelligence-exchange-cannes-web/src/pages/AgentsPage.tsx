@@ -301,7 +301,11 @@ export function AgentsPage() {
                   )}
                   {!isWorkerVerified && (
                     demoMode ? (
-                      <Button variant="outline" onClick={() => void handleWorkerVerify()}>
+                      <Button
+                        variant="outline"
+                        onClick={() => void handleWorkerVerify()}
+                        disabled={!session}
+                      >
                         <ShieldCheck className="h-4 w-4" />
                         Demo worker verify
                       </Button>
