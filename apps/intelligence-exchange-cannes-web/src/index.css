@@ -4,25 +4,25 @@
 
 @layer base {
   :root {
-    --background: 224 71% 4%;
-    --foreground: 213 31% 91%;
-    --card: 224 71% 6%;
-    --card-foreground: 213 31% 91%;
-    --popover: 224 71% 4%;
-    --popover-foreground: 213 31% 91%;
-    --primary: 221 83% 53%;
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 47.4% 11.2%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 221.2 83.2% 53.3%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 215 28% 17%;
-    --secondary-foreground: 213 31% 91%;
-    --muted: 215 28% 17%;
-    --muted-foreground: 215 20% 55%;
-    --accent: 215 28% 17%;
-    --accent-foreground: 213 31% 91%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
     --destructive: 0 63% 31%;
-    --destructive-foreground: 213 31% 91%;
-    --border: 215 28% 17%;
-    --input: 215 28% 17%;
-    --ring: 221 83% 53%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 221.2 83.2% 53.3%;
     --radius: 0.75rem;
     --review: 271 91% 65%;
     --review-foreground: 0 0% 100%;
@@ -34,7 +34,7 @@
     border-color: hsl(var(--border));
   }
   body {
-    @apply bg-gray-950 text-gray-100 font-sans;
+    @apply bg-background text-foreground font-sans;
   }
 }
 
@@ -45,7 +45,7 @@
 
 /* Cards */
 .card {
-  @apply bg-gray-900 border border-gray-800 rounded-xl p-6;
+  @apply bg-slate-900/40 backdrop-blur-md border border-slate-800 rounded-xl p-6;
 }
 
 /* Inputs */
@@ -58,15 +58,16 @@
   @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
 }
 
-.badge-queued { @apply badge bg-yellow-900 text-yellow-200; }
-.badge-claimed { @apply badge bg-blue-900 text-blue-200; }
-.badge-submitted { @apply badge bg-purple-900 text-purple-200; }
-.badge-accepted { @apply badge bg-green-900 text-green-200; }
+.badge-queued { @apply badge bg-emerald-950 text-emerald-400; }
+.badge-claimed { @apply badge bg-blue-950 text-blue-400; }
+.badge-submitted { @apply badge bg-blue-900 text-blue-300; }
+.badge-accepted { @apply badge bg-slate-800 text-slate-300; }
 .badge-rejected, .badge-rework { @apply badge bg-red-900 text-red-200; }
-.badge-funded { @apply badge bg-emerald-900 text-emerald-200; }
+.badge-funded { @apply badge bg-slate-800 text-slate-300; }
 .badge-unfunded { @apply badge bg-gray-800 text-gray-400; }
 .badge-created { @apply badge bg-gray-800 text-gray-300; }
-.badge-settled { @apply badge bg-teal-900 text-teal-200; }
+.badge-settled { @apply badge bg-slate-800 text-slate-300; }
+.badge-warning { @apply badge bg-amber-950 text-amber-400; }
 
 /* Loading spinner - CSS animation, not emoji */
 .spinner {

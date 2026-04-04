@@ -61,7 +61,7 @@ function StatusRow({
   ready: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 border-b border-gray-800 py-3 last:border-b-0">
+    <div className="flex items-center justify-between gap-4 border-b border-slate-800 py-3 last:border-b-0">
       <div>
         <p className="text-sm font-medium text-white">{label}</p>
         <p className="text-xs text-gray-500">{value}</p>
@@ -329,21 +329,21 @@ export function AgentsPage() {
         </div>
 
         <div className="grid gap-3 md:grid-cols-3">
-          <div className="rounded-2xl border border-gray-800 bg-gray-950/70 p-4">
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/40 backdrop-blur-sm p-4">
             <p className="text-xs uppercase tracking-[0.24em] text-gray-500">Selected Agent</p>
             <p className="mt-3 text-lg font-semibold text-white">{selectedAgentLabel}</p>
             <p className="mt-1 text-xs text-gray-500">
               The fingerprint is derived from agent type, agent version, and this wallet.
             </p>
           </div>
-          <div className="rounded-2xl border border-gray-800 bg-gray-950/70 p-4">
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/40 backdrop-blur-sm p-4">
             <p className="text-xs uppercase tracking-[0.24em] text-gray-500">Fingerprint</p>
             <p className="mt-3 text-lg font-semibold text-white">{shortHex(agentFingerprint, 14, 10)}</p>
             <p className="mt-1 text-xs text-gray-500">
               Keep the same identity in the CLI so accepted work lands on the correct token.
             </p>
           </div>
-          <div className="rounded-2xl border border-gray-800 bg-gray-950/70 p-4">
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/40 backdrop-blur-sm p-4">
             <p className="text-xs uppercase tracking-[0.24em] text-gray-500">Reputation</p>
             <p className="mt-3 text-lg font-semibold text-white">
               {registryRegistered
@@ -355,7 +355,7 @@ export function AgentsPage() {
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-          <Card className="border-gray-800 bg-gray-900/50">
+          <Card className="border-slate-800 bg-slate-900/40">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-white">
                 <Bot className="h-5 w-5 text-blue-400" />
@@ -367,7 +367,7 @@ export function AgentsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
-              <div className="space-y-3 rounded-xl border border-gray-800 bg-gray-950/70 p-4">
+              <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-900/40 backdrop-blur-sm p-4">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="text-sm font-semibold text-white">1. Choose the worker identity</p>
@@ -411,7 +411,7 @@ export function AgentsPage() {
                 </p>
               </div>
 
-              <div className="space-y-3 rounded-xl border border-gray-800 bg-gray-950/70 p-4">
+              <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-900/40 backdrop-blur-sm p-4">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="text-sm font-semibold text-white">2. Complete worker setup in-browser</p>
@@ -425,14 +425,14 @@ export function AgentsPage() {
                     {setupReady ? 'Ready' : 'Required'}
                   </Badge>
                 </div>
-                <pre className="overflow-x-auto rounded-lg border border-gray-800 bg-black/40 p-3 text-xs text-gray-200">
+                <pre className="overflow-x-auto rounded-lg border border-slate-800 bg-black/40 p-3 text-xs text-gray-200">
 {`Wallet session: ${session ? 'active' : 'missing'}
 Worker verification: ${isWorkerVerified ? 'verified' : 'pending'}
 Authorization: ${workerAuthorization ? `${workerAuthorization.agentType} ${workerAuthorization.agentVersion ?? DEFAULT_AGENT_PROFILE.agentVersion}` : 'not created'}
 IdentityGate: ${worldchainRoleSynced ? 'synced on Worldchain' : 'not synced yet'}`}
                 </pre>
                 <div className="flex flex-wrap gap-2">
-                  {demoMode ? (
+                  {(demoMode || !integrations) ? (
                     <Button
                       onClick={() => void handleSetupClick()}
                       disabled={!isConnected || isCompletingSetup || isSigningIn}
@@ -476,7 +476,7 @@ IdentityGate: ${worldchainRoleSynced ? 'synced on Worldchain' : 'not synced yet'
                 </div>
               </div>
 
-              <div className="space-y-3 rounded-xl border border-gray-800 bg-gray-950/70 p-4">
+              <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-900/40 backdrop-blur-sm p-4">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="text-sm font-semibold text-white">3. Register in AgentBook</p>
@@ -490,7 +490,7 @@ IdentityGate: ${worldchainRoleSynced ? 'synced on Worldchain' : 'not synced yet'
                     {agentBookRegistered ? 'Registered' : 'External step'}
                   </Badge>
                 </div>
-                <pre className="overflow-x-auto rounded-lg border border-gray-800 bg-black/40 p-3 text-xs text-gray-200">
+                <pre className="overflow-x-auto rounded-lg border border-slate-800 bg-black/40 p-3 text-xs text-gray-200">
 {agentKitStatus?.registrationCommand ?? (address ? `npx @worldcoin/agentkit-cli register ${address}` : 'Connect a wallet to generate the command')}
                 </pre>
                 <div className="flex flex-wrap gap-2">
@@ -520,7 +520,7 @@ IdentityGate: ${worldchainRoleSynced ? 'synced on Worldchain' : 'not synced yet'
                 </div>
               </div>
 
-              <div className="space-y-3 rounded-xl border border-gray-800 bg-gray-950/70 p-4">
+              <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-900/40 backdrop-blur-sm p-4">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="text-sm font-semibold text-white">4. Mint the IEX worker token</p>
@@ -551,7 +551,7 @@ IdentityGate: ${worldchainRoleSynced ? 'synced on Worldchain' : 'not synced yet'
           </Card>
 
           <div className="space-y-6">
-            <Card className="border-gray-800 bg-gray-900/50">
+            <Card className="border-slate-800 bg-slate-900/40">
               <CardHeader>
                 <CardTitle className="text-white">Status</CardTitle>
                 <CardDescription>
@@ -607,7 +607,7 @@ IdentityGate: ${worldchainRoleSynced ? 'synced on Worldchain' : 'not synced yet'
               </CardContent>
             </Card>
 
-            <Card className="border-gray-800 bg-gray-900/50">
+            <Card className="border-slate-800 bg-slate-900/40">
               <CardHeader>
                 <CardTitle className="text-white">Protected Agent Routes</CardTitle>
                 <CardDescription>
@@ -616,7 +616,7 @@ IdentityGate: ${worldchainRoleSynced ? 'synced on Worldchain' : 'not synced yet'
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                <pre className="overflow-x-auto rounded-lg border border-gray-800 bg-black/40 p-3 text-xs text-gray-200">
+                <pre className="overflow-x-auto rounded-lg border border-slate-800 bg-black/40 p-3 text-xs text-gray-200">
 {`./apps/intelligence-exchange-cannes-worker/dist/iex-bridge agentkit-status
 ./apps/intelligence-exchange-cannes-worker/dist/iex-bridge list --status queued --agentkit
 ./apps/intelligence-exchange-cannes-worker/dist/iex-bridge status --job-id <job-id> --agentkit
@@ -633,7 +633,7 @@ IdentityGate: ${worldchainRoleSynced ? 'synced on Worldchain' : 'not synced yet'
           </div>
         </div>
 
-        <Card className="border-gray-800 bg-gray-900/50">
+        <Card className="border-slate-800 bg-slate-900/40">
           <CardHeader>
             <CardTitle className="text-white">Worldchain Wiring</CardTitle>
             <CardDescription>
@@ -642,11 +642,11 @@ IdentityGate: ${worldchainRoleSynced ? 'synced on Worldchain' : 'not synced yet'
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3 md:grid-cols-2">
-            <div className="rounded-xl border border-gray-800 bg-gray-950/70 p-4">
+            <div className="rounded-xl border border-slate-800 bg-slate-900/40 backdrop-blur-sm p-4">
               <p className="text-sm font-semibold text-white">AgentBook</p>
               <p className="mt-1 text-xs text-gray-500">{shortHex(agentKitStatus?.agentBookContractAddress ?? integrations?.worldchain.agentBookContractAddress, 14, 10)}</p>
             </div>
-            <div className="rounded-xl border border-gray-800 bg-gray-950/70 p-4">
+            <div className="rounded-xl border border-slate-800 bg-slate-900/40 backdrop-blur-sm p-4">
               <p className="text-sm font-semibold text-white">Registry</p>
               <p className="mt-1 text-xs text-gray-500">{shortHex(integrations?.worldchain.agentRegistryAddress, 14, 10)}</p>
             </div>

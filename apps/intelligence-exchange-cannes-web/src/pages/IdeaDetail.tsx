@@ -62,7 +62,7 @@ function ChainSyncRow({ label, txHash, synced, icon }: SyncRowProps) {
       <div
         className={cn(
           'w-8 h-8 rounded-full flex items-center justify-center shrink-0',
-          synced ? 'bg-green-900/60' : 'bg-gray-800'
+          synced ? 'bg-green-900/60' : 'bg-slate-800'
         )}
       >
         {icon}
@@ -124,8 +124,8 @@ function MilestoneRow({
 }) {
   if (!job) {
     return (
-      <div className="flex items-center gap-4 p-3 rounded-lg bg-gray-800/30 opacity-40">
-        <div className="w-7 h-7 rounded-full bg-gray-800 flex items-center justify-center text-xs text-gray-500 font-bold shrink-0">
+      <div className="flex items-center gap-4 p-3 rounded-lg bg-slate-800/30 opacity-40">
+        <div className="w-7 h-7 rounded-full bg-slate-800 flex items-center justify-center text-xs text-gray-500 font-bold shrink-0">
           {index}
         </div>
         <div className="flex-1">
@@ -150,7 +150,7 @@ function MilestoneRow({
         isActive && 'bg-blue-900/20 border border-blue-900/40',
         job.status === 'accepted' && 'bg-green-900/10 border border-green-900/30',
         isSettled && 'bg-teal-900/10 border border-teal-900/30',
-        !isActive && !['accepted', 'settled'].includes(job.status) && 'bg-gray-800/30'
+        !isActive && !['accepted', 'settled'].includes(job.status) && 'bg-slate-800/30'
       )}
     >
       {/* Step indicator */}
@@ -161,9 +161,9 @@ function MilestoneRow({
           job.status === 'accepted' && 'bg-green-700 text-white',
           job.status === 'submitted' && 'bg-purple-700 text-white',
           isActive && 'bg-blue-700 text-white',
-          isCreated && 'bg-gray-700 text-gray-400',
+          isCreated && 'bg-slate-700 text-gray-400',
           job.status === 'queued' && 'bg-yellow-900 text-yellow-300',
-          !['settled', 'accepted', 'submitted', 'claimed', 'running', 'created', 'queued'].includes(job.status) && 'bg-gray-700 text-gray-300'
+          !['settled', 'accepted', 'submitted', 'claimed', 'running', 'created', 'queued'].includes(job.status) && 'bg-slate-700 text-gray-300'
         )}
       >
         {['accepted', 'settled'].includes(job.status) ? (
@@ -218,7 +218,7 @@ function MilestoneRow({
                   'h-1 rounded-full flex-1',
                   i < statusIdx && 'bg-green-600',
                   i === statusIdx && 'bg-blue-500',
-                  i > statusIdx && 'bg-gray-700'
+                  i > statusIdx && 'bg-slate-700'
                 )}
                 title={s}
               />
@@ -252,7 +252,7 @@ export function IdeaDetail() {
 
   if (!ideaId) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="max-w-lg w-full text-center">
           <CardContent className="pt-8 pb-8 space-y-4">
             <AlertCircle className="w-10 h-10 text-yellow-400 mx-auto" />
@@ -266,7 +266,7 @@ export function IdeaDetail() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="text-center space-y-3">
           <Loader2 className="animate-spin w-8 h-8 text-blue-400 mx-auto" />
           <p className="text-gray-400 text-sm">Loading idea…</p>
@@ -277,7 +277,7 @@ export function IdeaDetail() {
 
   if (error || !data) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="max-w-lg w-full text-center">
           <CardContent className="pt-8 pb-8 space-y-4">
             <XCircle className="w-10 h-10 text-red-400 mx-auto" />
@@ -317,7 +317,7 @@ export function IdeaDetail() {
   }));
 
   return (
-    <div className="min-h-screen bg-gray-950 py-8 px-4">
+    <div className="min-h-screen bg-background py-8 px-4">
       <div className="max-w-3xl mx-auto space-y-6">
 
         {/* Header */}
@@ -385,7 +385,7 @@ export function IdeaDetail() {
               On-chain State
             </CardTitle>
           </CardHeader>
-          <CardContent className="divide-y divide-gray-800">
+          <CardContent className="divide-y divide-slate-800">
             <ChainSyncRow
               label="Escrow funded"
               txHash={idea.escrowTxHash}
@@ -482,7 +482,7 @@ export function IdeaDetail() {
             {/* Progress bar */}
             {totalCount > 0 && (
               <div className="space-y-1">
-                <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-green-600 rounded-full transition-all duration-500"
                     style={{ width: `${progressPct}%` }}

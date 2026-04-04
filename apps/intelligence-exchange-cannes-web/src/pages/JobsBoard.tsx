@@ -981,15 +981,21 @@ function MilestoneTaskRow({
     ? (milestone.status as 'queued' | 'claimed' | 'submitted' | 'accepted' | 'rejected' | 'rework' | 'settled' | 'created')
     : 'default' as const;
 
+  const leftBorderColor =
+    ownershipLabel ? 'border-l-emerald-500' :
+    milestone.status === 'queued' ? 'border-l-emerald-500' :
+    ['claimed', 'submitted'].includes(milestone.status) ? 'border-l-blue-500' :
+    ['accepted', 'settled', 'funded'].includes(milestone.status) ? 'border-l-slate-400' :
+    ['rework', 'rejected'].includes(milestone.status) ? 'border-l-red-500' :
+    'border-l-slate-700';
+
   return (
     <div
       className={cn(
-        'rounded-xl border bg-gray-950/60 p-4',
-        ownershipLabel
-          ? 'border-emerald-700/50 bg-emerald-950/10'
-          : isMatchingTab
-          ? 'border-blue-800/70'
-          : 'border-gray-800'
+        'rounded-xl border border-slate-800 border-l-2 bg-slate-900/40 backdrop-blur-sm p-4',
+        leftBorderColor,
+        ownershipLabel && 'border-emerald-700/50',
+        isMatchingTab && !ownershipLabel && 'border-blue-800/70'
       )}
     >
       <div className="flex flex-col gap-4 md:flex-row md:items-start">
@@ -1242,6 +1248,8 @@ export function JobsBoard() {
   const { isConnected, address, session, isWorkerVerified, signIn } = useSession();
 
   const [activeTab, setActiveTab] = useState<StatusTab>('queued');
+  const [filterStatuses, setFilterStatuses] = useState<Set<string>>(new Set());
+  const [budgetMax, setBudgetMax] = useState<number>(500);
   const [claimingJob, setClaimingJob] = useState<JobBoardMilestone | null>(null);
   const [claimResult, setClaimResult] = useState<{
     claimId: string;
@@ -1438,7 +1446,15 @@ export function JobsBoard() {
   const myTaskCount = groups
     .flatMap((group) => group.milestones)
     .filter((milestone) => milestone.status === activeTab && getMilestoneOwnership(milestone)).length;
-  const orderedGroups = [...groups].sort((left, right) => {
+  const filteredGroups = groups.filter((group) => {
+    if (filterStatuses.size > 0 && !group.milestones.some((m) => filterStatuses.has(m.status))) {
+      return false;
+    }
+    const groupBudget = group.milestones.reduce((sum, m) => sum + (m.budgetUsdMax ?? 0), 0);
+    if (groupBudget > budgetMax) return false;
+    return true;
+  });
+  const orderedGroups = [...filteredGroups].sort((left, right) => {
     const leftMine = left.milestones.some(
       (milestone) => milestone.status === activeTab && getMilestoneOwnership(milestone),
     );
@@ -1450,7 +1466,45 @@ export function JobsBoard() {
 
   return (
     <div className="page">
-      <div className="max-w-4xl mx-auto space-y-6">
+      <div className="max-w-5xl mx-auto flex gap-6 items-start">
+        {/* Sidebar filters */}
+        <aside className="hidden md:flex flex-col w-56 shrink-0 space-y-5 sticky top-20">
+          <div className="rounded-xl border border-slate-800 bg-slate-900/40 backdrop-blur-md p-4 space-y-4">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Filter by Status</p>
+            {(['queued', 'claimed', 'submitted', 'accepted', 'rework'] as const).map((s) => (
+              <label key={s} className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer capitalize">
+                <input
+                  type="checkbox"
+                  checked={filterStatuses.has(s)}
+                  onChange={(e) => {
+                    const next = new Set(filterStatuses);
+                    if (e.target.checked) next.add(s); else next.delete(s);
+                    setFilterStatuses(next);
+                  }}
+                  className="rounded border-slate-600 bg-slate-800 accent-blue-500"
+                />
+                {s}
+              </label>
+            ))}
+          </div>
+          <div className="rounded-xl border border-slate-800 bg-slate-900/40 backdrop-blur-md p-4 space-y-3">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Max Budget</p>
+            <div className="space-y-1">
+              <input
+                type="range"
+                min={1}
+                max={1000}
+                value={budgetMax}
+                onChange={(e) => setBudgetMax(Number(e.target.value))}
+                className="w-full accent-blue-500"
+              />
+              <p className="text-xs text-slate-400 text-right">${budgetMax}</p>
+            </div>
+          </div>
+        </aside>
+
+        {/* Main content */}
+        <div className="flex-1 min-w-0 space-y-6">
         {/* Header */}
         <div>
           <h1 className="text-3xl font-bold text-white">Jobs Board</h1>
@@ -1564,7 +1618,7 @@ export function JobsBoard() {
         </Tabs>
 
         {activeTab !== 'queued' && (
-          <Card className="border-gray-800 bg-gray-900/40">
+          <Card className="border-slate-800 bg-slate-900/40">
             <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
               <div className="space-y-1">
                 <p className="text-sm font-medium text-white">
@@ -1655,7 +1709,8 @@ export function JobsBoard() {
             ))}
           </div>
         )}
-      </div>
+        </div>{/* end main content */}
+      </div>{/* end flex container */}
 
       {/* Claim dialog */}
       {claimingJob && address && activeAuthorization && strictClaimReady && (
