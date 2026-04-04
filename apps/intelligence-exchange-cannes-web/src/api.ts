@@ -99,6 +99,14 @@ export function getIdea(ideaId: string) {
 
 // ─── Jobs ──────────────────────────────────────────────────────────────────
 
+export interface SubmissionDetail {
+  submissionId: string;
+  artifactUri: string;
+  summary: string;
+  submittedAt: string;
+  scoreBreakdown?: SubmissionResponse['scoreBreakdown'];
+}
+
 export interface JobResponse {
   job: {
     jobId: string;
@@ -109,6 +117,7 @@ export interface JobResponse {
     leaseExpiry?: string;
     briefId: string;
     ideaId: string;
+    submission?: SubmissionDetail;
   };
 }
 
@@ -130,7 +139,7 @@ export function getJobs(status = 'queued') {
   return get<{ jobs: JobResponse['job'][]; count: number }>(`/jobs?status=${status}`);
 }
 
-// ─── Review ───────────────────────────────────────────────────────���────────
+// ─── Review ───────────────────────────────────────────────────────────────
 
 export function acceptMilestone(ideaId: string, jobId: string, reviewerId: string) {
   return post<{ accepted: boolean }>(`/ideas/${ideaId}/accept`, { jobId, reviewerId });

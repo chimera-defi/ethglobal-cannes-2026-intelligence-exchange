@@ -4,6 +4,14 @@ import { createIdea, fundIdea, planIdea } from '../api';
 
 type Step = 'form' | 'world-verify' | 'fund' | 'funding' | 'planning' | 'done' | 'error';
 
+const STEP_LABELS: Record<string, string> = {
+  'form': 'Details',
+  'world-verify': 'Identity',
+  'fund': 'Fund',
+  'funding': 'Processing',
+  'planning': 'Planning',
+};
+
 export function IdeaSubmission() {
   const navigate = useNavigate();
   const [step, setStep] = useState<Step>('form');
@@ -17,12 +25,10 @@ export function IdeaSubmission() {
     taskType: 'coding' as const,
   });
 
-  // Demo: simulate World ID verification (in production, use @worldcoin/idkit-core)
   const [worldVerified, setWorldVerified] = useState(false);
   const [nullifierHash, setNullifierHash] = useState<string | null>(null);
 
   async function handleWorldVerify() {
-    // Demo: use a pre-seeded nullifier hash (represents "verified human")
     const demoNullifierHash = '0x' + Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
     setNullifierHash(demoNullifierHash);
     setWorldVerified(true);
@@ -40,7 +46,6 @@ export function IdeaSubmission() {
     try {
       setStep('funding');
 
-      // 1. Create idea in broker
       const idea = await createIdea({
         buyerId: 'demo-poster',
         taskType: form.taskType,
@@ -57,12 +62,9 @@ export function IdeaSubmission() {
 
       setIdeaId(idea.ideaId);
 
-      // 2. Simulate Arc escrow funding (in production: use wagmi to call fundIdea())
-      // For demo: record a simulated tx hash
       const demoTxHash = '0x' + Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
       await fundIdea(idea.ideaId, demoTxHash, form.budgetUsdMax);
 
-      // 3. Generate brief (milestones + jobs)
       setStep('planning');
       await planIdea(idea.ideaId);
 
@@ -118,6 +120,9 @@ export function IdeaSubmission() {
     );
   }
 
+  const STEPS: Step[] = ['form', 'world-verify', 'fund', 'funding', 'planning'];
+  const currentStepIndex = STEPS.indexOf(step as Step);
+
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
       <div className="card max-w-2xl w-full space-y-6">
@@ -128,24 +133,20 @@ export function IdeaSubmission() {
         </div>
 
         {/* Progress steps */}
-        <div className="flex items-center gap-2 text-sm">
-          {(['form', 'world-verify', 'fund', 'funding', 'planning'] as Step[]).map((s, i) => (
-            <div key={s} className="flex items-center gap-2">
-              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                step === s ? 'bg-blue-600 text-white' :
-                ['fund', 'funding', 'planning', 'done'].includes(step) && i < 3 ? 'bg-green-700 text-white' :
-                'bg-gray-800 text-gray-500'
-              }`}>{i + 1}</div>
-              {i < 4 && <div className="w-8 h-px bg-gray-700" />}
+        <div className="flex items-start gap-1">
+          {STEPS.map((s, i) => (
+            <div key={s} className="flex items-center gap-1 flex-1">
+              <div className="flex flex-col items-center gap-1 flex-1">
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
+                  step === s ? 'bg-blue-600 text-white' :
+                  currentStepIndex > i ? 'bg-green-700 text-white' :
+                  'bg-gray-800 text-gray-500'
+                }`}>{currentStepIndex > i ? '✓' : i + 1}</div>
+                <span className="text-xs text-gray-500 text-center leading-tight">{STEP_LABELS[s]}</span>
+              </div>
+              {i < STEPS.length - 1 && <div className="w-full h-px bg-gray-700 mt-3.5 mx-1" />}
             </div>
           ))}
-          <span className="text-gray-500 ml-2 text-xs">
-            {step === 'form' ? 'Fill in details' :
-             step === 'world-verify' ? 'Verify identity' :
-             step === 'fund' ? 'Fund with Arc' :
-             step === 'funding' ? 'Processing...' :
-             step === 'planning' ? 'Generating brief...' : ''}
-          </span>
         </div>
 
         {/* Step: Form */}
@@ -199,8 +200,8 @@ export function IdeaSubmission() {
                 />
               </div>
             </div>
-            <div className="bg-gray-800/50 rounded-lg p-4 text-sm text-gray-400">
-              <p className="font-medium text-gray-300 mb-1">How it works:</p>
+            <div className="bg-gray-800/40 border border-gray-700 rounded-xl p-4 text-sm text-gray-400">
+              <p className="font-medium text-gray-300 mb-2">How it works:</p>
               <ol className="list-decimal list-inside space-y-1">
                 <li>Verify your identity with World ID (once)</li>
                 <li>Fund your idea with Arc USDC escrow</li>
@@ -217,7 +218,7 @@ export function IdeaSubmission() {
         {/* Step: World ID Verify */}
         {step === 'world-verify' && (
           <div className="space-y-6 text-center">
-            <div className="bg-gray-800/50 rounded-xl p-6 space-y-4">
+            <div className="bg-gray-800/40 border border-gray-700 rounded-xl p-6 space-y-4">
               <div className="text-4xl">🌍</div>
               <h2 className="text-xl font-bold">Verify with World ID</h2>
               <p className="text-gray-400 text-sm">
@@ -229,7 +230,6 @@ export function IdeaSubmission() {
                 <p className="text-white font-semibold mt-1">{form.title}</p>
                 <p className="text-gray-400 text-xs mt-1">Budget: ${form.budgetUsdMax} USDC</p>
               </div>
-              {/* In production: IDKit component. For demo: button simulates verification. */}
               <button className="btn-primary w-full" onClick={handleWorldVerify}>
                 Verify with World ID (Demo Mode)
               </button>
@@ -247,7 +247,7 @@ export function IdeaSubmission() {
               <span>✓</span>
               <span>Identity verified via World ID</span>
             </div>
-            <div className="bg-gray-800/50 rounded-xl p-6 space-y-4">
+            <div className="bg-gray-800/40 border border-gray-700 rounded-xl p-6 space-y-4">
               <h2 className="text-xl font-bold">Fund Your Idea with Arc</h2>
               <div className="space-y-3">
                 <div className="flex justify-between text-sm">
@@ -271,7 +271,6 @@ export function IdeaSubmission() {
                 Funds are held in Arc USDC escrow. Released only after you approve each milestone.
                 No autonomous payouts — you stay in control.
               </p>
-              {/* In production: wagmi ConnectButton + call IdeaEscrow.fundIdea() */}
               <button className="btn-primary w-full text-base py-3" onClick={handleFund}>
                 Fund ${form.budgetUsdMax} USDC via Arc Escrow (Demo)
               </button>
@@ -282,8 +281,8 @@ export function IdeaSubmission() {
         {/* Step: Funding in progress */}
         {step === 'funding' && (
           <div className="text-center space-y-4 py-8">
-            <div className="animate-spin text-4xl">⚙️</div>
-            <h2 className="text-xl font-semibold">Funding in progress...</h2>
+            <div className="spinner" />
+            <h2 className="text-xl font-semibold mt-4">Funding in progress...</h2>
             <p className="text-gray-400 text-sm">Submitting to Arc escrow. This usually takes 10–30 seconds on testnet.</p>
           </div>
         )}
@@ -291,8 +290,8 @@ export function IdeaSubmission() {
         {/* Step: Planning */}
         {step === 'planning' && (
           <div className="text-center space-y-4 py-8">
-            <div className="animate-pulse text-4xl">🤔</div>
-            <h2 className="text-xl font-semibold">Generating BuildBrief...</h2>
+            <div className="spinner" />
+            <h2 className="text-xl font-semibold mt-4">Generating BuildBrief...</h2>
             <p className="text-gray-400 text-sm">Breaking your idea into milestones: brief → tasks → scaffold → review</p>
           </div>
         )}
