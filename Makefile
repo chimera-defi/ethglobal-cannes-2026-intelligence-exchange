@@ -1,6 +1,16 @@
 # Intelligence Exchange - Development Commands
 # Usage: make <command>
 
+POSTGRES_PORT ?= 5432
+REDIS_PORT ?= 6379
+BROKER_PORT ?= 3001
+WEB_PORT ?= 3000
+DATABASE_URL ?= postgres://iex:iex@localhost:$(POSTGRES_PORT)/iex_cannes
+REDIS_URL ?= redis://localhost:$(REDIS_PORT)
+BROKER_URL ?= http://localhost:$(BROKER_PORT)
+VITE_DEV_PROXY_TARGET ?= $(BROKER_URL)
+COMPOSE ?= ./scripts/tooling/docker-compose.sh
+
 .PHONY: help install setup dev dev-broker dev-web seed stop clean test validate
 
 # Default command
@@ -42,49 +52,38 @@ setup: install
 
 # Infrastructure
 infra-up:
-	docker compose up -d
+	POSTGRES_PORT=$(POSTGRES_PORT) REDIS_PORT=$(REDIS_PORT) $(COMPOSE) up -d
 	@echo "Waiting for Postgres and Redis to be ready..."
 	@sleep 3
 	@echo "Infrastructure ready!"
 
 infra-down:
-	docker compose down
+	POSTGRES_PORT=$(POSTGRES_PORT) REDIS_PORT=$(REDIS_PORT) $(COMPOSE) down
 
 infra-reset:
-	docker compose down -v
-	docker compose up -d
+	POSTGRES_PORT=$(POSTGRES_PORT) REDIS_PORT=$(REDIS_PORT) $(COMPOSE) down -v
+	POSTGRES_PORT=$(POSTGRES_PORT) REDIS_PORT=$(REDIS_PORT) $(COMPOSE) up -d
 	@echo "Infrastructure reset (data wiped)"
 
 # Development - Full stack
-dev: infra-up
-	@echo "Starting Intelligence Exchange full stack..."
-	@echo "This will start: Broker (port 3001), Web (port 3000)"
-	@echo ""
-	@(trap 'kill %1 %2' INT; \
-		DATABASE_URL=postgres://iex:iex@localhost:5432/iex_cannes \
-		REDIS_URL=redis://localhost:6379 \
-		corepack pnpm --filter intelligence-exchange-cannes-broker dev & \
-		sleep 5 && \
-		$(MAKE) seed && \
-		corepack pnpm --filter intelligence-exchange-cannes-web dev & \
-		wait)
+dev:
+	@./scripts/dev-start.sh
 
 # Development - Individual services
 dev-broker: infra-up
-	@echo "Starting broker on http://localhost:3001"
-	@DATABASE_URL=postgres://iex:iex@localhost:5432/iex_cannes \
-	REDIS_URL=redis://localhost:6379 \
+	@echo "Starting broker on $(BROKER_URL)"
+	@PORT=$(BROKER_PORT) DATABASE_URL=$(DATABASE_URL) REDIS_URL=$(REDIS_URL) BROKER_URL=$(BROKER_URL) \
 	corepack pnpm --filter intelligence-exchange-cannes-broker dev
 
 dev-web:
-	@echo "Starting web on http://localhost:3000"
-	@corepack pnpm --filter intelligence-exchange-cannes-web dev
+	@echo "Starting web on http://localhost:$(WEB_PORT)"
+	@BROKER_URL=$(BROKER_URL) VITE_DEV_PROXY_TARGET=$(VITE_DEV_PROXY_TARGET) \
+	corepack pnpm --filter intelligence-exchange-cannes-web exec vite --host 127.0.0.1 --port $(WEB_PORT)
 
 # Database
 seed:
 	@echo "Seeding database..."
-	@DATABASE_URL=postgres://iex:iex@localhost:5432/iex_cannes \
-	REDIS_URL=redis://localhost:6379 \
+	@DATABASE_URL=$(DATABASE_URL) REDIS_URL=$(REDIS_URL) BROKER_URL=$(BROKER_URL) \
 	corepack pnpm --filter intelligence-exchange-cannes-broker seed
 	@echo "Database seeded!"
 
@@ -97,8 +96,7 @@ test:
 
 test-acceptance: infra-up
 	@echo "Running acceptance tests..."
-	@DATABASE_URL=postgres://iex:iex@localhost:5432/iex_cannes \
-	REDIS_URL=redis://localhost:6379 \
+	@DATABASE_URL=$(DATABASE_URL) REDIS_URL=$(REDIS_URL) BROKER_URL=$(BROKER_URL) \
 	corepack pnpm test:acceptance
 
 validate: infra-up
