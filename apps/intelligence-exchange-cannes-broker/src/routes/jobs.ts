@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { desc, eq } from 'drizzle-orm';
 import { db } from '../db/client';
-import { agentSpendEvents, briefs, jobs, milestones, submissions } from '../db/schema';
+import { acceptedAttestations, agentSpendEvents, briefs, ideas, jobs, milestones, submissions } from '../db/schema';
 import { claimJob, recordSpendEvent, submitJob } from '../services/jobService';
 import {
   JobClaimRequestSchema,
@@ -14,6 +14,7 @@ import {
 import { MILESTONE_ORDER } from 'intelligence-exchange-cannes-shared';
 import { getSessionAccountAddress, requireAgentAuthorization, requireWorldRole } from '../services/accessService';
 import { consumeChallenge } from '../services/authService';
+import { hydrateAcceptedSubmissionAttestation } from '../services/chainService';
 import { computeAgentFingerprint, normalizeAccountAddress } from '../services/identityService';
 import { httpError } from '../services/errors';
 import { getWorldConfig } from '../services/sponsorConfig';
@@ -68,6 +69,7 @@ jobsRouter.get('/:jobId', async (c) => {
   const { jobId } = c.req.param();
   const [job] = await db.select().from(jobs).where(eq(jobs.jobId, jobId));
   if (!job) return c.json({ error: { code: 'NOT_FOUND', message: 'Job not found' } }, 404);
+  const [idea] = await db.select({ posterId: ideas.posterId }).from(ideas).where(eq(ideas.ideaId, job.ideaId));
 
   const spendEvents = await db.select().from(agentSpendEvents)
     .where(eq(agentSpendEvents.jobId, jobId))
@@ -75,8 +77,21 @@ jobsRouter.get('/:jobId', async (c) => {
   const latestSubmission = (await db.select().from(submissions)
     .where(eq(submissions.jobId, jobId))
     .orderBy(desc(submissions.submittedAt)))[0] ?? null;
+  const latestAttestationRecord = (await db.select().from(acceptedAttestations)
+    .where(eq(acceptedAttestations.jobId, jobId))
+    .orderBy(desc(acceptedAttestations.createdAt)))[0] ?? null;
 
-  return c.json({ job, spendEvents, latestSubmission });
+  return c.json({
+    job: {
+      ...job,
+      posterId: idea?.posterId ?? null,
+    },
+    spendEvents,
+    latestSubmission,
+    latestAttestation: latestAttestationRecord
+      ? hydrateAcceptedSubmissionAttestation(latestAttestationRecord)
+      : null,
+  });
 });
 
 // GET /v1/cannes/jobs/:jobId/skill.md — serve skill.md task file for agents

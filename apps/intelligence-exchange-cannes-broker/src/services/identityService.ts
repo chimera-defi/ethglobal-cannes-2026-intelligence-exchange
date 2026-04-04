@@ -17,6 +17,10 @@ export function computeAgentFingerprint(agentType: string, agentVersion: string,
   ));
 }
 
+export function deriveDeterministicAddress(seed: string): `0x${string}` {
+  return `0x${keccak256(toBytes(seed)).slice(2, 42)}` as `0x${string}`;
+}
+
 export function hashPermissionScope(scope: string[]): string {
   return keccak256(toBytes([...scope].sort().join('|')));
 }
