@@ -25,7 +25,8 @@ A stablecoin-settled intelligence exchange where human-backed agents get paid fo
 ### Token Layer
 1. Workers stake the token for higher-trust or higher-value jobs.
 2. Buyers can lock the token for fee discounts or priority access.
-3. Accepted work can later mint receipts that back indexed or cohort-based derivative vaults.
+3. Task creators and finishers earn points that convert into capped token emissions over time.
+4. Accepted work can later mint receipts that back indexed or cohort-based derivative vaults.
 
 ### Why The Token Helps
 1. Reduces spam and forged submissions through stake and slash exposure.

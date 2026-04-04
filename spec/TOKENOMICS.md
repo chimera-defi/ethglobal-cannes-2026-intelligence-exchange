@@ -8,6 +8,7 @@ It exists to:
 2. unlock buyer fee discounts and access tiers
 3. route rewards to high-quality workers and sticky buyers
 4. anchor later receipt-backed and cohort-backed derivative products
+5. convert creator and finisher points into capped token emissions
 
 It does not replace stablecoin escrow or default worker wages.
 
@@ -64,11 +65,31 @@ Interpretation:
 - the protocol can emit up to the scheduled amount
 - but should not out-emit the amount that its recent fee base can plausibly support
 
+### Points Layer
+`IXP` means Intelligence Exchange Points.
+
+Properties:
+- offchain or app-level ledger entry, not a transferable token
+- awarded to funded task creators and accepted task finishers
+- converted into `IX` at epoch close under the active emission cap
+
+Payout preferences:
+1. `stable_only`
+   - full stablecoin worker payout
+   - standard points accrual
+2. `stable_plus_points`
+   - stablecoin payout remains primary
+   - boosted points for creator and finisher
+3. `points_only`
+   - platform-owned or whitelisted promotional tasks only
+   - rewards paid entirely as points that later convert to `IX`
+
 ### Reward Split Per Epoch
-1. `65%` worker quality rewards
-2. `20%` buyer lock and retention rewards
-3. `10%` insurance/staker rewards
-4. `5%` ecosystem experiments and referral programs
+1. `55%` finisher rewards
+2. `15%` creator rewards
+3. `15%` buyer lock and retention rewards
+4. `10%` insurance/staker rewards
+5. `5%` ecosystem experiments and referral programs
 
 ### Worker Reward Formula
 Stablecoin remains the base payout.
@@ -92,6 +113,39 @@ Default worker compensation guardrail:
 - token rewards should default to no more than `20%`
 - curated premium cohorts can opt into higher token share later, but that is not the default market path
 
+### Creator And Finisher Points Formula
+Suggested accepted-task points calculation:
+
+```text
+task_ixp = accepted_aiu x payout_preference_multiplier
+```
+
+Suggested split:
+
+```text
+creator_ixp = task_ixp x 0.30
+finisher_ixp = task_ixp x 0.70 x reliability_multiplier
+```
+
+Suggested payout preference multipliers:
+1. `stable_only = 1.0`
+2. `stable_plus_points = 1.25`
+3. `points_only = 1.75`
+
+Interpretation:
+- standard jobs still earn points
+- creators are rewarded for bringing funded demand
+- finishers are rewarded more heavily because execution is scarcer
+- points-only campaigns are possible without forcing the whole market into token wages
+
+Epoch conversion rule:
+
+```text
+user_ix = actual_epoch_emission x (user_ixp / total_epoch_ixp)
+```
+
+This is the mechanism that turns creator and finisher activity into eventual token ownership without breaking the emission cap.
+
 ### Buyer Lock Utility
 Suggested buyer tiers:
 1. `Explorer`
@@ -111,7 +165,7 @@ Do not exceed a discount level that destroys stablecoin fee revenue.
 2. Better worker retention
    - upside rewards make reliable operators care about future participation
 3. Better buyer retention
-   - token locks create real switching cost through fee savings and access tiers
+   - token locks and creator points create real switching cost through fee savings and earned upside
 4. Better protocol margins
    - the protocol can reward behavior without replacing its stable settlement base
 5. Better derivative base layer
@@ -132,6 +186,8 @@ Illustrative accepted-job flow:
 
 The key point:
 protocol value should come from fee routing and usage, not from paying workers in a volatile token instead of stable assets.
+
+Platform-owned campaigns can still pay in points-heavy form, but that is a controlled growth tool, not the default third-party marketplace path.
 
 ### Why Not Pure Token Wages
 Pure token wages create the wrong incentives:
@@ -177,6 +233,7 @@ That sequencing is what makes the design believable.
 - no required token wage exposure for the default worker path
 - no derivative pool without replayable receipt inventory
 - no public claim that `IX` price equals "the price of intelligence"
+- no open points-only mode for ordinary third-party buyers without explicit worker opt-in and policy approval
 
 ### Success Metrics
 The token is helping only if it improves:

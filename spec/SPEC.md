@@ -93,6 +93,9 @@ Protocol value layer (phase-gated):
 - `QualityScore` (auto score, reviewer override, final acceptance)
 - `SettlementBatch`
 - `DisputeCase`
+- `PayoutPreference`
+- `RewardPointBalance`
+- `RewardPointAward`
 - `WorkerStakePosition`
 - `ProtocolFeeEvent`
 - `BuyerAccessTier`

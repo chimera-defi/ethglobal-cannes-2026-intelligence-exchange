@@ -14,6 +14,7 @@ The token coordinates trust, access, and upside around that work.
 3. The utility token never represents provider credits or unused subscriptions.
 4. Any derivative layer must be backed by accepted work receipts, fee flows, or benchmarked future delivery obligations.
 5. No derivative goes live before the protocol has measurable receipt inventory and replayable acceptance history.
+6. Third-party buyer tasks default to stable-backed settlement; pure points-only tasks are reserved for platform-owned or explicitly whitelisted campaigns.
 
 ### Core Assets
 - `USDC`-style stable asset
@@ -26,6 +27,9 @@ The token coordinates trust, access, and upside around that work.
   - buyer fee discounts
   - access tiers
   - optional reward routing
+- `IXP` points ledger
+  - non-transferable points awarded to task creators and finishers
+  - converts into `IX` at epoch close under the emission cap
 - `WorkReceipt1155`
   - minted only on accepted work
   - carries milestone id, worker id, task class, score, payout amount, dossier URI, and acceptance timestamp
@@ -57,13 +61,29 @@ The token coordinates trust, access, and upside around that work.
    - computes acceptance state and quality score
 2. `AIU` calculator
    - normalizes accepted work into a common index
-3. Risk engine
+3. `IXP` points ledger
+   - tracks creator and finisher eligibility and epoch conversion
+4. Risk engine
    - decides required stake tier and slash severity
-4. Dossier writer
+5. Dossier writer
    - stores replay bundle and evidence used by reviewers and derivative pools
 
+### Payout Preference Modes
+1. `stable_only`
+   - recommended default
+   - worker receives stablecoin only
+   - creator and finisher still earn standard `IXP`
+2. `stable_plus_points`
+   - stablecoin remains the funding asset
+   - task grants boosted `IXP`
+   - worker can opt into a bounded token-heavy reward mix
+3. `points_only`
+   - platform-owned or whitelisted campaign tasks only
+   - rewards are paid as `IXP` that later convert into `IX`
+   - not for ordinary third-party buyer-funded work
+
 ### Core Flow
-1. Buyer funds an idea or job in stablecoin.
+1. Buyer funds an idea or job in stablecoin and chooses a payout preference.
 2. Broker decomposes work into milestones and assigns risk tier.
 3. Worker claims a milestone.
 4. If the milestone is above the free tier, the worker posts `IX` stake.
@@ -72,6 +92,7 @@ The token coordinates trust, access, and upside around that work.
 7. On acceptance:
    - stablecoin payout releases to the worker
    - protocol fee routes through `FeeRouter`
+   - creator and finisher receive `IXP` according to the task policy
    - accepted work mints `WorkReceipt1155`
    - worker becomes eligible for epoch `IX` rewards
 8. On rejection, fraud, or severe policy breach:
@@ -111,10 +132,36 @@ Worker value flow:
 Buyer value flow:
 - stable-denominated job budgets
 - optional locked `IX` for lower fees or faster routing
+- creator `IXP` accrual when funded tasks are accepted
 
 Protocol value flow:
 - stablecoin take-rate
 - optional token demand from stake, fee discounts, and receipt-backed derivative access
+
+### Creator And Finisher Points
+`IXP` is the bridge between task activity and token emissions.
+
+Rules:
+- task creator becomes points-eligible when the task is funded and published
+- finisher becomes points-eligible when the task is accepted
+- creator points vest only if the task reaches accepted completion
+- finisher points vest on accepted completion and can be quality-adjusted
+
+Suggested split per accepted task:
+- creator: `30%` of task points
+- finisher: `70%` of task points
+
+Suggested task points base:
+
+```text
+task_points = accepted_aiu x points_multiplier
+```
+
+Where:
+- `points_multiplier` depends on payout preference
+- `stable_only` uses the base multiplier
+- `stable_plus_points` uses a boosted multiplier
+- `points_only` uses the highest multiplier, but only for platform-owned campaigns
 
 ### `AIU` Index
 `AIU` means accepted intelligence units.

@@ -138,13 +138,14 @@ If the platform later launches a utility token, it needs a concrete job-facing p
 1. **Worker staking**: premium claims require stake that can be slashed for fraud or severe quality failures.
 2. **Buyer access tiers**: buyers lock tokens for lower fees, larger caps, or faster routing.
 3. **Reward routing**: a bounded portion of protocol take-rate funds rewards, rebates, or an optional burn sink.
+4. **Points conversion**: funded task creators and accepted task finishers earn points that convert into token emissions at epoch close.
 
 Non-goals for the first token version:
 - no token-denominated base wages
 - no provider-credit resale
 - no claim that the token itself is a futures contract on "intelligence"
 
-**Decision needed:** Pick the initial utility set, define whether worker stake is optional or mandatory by job class, and cap how much token exposure workers can take versus stable payout.
+**Decision needed:** Pick the initial utility set, define whether worker stake is optional or mandatory by job class, cap how much token exposure workers can take versus stable payout, and confirm whether `points_only` tasks are platform-owned only at launch.
 
 ---
 
