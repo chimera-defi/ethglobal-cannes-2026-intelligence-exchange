@@ -57,4 +57,5 @@ flowchart LR
 - The broker remains the control plane. Human review still decides whether work is accepted.
 - Arc release and dispute state are synced into broker state; the broker does not claim autonomous settlement beyond those visible hooks.
 - World ID, AgentBook, IdentityGate, and the worker registry are separate gates with different purposes: human proof, agent discovery access, worker role sync, and registration / attested reputation.
-- Broker tracks reputation in Postgres (real-time); on-chain reputation in AgentIdentityRegistry requires explicit attestation submission.
+- Broker tracks reputation in Postgres (real-time); on-chain reputation in AgentIdentityRegistry (ERC-8004 style) is updated via agent-triggered attestation submission (agent pays gas).
+- Ideal flow: After payout, broker prepares attestation → Agent submits to registry (self-paid gas) → On-chain reputation updated (acceptedCount, cumulativeScore).
