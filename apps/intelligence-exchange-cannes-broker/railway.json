@@ -1,28 +1,11 @@
 {
   "$schema": "https://railway.com/railway.schema.json",
   "build": {
-    "builder": "nixpacks",
-    "nixpacksPlan": {
-      "phases": {
-        "setup": {
-          "nixPkgs": ["nodejs", "pnpm"]
-        },
-        "install": {
-          "cmds": [
-            "corepack enable",
-            "corepack pnpm install --frozen-lockfile"
-          ]
-        },
-        "build": {
-          "cmds": [
-            "corepack pnpm --filter intelligence-exchange-cannes-broker build"
-          ]
-        }
-      }
-    }
+    "builder": "BUN",
+    "buildCommand": "bun run build"
   },
   "deploy": {
-    "startCommand": "bun run apps/intelligence-exchange-cannes-broker/dist/index.js",
+    "startCommand": "bun run dist/index.js",
     "healthcheckPath": "/health",
     "healthcheckTimeout": 30,
     "restartPolicyType": "on_failure",
