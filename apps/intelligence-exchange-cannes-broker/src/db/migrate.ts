@@ -278,6 +278,26 @@ export async function migrate() {
     )
   `;
 
+  // Older local/test databases used a different World verification shape.
+  // Normalize it in place so current routes and indexes can rely on account+role lookups.
+  await sql`ALTER TABLE world_verifications ADD COLUMN IF NOT EXISTS account_address TEXT`;
+  await sql`ALTER TABLE world_verifications ADD COLUMN IF NOT EXISTS role TEXT`;
+  await sql`ALTER TABLE world_verifications ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ`;
+  await sql`
+    UPDATE world_verifications
+    SET
+      account_address = COALESCE(account_address, wallet_address),
+      role = COALESCE(role, subject_id),
+      verified_at = COALESCE(verified_at, created_at, NOW())
+    WHERE account_address IS NULL OR role IS NULL OR verified_at IS NULL
+  `.catch(() => undefined);
+  await sql`ALTER TABLE world_verifications ALTER COLUMN account_address SET NOT NULL`.catch(() => undefined);
+  await sql`ALTER TABLE world_verifications ALTER COLUMN role SET NOT NULL`.catch(() => undefined);
+  await sql`ALTER TABLE world_verifications ALTER COLUMN verified_at SET NOT NULL`.catch(() => undefined);
+  await sql`ALTER TABLE world_verifications ALTER COLUMN verified_at SET DEFAULT NOW()`.catch(() => undefined);
+  await sql`ALTER TABLE world_verifications ALTER COLUMN subject_type DROP NOT NULL`.catch(() => undefined);
+  await sql`ALTER TABLE world_verifications ALTER COLUMN subject_id DROP NOT NULL`.catch(() => undefined);
+
   await sql`ALTER TABLE claims ADD COLUMN IF NOT EXISTS account_address TEXT`;
   await sql`ALTER TABLE claims ADD COLUMN IF NOT EXISTS agent_fingerprint TEXT`;
 
