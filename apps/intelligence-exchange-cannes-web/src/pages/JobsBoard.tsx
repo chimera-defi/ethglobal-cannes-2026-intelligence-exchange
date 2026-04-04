@@ -1450,7 +1450,7 @@ export function JobsBoard() {
     if (filterStatuses.size > 0 && !group.milestones.some((m) => filterStatuses.has(m.status))) {
       return false;
     }
-    const groupBudget = group.milestones.reduce((sum, m) => sum + (m.budgetUsdMax ?? 0), 0);
+    const groupBudget = group.milestones.reduce((sum, m) => sum + (Number(m.budgetUsd) ?? 0), 0);
     if (groupBudget > budgetMax) return false;
     return true;
   });
