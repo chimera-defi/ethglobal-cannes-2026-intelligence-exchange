@@ -24,9 +24,15 @@ function normalizePayload(payload: Record<string, unknown> | null | undefined) {
 
 function getAttestationDomain() {
   return {
-    registryAddress: (process.env.AGENT_IDENTITY_REGISTRY_ADDRESS ??
+    registryAddress: (process.env.IEX_AGENT_REGISTRY_ADDRESS ??
+      process.env.AGENT_IDENTITY_REGISTRY_ADDRESS ??
       '0x0000000000000000000000000000000000000000') as `0x${string}`,
-    chainId: BigInt(process.env.AGENT_IDENTITY_CHAIN_ID ?? process.env.CHAIN_ID ?? '31337'),
+    chainId: BigInt(
+      process.env.WORLDCHAIN_CHAIN_ID ??
+      process.env.AGENT_IDENTITY_CHAIN_ID ??
+      process.env.CHAIN_ID ??
+      '31337',
+    ),
   };
 }
 
@@ -85,7 +91,10 @@ export async function recordChainSync(input: ChainReceiptSync) {
 
   const confirmedAt = new Date();
   if (existing) {
-    return existing;
+    return {
+      ...existing,
+      alreadyRecorded: true as const,
+    };
   }
 
   const syncId = input.syncId ?? randomUUID();
@@ -113,7 +122,10 @@ export async function recordChainSync(input: ChainReceiptSync) {
   });
 
   const [sync] = await db.select().from(chainSyncs).where(eq(chainSyncs.syncId, syncId));
-  return sync!;
+  return {
+    ...sync!,
+    alreadyRecorded: false as const,
+  };
 }
 
 export async function issueAcceptedSubmissionAttestation(input: {
@@ -167,6 +179,7 @@ export async function issueAcceptedSubmissionAttestation(input: {
 
 export async function syncIdeaFunding(input: ChainReceiptSync) {
   const sync = await recordChainSync(input);
+  if (sync.alreadyRecorded) return sync;
   await db.update(ideas)
     .set({
       fundingStatus: 'funded',
@@ -179,6 +192,7 @@ export async function syncIdeaFunding(input: ChainReceiptSync) {
 
 export async function syncMilestoneReservation(input: ChainReceiptSync) {
   const sync = await recordChainSync(input);
+  if (sync.alreadyRecorded) return sync;
   const payload = normalizePayload(input.payload) as { jobIds?: string[] };
   const jobIds = Array.isArray(payload.jobIds) ? payload.jobIds : [];
 
@@ -199,6 +213,7 @@ export async function syncMilestoneReservation(input: ChainReceiptSync) {
 
 export async function syncMilestoneRelease(input: ChainReceiptSync) {
   const sync = await recordChainSync(input);
+  if (sync.alreadyRecorded) return sync;
   const payload = normalizePayload(input.payload) as {
     jobId?: string;
     milestoneId?: string;
@@ -233,6 +248,7 @@ export async function syncMilestoneRelease(input: ChainReceiptSync) {
 
 export async function syncAcceptedSubmissionAttestation(input: ChainReceiptSync) {
   const sync = await recordChainSync(input);
+  if (sync.alreadyRecorded) return sync;
   const payload = normalizePayload(input.payload) as AcceptedSubmissionAttestation;
 
   if (!payload.jobId || !payload.agentFingerprint || payload.score == null || !payload.signature) {

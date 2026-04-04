@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import type { AcceptedSubmissionAttestation } from 'intelligence-exchange-cannes-shared';
+import { useAccount, usePublicClient, useSwitchChain, useWriteContract } from 'wagmi';
+import { keccak256, toBytes } from 'viem';
 import {
   ArrowLeft,
   CheckCircle2,
@@ -28,6 +31,7 @@ import { Label } from '@/components/ui/label';
 import { acceptMilestone, rejectMilestone, syncChainReceipt, getJob, getIntegrationsStatus } from '../api';
 import { useSession } from '../hooks/useSession';
 import { makeDemoTxHash } from '../lib/demo';
+import { agentIdentityRegistryAbi } from '../lib/agentIdentityRegistryAbi';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -52,6 +56,12 @@ function statusVariant(status: string) {
     | 'settled'
     | 'created'
     | 'default';
+}
+
+function shortHex(value?: string | null, head = 8, tail = 6) {
+  if (!value) return 'Not available';
+  if (value.length <= head + tail + 3) return value;
+  return `${value.slice(0, head)}…${value.slice(-tail)}`;
 }
 
 // ─── Auth gate ────────────────────────────────────────────────────────────────
@@ -159,19 +169,29 @@ function AttestationPanel({
   payee,
   amountUsd,
   demoMode,
+  registryAddress,
+  worldchainChainId,
+  explorerBaseUrl,
   onReleaseSynced,
   onAttestationSynced,
 }: {
-  attestationPayload: unknown;
+  attestationPayload: AcceptedSubmissionAttestation;
   ideaId: string;
   jobId: string;
   milestoneId: string;
   payee: string | null | undefined;
   amountUsd: string;
   demoMode: boolean;
+  registryAddress: `0x${string}` | null;
+  worldchainChainId: number;
+  explorerBaseUrl: string;
   onReleaseSynced: () => void;
   onAttestationSynced: () => void;
 }) {
+  const { address, chainId, isConnected } = useAccount();
+  const { switchChainAsync } = useSwitchChain();
+  const { writeContractAsync } = useWriteContract();
+  const worldchainPublicClient = usePublicClient({ chainId: worldchainChainId });
   const [releaseTxHash, setReleaseTxHash] = useState('');
   const [attestTxHash, setAttestTxHash] = useState('');
   const [releaseSyncing, setReleaseSyncing] = useState(false);
@@ -180,6 +200,8 @@ function AttestationPanel({
   const [attestError, setAttestError] = useState<string | null>(null);
   const [releaseComplete, setReleaseComplete] = useState(false);
   const [attestComplete, setAttestComplete] = useState(false);
+  const reviewerMatchesWallet = !address
+    || address.toLowerCase() === attestationPayload.reviewerAddress.toLowerCase();
 
   async function syncRelease() {
     if (!releaseTxHash.trim()) return;
@@ -207,22 +229,74 @@ function AttestationPanel({
     }
   }
 
-  async function syncAttestation() {
-    if (!attestTxHash.trim()) return;
+  async function syncAttestationWithTx(txHash: string, blockNumber?: number) {
+    const normalizedTxHash = txHash.trim();
+    if (!normalizedTxHash) return;
     setAttestSyncing(true);
     setAttestError(null);
     try {
       await syncChainReceipt({
         eventType: 'accepted_submission_attested',
-        txHash: attestTxHash.trim(),
-        subjectId: ideaId,
-        payload: { jobId, attestationPayload },
+        txHash: normalizedTxHash,
+        subjectId: jobId,
+        contractAddress: registryAddress ?? attestationPayload.registryAddress,
+        blockNumber,
+        payload: attestationPayload as unknown as Record<string, unknown>,
       });
+      setAttestTxHash(normalizedTxHash);
       setAttestComplete(true);
       onAttestationSynced();
     } catch (err) {
       setAttestError(err instanceof Error ? err.message : 'Sync failed');
     } finally {
+      setAttestSyncing(false);
+    }
+  }
+
+  async function recordAttestationOnChain() {
+    if (!registryAddress || !worldchainPublicClient) {
+      setAttestError('The Worldchain registry is not configured for reputation writes.');
+      return;
+    }
+    if (!attestationPayload.signature) {
+      setAttestError('The broker attestation signature is missing.');
+      return;
+    }
+    if (!address || !isConnected) {
+      setAttestError('Connect the reviewer wallet before recording reputation.');
+      return;
+    }
+    if (!reviewerMatchesWallet) {
+      setAttestError(`Reconnect the accepting reviewer wallet ${shortHex(attestationPayload.reviewerAddress)} before recording reputation.`);
+      return;
+    }
+
+    setAttestSyncing(true);
+    setAttestError(null);
+
+    try {
+      if (chainId !== worldchainChainId) {
+        await switchChainAsync({ chainId: worldchainChainId });
+      }
+
+      const txHash = await writeContractAsync({
+        address: registryAddress,
+        abi: agentIdentityRegistryAbi,
+        functionName: 'recordAcceptedSubmission',
+        args: [
+          attestationPayload.agentFingerprint as `0x${string}`,
+          (attestationPayload.jobIdHash ?? keccak256(toBytes(attestationPayload.jobId))) as `0x${string}`,
+          BigInt(attestationPayload.score),
+          attestationPayload.reviewerAddress as `0x${string}`,
+          attestationPayload.payoutReleased,
+          attestationPayload.signature as `0x${string}`,
+        ],
+      });
+
+      const receipt = await worldchainPublicClient.waitForTransactionReceipt({ hash: txHash });
+      await syncAttestationWithTx(txHash, Number(receipt.blockNumber));
+    } catch (err) {
+      setAttestError(err instanceof Error ? err.message : 'Onchain attestation failed');
       setAttestSyncing(false);
     }
   }
@@ -286,9 +360,57 @@ function AttestationPanel({
 
       {/* Attestation tx sync */}
       <div className="space-y-2">
+        <div className="rounded-lg border border-gray-700 bg-gray-900/40 p-3 space-y-3">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <Label className="text-gray-300 text-sm">
+                Worldchain reputation write
+                <span className="text-gray-500 font-normal ml-1">(record accepted submission)</span>
+              </Label>
+              <p className="mt-1 text-xs text-gray-500">
+                This writes the broker-signed acceptance attestation to the worker registry so the
+                connected contractor token increments its accepted-count and average score.
+              </p>
+            </div>
+            {attestComplete && (
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-green-400" />
+            )}
+          </div>
+
+          <Button
+            onClick={() => void recordAttestationOnChain()}
+            disabled={!registryAddress || !isConnected || !reviewerMatchesWallet || attestSyncing || attestComplete}
+          >
+            {attestSyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+            {attestComplete ? 'Reputation recorded' : 'Record reputation on Worldchain'}
+          </Button>
+
+          <div className="flex flex-wrap gap-3 text-xs text-gray-500">
+            <span>Registry: {shortHex(registryAddress, 10, 8)}</span>
+            <span>Reviewer: {shortHex(attestationPayload.reviewerAddress, 10, 8)}</span>
+            {attestTxHash && explorerBaseUrl && (
+              <a
+                href={`${explorerBaseUrl.replace(/\/$/, '')}/tx/${attestTxHash}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-blue-400 hover:text-blue-300"
+              >
+                View transaction
+              </a>
+            )}
+          </div>
+
+          {!reviewerMatchesWallet && (
+            <p className="text-xs text-yellow-400">
+              Reconnect the reviewer wallet that accepted this submission before writing the
+              reputation update.
+            </p>
+          )}
+        </div>
+
         <Label className="text-gray-300 text-sm">
-          Attestation transaction hash
-          <span className="text-gray-500 font-normal ml-1">(reputation attestation)</span>
+          Already sent the attestation transaction?
+          <span className="text-gray-500 font-normal ml-1">(manual sync fallback)</span>
         </Label>
         <div className="flex gap-2">
           <input
@@ -301,7 +423,7 @@ function AttestationPanel({
           <Button
             size="sm"
             variant={attestComplete ? 'secondary' : 'outline'}
-            onClick={syncAttestation}
+            onClick={() => void syncAttestationWithTx(attestTxHash)}
             disabled={!attestTxHash.trim() || attestSyncing || attestComplete}
           >
             {attestSyncing ? (
@@ -496,6 +618,11 @@ export function ReviewPanel() {
   const isProcessing = acceptMutation.isPending || rejectMutation.isPending;
   const effectiveAttestation = acceptMutation.data?.attestation ?? latestAttestation;
   const releaseFlowVisible = (showReleaseFlow || isAccepted) && !!effectiveAttestation;
+  const attestationChainId = effectiveAttestation?.chainId ?? integrations?.worldchain.chainId ?? 480;
+  const attestationRegistryAddress = (effectiveAttestation?.registryAddress
+    ?? integrations?.worldchain.agentRegistryAddress
+    ?? null) as `0x${string}` | null;
+  const explorerBaseUrl = integrations?.worldchain.explorerBaseUrl ?? 'https://worldscan.org';
 
   return (
     <div className="page">
@@ -685,8 +812,8 @@ export function ReviewPanel() {
             <div>
               <p className="text-green-300 font-semibold">Milestone Accepted</p>
               <p className="text-green-400/80 text-sm mt-0.5">
-                The submission has been accepted. Submit the on-chain release transaction and sync
-                the attestation below.
+                The submission has been accepted. Submit the payout release transaction and record
+                the reputation update below.
               </p>
               <Button
                 size="sm"
@@ -712,11 +839,11 @@ export function ReviewPanel() {
           </div>
         )}
 
-        {/* Release and attestation sync flow (shown after accept) */}
+        {/* Release and reputation flow (shown after accept) */}
         {releaseFlowVisible && effectiveAttestation && (
           <Card className="border-gray-700 bg-gray-900/40">
             <CardHeader className="pb-2">
-              <CardTitle className="text-base text-white">Release & Attestation Sync</CardTitle>
+              <CardTitle className="text-base text-white">Release & Reputation</CardTitle>
             </CardHeader>
             <CardContent>
               <AttestationPanel
@@ -727,6 +854,9 @@ export function ReviewPanel() {
                 payee={job.activeClaimWorkerId}
                 amountUsd={job.budgetUsd}
                 demoMode={demoReviewMode}
+                registryAddress={attestationRegistryAddress}
+                worldchainChainId={attestationChainId}
+                explorerBaseUrl={explorerBaseUrl}
                 onReleaseSynced={() =>
                   queryClient.invalidateQueries({ queryKey: ['job', jobId] })
                 }
