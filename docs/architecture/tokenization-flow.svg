@@ -1,123 +1,146 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 420">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 480">
   <!-- Background -->
-  <rect width="800" height="420" fill="#f8fafc"/>
+  <rect width="900" height="480" fill="#f8fafc"/>
   
   <!-- Title -->
-  <text x="400" y="30" text-anchor="middle" font-family="system-ui, sans-serif" font-size="18" font-weight="bold" fill="#1e293b">
+  <text x="450" y="35" text-anchor="middle" font-family="system-ui, sans-serif" font-size="20" font-weight="bold" fill="#1e293b">
     Intelligence Tokenization Flow
   </text>
+  <text x="450" y="58" text-anchor="middle" font-family="system-ui, sans-serif" font-size="12" fill="#64748b">
+    Evolution from settlement to derivatives — each phase builds on proven foundations
+  </text>
   
-  <!-- Phase 1: Settlement -->
-  <rect x="50" y="70" width="140" height="260" rx="8" fill="#dbeafe" stroke="#3b82f6" stroke-width="2"/>
-  <text x="120" y="95" text-anchor="middle" font-family="system-ui, sans-serif" font-size="14" font-weight="bold" fill="#1e40af">1. Settlement</text>
+  <!-- === PHASE 1: SETTLEMENT === -->
+  <g transform="translate(40, 90)">
+    <rect width="150" height="280" rx="10" fill="#dbeafe" stroke="#3b82f6" stroke-width="2"/>
+    <rect x="0" y="0" width="150" height="45" rx="10" fill="#3b82f6"/>
+    <text x="75" y="20" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" font-weight="bold" fill="#ffffff">1. SETTLEMENT</text>
+    <text x="75" y="38" text-anchor="middle" font-family="system-ui, sans-serif" font-size="9" fill="#dbeafe">USDC/Arc</text>
+    
+    <rect x="15" y="60" width="120" height="55" rx="6" fill="white" stroke="#60a5fa" stroke-width="1"/>
+    <text x="75" y="82" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" fill="#1e40af">Job Completed</text>
+    <text x="75" y="100" text-anchor="middle" font-family="system-ui, sans-serif" font-size="9" fill="#64748b">Human Review</text>
+    
+    <rect x="15" y="125" width="120" height="55" rx="6" fill="white" stroke="#60a5fa" stroke-width="1"/>
+    <text x="75" y="147" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" fill="#1e40af">USDC Payout</text>
+    <text x="75" y="165" text-anchor="middle" font-family="system-ui, sans-serif" font-size="9" fill="#64748b">Worker Paid</text>
+    
+    <rect x="15" y="190" width="120" height="55" rx="6" fill="white" stroke="#60a5fa" stroke-width="1"/>
+    <text x="75" y="212" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" fill="#1e40af">10% Platform Fee</text>
+    <text x="75" y="230" text-anchor="middle" font-family="system-ui, sans-serif" font-size="9" fill="#64748b">To Treasury</text>
+  </g>
   
-  <rect x="65" y="110" width="110" height="50" rx="4" fill="white" stroke="#60a5fa" stroke-width="1"/>
-  <text x="120" y="135" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" fill="#1e40af">Job Completed</text>
-  <text x="120" y="150" text-anchor="middle" font-family="system-ui, sans-serif" font-size="9" fill="#64748b">Human Review</text>
+  <!-- === TRANSITION 1-2 === -->
+  <g transform="translate(190, 220)">
+    <path d="M 0 0 L 50 0" stroke="#3b82f6" stroke-width="3" fill="none" marker-end="url(#arrowheadBlue)"/>
+    <rect x="-10" y="-45" width="70" height="32" rx="16" fill="#ffffff" stroke="#3b82f6" stroke-width="2"/>
+    <text x="25" y="-28" text-anchor="middle" font-family="system-ui, sans-serif" font-size="8" font-weight="bold" fill="#1e40af">VOLUME &amp;</text>
+    <text x="25" y="-18" text-anchor="middle" font-family="system-ui, sans-serif" font-size="8" font-weight="bold" fill="#1e40af">PRICE DISCOVERY</text>
+  </g>
   
-  <rect x="65" y="170" width="110" height="50" rx="4" fill="white" stroke="#60a5fa" stroke-width="1"/>
-  <text x="120" y="195" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" fill="#1e40af">USDC Payout</text>
-  <text x="120" y="210" text-anchor="middle" font-family="system-ui, sans-serif" font-size="9" fill="#64748b">Worker Paid</text>
+  <!-- === PHASE 2: RECEIPTS === -->
+  <g transform="translate(240, 90)">
+    <rect width="150" height="280" rx="10" fill="#dcfce7" stroke="#22c55e" stroke-width="2"/>
+    <rect x="0" y="0" width="150" height="45" rx="10" fill="#22c55e"/>
+    <text x="75" y="20" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" font-weight="bold" fill="#ffffff">2. RECEIPTS</text>
+    <text x="75" y="38" text-anchor="middle" font-family="system-ui, sans-serif" font-size="9" fill="#dcfce7">ERC-1155 NFTs</text>
+    
+    <rect x="15" y="60" width="120" height="55" rx="6" fill="white" stroke="#4ade80" stroke-width="1"/>
+    <text x="75" y="82" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" fill="#166534">WorkReceipt</text>
+    <text x="75" y="100" text-anchor="middle" font-family="system-ui, sans-serif" font-size="9" fill="#64748b">Minted on accept</text>
+    
+    <rect x="15" y="125" width="120" height="55" rx="6" fill="white" stroke="#4ade80" stroke-width="1"/>
+    <text x="75" y="147" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" fill="#166534">AIU Calculated</text>
+    <text x="75" y="165" text-anchor="middle" font-family="system-ui, sans-serif" font-size="9" fill="#64748b">Task × Quality</text>
+    
+    <rect x="15" y="190" width="120" height="55" rx="6" fill="white" stroke="#4ade80" stroke-width="1"/>
+    <text x="75" y="212" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" fill="#166534">Postgres Updated</text>
+    <text x="75" y="230" text-anchor="middle" font-family="system-ui, sans-serif" font-size="9" fill="#64748b">Hot Reputation</text>
+  </g>
   
-  <rect x="65" y="230" width="110" height="50" rx="4" fill="white" stroke="#60a5fa" stroke-width="1"/>
-  <text x="120" y="255" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" fill="#1e40af">10% Platform Fee</text>
-  <text x="120" y="270" text-anchor="middle" font-family="system-ui, sans-serif" font-size="9" fill="#64748b">To Treasury</text>
+  <!-- === TRANSITION 2-3 === -->
+  <g transform="translate(390, 220)">
+    <path d="M 0 0 L 50 0" stroke="#22c55e" stroke-width="3" fill="none" marker-end="url(#arrowheadGreen)"/>
+    <rect x="-5" y="-38" width="60" height="26" rx="13" fill="#ffffff" stroke="#22c55e" stroke-width="2"/>
+    <text x="25" y="-22" text-anchor="middle" font-family="system-ui, sans-serif" font-size="8" font-weight="bold" fill="#166534">INDEX</text>
+    <text x="25" y="-12" text-anchor="middle" font-family="system-ui, sans-serif" font-size="8" font-weight="bold" fill="#166534">CREDIBILITY</text>
+  </g>
   
-  <!-- Arrow 1: Settlement to Receipts -->
-  <path d="M 190 195 L 230 195" stroke="#3b82f6" stroke-width="3" fill="none" marker-end="url(#arrowheadBlue)"/>
+  <!-- === PHASE 3: TOKENIZATION === -->
+  <g transform="translate(440, 90)">
+    <rect width="150" height="280" rx="10" fill="#fef3c7" stroke="#f59e0b" stroke-width="2"/>
+    <rect x="0" y="0" width="150" height="45" rx="10" fill="#f59e0b"/>
+    <text x="75" y="20" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" font-weight="bold" fill="#ffffff">3. TOKENIZATION</text>
+    <text x="75" y="38" text-anchor="middle" font-family="system-ui, sans-serif" font-size="9" fill="#fef3c7">IX Token</text>
+    
+    <rect x="15" y="60" width="120" height="55" rx="6" fill="white" stroke="#fbbf24" stroke-width="1"/>
+    <text x="75" y="82" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" fill="#92400e">IXP Points</text>
+    <text x="75" y="100" text-anchor="middle" font-family="system-ui, sans-serif" font-size="9" fill="#64748b">Creator + Finisher</text>
+    
+    <rect x="15" y="125" width="120" height="55" rx="6" fill="white" stroke="#fbbf24" stroke-width="1"/>
+    <text x="75" y="147" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" fill="#92400e">IX Token</text>
+    <text x="75" y="165" text-anchor="middle" font-family="system-ui, sans-serif" font-size="9" fill="#64748b">Epoch Rewards</text>
+    
+    <rect x="15" y="190" width="120" height="55" rx="6" fill="white" stroke="#fbbf24" stroke-width="1"/>
+    <text x="75" y="212" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" fill="#92400e">On-Chain Sync</text>
+    <text x="75" y="230" text-anchor="middle" font-family="system-ui, sans-serif" font-size="9" fill="#64748b">Agent-triggered</text>
+  </g>
   
-  <!-- Transition Label 1: Volume and Price Discovery -->
-  <rect x="175" y="155" width="70" height="32" rx="4" fill="#dbeafe" stroke="#3b82f6" stroke-width="1" opacity="0.95"/>
-  <text x="210" y="168" text-anchor="middle" font-family="system-ui, sans-serif" font-size="7" font-weight="bold" fill="#1e40af">VOLUME &amp;</text>
-  <text x="210" y="180" text-anchor="middle" font-family="system-ui, sans-serif" font-size="7" font-weight="bold" fill="#1e40af">PRICE DISCOVERY</text>
+  <!-- === TRANSITION 3-4 === -->
+  <g transform="translate(590, 220)">
+    <path d="M 0 0 L 50 0" stroke="#f59e0b" stroke-width="3" fill="none" marker-end="url(#arrowheadAmber)"/>
+    <rect x="-10" y="-45" width="70" height="32" rx="16" fill="#ffffff" stroke="#f59e0b" stroke-width="2"/>
+    <text x="25" y="-28" text-anchor="middle" font-family="system-ui, sans-serif" font-size="8" font-weight="bold" fill="#92400e">LIQUIDITY &amp;</text>
+    <text x="25" y="-18" text-anchor="middle" font-family="system-ui, sans-serif" font-size="8" font-weight="bold" fill="#92400e">STAKING</text>
+  </g>
   
-  <!-- Phase 2: Receipts -->
-  <rect x="230" y="70" width="140" height="260" rx="8" fill="#dcfce7" stroke="#22c55e" stroke-width="2"/>
-  <text x="300" y="95" text-anchor="middle" font-family="system-ui, sans-serif" font-size="14" font-weight="bold" fill="#166534">2. Receipts</text>
+  <!-- === PHASE 4: DERIVATIVES === -->
+  <g transform="translate(640, 90)">
+    <rect width="160" height="280" rx="10" fill="#fce7f3" stroke="#ec4899" stroke-width="2"/>
+    <rect x="0" y="0" width="160" height="45" rx="10" fill="#ec4899"/>
+    <text x="80" y="20" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" font-weight="bold" fill="#ffffff">4. DERIVATIVES</text>
+    <text x="80" y="38" text-anchor="middle" font-family="system-ui, sans-serif" font-size="9" fill="#fce7f3">Financial Markets</text>
+    
+    <rect x="15" y="60" width="130" height="55" rx="6" fill="white" stroke="#f472b6" stroke-width="1"/>
+    <text x="80" y="82" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" fill="#9d174d">AIU Index</text>
+    <text x="80" y="100" text-anchor="middle" font-family="system-ui, sans-serif" font-size="9" fill="#64748b">24h TWAP Oracle</text>
+    
+    <rect x="15" y="125" width="130" height="55" rx="6" fill="white" stroke="#f472b6" stroke-width="1"/>
+    <text x="80" y="147" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" fill="#9d174d">AIU Perpetuals</text>
+    <text x="80" y="165" text-anchor="middle" font-family="system-ui, sans-serif" font-size="9" fill="#64748b">10x Max Leverage</text>
+    
+    <rect x="15" y="190" width="130" height="55" rx="6" fill="white" stroke="#f472b6" stroke-width="1"/>
+    <text x="80" y="212" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" fill="#9d174d">iIX Vaults</text>
+    <text x="80" y="230" text-anchor="middle" font-family="system-ui, sans-serif" font-size="9" fill="#64748b">Cohort Exposure</text>
+  </g>
   
-  <rect x="245" y="110" width="110" height="50" rx="4" fill="white" stroke="#4ade80" stroke-width="1"/>
-  <text x="300" y="130" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" fill="#166534">WorkReceipt</text>
-  <text x="300" y="145" text-anchor="middle" font-family="system-ui, sans-serif" font-size="9" fill="#64748b">ERC-1155 NFT</text>
-  <text x="300" y="158" text-anchor="middle" font-family="system-ui, sans-serif" font-size="8" fill="#22c55e">✓ Minted</text>
+  <!-- === TRANSITION 4-5 === -->
+  <g transform="translate(800, 220)">
+    <path d="M 0 0 L 40 0" stroke="#a855f7" stroke-width="2" fill="none" stroke-dasharray="5,3" marker-end="url(#arrowheadPurple)"/>
+    <rect x="-5" y="-38" width="50" height="26" rx="13" fill="#ffffff" stroke="#a855f7" stroke-width="2" stroke-dasharray="3,2"/>
+    <text x="20" y="-22" text-anchor="middle" font-family="system-ui, sans-serif" font-size="8" font-weight="bold" fill="#7c3aed">MATURE</text>
+    <text x="20" y="-12" text-anchor="middle" font-family="system-ui, sans-serif" font-size="8" font-weight="bold" fill="#7c3aed">MARKETS</text>
+  </g>
   
-  <rect x="245" y="170" width="110" height="50" rx="4" fill="white" stroke="#4ade80" stroke-width="1"/>
-  <text x="300" y="190" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" fill="#166534">AIU Calculated</text>
-  <text x="300" y="205" text-anchor="middle" font-family="system-ui, sans-serif" font-size="9" fill="#64748b">Task × Quality</text>
-  <text x="300" y="218" text-anchor="middle" font-family="system-ui, sans-serif" font-size="8" fill="#22c55e">✓ Normalized</text>
+  <!-- === PHASE 5: FUTURE === -->
+  <g transform="translate(840, 90)">
+    <rect width="50" height="280" rx="10" fill="#f3e8ff" stroke="#a855f7" stroke-width="2" stroke-dasharray="5,3" opacity="0.7"/>
+    <text x="25" y="80" text-anchor="middle" font-family="system-ui, sans-serif" font-size="10" fill="#7c3aed" font-weight="bold" writing-mode="tb">5. STRUCTURED PRODUCTS</text>
+    <text x="25" y="240" text-anchor="middle" font-family="system-ui, sans-serif" font-size="8" fill="#64748b">Bonds</text>
+    <text x="25" y="255" text-anchor="middle" font-family="system-ui, sans-serif" font-size="8" fill="#64748b">Forwards</text>
+  </g>
   
-  <rect x="245" y="230" width="110" height="50" rx="4" fill="white" stroke="#4ade80" stroke-width="1"/>
-  <text x="300" y="255" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" fill="#166534">Postgres Updated</text>
-  <text x="300" y="270" text-anchor="middle" font-family="system-ui, sans-serif" font-size="9" fill="#64748b">Hot Reputation</text>
+  <!-- === BOTTOM INFO BOX === -->
+  <rect x="40" y="390" width="850" height="70" rx="8" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1"/>
   
-  <!-- Arrow 2: Receipts to Tokenization -->
-  <path d="M 370 195 L 410 195" stroke="#22c55e" stroke-width="3" fill="none" marker-end="url(#arrowheadGreen)"/>
-  
-  <!-- Transition Label 2: Index Credibility -->
-  <rect x="355" y="155" width="70" height="32" rx="4" fill="#dcfce7" stroke="#22c55e" stroke-width="1" opacity="0.95"/>
-  <text x="390" y="173" text-anchor="middle" font-family="system-ui, sans-serif" font-size="8" font-weight="bold" fill="#166534">INDEX</text>
-  <text x="390" y="183" text-anchor="middle" font-family="system-ui, sans-serif" font-size="8" font-weight="bold" fill="#166534">CREDIBILITY</text>
-  
-  <!-- Phase 3: Tokenization -->
-  <rect x="410" y="70" width="140" height="260" rx="8" fill="#fef3c7" stroke="#f59e0b" stroke-width="2"/>
-  <text x="480" y="95" text-anchor="middle" font-family="system-ui, sans-serif" font-size="14" font-weight="bold" fill="#92400e">3. Tokenization</text>
-  
-  <rect x="425" y="110" width="110" height="50" rx="4" fill="white" stroke="#fbbf24" stroke-width="1"/>
-  <text x="480" y="130" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" fill="#92400e">IXP Points</text>
-  <text x="480" y="145" text-anchor="middle" font-family="system-ui, sans-serif" font-size="9" fill="#64748b">Creator + Finisher</text>
-  <text x="480" y="158" text-anchor="middle" font-family="system-ui, sans-serif" font-size="8" fill="#f59e0b">→ Convert to IX</text>
-  
-  <rect x="425" y="170" width="110" height="50" rx="4" fill="white" stroke="#fbbf24" stroke-width="1"/>
-  <text x="480" y="195" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" fill="#92400e">IX Token</text>
-  <text x="480" y="210" text-anchor="middle" font-family="system-ui, sans-serif" font-size="9" fill="#64748b">Epoch Rewards</text>
-  
-  <rect x="425" y="230" width="110" height="50" rx="4" fill="white" stroke="#fbbf24" stroke-width="1"/>
-  <text x="480" y="255" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" fill="#92400e">On-Chain Sync</text>
-  <text x="480" y="270" text-anchor="middle" font-family="system-ui, sans-serif" font-size="9" fill="#64748b">Agent-triggered</text>
-  
-  <!-- Arrow 3: Tokenization to Derivatives -->
-  <path d="M 550 195 L 590 195" stroke="#f59e0b" stroke-width="3" fill="none" marker-end="url(#arrowheadAmber)"/>
-  
-  <!-- Transition Label 3: Liquidity and Staking -->
-  <rect x="535" y="155" width="70" height="32" rx="4" fill="#fef3c7" stroke="#f59e0b" stroke-width="1" opacity="0.95"/>
-  <text x="570" y="168" text-anchor="middle" font-family="system-ui, sans-serif" font-size="7" font-weight="bold" fill="#92400e">LIQUIDITY &amp;</text>
-  <text x="570" y="180" text-anchor="middle" font-family="system-ui, sans-serif" font-size="7" font-weight="bold" fill="#92400e">STAKING</text>
-  
-  <!-- Phase 4: Derivatives -->
-  <rect x="590" y="70" width="160" height="260" rx="8" fill="#fce7f3" stroke="#ec4899" stroke-width="2"/>
-  <text x="670" y="95" text-anchor="middle" font-family="system-ui, sans-serif" font-size="14" font-weight="bold" fill="#9d174d">4. Derivatives</text>
-  
-  <rect x="605" y="110" width="130" height="50" rx="4" fill="white" stroke="#f472b6" stroke-width="1"/>
-  <text x="670" y="130" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" fill="#9d174d">AIU Index</text>
-  <text x="670" y="145" text-anchor="middle" font-family="system-ui, sans-serif" font-size="9" fill="#64748b">24h TWAP Oracle</text>
-  <text x="670" y="158" text-anchor="middle" font-family="system-ui, sans-serif" font-size="8" fill="#ec4899">Price Discovery</text>
-  
-  <rect x="605" y="170" width="130" height="50" rx="4" fill="white" stroke="#f472b6" stroke-width="1"/>
-  <text x="670" y="190" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" fill="#9d174d">AIU Perpetuals</text>
-  <text x="670" y="205" text-anchor="middle" font-family="system-ui, sans-serif" font-size="9" fill="#64748b">10x Max Leverage</text>
-  <text x="670" y="218" text-anchor="middle" font-family="system-ui, sans-serif" font-size="8" fill="#ec4899">Long/Short AIU</text>
-  
-  <rect x="605" y="230" width="130" height="50" rx="4" fill="white" stroke="#f472b6" stroke-width="1"/>
-  <text x="670" y="255" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" fill="#9d174d">iIX Vaults</text>
-  <text x="670" y="270" text-anchor="middle" font-family="system-ui, sans-serif" font-size="9" fill="#64748b">Cohort Exposure</text>
-  
-  <!-- Future Phase Indicator (Phase 5) -->
-  <rect x="765" y="120" width="25" height="150" rx="4" fill="#f3e8ff" stroke="#a855f7" stroke-width="2" stroke-dasharray="4"/>
-  <text x="777" y="180" text-anchor="middle" font-family="system-ui, sans-serif" font-size="9" fill="#7c3aed" font-weight="bold" writing-mode="tb">5. STRUCTURED PRODUCTS</text>
-  <text x="777" y="250" text-anchor="middle" font-family="system-ui, sans-serif" font-size="7" fill="#64748b">Mature Markets</text>
-  
-  <!-- Arrow 4: Derivatives to Structured Products -->
-  <path d="M 750 195 L 765 195" stroke="#a855f7" stroke-width="2" fill="none" stroke-dasharray="4" marker-end="url(#arrowheadPurple)"/>
-  
-  <!-- Security Note -->
-  <rect x="50" y="350" width="700" height="55" rx="4" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1"/>
-  <text x="400" y="370" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" font-weight="bold" fill="#475569">
+  <text x="465" y="415" text-anchor="middle" font-family="system-ui, sans-serif" font-size="12" font-weight="bold" fill="#475569">
     🔒 Security: Broker-signed attestations prevent agents from faking reputation
   </text>
-  <text x="400" y="385" text-anchor="middle" font-family="system-ui, sans-serif" font-size="9" fill="#64748b">
+  <text x="465" y="435" text-anchor="middle" font-family="system-ui, sans-serif" font-size="10" fill="#64748b">
     Contract verifies ECDSA signature from authorized attestor before updating on-chain reputation
   </text>
-  <text x="400" y="398" text-anchor="middle" font-family="system-ui, sans-serif" font-size="8" fill="#94a3b8" font-style="italic">
-    Transition prerequisites ensure each phase builds on proven foundations
+  <text x="465" y="450" text-anchor="middle" font-family="system-ui, sans-serif" font-size="9" fill="#94a3b8" font-style="italic">
+    Each phase requires proven foundations before advancing — no shortcuts
   </text>
   
   <!-- Arrow marker definitions -->
