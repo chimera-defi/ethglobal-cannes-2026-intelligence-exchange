@@ -80,8 +80,8 @@ export function readWorldVerificationToken(token: string) {
 
 export function createRpSignature(action?: string) {
   const config = getWorldConfig();
-  if (!config.configured || !config.signingKey || !config.action) {
-    throw Object.assign(new Error('World ID 4.0 is not configured on the backend'), { status: 503 });
+  if (!config.signingKey || !config.action) {
+    throw Object.assign(new Error('World ID RP signing key is not configured on the backend'), { status: 503 });
   }
 
   const { sig, nonce, createdAt, expiresAt } = signRequest(action ?? config.action, config.signingKey);
@@ -90,8 +90,8 @@ export function createRpSignature(action?: string) {
 
 export async function verifyWorldProof(idkitResponse: unknown, role: VerificationRole) {
   const config = getWorldConfig();
-  if (!config.configured || !config.rpId || !config.action) {
-    throw Object.assign(new Error('World ID 4.0 is not configured on the backend'), { status: 503 });
+  if (!config.rpId || !config.action) {
+    throw Object.assign(new Error('World ID rpId/action is not configured on the backend'), { status: 503 });
   }
 
   const response = await fetch(`https://developer.world.org/api/v4/verify/${config.rpId}`, {
