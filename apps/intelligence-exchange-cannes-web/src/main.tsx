@@ -83,6 +83,7 @@ const wagmiConfig = createConfig({
   transports: {
     [arcTestnet.id]: http(import.meta.env.VITE_ARC_RPC_URL ?? 'https://rpc.testnet.arc.network'),
     [worldChain.id]: http(import.meta.env.VITE_WORLDCHAIN_RPC_URL ?? 'https://worldchain-sepolia.g.alchemy.com/public'),
+    [zeroGTestnet.id]: http(),
   },
 });
 
