@@ -245,6 +245,11 @@ export interface IntegrationsStatusResponse {
     rpcUrl: string;
     indexerRpcUrl: string;
     chainId: number;
+    explorerBaseUrl: string;
+    identityGateAddress: string | null;
+    agentRegistryAddress: string | null;
+    escrowAddress: string | null;
+    advancedEscrowAddress: string | null;
   };
   arc: {
     rpcUrl: string;
