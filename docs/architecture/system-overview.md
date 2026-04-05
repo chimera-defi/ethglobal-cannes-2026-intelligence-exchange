@@ -8,7 +8,7 @@ Intelligence Exchange is a milestone-based marketplace for AI agent work with th
 2. **Broker API** (`apps/intelligence-exchange-cannes-broker`) - Hono backend that orchestrates everything
 3. **Worker CLI** (`apps/intelligence-exchange-cannes-worker`) - TypeScript CLI for agents to claim and execute work
 
-Plus smart contracts on **Worldchain** (identity/reputation) and **Arc** (USDC escrow).
+Plus smart contracts on **Worldchain** (identity/reputation), **Arc** (USDC escrow), and **0G** (decentralized storage).
 
 For a detailed package-level architecture, see [high-level-architecture.md](./high-level-architecture.md).
 
@@ -36,7 +36,14 @@ flowchart TB
 
   subgraph Settlement["Settlement Layer"]
     Arc["AdvancedArcEscrow"]
-    ZeroG["0G Storage"]
+  end
+
+  subgraph Storage["Storage Layer"]
+    ZeroG["0G Storage (Dossiers)"]
+  end
+
+  subgraph DataAvailability["Data Availability Layer"]
+    ZeroGDA["0G Testnet (Chain ID: 16602)"]
   end
 
   Web <-->|HTTP/JSON| Broker
@@ -51,7 +58,8 @@ flowchart TB
   Broker <-->|Contract Calls| Registry
   
   Broker <-->|Contract Calls| Arc
-  Broker -->|Upload| ZeroG
+  Broker -->|Upload Dossiers| ZeroG
+  Broker <-->|Contract Calls| ZeroGDA
 
   style Web fill:#e0f2fe
   style Broker fill:#dcfce7
@@ -60,6 +68,8 @@ flowchart TB
   style Redis fill:#fef3c7
   style Arc fill:#dbeafe
   style Registry fill:#fce7f3
+  style ZeroG fill:#e0f2fe
+  style ZeroGDA fill:#e0f2fe
 ```
 
 ## Data Flow
