@@ -7,8 +7,17 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 COMPOSE_BIN="${SCRIPT_DIR}/tooling/docker-compose.sh"
 PICK_PORT_BIN="${SCRIPT_DIR}/tooling/pick-port.sh"
+
+# Load root .env if it exists (allows per-machine port overrides)
+if [[ -f "${ROOT_DIR}/.env" ]]; then
+    set -a
+    # shellcheck disable=SC1090
+    source "${ROOT_DIR}/.env"
+    set +a
+fi
 
 # Colors for output
 RED='\033[0;31m'
@@ -38,10 +47,11 @@ check_command node || exit 1
 echo -e "${GREEN}✓ Prerequisites OK${NC}"
 echo ""
 
-# Environment setup
+# Environment setup — respects values loaded from .env above
 POSTGRES_PORT="${POSTGRES_PORT:-5432}"
 REDIS_PORT="${REDIS_PORT:-6379}"
-BROKER_PORT="${BROKER_PORT:-$("${PICK_PORT_BIN}" 3001 3101 3201)}"
+# PORT from .env is the broker port; fall back to auto-pick
+BROKER_PORT="${PORT:-${BROKER_PORT:-$("${PICK_PORT_BIN}" 3001 3101 3201)}}"
 WEB_PORT="${WEB_PORT:-$("${PICK_PORT_BIN}" 3000 3100 3200)}"
 CLEANED_UP=0
 INTERRUPTED=0
@@ -116,6 +126,13 @@ if [ ! -d "node_modules" ]; then
     echo ""
 fi
 
+# Ensure broker can auto-load the root .env via Bun's dotenv
+BROKER_ENV_LINK="${ROOT_DIR}/apps/intelligence-exchange-cannes-broker/.env"
+if [[ ! -e "${BROKER_ENV_LINK}" ]]; then
+    ln -sf ../../.env "${BROKER_ENV_LINK}"
+    echo -e "${GREEN}✓ Linked broker .env → root .env${NC}"
+fi
+
 # Start broker
 echo -e "${YELLOW}Starting Broker API...${NC}"
 echo -e "  ${BLUE}→ ${BROKER_URL}${NC}"
@@ -141,7 +158,7 @@ echo ""
 echo -e "${YELLOW}Starting Web App...${NC}"
 echo -e "  ${BLUE}→ http://localhost:${WEB_PORT}${NC}"
 BROKER_URL="${BROKER_URL}" VITE_DEV_PROXY_TARGET="${VITE_DEV_PROXY_TARGET}" \
-    corepack pnpm --filter intelligence-exchange-cannes-web exec vite --host 127.0.0.1 --port "${WEB_PORT}" &
+    corepack pnpm --filter intelligence-exchange-cannes-web exec vite --host 0.0.0.0 --port "${WEB_PORT}" &
 WEB_PID=$!
 
 echo ""
@@ -151,6 +168,9 @@ echo -e "${GREEN}╠════════════════════
 printf "${GREEN}║  Web App:    %-44s║${NC}\n" "http://localhost:${WEB_PORT}"
 printf "${GREEN}║  Broker API: %-44s║${NC}\n" "${BROKER_URL}"
 printf "${GREEN}║  API Docs:   %-44s║${NC}\n" "${BROKER_URL}/docs"
+echo -e "${GREEN}╠════════════════════════════════════════════════════════════╣${NC}"
+echo -e "${GREEN}║  Cloudflare tunnel (public HTTPS URL):                     ║${NC}"
+printf "${GREEN}║    %-55s║${NC}\n" "make tunnel   (in a separate terminal)"
 echo -e "${GREEN}╠════════════════════════════════════════════════════════════╣${NC}"
 echo -e "${GREEN}║  Press Ctrl+C to stop all services                        ║${NC}"
 echo -e "${GREEN}╚════════════════════════════════════════════════════════════╝${NC}"

@@ -204,6 +204,19 @@ ideasRouter.post('/:ideaId/cancel', async (c) => {
   }
   await db.update(ideas).set({ fundingStatus: 'cancelled', updatedAt: new Date() }).where(eq(ideas.ideaId, ideaId));
   console.log(`[idea:cancelled] ideaId=${ideaId}`);
+
+  // TODO(escrow-refund): When an idea is cancelled, the escrow funds should be returned to the poster.
+  // Required work:
+  //   1. Deploy updated IdeaEscrow.sol with operator support + withdrawIdea(bytes32).
+  //   2. Change IdeaSubmission.tsx to call approve() + fundIdea(ideaIdBytes32, usdcAddr, amount)
+  //      instead of the current raw ERC-20 transfer (which the contract never records).
+  //   3. Add broker operator calls: refundMilestone() for each reserved job milestone on cancel,
+  //      and releaseMilestone() after reviewer approval.
+  //   4. Add "Cancel & Refund" button in BuyerWorkspace that calls withdrawIdea() from the wallet
+  //      after the broker cancel endpoint returns.
+  // Until this is done, USDC sent to the escrow on a cancelled idea is recoverable only by
+  // calling closeEscrow() or the contract owner's recovery function directly.
+
   return c.json({ ideaId, cancelled: true });
 });
 
