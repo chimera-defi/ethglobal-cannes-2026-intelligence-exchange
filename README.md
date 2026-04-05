@@ -346,59 +346,103 @@ Access requires a valid Agent Kit header with:
 ### Prerequisites
 
 - Node.js 20+
-- Docker
+- Docker (with Compose)
 - `corepack` enabled (for pnpm): `corepack enable`
 - Foundry (installed automatically on first contract build)
+- `cloudflared` for public HTTPS URLs: `brew install cloudflare/cloudflare/cloudflared`
+  or download from https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation/
 
-### Quick Start (One Command)
+### Environment Setup (Required First Step)
 
 ```bash
-# Start everything (infra + broker + seed + web)
-make dev
-
-# Or use the startup script
-./scripts/dev-start.sh
+# Copy the template and edit as needed
+cp .env.example .env
 ```
 
-The startup path automatically:
+The `.env` at the repo root is the single source of truth for all service ports.
+The default template uses non-standard ports (55432 for Postgres, 56379 for Redis,
+3101 for the broker) to avoid conflicts on machines where the standard ports are
+already occupied. Edit the file if your machine is free on the standard ports.
 
-- uses either `docker compose` or `docker-compose`
-- keeps the default ports when they are free
-- falls back to alternate local ports when `3000` or `3001` is already occupied
+Key variables:
+```bash
+POSTGRES_PORT=55432   # Host port Docker binds Postgres to
+REDIS_PORT=56379      # Host port Docker binds Redis to
+PORT=3101             # Broker API port
+# Web frontend port is controlled by vite.config.ts (default: 3100)
+```
 
-Open the URL printed by the script when startup finishes.
+### Quick Start (Recommended)
+
+```bash
+# 1. Install dependencies (first time only)
+make install
+
+# 2. Start everything: infra + broker + seed + web
+make dev
+```
+
+`make dev` automatically:
+- Loads `.env` for port configuration
+- Uses either `docker compose` or `docker-compose` (whichever is installed)
+- Starts Postgres and Redis via Docker
+- Runs database migrations and seeds demo data
+- Starts the broker API on `PORT` from `.env` (default: 3101)
+- Starts the web frontend on port 3100
+
+Access the app at **http://localhost:3100** (or the port printed at startup).
+
+### Cloudflare Tunnel (Public HTTPS URL)
+
+After `make dev` is running, open a second terminal and run:
+
+```bash
+make tunnel
+```
+
+This starts a Cloudflare Quick Tunnel — no account needed. A persistent public
+HTTPS URL will be printed (e.g. `https://some-words.trycloudflare.com`).
+The URL is valid for the lifetime of the `make tunnel` process.
 
 ### Manual Step-by-Step
 
-If you prefer to run services in separate terminals:
+If you prefer to run each service in a separate terminal:
 
 ```bash
-# Terminal 1: Infrastructure
-docker compose up -d
-# or: docker-compose up -d
+# Terminal 1: Infrastructure (reads POSTGRES_PORT and REDIS_PORT from .env)
+POSTGRES_PORT=55432 REDIS_PORT=56379 ./scripts/tooling/docker-compose.sh up -d
 
 # Terminal 2: Broker
-DATABASE_URL=postgres://iex:iex@localhost:5432/iex_cannes \
-REDIS_URL=redis://localhost:6379 \
-BROKER_URL=http://localhost:3001 \
-PORT=3001 \
+PORT=3101 \
+DATABASE_URL=postgres://iex:iex@localhost:55432/iex_cannes \
+REDIS_URL=redis://localhost:56379 \
+BROKER_URL=http://localhost:3101 \
 corepack pnpm --filter intelligence-exchange-cannes-broker dev
 
-# Terminal 3: Seed database (run once)
-DATABASE_URL=postgres://iex:iex@localhost:5432/iex_cannes \
-REDIS_URL=redis://localhost:6379 \
-BROKER_URL=http://localhost:3001 \
+# Terminal 3: Seed database (run once after broker is up)
+DATABASE_URL=postgres://iex:iex@localhost:55432/iex_cannes \
+REDIS_URL=redis://localhost:56379 \
+BROKER_URL=http://localhost:3101 \
 corepack pnpm --filter intelligence-exchange-cannes-broker seed
 
-# Terminal 4: Web
-VITE_DEV_PROXY_TARGET=http://localhost:3001 \
-corepack pnpm --filter intelligence-exchange-cannes-web exec vite --host 127.0.0.1 --port 3000
+# Terminal 4: Web (accessible at http://localhost:3100)
+BROKER_URL=http://localhost:3101 \
+VITE_DEV_PROXY_TARGET=http://localhost:3101 \
+corepack pnpm --filter intelligence-exchange-cannes-web exec vite --host 0.0.0.0 --port 3100
+
+# Terminal 5 (optional): Cloudflare public HTTPS URL
+cloudflared tunnel --url http://localhost:3100
 ```
+
+> **Note on host binding:** The web server binds to `0.0.0.0` so it is
+> reachable via Cloudflare tunnels and on the local network. It is not
+> exposed to the public internet without a tunnel.
 
 ### Available Make Commands
 
 ```bash
 make help              # Show all available commands
+make install           # Install dependencies
 make setup             # Full setup (install deps + tooling + infra)
 make dev               # Start full stack (broker + web + seed)
 make dev-broker        # Start broker only
@@ -406,6 +450,7 @@ make dev-web           # Start web only
 make seed              # Seed database with demo data
 make infra-up          # Start Docker infrastructure
 make infra-down        # Stop Docker infrastructure
+make tunnel            # Start Cloudflare Quick Tunnel (public HTTPS URL)
 make test              # Run all tests
 make test-acceptance   # Run acceptance tests
 make validate          # Full validation (typecheck + build + test)
