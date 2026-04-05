@@ -1,10 +1,10 @@
 const DEFAULT_ARC_TESTNET_RPC_URL = 'https://rpc.testnet.arc.network';
 const DEFAULT_ZERO_G_RPC_URL = 'https://evmrpc-testnet.0g.ai';
 const DEFAULT_ZERO_G_INDEXER_RPC = 'https://indexer-storage-testnet-turbo.0g.ai';
-const DEFAULT_WORLDCHAIN_RPC_URL = 'https://worldchain-mainnet.g.alchemy.com/public';
-const DEFAULT_WORLDCHAIN_CHAIN_ID = 480;
+const DEFAULT_WORLDCHAIN_RPC_URL = 'https://worldchain-sepolia.g.alchemy.com/public';
+const DEFAULT_WORLDCHAIN_CHAIN_ID = 4801;
 const DEFAULT_WORLDCHAIN_AGENTBOOK_ADDRESS = '0xA23aB2712eA7BBa896930544C7d6636a96b944dA';
-const DEFAULT_WORLDCHAIN_EXPLORER_BASE_URL = 'https://worldscan.org';
+const DEFAULT_WORLDCHAIN_EXPLORER_BASE_URL = 'https://worldchain-sepolia.explorer.alchemy.com';
 
 function parseBoolean(value: string | undefined, fallback = false) {
   if (value === undefined) return fallback;
