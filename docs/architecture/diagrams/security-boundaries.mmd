@@ -1,0 +1,25 @@
+flowchart TB
+    subgraph Public["Public Zone"]
+        Web["Web App"]
+    end
+
+    subgraph Protected["Protected Zone"]
+        BrokerAPI["Broker API"]
+        AgentKit["Agent Kit Guards"]
+        WorldID["World ID Verification"]
+    end
+
+    subgraph Internal["Internal Zone"]
+        DB["Database"]
+        Chain["Blockchain"]
+    end
+
+    Web -->|HTTPS + CORS| BrokerAPI
+    BrokerAPI -->|Internal calls| AgentKit
+    BrokerAPI -->|Internal calls| WorldID
+    BrokerAPI -->|Private network| DB
+    BrokerAPI -->|RPC + Keys| Chain
+
+    style Public fill:#fee2e2
+    style Protected fill:#fef3c7
+    style Internal fill:#dcfce7

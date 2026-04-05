@@ -1,0 +1,57 @@
+flowchart TB
+    subgraph Packages["Package Structure"]
+        direction TB
+        
+        subgraph Apps["apps/"]
+            Web["intelligence-exchange-cannes-web (React + Vite + RainbowKit, Port: 3000)"]
+            Broker["intelligence-exchange-cannes-broker (Hono + Bun, Port: 3001)"]
+            Worker["intelligence-exchange-cannes-worker (CLI + TypeScript)"]
+        end
+        
+        subgraph PackagesLib["packages/"]
+            Contracts["intelligence-exchange-cannes-contracts (Solidity + Foundry)"]
+            Shared["intelligence-exchange-cannes-shared (Types + Schemas)"]
+            Fixtures["intelligence-exchange-cannes-fixtures (Test Data)"]
+        end
+    end
+    
+    subgraph External["External Services"]
+        Postgres[("Postgres (Jobs, Reputation, Chain Events)")]
+        Redis[("Redis (Queues, Sessions, AgentKit Nonces)")]
+    end
+    
+    subgraph Blockchain["Blockchain Networks"]
+        Worldchain["Worldchain (ID: 480) - AgentIdentityRegistry, IdentityGate"]
+        Arc["Arc Testnet (ID: 5042002) - AdvancedArcEscrow, USDC Native"]
+    end
+    
+    subgraph WorldServices["World Services"]
+        AgentBook["AgentBook (Human Verification)"]
+        WorldID["World ID (Proof of Human)"]
+    end
+
+    Web <-->|"HTTP API Calls (JSON)"| Broker
+    Web -->|"Wallet Connection (RainbowKit)"| WorldID
+    
+    Worker <-->|"HTTP API (Signed Requests)"| Broker
+    Worker -->|"Local Execution (skill.md)"| Worker
+    
+    Broker <-->|"SQL (Drizzle ORM)"| Postgres
+    Broker <-->|"Redis Protocol (BullMQ)"| Redis
+    Broker <-->|"Contract Calls (Viem/Ethers)"| Worldchain
+    Broker <-->|"Contract Calls (Viem/Ethers)"| Arc
+    Broker <-->|"API Calls (AgentKit SDK)"| AgentBook
+    Broker <-->|"Verify Proofs (IDKit)"| WorldID
+    
+    Web -->|"Imports types"| Shared
+    Broker -->|"Imports types"| Shared
+    Worker -->|"Imports types"| Shared
+
+    style Web fill:#dbeafe,stroke:#3b82f6
+    style Broker fill:#dcfce7,stroke:#22c55e
+    style Worker fill:#fef3c7,stroke:#f59e0b
+    style Contracts fill:#fce7f3,stroke:#ec4899
+    style Postgres fill:#f3e8ff,stroke:#a855f7
+    style Redis fill:#fef3c7,stroke:#f97316
+    style Worldchain fill:#fce7f3,stroke:#8b5cf6
+    style Arc fill:#dbeafe,stroke:#3b82f6
