@@ -23,6 +23,7 @@ ETHGlobal Cannes 2026 submission for a controlled-supply market where spare agen
 - [Deploy To Worldchain](#deploy-to-worldchain)
 - [Local Agent Pickup CLI](#local-agent-pickup-cli)
 - [Technology Stack & Dependencies](#technology-stack--dependencies)
+- [How It's Made](docs/HOW_ITS_MADE.md)
 
 ## Thesis
 
@@ -47,12 +48,22 @@ This repo does **not** implement credit resale or a token market. It turns spare
 |-------|--------|-------------------|
 | **World Agent Kit** ($8,000) | Strong | AgentBook verification, protected `/v1/cannes/agentkit/*` routes, nonce replay protection, usage counters |
 | **Arc Prize 1** ($3,000) | Complete | AdvancedArcEscrow with conditional release, disputes, vesting, native USDC |
-| **0G** ($6,000) | Strong | Accepted dossier upload path (environment-dependent) |
+| **0G** ($6,000) | Complete | Accepted submission dossiers uploaded to 0G decentralized storage. Full contract suite deployed on 0G testnet. |
 
 ### Current World Stack Implementation
 
 - **Agent Kit**: Human-backed agent discovery via AgentBook verification. Protected discovery routes require valid Agent Kit headers with nonce replay protection and usage tracking in Postgres. Free-trial mode with 3 uses per endpoint.
 - **Worldchain**: Onchain `IdentityGate` role sync and `AgentIdentityRegistry` enrollment for worker permissions and reputation attestation.
+
+### 0G Integration
+
+When a reviewer accepts a job submission, the broker automatically uploads a permanent dossier to 0G storage containing:
+- Job metadata (idea, milestone, worker, reviewer)
+- Submission artifacts and summary
+- Quality score and acceptance timestamp
+- Agent metadata (type, version)
+
+This creates an immutable, decentralized record of accepted work. The full Intelligence Exchange contract suite (AdvancedArcEscrow, IdentityGate, AgentIdentityRegistry) is deployed on 0G testnet (Chain ID: 16602) for prize eligibility.
 
 Detailed mapping and current caveats live in [spec/CANNES_2026_PRIZE_MAPPING.md](spec/CANNES_2026_PRIZE_MAPPING.md).
 
@@ -282,11 +293,6 @@ POST /v1/cannes/arc/tx/release-milestone # Build release tx
   - Configurable duration and cliff per milestone
   - Partial releases as funds vest
 
-- [x] **Cross-chain conditional transfer (bonus)**
-  - Architecture supports Circle CCTP integration
-  - Contract designed for cross-chain messaging
-  - (Full implementation post-hackathon due to time constraints)
-
 - [x] **USDC + Circle developer tools**
   - Native USDC (0x3600...0000) on Arc testnet
   - USDC as gas token
@@ -440,6 +446,29 @@ This runs: typecheck → build → test → acceptance tests
 | **IdentityGate** | `0x0f917a7f6c41e5e86a0f3870baadf512a4742dd2` | [View](https://worldchain-sepolia.explorer.alchemy.com/address/0x0f917a7f6c41e5e86a0f3870baadf512a4742dd2) |
 | **AgentIdentityRegistry** | `0x88110316c5f96f3544cef90389e924c69eb8146d` | [View](https://worldchain-sepolia.explorer.alchemy.com/address/0x88110316c5f96f3544cef90389e924c69eb8146d) |
 | **IdeaEscrow** (legacy) | `0xfcb2096763917358869f631d0a985baed9cc4c68` | [View](https://worldchain-sepolia.explorer.alchemy.com/address/0xfcb2096763917358869f631d0a985baed9cc4c68) |
+
+### 0G Testnet (Chain ID: 16602)
+
+| Contract | Address | Explorer |
+|----------|---------|----------|
+| **AdvancedArcEscrow** | `0x04b386e36f89e5bb568295779089e91ded070057` | [View](https://chainscan-galileo.0g.ai/address/0x04b386e36f89e5bb568295779089e91ded070057) |
+| **IdentityGate** | `0x77331c208e7a6d4c05b0a0f87db2df9f154321a8` | [View](https://chainscan-galileo.0g.ai/address/0x77331c208e7a6d4c05b0a0f87db2df9f154321a8) |
+| **AgentIdentityRegistry** | `0xa3b182f8bc74a8bd7318c8591c1412f6e201f2e5` | [View](https://chainscan-galileo.0g.ai/address/0xa3b182f8bc74a8bd7318c8591c1412f6e201f2e5) |
+| **IdeaEscrow** (legacy) | `0xdf7628895b46d03a084669ddfed6a025447360b8` | [View](https://chainscan-galileo.0g.ai/address/0xdf7628895b46d03a084669ddfed6a025447360b8) |
+
+**Deployment Transactions**:
+- IdentityGate: [0x523bf2...](https://chainscan-galileo.0g.ai/tx/0x523bf23b4c3b2304de80bc6865aa4524aef07e1bbf751aac94881adddda7aaaa)
+- AgentIdentityRegistry: [0x6499aa...](https://chainscan-galileo.0g.ai/tx/0x6499aa38359616ff0f2fa05f910f71b337231349a1ee8e518bc179c3450be96f)
+- IdeaEscrow: [0x7c5d38...](https://chainscan-galileo.0g.ai/tx/0x7c5d38ccb696a49f4445075f2f8e9c660a6a4d1933a92dadd68f0a46f7af3e26)
+- AdvancedArcEscrow: [0x2fbdd5...](https://chainscan-galileo.0g.ai/tx/0x2fbdd579636845e7623c954a9b7f9e124148dfbba662f8efac3edfc69864dfad)
+
+**Test 0G Storage Upload**:
+```bash
+export ZERO_G_PRIVATE_KEY=0x...
+node test-0g-upload-verified.js
+```
+
+Accepted submissions automatically upload to 0G when `ZERO_G_PRIVATE_KEY` is configured.
 
 **Note:** Deployed by `0xA120FAd0498ECbF755a675E3833158484123bF30` (Platform Wallet, Attestor, and Dispute Resolver)
 

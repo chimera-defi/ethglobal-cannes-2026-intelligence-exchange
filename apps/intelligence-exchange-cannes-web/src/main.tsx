@@ -40,6 +40,22 @@ const worldChain = defineChain({
   },
 });
 
+const zeroGTestnet = defineChain({
+  id: 16602,
+  name: '0G Testnet',
+  nativeCurrency: { decimals: 18, name: 'A0GI', symbol: 'A0GI' },
+  rpcUrls: {
+    default: { http: ['https://evmrpc-testnet.0g.ai'] },
+  },
+  blockExplorers: {
+    default: {
+      name: '0G Testnet Explorer',
+      url: 'https://chainscan-galileo.0g.ai',
+    },
+  },
+  testnet: true,
+});
+
 const projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID;
 
 const connectors = projectId
@@ -62,11 +78,12 @@ const connectors = projectId
     ];
 
 const wagmiConfig = createConfig({
-  chains: [arcTestnet, worldChain],
+  chains: [arcTestnet, worldChain, zeroGTestnet],
   connectors,
   transports: {
     [arcTestnet.id]: http(),
     [worldChain.id]: http(),
+    [zeroGTestnet.id]: http(),
   },
 });
 
