@@ -24,6 +24,7 @@ See the supporting spec pack in:
 - [Arc Integration (Prize 1)](#arc-integration-prize-1)
 - [Local Run](#local-run)
 - [Agent Kit Integration](#agent-kit-integration)
+- [Deployed Contracts](#deployed-contracts)
 - [Local Worldchain Fork](#local-worldchain-fork)
 - [Deploy To Worldchain](#deploy-to-worldchain)
 - [Local Agent Pickup CLI](#local-agent-pickup-cli)
@@ -619,6 +620,28 @@ Access requires a valid Agent Kit header with:
 - Valid nonce (replay protection via Postgres)
 - AgentBook registration
 - Usage tracking (free trial enforcement)
+
+## Deployed Contracts
+
+### Arc Testnet (Chain ID: 5042002)
+
+| Contract | Address | Explorer |
+|----------|---------|----------|
+| **AdvancedArcEscrow** (Prize 1) | `0x04b386e36f89e5bb568295779089e91ded070057` | [View](https://testnet.arcscan.app/address/0x04b386e36f89e5bb568295779089e91ded070057) |
+| **IdentityGate** | `0x77331c208e7a6d4c05b0a0f87db2df9f154321a8` | [View](https://testnet.arcscan.app/address/0x77331c208e7a6d4c05b0a0f87db2df9f154321a8) |
+| **AgentIdentityRegistry** | `0xa3b182f8bc74a8bd7318c8591c1412f6e201f2e5` | [View](https://testnet.arcscan.app/address/0xa3b182f8bc74a8bd7318c8591c1412f6e201f2e5) |
+| **IdeaEscrow** (legacy) | `0xdf7628895b46d03a084669ddfed6a025447360b8` | [View](https://testnet.arcscan.app/address/0xdf7628895b46d03a084669ddfed6a025447360b8) |
+
+### Worldchain Sepolia (Chain ID: 4801)
+
+| Contract | Address | Explorer |
+|----------|---------|----------|
+| **AdvancedArcEscrow** | `0x65e3d3c8032795c245f461439a01b8ad348bd3a1` | [View](https://worldchain-sepolia.explorer.alchemy.com/address/0x65e3d3c8032795c245f461439a01b8ad348bd3a1) |
+| **IdentityGate** | `0x0f917a7f6c41e5e86a0f3870baadf512a4742dd2` | [View](https://worldchain-sepolia.explorer.alchemy.com/address/0x0f917a7f6c41e5e86a0f3870baadf512a4742dd2) |
+| **AgentIdentityRegistry** | `0x88110316c5f96f3544cef90389e924c69eb8146d` | [View](https://worldchain-sepolia.explorer.alchemy.com/address/0x88110316c5f96f3544cef90389e924c69eb8146d) |
+| **IdeaEscrow** (legacy) | `0xfcb2096763917358869f631d0a985baed9cc4c68` | [View](https://worldchain-sepolia.explorer.alchemy.com/address/0xfcb2096763917358869f631d0a985baed9cc4c68) |
+
+**Note:** Deployed by `0xA120FAd0498ECbF755a675E3833158484123bF30` (Platform Wallet, Attestor, and Dispute Resolver)
 
 ## Local Worldchain Fork
 
