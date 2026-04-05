@@ -1,17 +1,22 @@
 # Intelligence Exchange - Development Commands
 # Usage: make <command>
 
+# Load .env if present so per-machine port overrides are respected
+-include .env
+export
+
 POSTGRES_PORT ?= 5432
 REDIS_PORT ?= 6379
-BROKER_PORT ?= 3001
-WEB_PORT ?= 3000
+# PORT in .env is the broker port; fall back to 3001
+BROKER_PORT ?= $(or $(PORT),3001)
+WEB_PORT ?= 3100
 DATABASE_URL ?= postgres://iex:iex@localhost:$(POSTGRES_PORT)/iex_cannes
 REDIS_URL ?= redis://localhost:$(REDIS_PORT)
 BROKER_URL ?= http://localhost:$(BROKER_PORT)
 VITE_DEV_PROXY_TARGET ?= $(BROKER_URL)
 COMPOSE ?= ./scripts/tooling/docker-compose.sh
 
-.PHONY: help install setup dev dev-broker dev-web seed stop clean test validate
+.PHONY: help install setup dev dev-broker dev-web seed stop clean test validate tunnel
 
 # Default command
 help:
@@ -41,6 +46,7 @@ help:
 	@echo "  make stop            Stop all running services"
 	@echo "  make clean           Clean build artifacts and node_modules"
 	@echo "  make screenshots     Update screenshots (requires running stack)"
+	@echo "  make tunnel          Start Cloudflare Quick Tunnel for web app"
 
 # Setup commands
 install:
@@ -78,7 +84,7 @@ dev-broker: infra-up
 dev-web:
 	@echo "Starting web on http://localhost:$(WEB_PORT)"
 	@BROKER_URL=$(BROKER_URL) VITE_DEV_PROXY_TARGET=$(VITE_DEV_PROXY_TARGET) \
-	corepack pnpm --filter intelligence-exchange-cannes-web exec vite --host 127.0.0.1 --port $(WEB_PORT)
+	corepack pnpm --filter intelligence-exchange-cannes-web exec vite --host 0.0.0.0 --port $(WEB_PORT)
 
 # Database
 seed:
@@ -120,6 +126,13 @@ clean:
 	@rm -rf node_modules apps/*/node_modules packages/*/node_modules
 	@rm -rf apps/*/dist packages/*/dist
 	@echo "Cleaned build artifacts"
+
+# Cloudflare Quick Tunnel (no account needed)
+# Run this in a second terminal after `make dev` to get a public HTTPS URL
+tunnel:
+	@echo "Starting Cloudflare Quick Tunnel for web app on port $(WEB_PORT)"
+	@echo "A public URL will appear below (valid for the duration of this process)"
+	@cloudflared tunnel --url http://localhost:$(WEB_PORT)
 
 # Quick start for demos
 demo: setup
