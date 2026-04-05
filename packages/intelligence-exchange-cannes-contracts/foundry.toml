@@ -6,12 +6,15 @@ via_ir = true
 optimizer = true
 optimizer_runs = 200
 
-# Arc Testnet Configuration
+# RPC Endpoints
 [rpc_endpoints]
 arc-testnet = "https://rpc.testnet.arc.network"
 arc-mainnet = "https://rpc.arc.network"
+worldchain-sepolia = "https://worldchain-sepolia.g.alchemy.com/public"
+worldchain-mainnet = "https://worldchain-mainnet.g.alchemy.com/public"
 
 [etherscan]
 arc-testnet = { key = "", url = "https://testnet.arcscan.app/api" }
+worldchain-sepolia = { key = "", url = "https://worldchain-sepolia.explorer.alchemy.com/api" }
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
