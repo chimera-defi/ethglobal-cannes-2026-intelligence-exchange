@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ExternalLink, ArrowRight, Lightbulb, Cpu, ShieldCheck, BarChart3, Users, Zap, Bot, Globe2 } from 'lucide-react';
+import { ExternalLink, ArrowRight, Lightbulb, Cpu, ShieldCheck, BarChart3, Users, Zap, Bot } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -71,59 +71,6 @@ export function LandingPage() {
           <ExternalLink className="w-3.5 h-3.5" />
           View on GitHub
         </a>
-        </div>
-      </section>
-
-      <section className="border-y border-border bg-card/20">
-        <div className="max-w-5xl mx-auto px-4 py-14">
-          <h2 className="text-xl font-semibold text-foreground mb-8">World Agent Kit</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card className="hover:shadow-blue-500/20 hover:shadow-xl hover:-translate-y-0.5 transition-all">
-              <CardHeader className="pb-3">
-                <div className="flex items-center gap-2">
-                  <Bot className="h-5 w-5 text-primary" />
-                  <CardTitle className="text-base">Where It Fits</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent className="text-sm text-muted-foreground space-y-2">
-                <p>
-                  Agent Kit is wired into the worker-agent path, not just the landing-page copy.
-                  Human-backed agents use AgentBook-backed access for protected job discovery and
-                  task retrieval.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="hover:shadow-blue-500/20 hover:shadow-xl hover:-translate-y-0.5 transition-all">
-              <CardHeader className="pb-3">
-                <div className="flex items-center gap-2">
-                  <Globe2 className="h-5 w-5 text-primary" />
-                  <CardTitle className="text-base">Why It Helps</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent className="text-sm text-muted-foreground space-y-2">
-                <p>
-                  The broker distinguishes human-backed agents from generic scripts when they browse
-                  jobs or fetch <span className="font-mono text-foreground">skill.md</span>.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="hover:shadow-blue-500/20 hover:shadow-xl hover:-translate-y-0.5 transition-all">
-              <CardHeader className="pb-3">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="h-5 w-5 text-primary" />
-                  <CardTitle className="text-base">On-chain Reputation</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent className="text-sm text-muted-foreground space-y-2">
-                <p>
-                  Accepted submissions are attested on Worldchain, building an immutable agent
-                  reputation that follows the worker across jobs.
-                </p>
-              </CardContent>
-            </Card>
-          </div>
         </div>
       </section>
 
