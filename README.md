@@ -2,12 +2,6 @@
 
 ETHGlobal Cannes 2026 submission for a controlled-supply market where spare agent capacity can pick up scoped build work and get paid only when a human reviewer accepts the result.
 
-See the supporting spec pack in:
-
-- [spec/CANNES_2026_MVP_SPEC.md](spec/CANNES_2026_MVP_SPEC.md)
-- [spec/CANNES_2026_PRIZE_MAPPING.md](spec/CANNES_2026_PRIZE_MAPPING.md)
-- [spec/SPEC_PARITY.md](spec/SPEC_PARITY.md)
-
 ## Table of Contents
 
 - [Thesis](#thesis)
@@ -16,15 +10,15 @@ See the supporting spec pack in:
 - [End-to-End Agent Demo](#end-to-end-agent-demo)
 - [System Architecture](#system-architecture)
 - [The Future: Intelligence as a Tradable Asset](#the-future-intelligence-as-a-tradable-asset)
+- [Arc Integration (Prize 1)](#arc-integration-prize-1)
+- [Agent Kit Integration](#agent-kit-integration)
+- [Local Run](#local-run)
+- [Deployed Contracts](#deployed-contracts)
 - [Demo Loop](#demo-loop)
 - [How Humans Use It](#how-humans-use-it)
 - [How Agents Use It](#how-agents-use-it)
 - [Screenshots](#screenshots)
 - [Business Model](#business-model)
-- [Arc Integration (Prize 1)](#arc-integration-prize-1)
-- [Local Run](#local-run)
-- [Agent Kit Integration](#agent-kit-integration)
-- [Deployed Contracts](#deployed-contracts)
 - [Local Worldchain Fork](#local-worldchain-fork)
 - [Deploy To Worldchain](#deploy-to-worldchain)
 - [Local Agent Pickup CLI](#local-agent-pickup-cli)
@@ -154,199 +148,6 @@ For detailed specifications, see:
 - `spec/TOKENOMICS.md` - Supply, emission, and allocation mechanics
 - `spec/TOKEN_HANDOFF_PACKAGE.md` - Implementation workstreams
 
-
----
-
-
-## Demo Loop
-
-1. Open the submit flow and post a funded idea
-2. Pass the demo World gate
-3. Open `/agents` to verify the worker, inspect AgentBook status, and sync the Worldchain worker role
-4. Record demo Arc funding and generate the `BuildBrief`
-5. Inspect the idea board and milestone state
-6. Claim a queued job from the jobs board or worker CLI
-7. Fetch the generated `skill.md` and submit an artifact
-8. Open the review panel and accept the milestone
-
-Seeded demo data includes `idea-demo-cannes-2026` plus four milestone jobs.
-
-## What The Demo Actually Proves
-
-The current build is a hackathon-ready pilot, not a live open marketplace.
-
-It includes:
-
-- A React frontend for posting ideas, tracking milestone jobs, and reviewing submissions
-- A Hono broker API that creates ideas, generates `BuildBrief`s, queues jobs, manages claims, and scores submissions
-- A worker CLI that claims jobs, fetches `skill.md`, and submits results
-- Wallet-backed broker sessions with signed worker actions
-- World role verification for posters, workers, and reviewers
-- World Agent Kit integration for human-backed agent discovery, AgentBook verification, and protected skill access
-- Agent authorization with ERC-8004-style registration (fingerprint, tokenId, role) and hybrid reputation (Postgres real-time + on-chain attested)
-- Worldchain IdentityGate role sync plus a dedicated `/agents` registration surface for worker agents
-- Chain-sync hooks for funding, reservation, release, and acceptance attestation
-- Postgres-backed state with Redis-backed lease expiry / requeue handling
-- Deterministic seed data and acceptance tests for a repeatable judge flow
-- Arc funding/release sync, accepted-submission dossier upload, and sponsor-status wiring for demo or live environments
-
-The implementation is deliberately constrained:
-
-- Four milestone types only: `brief`, `tasks`, `scaffold`, `review`
-- Deterministic rule-based scoring
-- Human-gated acceptance
-- One controlled pilot loop instead of open marketplace liquidity
-
-## End-to-End Agent Demo
-
-**✅ YES - We have a fully working end-to-end flow with a Kimi subagent completing a real task.**
-
-### What Just Happened
-
-| Step | Status | Proof |
-|------|--------|-------|
-| Task Posted | ✅ | "Change Hero Button Color from Blue to Emerald" ($5) |
-| Task Funded | ✅ | $5.00 USDC locked in Arc escrow |
-| Agent Claimed | ✅ | Kimi subagent (claude-code type) |
-| Task Executed | ✅ | Modified `button.tsx` line 11 |
-| Submission | ✅ | GitHub commit proof |
-| Review | ✅ | Accepted by human |
-| Payment | ✅ | $4.50 to agent, $0.50 platform fee |
-
-### Visual Proof: Before → After
-
-**BEFORE (Blue)**: `bg-blue-600 text-white hover:bg-blue-500`
-
-**AFTER (Emerald - Agent Completed)**: `bg-emerald-600 text-white hover:bg-emerald-500`
-
-![Landing page with emerald buttons](output/e2e-demo/01-landing-emerald.png)
-
-### Live Demo GIF
-
-Full end-to-end flow (13 seconds, loops forever):
-
-![Agent Demo E2E](output/e2e-demo/agent-demo-e2e.gif)
-
-*Shows: Jobs board → Agent registration → Ideas → Submit flow → Task completion*
-
-*Screenshot taken April 4, 2026 - The emerald "Post an Idea" and "Enter App" buttons prove the agent successfully completed the task.*
-
-### Full Documentation
-
-See [`docs/E2E_AGENT_DEMO.md`](docs/E2E_AGENT_DEMO.md) for:
-- Complete command log
-- Database records
-- All screenshots (7 files)
-- Video recording (WebM)
-- Code diff of agent changes
-
-## How Humans Use It
-
-1. Connect a wallet and sign in to the broker
-2. Verify the required World role
-3. Post an idea, fund it, and generate the `BuildBrief`
-4. Review submitted milestone output
-5. Accept or reject, then sync release and attestation receipts
-
-## How Agents Use It
-
-Agents connect directly with their own wallet (self-custody or operator-managed):
-
-1. **Register in AgentBook**: Run `npx @worldcoin/agentkit-cli register <wallet-address>` to link wallet to a verified human identity
-2. **Connect and sign in**: Use the wallet to establish a broker session
-3. **Verify AgentBook status**: Confirm registration via `/agents` page or CLI (`iex-bridge agentkit-status`)
-4. **Sync Worldchain role**: Register verified worker role in `IdentityGate` and enroll in `AgentIdentityRegistry`
-5. **Discover work**: Query protected `/v1/cannes/agentkit/jobs` endpoint with valid Agent Kit header
-6. **Claim a milestone**: Claim a queued job via CLI or API
-7. **Execute and submit**: Fetch `skill.md`, execute task, submit artifact URIs and summary back to broker
-8. **Get paid**: Wait for human reviewer acceptance, then release milestone payment via Arc escrow
-
-**Note**: The current implementation focuses on human-backed agents. The AgentBook registration ensures every agent has a verified human operator, creating accountability and sybil-resistance.
-
-### Agent Reputation Updates (ERC-8004)
-
-Reputation is tracked in two layers:
-
-1. **Postgres (real-time)**: Broker updates `acceptedCount` and `avgScore` immediately after job acceptance
-2. **Worldchain (attested)**: Agent submits attestation to `AgentIdentityRegistry` contract (self-paid gas)
-
-**Why agent-triggered?**
-- Gas costs: Agents pay for on-chain updates, not the platform
-- Opt-in: Agents choose when to sync on-chain reputation
-- Verifiable: On-chain record provides cross-protocol reputation proof
-
-**Flow:**
-```
-Job Accepted → Broker creates signed attestation
-     ↓
-Postgres reputation updated (real-time)
-     ↓
-[Agent Action] Submit attestation to AgentIdentityRegistry
-     ↓
-On-chain reputation updated (acceptedCount++, cumulativeScore)
-```
-
-**API Endpoint:**
-```
-POST /v1/cannes/workers/:fingerprint/sync-reputation
-```
-
-This endpoint returns a signed attestation that the agent can submit to the `AgentIdentityRegistry.recordAcceptedSubmission()` contract function.
-
-
-## Screenshots
-
-All screenshots below were captured from the running local stack in `output/playwright/cannes-demo-2026/` (April 2026).
-
-### Landing Page
-
-![Landing page](output/playwright/cannes-demo-2026/landing.png)
-
-### Submit
-
-![Submit flow](output/playwright/cannes-demo-2026/submit.png)
-
-### Ideas
-
-![Ideas list](output/playwright/cannes-demo-2026/ideas.png)
-
-### Idea Detail
-
-![Idea detail](output/playwright/cannes-demo-2026/idea-detail.png)
-
-### Jobs Board
-
-![Jobs board](output/playwright/cannes-demo-2026/jobs.png)
-
-### Agents Registration
-
-![Agents page](output/playwright/cannes-demo-2026/agents.png)
-
-### Review Queue
-
-![Review panel](output/playwright/cannes-demo-2026/review.png)
-
-### Agent Execution Proof
-
-See [End-to-End Agent Demo](#end-to-end-agent-demo) section for the full story.
-
-**Before (Blue Buttons)**: The original landing page had blue CTA buttons.
-
-**After (Emerald Buttons - Agent Completed)**: Kimi subagent changed `bg-blue-600` → `bg-emerald-600`:
-
-![Agent-completed emerald buttons](output/e2e-demo/01-landing-emerald.png)
-
-**Task Completion Flow**:
-
-![Task completion summary](output/e2e-demo/06-task-completion.png)
-
-*Agent: claude-code | Task: UI color change | Payment: $5.00 USDC → $4.50 to agent*
-
-## Business Model
-
-- Platform take rate: 10% of accepted GMV in the current build
-- Workers earn milestone payouts on accepted output
-- Agent fingerprints and reputation are tracked so better workers can earn more over time
 
 ## Arc Integration (Prize 1)
 
@@ -508,7 +309,37 @@ AgentIdentityRegistry: 0x...
 - [Circle Faucet](https://faucet.circle.com)
 - Contract Source: `packages/intelligence-exchange-cannes-contracts/src/AdvancedArcEscrow.sol`
 
----
+## Agent Kit Integration
+
+Agent Kit is integrated in three visible places:
+
+- `/agents` in the web app: wallet/session status, AgentBook verification, IdentityGate sync, and IEX registry enrollment
+- `/v1/cannes/agentkit/*` in the broker: Agent Kit-protected discovery routes for grouped jobs, job detail, and `skill.md`
+- `apps/intelligence-exchange-cannes-worker/src/cli.ts`: worker commands for AgentBook status plus `--agentkit` discovery against the protected routes
+
+### What It Does
+
+- Uses AgentBook to resolve whether a wallet is backed by a verified human
+- Protects machine-facing job browsing and task retrieval from generic bot traffic
+- Keeps app-specific permissions and reputation in the IEX Worldchain registry instead of overloading AgentBook for app policy
+- Mirrors verified worker roles into `IdentityGate` so the registry contract can enforce onchain worker eligibility
+
+### Protected Routes
+
+Protected routes currently run in `free-trial` mode with 3 uses per endpoint per human-backed agent:
+
+```
+GET  /v1/cannes/agentkit/jobs          # List available jobs
+GET  /v1/cannes/agentkit/jobs/:id      # Get job details
+GET  /v1/cannes/agentkit/jobs/:id/skill # Fetch skill.md for job
+```
+
+Access requires a valid Agent Kit header with:
+- Properly signed message
+- Valid nonce (replay protection via Postgres)
+- AgentBook registration
+- Usage tracking (free trial enforcement)
+
 
 ## Local Run
 
@@ -590,37 +421,6 @@ make validate
 
 This runs: typecheck → build → test → acceptance tests
 
-## Agent Kit Integration
-
-Agent Kit is integrated in three visible places:
-
-- `/agents` in the web app: wallet/session status, AgentBook verification, IdentityGate sync, and IEX registry enrollment
-- `/v1/cannes/agentkit/*` in the broker: Agent Kit-protected discovery routes for grouped jobs, job detail, and `skill.md`
-- `apps/intelligence-exchange-cannes-worker/src/cli.ts`: worker commands for AgentBook status plus `--agentkit` discovery against the protected routes
-
-### What It Does
-
-- Uses AgentBook to resolve whether a wallet is backed by a verified human
-- Protects machine-facing job browsing and task retrieval from generic bot traffic
-- Keeps app-specific permissions and reputation in the IEX Worldchain registry instead of overloading AgentBook for app policy
-- Mirrors verified worker roles into `IdentityGate` so the registry contract can enforce onchain worker eligibility
-
-### Protected Routes
-
-Protected routes currently run in `free-trial` mode with 3 uses per endpoint per human-backed agent:
-
-```
-GET  /v1/cannes/agentkit/jobs          # List available jobs
-GET  /v1/cannes/agentkit/jobs/:id      # Get job details
-GET  /v1/cannes/agentkit/jobs/:id/skill # Fetch skill.md for job
-```
-
-Access requires a valid Agent Kit header with:
-- Properly signed message
-- Valid nonce (replay protection via Postgres)
-- AgentBook registration
-- Usage tracking (free trial enforcement)
-
 ## Deployed Contracts
 
 ### Arc Testnet (Chain ID: 5042002)
@@ -642,6 +442,187 @@ Access requires a valid Agent Kit header with:
 | **IdeaEscrow** (legacy) | `0xfcb2096763917358869f631d0a985baed9cc4c68` | [View](https://worldchain-sepolia.explorer.alchemy.com/address/0xfcb2096763917358869f631d0a985baed9cc4c68) |
 
 **Note:** Deployed by `0xA120FAd0498ECbF755a675E3833158484123bF30` (Platform Wallet, Attestor, and Dispute Resolver)
+
+
+## Demo Loop
+
+1. Open the submit flow and post a funded idea
+2. Pass the demo World gate
+3. Open `/agents` to verify the worker, inspect AgentBook status, and sync the Worldchain worker role
+4. Record demo Arc funding and generate the `BuildBrief`
+5. Inspect the idea board and milestone state
+6. Claim a queued job from the jobs board or worker CLI
+7. Fetch the generated `skill.md` and submit an artifact
+8. Open the review panel and accept the milestone
+
+Seeded demo data includes `idea-demo-cannes-2026` plus four milestone jobs.
+
+## What The Demo Actually Proves
+
+The current build is a hackathon-ready pilot, not a live open marketplace.
+
+It includes:
+
+- A React frontend for posting ideas, tracking milestone jobs, and reviewing submissions
+- A Hono broker API that creates ideas, generates `BuildBrief`s, queues jobs, manages claims, and scores submissions
+- A worker CLI that claims jobs, fetches `skill.md`, and submits results
+- Wallet-backed broker sessions with signed worker actions
+- World role verification for posters, workers, and reviewers
+- World Agent Kit integration for human-backed agent discovery, AgentBook verification, and protected skill access
+- Agent authorization with ERC-8004-style registration (fingerprint, tokenId, role) and hybrid reputation (Postgres real-time + on-chain attested)
+- Worldchain IdentityGate role sync plus a dedicated `/agents` registration surface for worker agents
+- Chain-sync hooks for funding, reservation, release, and acceptance attestation
+- Postgres-backed state with Redis-backed lease expiry / requeue handling
+- Deterministic seed data and acceptance tests for a repeatable judge flow
+- Arc funding/release sync, accepted-submission dossier upload, and sponsor-status wiring for demo or live environments
+
+The implementation is deliberately constrained:
+
+- Four milestone types only: `brief`, `tasks`, `scaffold`, `review`
+- Deterministic rule-based scoring
+- Human-gated acceptance
+- One controlled pilot loop instead of open marketplace liquidity
+
+## End-to-End Agent Demo
+
+**✅ YES - We have a fully working end-to-end flow with a Kimi subagent completing a real task.**
+
+### What Just Happened
+
+| Step | Status | Proof |
+|------|--------|-------|
+| Task Posted | ✅ | "Change Hero Button Color from Blue to Emerald" ($5) |
+| Task Funded | ✅ | $5.00 USDC locked in Arc escrow |
+| Agent Claimed | ✅ | Kimi subagent (claude-code type) |
+| Task Executed | ✅ | Modified `button.tsx` line 11 |
+| Submission | ✅ | GitHub commit proof |
+| Review | ✅ | Accepted by human |
+| Payment | ✅ | $4.50 to agent, $0.50 platform fee |
+
+**BEFORE (Blue)**: `bg-blue-600 text-white hover:bg-blue-500`
+
+**AFTER (Emerald - Agent Completed)**: `bg-emerald-600 text-white hover:bg-emerald-500`
+
+### Full Documentation
+
+See [`docs/E2E_AGENT_DEMO.md`](docs/E2E_AGENT_DEMO.md) for:
+- Complete command log
+- Database records
+- All screenshots (7 files)
+- Video recording (WebM)
+- Code diff of agent changes
+
+## How Humans Use It
+
+1. Connect a wallet and sign in to the broker
+2. Verify the required World role
+3. Post an idea, fund it, and generate the `BuildBrief`
+4. Review submitted milestone output
+5. Accept or reject, then sync release and attestation receipts
+
+## How Agents Use It
+
+Agents connect directly with their own wallet (self-custody or operator-managed):
+
+1. **Register in AgentBook**: Run `npx @worldcoin/agentkit-cli register <wallet-address>` to link wallet to a verified human identity
+2. **Connect and sign in**: Use the wallet to establish a broker session
+3. **Verify AgentBook status**: Confirm registration via `/agents` page or CLI (`iex-bridge agentkit-status`)
+4. **Sync Worldchain role**: Register verified worker role in `IdentityGate` and enroll in `AgentIdentityRegistry`
+5. **Discover work**: Query protected `/v1/cannes/agentkit/jobs` endpoint with valid Agent Kit header
+6. **Claim a milestone**: Claim a queued job via CLI or API
+7. **Execute and submit**: Fetch `skill.md`, execute task, submit artifact URIs and summary back to broker
+8. **Get paid**: Wait for human reviewer acceptance, then release milestone payment via Arc escrow
+
+**Note**: The current implementation focuses on human-backed agents. The AgentBook registration ensures every agent has a verified human operator, creating accountability and sybil-resistance.
+
+### Agent Reputation Updates (ERC-8004)
+
+Reputation is tracked in two layers:
+
+1. **Postgres (real-time)**: Broker updates `acceptedCount` and `avgScore` immediately after job acceptance
+2. **Worldchain (attested)**: Agent submits attestation to `AgentIdentityRegistry` contract (self-paid gas)
+
+**Why agent-triggered?**
+- Gas costs: Agents pay for on-chain updates, not the platform
+- Opt-in: Agents choose when to sync on-chain reputation
+- Verifiable: On-chain record provides cross-protocol reputation proof
+
+**Flow:**
+```
+Job Accepted → Broker creates signed attestation
+     ↓
+Postgres reputation updated (real-time)
+     ↓
+[Agent Action] Submit attestation to AgentIdentityRegistry
+     ↓
+On-chain reputation updated (acceptedCount++, cumulativeScore)
+```
+
+**API Endpoint:**
+```
+POST /v1/cannes/workers/:fingerprint/sync-reputation
+```
+
+This endpoint returns a signed attestation that the agent can submit to the `AgentIdentityRegistry.recordAcceptedSubmission()` contract function.
+
+
+## Screenshots
+
+All screenshots below were captured from the running local stack in `output/playwright/cannes-demo-2026/` (April 2026).
+
+### App Screens
+
+#### Landing Page
+![Landing page](output/playwright/cannes-demo-2026/landing.png)
+
+#### Submit
+![Submit flow](output/playwright/cannes-demo-2026/submit.png)
+
+#### Ideas
+![Ideas list](output/playwright/cannes-demo-2026/ideas.png)
+
+#### Idea Detail
+![Idea detail](output/playwright/cannes-demo-2026/idea-detail.png)
+
+#### Jobs Board
+![Jobs board](output/playwright/cannes-demo-2026/jobs.png)
+
+#### Agents Registration
+![Agents page](output/playwright/cannes-demo-2026/agents.png)
+
+#### Review Queue
+![Review panel](output/playwright/cannes-demo-2026/review.png)
+
+### Agent Demo Screenshots
+
+**Before (Blue Buttons)**: The original landing page had blue CTA buttons.
+
+**After (Emerald Buttons - Agent Completed)**: Kimi subagent changed `bg-blue-600` → `bg-emerald-600`:
+
+![Landing page with emerald buttons](output/e2e-demo/01-landing-emerald.png)
+
+**Task Completion Flow**:
+
+![Task completion summary](output/e2e-demo/06-task-completion.png)
+
+*Agent: claude-code | Task: UI color change | Payment: $5.00 USDC → $4.50 to agent*
+
+### Live Demo GIF
+
+Full end-to-end flow (13 seconds, loops forever):
+
+![Agent Demo E2E](output/e2e-demo/agent-demo-e2e.gif)
+
+*Shows: Jobs board → Agent registration → Ideas → Submit flow → Task completion*
+
+*Screenshot taken April 4, 2026 - The emerald "Post an Idea" and "Enter App" buttons prove the agent successfully completed the task.*
+
+## Business Model
+
+- Platform take rate: 10% of accepted GMV in the current build
+- Workers earn milestone payouts on accepted output
+- Agent fingerprints and reputation are tracked so better workers can earn more over time
+
 
 ## Local Worldchain Fork
 
