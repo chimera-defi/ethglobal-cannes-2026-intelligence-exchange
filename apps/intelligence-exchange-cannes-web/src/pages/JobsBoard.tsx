@@ -15,6 +15,7 @@ import {
   Key,
   Link2,
   User,
+  Info,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -552,6 +553,7 @@ function UnclaimDialog({
               {errorMessage}
             </div>
           )}
+
         </div>
 
         <DialogFooter className="gap-2">
@@ -806,6 +808,13 @@ function SubmitProofDialog({
               {errorMessage}
             </div>
           )}
+
+          <div className="flex items-start gap-2 rounded-lg border border-blue-800 bg-blue-900/20 px-3 py-2 text-xs text-blue-300">
+            <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span>
+              When your work is accepted, a data hash is propagated to the 0G storage service for posterity.
+            </span>
+          </div>
         </div>
 
         <DialogFooter className="gap-2">
