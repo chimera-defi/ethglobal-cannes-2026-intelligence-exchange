@@ -240,6 +240,12 @@ export interface IntegrationsStatusResponse {
     environment: 'production' | 'staging';
     strict: boolean;
   };
+  zeroG: {
+    mode: 'live' | 'demo';
+    rpcUrl: string;
+    indexerRpcUrl: string;
+    chainId: number;
+  };
   arc: {
     rpcUrl: string;
     chainId: number;
