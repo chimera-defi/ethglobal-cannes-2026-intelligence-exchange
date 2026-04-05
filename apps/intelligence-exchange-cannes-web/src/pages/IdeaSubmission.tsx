@@ -165,7 +165,10 @@ export function IdeaSubmission() {
   const { isConnected, address, session, isPosterVerified, signIn, isSessionLoading, refreshSession } =
     useSession();
   const { chainId } = useAccount();
-  const publicClient = usePublicClient();
+  const arcChainIdForClient = integrations?.arc.chainId ?? DEFAULT_ARC_CHAIN_ID;
+  // Pin to Arc chain so waitForTransactionReceipt polls the right RPC even
+  // if the wallet is mid-switch when the hook re-renders.
+  const publicClient = usePublicClient({ chainId: arcChainIdForClient });
   const { switchChainAsync } = useSwitchChain();
   const { writeContractAsync } = useWriteContract();
 
@@ -206,7 +209,7 @@ export function IdeaSubmission() {
   );
   const demoPosterAvailable = integrations?.world.strict === false;
   const demoPosterAddress = makeDemoAddress('demo-poster:web');
-  const arcChainId = integrations?.arc.chainId ?? DEFAULT_ARC_CHAIN_ID;
+  const arcChainId = arcChainIdForClient;
   const escrowContractAddress = integrations?.arc.escrowContractAddress ?? null;
   const usdcAddress = integrations?.arc.usdcAddress ?? null;
   const walletFundingAvailable = !demoPosterMode && Boolean(escrowContractAddress && usdcAddress);
@@ -418,7 +421,12 @@ export function IdeaSubmission() {
       setFundTxHash(txHash);
       setWalletFundingStatus('confirming');
 
-      const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+      // Arc testnet typically confirms in <2s. Cap at 30s to avoid hanging.
+      const receipt = await publicClient.waitForTransactionReceipt({
+        hash: txHash,
+        timeout: 30_000,
+        pollingInterval: 1_000,
+      });
       if (receipt.status !== 'success') {
         throw new Error('Escrow funding transaction reverted on Arc.');
       }
