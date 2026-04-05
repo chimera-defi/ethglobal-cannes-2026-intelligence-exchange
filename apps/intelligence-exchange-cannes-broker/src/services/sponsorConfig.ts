@@ -17,7 +17,9 @@ export function getWorldConfig() {
   const action = process.env.WORLD_ACTION_ID;
   const signingKey = process.env.WORLD_SIGNING_KEY ?? process.env.RP_SIGNING_KEY;
   const environment = (process.env.WORLD_ENVIRONMENT ?? 'staging') as 'production' | 'staging';
-  const configured = Boolean(appId && rpId && action && signingKey);
+  // configured = app can show the IDKitWidget and verify proofs (signingKey is only
+  // needed for the optional RP-signature/SIWE flow, not for basic verification)
+  const configured = Boolean(appId && rpId && action);
   const strictFallback = process.env.NODE_ENV === 'test';
 
   return {
