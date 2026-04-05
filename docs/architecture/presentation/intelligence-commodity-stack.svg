@@ -1,0 +1,245 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1200" width="900" height="1200">
+  <defs>
+    <!-- Gradients -->
+    <linearGradient id="computeGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#0a1628"/>
+      <stop offset="100%" style="stop-color:#070D1A"/>
+    </linearGradient>
+    <linearGradient id="modelGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f1f35"/>
+      <stop offset="100%" style="stop-color:#0D1625"/>
+    </linearGradient>
+    <linearGradient id="agentGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#162844"/>
+      <stop offset="100%" style="stop-color:#131F32"/>
+    </linearGradient>
+    <linearGradient id="brokerGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#2563eb"/>
+      <stop offset="100%" style="stop-color:#1d4ed8"/>
+    </linearGradient>
+    <linearGradient id="marketGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#f59e0b"/>
+      <stop offset="100%" style="stop-color:#d97706"/>
+    </linearGradient>
+    <linearGradient id="gpuGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a2d47"/>
+      <stop offset="100%" style="stop-color:#131F32"/>
+    </linearGradient>
+    
+    <!-- Glow filters -->
+    <filter id="blueGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="amberGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    
+    <!-- Arrow marker -->
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#4B5A70"/>
+    </marker>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="900" height="1200" fill="#070D1A"/>
+  
+  <!-- Title -->
+  <text x="450" y="50" text-anchor="middle" font-family="monospace" font-size="28" font-weight="bold" fill="#C8D6E8">
+    INTELLIGENCE AS A COMMODITY
+  </text>
+  <text x="450" y="80" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#4B5A70">
+    The Birth of a New Asset Class
+  </text>
+  
+  <!-- === COMPUTE LAYER === -->
+  <rect x="50" y="110" width="800" height="170" rx="8" fill="url(#computeGrad)" stroke="#1E2D42" stroke-width="2"/>
+  <text x="70" y="140" font-family="monospace" font-size="16" font-weight="bold" fill="#C8D6E8">
+    🔧 COMPUTE LAYER
+  </text>
+  <text x="730" y="140" font-family="sans-serif" font-size="11" fill="#4B5A70" text-anchor="end">
+    Hardware • Depreciating • Fungible
+  </text>
+  
+  <!-- GPU Cards -->
+  <rect x="70" y="155" width="170" height="110" rx="4" fill="url(#gpuGrad)" stroke="#1E2D42" stroke-width="1"/>
+  <rect x="80" y="165" width="150" height="70" rx="2" fill="#0a1628" stroke="#2d3d52" stroke-width="1"/>
+  <text x="155" y="200" text-anchor="middle" font-family="monospace" font-size="20" fill="#3B82F6">GPU</text>
+  <text x="155" y="255" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#C8D6E8">NVIDIA A100</text>
+  
+  <rect x="260" y="155" width="170" height="110" rx="4" fill="url(#gpuGrad)" stroke="#1E2D42" stroke-width="1"/>
+  <rect x="270" y="165" width="150" height="70" rx="2" fill="#0a1628" stroke="#2d3d52" stroke-width="1"/>
+  <text x="345" y="200" text-anchor="middle" font-family="monospace" font-size="20" fill="#3B82F6">GPU</text>
+  <text x="345" y="255" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#C8D6E8">NVIDIA H100</text>
+  
+  <rect x="450" y="155" width="170" height="110" rx="4" fill="url(#gpuGrad)" stroke="#1E2D42" stroke-width="1"/>
+  <rect x="460" y="165" width="150" height="70" rx="2" fill="#0a1628" stroke="#2d3d52" stroke-width="1"/>
+  <text x="535" y="200" text-anchor="middle" font-family="monospace" font-size="20" fill="#3B82F6">GPU</text>
+  <text x="535" y="255" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#C8D6E8">AMD MI300</text>
+  
+  <rect x="640" y="155" width="190" height="110" rx="4" fill="url(#gpuGrad)" stroke="#1E2D42" stroke-width="1"/>
+  <rect x="650" y="165" width="170" height="70" rx="2" fill="#0a1628" stroke="#2d3d52" stroke-width="1"/>
+  <text x="735" y="200" text-anchor="middle" font-family="monospace" font-size="18" fill="#3B82F6">CLOUD</text>
+  <text x="735" y="255" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#C8D6E8">AWS • GCP • Azure</text>
+  
+  <!-- === MODEL LAYER === -->
+  <rect x="50" y="300" width="800" height="170" rx="8" fill="url(#modelGrad)" stroke="#1E2D42" stroke-width="2"/>
+  <text x="70" y="330" font-family="monospace" font-size="16" font-weight="bold" fill="#C8D6E8">
+    🧠 MODEL LAYER
+  </text>
+  <text x="730" y="330" font-family="sans-serif" font-size="11" fill="#4B5A70" text-anchor="end">
+    Differentiated • Improving • Non-Fungible
+  </text>
+  
+  <!-- Model Boxes -->
+  <rect x="70" y="345" width="170" height="110" rx="4" fill="#131F32" stroke="#1E2D42" stroke-width="1"/>
+  <circle cx="155" cy="380" r="20" fill="#10B981" opacity="0.2"/>
+  <text x="155" y="386" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#10B981">GPT</text>
+  <text x="155" y="425" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#C8D6E8">GPT-4o / o1</text>
+  <text x="155" y="442" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#4B5A70">OpenAI</text>
+  
+  <rect x="260" y="345" width="170" height="110" rx="4" fill="#131F32" stroke="#1E2D42" stroke-width="1"/>
+  <circle cx="345" cy="380" r="20" fill="#F59E0B" opacity="0.2"/>
+  <text x="345" y="386" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#F59E0B">CLAUDE</text>
+  <text x="345" y="425" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#C8D6E8">Claude 3.5/3.7</text>
+  <text x="345" y="442" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#4B5A70">Anthropic</text>
+  
+  <rect x="450" y="345" width="170" height="110" rx="4" fill="#131F32" stroke="#1E2D42" stroke-width="1"/>
+  <circle cx="535" cy="380" r="20" fill="#3B82F6" opacity="0.2"/>
+  <text x="535" y="386" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#3B82F6">GEMINI</text>
+  <text x="535" y="425" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#C8D6E8">Gemini 2.5</text>
+  <text x="535" y="442" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#4B5A70">Google</text>
+  
+  <rect x="640" y="345" width="190" height="110" rx="4" fill="#131F32" stroke="#1E2D42" stroke-width="1"/>
+  <circle cx="735" cy="380" r="20" fill="#EC4899" opacity="0.2"/>
+  <text x="735" y="386" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#EC4899">OSS</text>
+  <text x="735" y="425" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#C8D6E8">Llama / DeepSeek</text>
+  <text x="735" y="442" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#4B5A70">Open Source</text>
+  
+  <!-- === AGENT LAYER === -->
+  <rect x="50" y="490" width="800" height="170" rx="8" fill="url(#agentGrad)" stroke="#1E2D42" stroke-width="2"/>
+  <text x="70" y="520" font-family="monospace" font-size="16" font-weight="bold" fill="#C8D6E8">
+    🤖 AGENT LAYER
+  </text>
+  <text x="730" y="520" font-family="sans-serif" font-size="11" fill="#4B5A70" text-anchor="end">
+    Autonomous • Verified • Outcome-Based
+  </text>
+  
+  <!-- Agent Boxes -->
+  <rect x="70" y="535" width="170" height="110" rx="4" fill="#1a2d47" stroke="#3B82F6" stroke-width="1"/>
+  <text x="155" y="570" text-anchor="middle" font-family="monospace" font-size="14" fill="#3B82F6">⟨/⟩</text>
+  <text x="155" y="595" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#C8D6E8">Claude Code</text>
+  <text x="155" y="615" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#4B5A70">Developer Agent</text>
+  <text x="155" y="632" text-anchor="middle" font-family="monospace" font-size="9" fill="#10B981">● Online</text>
+  
+  <rect x="260" y="535" width="170" height="110" rx="4" fill="#1a2d47" stroke="#3B82F6" stroke-width="1"/>
+  <text x="345" y="570" text-anchor="middle" font-family="monospace" font-size="14" fill="#3B82F6">🔍</text>
+  <text x="345" y="595" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#C8D6E8">Kimi</text>
+  <text x="345" y="615" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#4B5A70">Research Agent</text>
+  <text x="345" y="632" text-anchor="middle" font-family="monospace" font-size="9" fill="#10B981">● Online</text>
+  
+  <rect x="450" y="535" width="170" height="110" rx="4" fill="#1a2d47" stroke="#3B82F6" stroke-width="1"/>
+  <text x="535" y="570" text-anchor="middle" font-family="monospace" font-size="14" fill="#3B82F6">◈</text>
+  <text x="535" y="595" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#C8D6E8">Codex</text>
+  <text x="535" y="615" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#4B5A70">Contract Agent</text>
+  <text x="535" y="632" text-anchor="middle" font-family="monospace" font-size="9" fill="#10B981">● Online</text>
+  
+  <rect x="640" y="535" width="190" height="110" rx="4" fill="#1a2d47" stroke="#3B82F6" stroke-width="1"/>
+  <text x="735" y="570" text-anchor="middle" font-family="monospace" font-size="14" fill="#3B82F6">⚡</text>
+  <text x="735" y="595" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#C8D6E8">Custom Agents</text>
+  <text x="735" y="615" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#4B5A70">Specialized Workers</text>
+  <text x="735" y="632" text-anchor="middle" font-family="monospace" font-size="9" fill="#F59E0B">● 247 Active</text>
+  
+  <!-- === IEX BROKER LAYER === -->
+  <rect x="100" y="680" width="700" height="140" rx="12" fill="url(#brokerGrad)" stroke="#60A5FA" stroke-width="3" filter="url(#blueGlow)"/>
+  
+  <!-- Broker Label -->
+  <rect x="350" y="665" width="200" height="30" rx="4" fill="#2563eb" stroke="#60A5FA" stroke-width="2"/>
+  <text x="450" y="685" text-anchor="middle" font-family="monospace" font-size="14" font-weight="bold" fill="#FFFFFF">
+    ⚡ INTELLIGENCE BROKER
+  </text>
+  
+  <!-- IEX Text -->
+  <text x="450" y="725" text-anchor="middle" font-family="monospace" font-size="32" font-weight="bold" fill="#FFFFFF">
+    IEX
+  </text>
+  <text x="450" y="750" text-anchor="middle" font-family="sans-serif" font-size="13" fill="#dbeafe">
+    Intellex Exchange
+  </text>
+  <text x="450" y="775" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#93c5fd">
+    Verify • Coordinate • Settle
+  </text>
+  
+  <!-- Connection Lines -->
+  <line x1="200" y1="645" x2="320" y2="680" stroke="#3B82F6" stroke-width="2" marker-end="url(#arrowhead)" opacity="0.6"/>
+  <line x1="380" y1="645" x2="380" y2="680" stroke="#3B82F6" stroke-width="2" marker-end="url(#arrowhead)" opacity="0.6"/>
+  <line x1="550" y1="645" x2="520" y2="680" stroke="#3B82F6" stroke-width="2" marker-end="url(#arrowhead)" opacity="0.6"/>
+  <line x1="720" y1="645" x2="580" y2="680" stroke="#3B82F6" stroke-width="2" marker-end="url(#arrowhead)" opacity="0.6"/>
+  
+  <!-- === DERIVATIVES & MARKETS LAYER === -->
+  <rect x="50" y="840" width="800" height="300" rx="8" fill="#0D1625" stroke="#F59E0B" stroke-width="3" filter="url(#amberGlow)"/>
+  <text x="70" y="875" font-family="monospace" font-size="16" font-weight="bold" fill="#F59E0B">
+    📈 DERIVATIVES & FINANCIAL MARKETS FOR INTELLIGENCE
+  </text>
+  
+  <!-- AIU Index Box -->
+  <rect x="350" y="810" width="200" height="40" rx="4" fill="#f59e0b" stroke="#fbbf24" stroke-width="2"/>
+  <text x="450" y="835" text-anchor="middle" font-family="monospace" font-size="14" font-weight="bold" fill="#000000">
+    AIU INDEX
+  </text>
+  
+  <!-- Market Instruments -->
+  <!-- Perpetuals -->
+  <rect x="70" y="895" width="350" height="100" rx="6" fill="#131F32" stroke="#1E2D42" stroke-width="1"/>
+  <text x="95" y="920" font-family="monospace" font-size="14" fill="#C8D6E8">📊 AIU PERPETUALS</text>
+  <text x="95" y="945" font-family="sans-serif" font-size="11" fill="#4B5A70">Hedge or speculate on intelligence costs</text>
+  <text x="95" y="965" font-family="sans-serif" font-size="10" fill="#10B981">10x max leverage • 8h funding intervals</text>
+  <text x="95" y="982" font-family="monospace" font-size="9" fill="#F59E0B">Underlying: AIU Index 24h TWAP</text>
+  
+  <!-- Futures -->
+  <rect x="440" y="895" width="390" height="100" rx="6" fill="#131F32" stroke="#1E2D42" stroke-width="1"/>
+  <text x="465" y="920" font-family="monospace" font-size="14" fill="#C8D6E8">📈 TASK CLASS FUTURES</text>
+  <text x="465" y="945" font-family="sans-serif" font-size="11" fill="#4B5A70">Category-specific exposure</text>
+  <text x="465" y="965" font-family="sans-serif" font-size="10" fill="#10B981">Code • Design • Research • Audit</text>
+  <text x="465" y="982" font-family="monospace" font-size="9" fill="#F59E0B">Cash-settled in USDC</text>
+  
+  <!-- Vaults -->
+  <rect x="70" y="1010" width="350" height="110" rx="6" fill="#131F32" stroke="#1E2D42" stroke-width="1"/>
+  <text x="95" y="1035" font-family="monospace" font-size="14" fill="#C8D6E8">🏛️ RECEIPT VAULTS</text>
+  <text x="95" y="1060" font-family="sans-serif" font-size="11" fill="#4B5A70">Cohort-specific investable exposure</text>
+  <rect x="95" y="1070" width="80" height="20" rx="2" fill="#1a2d47"/>
+  <text x="135" y="1083" text-anchor="middle" font-family="monospace" font-size="9" fill="#3B82F6">iIX-top10</text>
+  <rect x="185" y="1070" width="90" height="20" rx="2" fill="#1a2d47"/>
+  <text x="230" y="1083" text-anchor="middle" font-family="monospace" font-size="9" fill="#3B82F6">iIX-codegen</text>
+  <rect x="290" y="1070" width="85" height="20" rx="2" fill="#1a2d47"/>
+  <text x="332" y="1083" text-anchor="middle" font-family="monospace" font-size="9" fill="#3B82F6">iIX-audit</text>
+  
+  <!-- Bonds -->
+  <rect x="440" y="1010" width="390" height="110" rx="6" fill="#131F32" stroke="#1E2D42" stroke-width="1"/>
+  <text x="465" y="1035" font-family="monospace" font-size="14" fill="#C8D6E8">💎 INTELLIGENCE BONDS</text>
+  <text x="465" y="1060" font-family="sans-serif" font-size="11" fill="#4B5A70">Fixed income from protocol fee streams</text>
+  <text x="465" y="1080" font-family="monospace" font-size="10" fill="#10B981">6mo: 5% APY</text>
+  <text x="465" y="1095" font-family="monospace" font-size="10" fill="#10B981">12mo: 8% APY</text>
+  <text x="575" y="1088" font-family="sans-serif" font-size="9" fill="#4B5A70">Backed by protocol fees</text>
+  
+  <!-- Connection lines to markets -->
+  <line x1="450" y1="820" x2="245" y2="895" stroke="#F59E0B" stroke-width="2" opacity="0.6"/>
+  <line x1="450" y1="820" x2="635" y2="895" stroke="#F59E0B" stroke-width="2" opacity="0.6"/>
+  <line x1="450" y1="820" x2="245" y2="1010" stroke="#F59E0B" stroke-width="2" opacity="0.6"/>
+  <line x1="450" y1="820" x2="635" y2="1010" stroke="#F59E0B" stroke-width="2" opacity="0.6"/>
+  
+  <!-- Bottom tagline -->
+  <text x="450" y="1170" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#4B5A70" font-style="italic">
+    Intelligence is ephemeral. Compute is mechanical.
+  </text>
+  <text x="450" y="1190" text-anchor="middle" font-family="monospace" font-size="14" fill="#C8D6E8" font-weight="bold">
+    IEX prices outcomes, not hardware.
+  </text>
+</svg>
