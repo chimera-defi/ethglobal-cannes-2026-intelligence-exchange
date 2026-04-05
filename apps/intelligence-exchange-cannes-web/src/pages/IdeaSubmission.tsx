@@ -165,10 +165,9 @@ export function IdeaSubmission() {
   const { isConnected, address, session, isPosterVerified, signIn, isSessionLoading, refreshSession } =
     useSession();
   const { chainId } = useAccount();
-  const arcChainIdForClient = integrations?.arc.chainId ?? DEFAULT_ARC_CHAIN_ID;
   // Pin to Arc chain so waitForTransactionReceipt polls the right RPC even
   // if the wallet is mid-switch when the hook re-renders.
-  const publicClient = usePublicClient({ chainId: arcChainIdForClient });
+  const publicClient = usePublicClient({ chainId: DEFAULT_ARC_CHAIN_ID });
   const { switchChainAsync } = useSwitchChain();
   const { writeContractAsync } = useWriteContract();
 
@@ -209,7 +208,7 @@ export function IdeaSubmission() {
   );
   const demoPosterAvailable = integrations?.world.strict === false;
   const demoPosterAddress = makeDemoAddress('demo-poster:web');
-  const arcChainId = arcChainIdForClient;
+  const arcChainId = integrations?.arc.chainId ?? DEFAULT_ARC_CHAIN_ID;
   const escrowContractAddress = integrations?.arc.escrowContractAddress ?? null;
   const usdcAddress = integrations?.arc.usdcAddress ?? null;
   const walletFundingAvailable = !demoPosterMode && Boolean(escrowContractAddress && usdcAddress);

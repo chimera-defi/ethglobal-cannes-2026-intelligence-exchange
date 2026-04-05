@@ -39,10 +39,14 @@ agentkitRouter.post('/register-agentbook', zValidator('json', z.object({
   }
 
   // Run the CLI registration — outputs progress to stdout and exits 0 on success
-  const result = spawnSync('bunx', ['@worldcoin/agentkit-cli', 'register', address], {
+  // Use absolute path to bun since broker runs in a limited shell env where bunx may not be in PATH
+  const bunBin = process.env.BUN_INSTALL
+    ? `${process.env.BUN_INSTALL}/bin/bun`
+    : '/root/.bun/bin/bun';
+  const result = spawnSync(bunBin, ['x', '@worldcoin/agentkit-cli', 'register', address], {
     encoding: 'utf8',
     timeout: 60_000,
-    env: { ...process.env },
+    env: { ...process.env, PATH: `/root/.bun/bin:${process.env.PATH ?? ''}` },
   });
 
   if (result.error) {
