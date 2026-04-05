@@ -68,37 +68,8 @@ export function Nav() {
             </div>
           </div>
 
-          {/* Auth status + wallet + mobile menu */}
+          {/* Wallet + sign in/out + mobile menu */}
           <div className="flex items-center gap-2 shrink-0">
-            {/* Session + role chips — desktop only */}
-            {isConnected && (
-              <div className="hidden md:flex items-center gap-1.5">
-                {isSessionLoading ? (
-                  <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
-                ) : session ? (
-                  <>
-                    <Badge variant="success" className="gap-1">
-                      <ShieldCheck className="w-3 h-3" /> Session
-                    </Badge>
-                    {demoMode && <Badge variant="warning">Demo</Badge>}
-                    {roleLabel && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Badge variant="info" className="cursor-default gap-1">
-                            <ShieldCheck className="w-3 h-3" />
-                            Verified
-                          </Badge>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom">{roleLabel}</TooltipContent>
-                      </Tooltip>
-                    )}
-                  </>
-                ) : demoMode ? (
-                  <Badge variant="warning">Demo</Badge>
-                ) : null}
-              </div>
-            )}
-
             {/* Sign in / out — desktop */}
             {isConnected && (
               session ? (
@@ -165,6 +136,35 @@ export function Nav() {
             </Sheet>
           </div>
         </div>
+
+        {/* Session / role status strip — shown below main bar when connected */}
+        {isConnected && (
+          <div className="hidden md:flex items-center gap-2 max-w-6xl mx-auto px-4 py-1 border-t border-slate-800/50">
+            {isSessionLoading ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-500" />
+            ) : session ? (
+              <>
+                <Badge variant="success" className="gap-1 text-xs">
+                  <ShieldCheck className="w-3 h-3" /> Session
+                </Badge>
+                {demoMode && <Badge variant="warning" className="text-xs">Demo</Badge>}
+                {roleLabel && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge variant="info" className="cursor-default gap-1 text-xs">
+                        <ShieldCheck className="w-3 h-3" />
+                        Verified
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">{roleLabel}</TooltipContent>
+                  </Tooltip>
+                )}
+              </>
+            ) : demoMode ? (
+              <Badge variant="warning" className="text-xs">Demo</Badge>
+            ) : null}
+          </div>
+        )}
       </nav>
     </TooltipProvider>
   );

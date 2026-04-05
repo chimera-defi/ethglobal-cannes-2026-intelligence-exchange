@@ -165,7 +165,9 @@ export function IdeaSubmission() {
   const { isConnected, address, session, isPosterVerified, signIn, isSessionLoading, refreshSession } =
     useSession();
   const { chainId } = useAccount();
-  const publicClient = usePublicClient();
+  // Pin to Arc chain so waitForTransactionReceipt polls the right RPC even
+  // if the wallet is mid-switch when the hook re-renders.
+  const publicClient = usePublicClient({ chainId: DEFAULT_ARC_CHAIN_ID });
   const { switchChainAsync } = useSwitchChain();
   const { writeContractAsync } = useWriteContract();
 
@@ -418,7 +420,12 @@ export function IdeaSubmission() {
       setFundTxHash(txHash);
       setWalletFundingStatus('confirming');
 
-      const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+      // Arc testnet typically confirms in <2s. Cap at 30s to avoid hanging.
+      const receipt = await publicClient.waitForTransactionReceipt({
+        hash: txHash,
+        timeout: 30_000,
+        pollingInterval: 1_000,
+      });
       if (receipt.status !== 'success') {
         throw new Error('Escrow funding transaction reverted on Arc.');
       }
