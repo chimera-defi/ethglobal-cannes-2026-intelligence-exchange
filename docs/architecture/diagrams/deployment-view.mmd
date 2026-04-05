@@ -1,0 +1,23 @@
+flowchart TB
+    subgraph LocalDev["Local Development"]
+        WebDev["Web (Vite Dev)"]
+        BrokerDev["Broker (Bun Watch)"]
+        Docker["Docker Compose"]
+        Docker --> PGDev["Postgres"]
+        Docker --> RedisDev["Redis"]
+    end
+
+    subgraph Production["Production (Future)"]
+        WebProd["Web (Vercel/Netlify)"]
+        BrokerProd["Broker (Fly.io/Railway)"]
+        PGProd["Postgres (Managed)"]
+        RedisProd["Redis (Managed)"]
+    end
+
+    WebDev --> BrokerDev
+    BrokerDev --> PGDev
+    BrokerDev --> RedisDev
+
+    WebProd --> BrokerProd
+    BrokerProd --> PGProd
+    BrokerProd --> RedisProd

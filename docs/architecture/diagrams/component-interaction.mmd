@@ -1,0 +1,53 @@
+flowchart LR
+    subgraph Frontend["Frontend Layer"]
+        WebApp["Web App (React + Vite)"]
+    end
+
+    subgraph APILayer["API Layer"]
+        BrokerAPI["Broker API (Hono)"]
+        AuthSvc["Auth Service"]
+        JobSvc["Job Service"]
+        ChainSvc["Chain Sync Service"]
+        AgentKitSvc["Agent Kit Service"]
+    end
+
+    subgraph DataLayer["Data Layer"]
+        PG[(Postgres)]
+        RD[(Redis)]
+    end
+
+    subgraph WorkerLayer["Worker Layer"]
+        CLI["Worker CLI (TypeScript)"]
+    end
+
+    subgraph ChainLayer["Blockchain Layer"]
+        WC[Worldchain Contracts]
+        AC[Arc Contracts]
+    end
+
+    WebApp -->|HTTP/JSON| BrokerAPI
+    
+    BrokerAPI --> AuthSvc
+    BrokerAPI --> JobSvc
+    BrokerAPI --> ChainSvc
+    BrokerAPI --> AgentKitSvc
+    
+    AuthSvc --> PG
+    JobSvc --> PG
+    JobSvc --> RD
+    ChainSvc --> PG
+    
+    CLI -->|HTTP + Signature| BrokerAPI
+    
+    ChainSvc -->|Read/Write| WC
+    ChainSvc -->|Read/Write| AC
+    
+    AgentKitSvc -->|Verify| AgentBook
+
+    style WebApp fill:#e0f2fe
+    style BrokerAPI fill:#dcfce7
+    style CLI fill:#fef3c7
+    style PG fill:#f3e8ff
+    style RD fill:#fef3c7
+    style WC fill:#fce7f3
+    style AC fill:#dbeafe

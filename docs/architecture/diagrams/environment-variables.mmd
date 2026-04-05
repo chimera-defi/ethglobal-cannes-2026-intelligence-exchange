@@ -1,0 +1,21 @@
+flowchart LR
+    subgraph Web["Web App (.env)"]
+        VITE_BROKER["VITE_BROKER_URL"]
+        VITE_WALLET["VITE_WALLET_CONNECT_PROJECT_ID"]
+    end
+
+    subgraph BrokerEnv["Broker (.env)"]
+        DB["DATABASE_URL"]
+        RED["REDIS_URL"]
+        WORLD["WORLDCHAIN_RPC_URL"]
+        ARC["ARC_RPC_URL"]
+        AGENTKIT["AGENTKIT_ENABLED"]
+    end
+
+    subgraph WorkerEnv["Worker CLI (.env)"]
+        BROKER_URL["BROKER_URL"]
+        WORKER_KEY["WORKER_PRIVATE_KEY"]
+    end
+
+    Web -->|Calls| BrokerEnv
+    WorkerEnv -->|Calls| BrokerEnv

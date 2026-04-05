@@ -1,0 +1,28 @@
+flowchart TB
+    subgraph WorldchainContracts["Worldchain Contracts"]
+        IG["IdentityGate (verifyRole, assignRole)"]
+        AIR["AgentIdentityRegistry (registerAgent, recordAcceptedSubmission, getReputation)"]
+    end
+
+    subgraph ArcContracts["Arc Contracts"]
+        AAE["AdvancedArcEscrow (fundIdea, reserveMilestone, submitMilestone, approveMilestone, releaseMilestone)"]
+    end
+
+    subgraph BrokerIntegration["Broker Integration"]
+        Broker["Broker API"]
+        IdentitySvc["identityService.ts"]
+        ChainSvc["chainService.ts"]
+        ArcSvc["arcEscrowService.ts"]
+    end
+
+    Broker --> IdentitySvc
+    Broker --> ChainSvc
+    Broker --> ArcSvc
+
+    IdentitySvc -->|Calls| IG
+    ChainSvc -->|Calls| AIR
+    ArcSvc -->|Calls| AAE
+
+    style WorldchainContracts fill:#fce7f3
+    style ArcContracts fill:#dbeafe
+    style BrokerIntegration fill:#dcfce7
