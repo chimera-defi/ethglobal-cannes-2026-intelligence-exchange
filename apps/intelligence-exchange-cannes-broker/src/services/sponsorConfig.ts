@@ -85,6 +85,10 @@ export function getZeroGConfig() {
     privateKey: process.env.ZERO_G_PRIVATE_KEY,
     chainId: Number(process.env.ZERO_G_CHAIN_ID ?? '16602'),
     explorerBaseUrl: process.env.ZERO_G_EXPLORER_BASE_URL ?? 'https://chainscan-galileo.0g.ai/tx/',
+    identityGateAddress: process.env.ZERO_G_IDENTITY_GATE_ADDRESS ?? null,
+    agentRegistryAddress: process.env.ZERO_G_AGENT_REGISTRY_ADDRESS ?? null,
+    escrowAddress: process.env.ZERO_G_ESCROW_ADDRESS ?? null,
+    advancedEscrowAddress: process.env.ZERO_G_ADVANCED_ESCROW_ADDRESS ?? null,
   };
 }
 
@@ -133,6 +137,11 @@ export function getIntegrationStatus() {
       rpcUrl: zeroG.rpcUrl,
       indexerRpcUrl: zeroG.indexerRpcUrl,
       chainId: zeroG.chainId,
+      explorerBaseUrl: zeroG.explorerBaseUrl,
+      identityGateAddress: zeroG.identityGateAddress,
+      agentRegistryAddress: zeroG.agentRegistryAddress,
+      escrowAddress: zeroG.escrowAddress,
+      advancedEscrowAddress: zeroG.advancedEscrowAddress,
     },
   };
 }

@@ -718,24 +718,28 @@ IdentityGate: ${worldchainRoleSynced ? 'synced on Worldchain' : 'not synced yet'
 
           <Card className="border-slate-800 bg-slate-900/40">
             <CardHeader>
-              <CardTitle className="text-white">0G Testnet (Storage)</CardTitle>
+              <CardTitle className="text-white">0G Testnet (Storage + Contracts)</CardTitle>
               <CardDescription>
-                Dossier storage and data availability live on 0G Testnet (Chain 16602).
-                Submission data hashes are propagated here for permanent posterity.
+                Full IEX contract suite deployed on 0G Testnet (Chain 16602).
+                Dossier storage and all escrow/registry contracts live here.
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-3">
               <div className="rounded-xl border border-slate-800 bg-slate-900/40 backdrop-blur-sm p-4">
-                <p className="text-sm font-semibold text-white">Storage Network</p>
-                <p className="mt-1 text-xs text-gray-500">Active on Chain {integrations?.zeroG?.chainId ?? 16602}</p>
+                <p className="text-sm font-semibold text-white">AdvancedArcEscrow</p>
+                <p className="mt-1 text-xs text-gray-500">{shortHex(integrations?.zeroG?.advancedEscrowAddress, 14, 10)}</p>
               </div>
               <div className="rounded-xl border border-slate-800 bg-slate-900/40 backdrop-blur-sm p-4">
-                <p className="text-sm font-semibold text-white">Indexer RPC</p>
-                <p className="mt-1 text-xs text-gray-500">{integrations?.zeroG?.indexerRpcUrl ? shortHex(integrations.zeroG.indexerRpcUrl.replace('https://', ''), 20, 0) : 'indexer-storage-testnet-turbo.0g.ai'}</p>
+                <p className="text-sm font-semibold text-white">AgentIdentityRegistry</p>
+                <p className="mt-1 text-xs text-gray-500">{shortHex(integrations?.zeroG?.agentRegistryAddress, 14, 10)}</p>
               </div>
               <div className="rounded-xl border border-slate-800 bg-slate-900/40 backdrop-blur-sm p-4">
-                <p className="text-sm font-semibold text-white">Mode</p>
-                <p className="mt-1 text-xs text-gray-500">{integrations?.zeroG?.mode === 'live' ? 'Live' : 'Demo'}</p>
+                <p className="text-sm font-semibold text-white">IdentityGate</p>
+                <p className="mt-1 text-xs text-gray-500">{shortHex(integrations?.zeroG?.identityGateAddress, 14, 10)}</p>
+              </div>
+              <div className="rounded-xl border border-slate-800 bg-slate-900/40 backdrop-blur-sm p-4">
+                <p className="text-sm font-semibold text-white">IdeaEscrow (Legacy)</p>
+                <p className="mt-1 text-xs text-gray-500">{shortHex(integrations?.zeroG?.escrowAddress, 14, 10)}</p>
               </div>
             </CardContent>
           </Card>
