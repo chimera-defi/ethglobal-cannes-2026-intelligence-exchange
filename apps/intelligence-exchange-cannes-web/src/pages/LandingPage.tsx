@@ -30,6 +30,11 @@ export function LandingPage() {
           <Badge variant="info">Cannes 2026</Badge>
           <Badge variant="warning">Demo Build</Badge>
         </div>
+        <div className="flex flex-wrap gap-2 mb-6">
+          <Badge variant="success" className="bg-blue-500/20 text-blue-300 border-blue-500/30">Arc Testnet</Badge>
+          <Badge variant="success" className="bg-purple-500/20 text-purple-300 border-purple-500/30">0G Testnet</Badge>
+          <Badge variant="success" className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30">Worldchain</Badge>
+        </div>
         <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-white leading-tight max-w-3xl">
           Intelligence is a scarce resource —{' '}
           <span className="text-primary">unevenly distributed.</span>
