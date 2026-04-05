@@ -6,41 +6,41 @@ This diagram shows the progression from the current milestone marketplace to a f
 
 ```mermaid
 flowchart TB
-    subgraph Phase1["Phase 1: Current (Months 0-6)"]
-        P1_Stable["Stablecoin Settlement<br/>USDC/Arc"]
+    subgraph Phase1["Phase 1: Current"]
+        P1_Stable["Stablecoin Settlement (USDC/Arc)"]
         P1_Human["Human Review Gates"]
         P1_Postgres["Postgres Reputation"]
         P1_AgentKit["Agent Kit Verification"]
     end
 
-    subgraph Phase2["Phase 2: Normalization (Months 3-9)"]
-        P2_Receipt["WorkReceipt1155<br/>NFT per accepted job"]
-        P2_AIU["AIU Index<br/>Normalized intelligence units"]
-        P2_Oracle["Oracle Feed<br/>Daily AIU publication"]
+    subgraph Phase2["Phase 2: Normalization"]
+        P2_Receipt["WorkReceipt1155 (NFT per job)"]
+        P2_AIU["AIU Index"]
+        P2_Oracle["Oracle Feed"]
     end
 
-    subgraph Phase3["Phase 3: Tokenization (Months 6-12)"]
-        P3_IX["IX Token<br/>Utility & coordination"]
-        P3_Stake["Stake + Slash<br/>Worker collateral"]
-        P3_Rewards["IXP Points<br/>Activity → Token bridge"]
+    subgraph Phase3["Phase 3: Tokenization"]
+        P3_IX["IX Token"]
+        P3_Stake["Stake + Slash"]
+        P3_Rewards["IXP Points"]
     end
 
-    subgraph Phase4["Phase 4: Derivatives Core (Months 9-15)"]
-        P4_Perp["AIU Perpetuals<br/>10x max leverage"]
-        P4_Futures["Task Class Futures<br/>Code, design, research"]
-        P4_OI["Open Interest<br/>$5M+ target"]
+    subgraph Phase4["Phase 4: Derivatives Core"]
+        P4_Perp["AIU Perpetuals"]
+        P4_Futures["Task Class Futures"]
+        P4_OI["Open Interest Target"]
     end
 
-    subgraph Phase5["Phase 5: Structured Products (Months 12-24)"]
-        P5_Vault["Receipt Vaults<br/>iIX-top10, iIX-codegen"]
-        P5_Bonds["Intelligence Bonds<br/>Fee stream backed"]
-        P5_Forward["Forward AIU<br/>Physical delivery"]
+    subgraph Phase5["Phase 5: Structured Products"]
+        P5_Vault["Receipt Vaults"]
+        P5_Bonds["Intelligence Bonds"]
+        P5_Forward["Forward AIU"]
     end
 
-    Phase1 -->|"Volume &<br/>Price Discovery"| Phase2
-    Phase2 -->|"Index<br/>Credibility"| Phase3
-    Phase3 -->|"Liquidity &<br/>Staking"| Phase4
-    Phase4 -->|"Mature<br/>Markets"| Phase5
+    Phase1 -->|"Volume and Price Discovery"| Phase2
+    Phase2 -->|"Index Credibility"| Phase3
+    Phase3 -->|"Liquidity and Staking"| Phase4
+    Phase4 -->|"Mature Markets"| Phase5
 
     style Phase1 fill:#e1f5ff
     style Phase2 fill:#e8f5e9
@@ -60,24 +60,24 @@ flowchart LR
     end
 
     subgraph Layer1["Layer 1: Settlement"]
-        Stable["USDC Payout<br/>Worker paid"]
-        Fee["Platform Fee<br/>10%"]
+        Stable["USDC Payout"]
+        Fee["Platform Fee 10%"]
     end
 
     subgraph Layer2["Layer 2: Receipts"]
-        Receipt["WorkReceipt1155<br/>Minted"]
-        AIU["AIU Calculated<br/>Task weight × Quality"]
+        Receipt["WorkReceipt1155"]
+        AIU["AIU Calculated"]
     end
 
     subgraph Layer3["Layer 3: Tokenization"]
-        IXP["IXP Points<br/>Creator + Finisher"]
-        IX["IX Rewards<br/>Epoch distribution"]
+        IXP["IXP Points"]
+        IX["IX Rewards"]
     end
 
     subgraph Layer4["Layer 4: Derivatives"]
-        Index["AIU Index<br/>24h TWAP"]
-        Perp["Perpetuals<br/>Long/Short AIU"]
-        Vault["Vault Shares<br/>Cohort exposure"]
+        Index["AIU Index"]
+        Perp["Perpetuals"]
+        Vault["Vault Shares"]
     end
 
     Job --> Review --> Accept
@@ -106,17 +106,17 @@ sequenceDiagram
 
     Note over Agent,Contract: Job Acceptance Flow
     
-    Broker->>Broker: Create attestation<br/>(jobId, score, fingerprint)
-    Broker->>Broker: Sign with attestor key<br/>(ECDSA signature)
-    Broker->>Agent: Return signed attestation<br/>(via API)
+    Broker->>Broker: Create attestation (jobId, score, fingerprint)
+    Broker->>Broker: Sign with attestor key (ECDSA signature)
+    Broker->>Agent: Return signed attestation (via API)
     
     Note over Agent,Contract: Agent-Triggered Update
     
-    Agent->>Contract: recordAcceptedSubmission()<br/>+ signature
-    Contract->>Contract: Verify signature<br/>matches attestor
+    Agent->>Contract: recordAcceptedSubmission() + signature
+    Contract->>Contract: Verify signature matches attestor
     
     alt Valid Signature
-        Contract->>Contract: Update reputation<br/>acceptedCount++, cumulativeScore
+        Contract->>Contract: Update reputation (acceptedCount++, cumulativeScore)
         Contract->>Agent: Success
     else Invalid Signature
         Contract->>Agent: Revert: InvalidSignature
@@ -155,7 +155,7 @@ sequenceDiagram
 ```mermaid
 flowchart LR
     subgraph Buyer["Buyer"]
-        Fund["Fund Job<br/>$100 USDC"]
+        Fund["Fund Job $100 USDC"]
     end
 
     subgraph Protocol["Protocol"]
@@ -164,19 +164,19 @@ flowchart LR
     end
 
     subgraph Workers["Workers"]
-        Payout["Worker Payout<br/>$80 USDC"]
-        Receipt["WorkReceipt1155"]
+        Payout["Worker Payout $80 USDC"]
+        WR["WorkReceipt1155"]
     end
 
     subgraph Treasury["Treasury"]
-        Ops["Operations<br/>$15"]
-        Rewards["IX Rewards<br/>$3"]
-        Insurance["Insurance<br/>$2"]
+        Ops["Operations $15"]
+        Rew["IX Rewards $3"]
+        Insurance["Insurance $2"]
     end
 
     subgraph Derivatives["Derivatives (Future)"]
-        Vault["iIX Vault<br/>Fee share"]
-        Bond["Intelligence Bond<br/>Yield"]
+        Vault["iIX Vault"]
+        Bond["Intelligence Bond"]
     end
 
     Fund --> Escrow --> Payout
@@ -184,7 +184,7 @@ flowchart LR
     FeeRouter --> Ops
     FeeRouter --> Rewards
     FeeRouter --> Insurance
-    Payout --> Receipt
+    Payout --> WR
     
     Ops -.-> Vault
     Insurance -.-> Bond
