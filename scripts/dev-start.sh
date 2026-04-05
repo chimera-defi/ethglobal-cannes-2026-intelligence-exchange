@@ -126,6 +126,13 @@ if [ ! -d "node_modules" ]; then
     echo ""
 fi
 
+# Ensure broker can auto-load the root .env via Bun's dotenv
+BROKER_ENV_LINK="${ROOT_DIR}/apps/intelligence-exchange-cannes-broker/.env"
+if [[ ! -e "${BROKER_ENV_LINK}" ]]; then
+    ln -sf ../../.env "${BROKER_ENV_LINK}"
+    echo -e "${GREEN}✓ Linked broker .env → root .env${NC}"
+fi
+
 # Start broker
 echo -e "${YELLOW}Starting Broker API...${NC}"
 echo -e "  ${BLUE}→ ${BROKER_URL}${NC}"
