@@ -14,11 +14,11 @@ import './index.css';
 
 // Arc testnet (ETHGlobal Cannes 2026)
 const arcTestnet = defineChain({
-  id: 5042002,
+  id: Number(import.meta.env.VITE_ARC_CHAIN_ID ?? '5042002'),
   name: 'Arc Testnet',
   nativeCurrency: { decimals: 18, name: 'ETH', symbol: 'ETH' },
   rpcUrls: {
-    default: { http: ['https://rpc.arc.testnet.example'] },
+    default: { http: [import.meta.env.VITE_ARC_RPC_URL ?? 'https://rpc.testnet.arc.network'] },
   },
   testnet: true,
 });
@@ -65,8 +65,8 @@ const wagmiConfig = createConfig({
   chains: [arcTestnet, worldChain],
   connectors,
   transports: {
-    [arcTestnet.id]: http(),
-    [worldChain.id]: http(),
+    [arcTestnet.id]: http(import.meta.env.VITE_ARC_RPC_URL ?? 'https://rpc.testnet.arc.network'),
+    [worldChain.id]: http(import.meta.env.VITE_WORLDCHAIN_RPC_URL ?? 'https://worldchain-sepolia.g.alchemy.com/public'),
   },
 });
 
