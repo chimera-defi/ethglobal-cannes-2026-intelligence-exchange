@@ -24,18 +24,18 @@ const arcTestnet = defineChain({
 });
 
 const worldChain = defineChain({
-  id: Number(import.meta.env.VITE_WORLDCHAIN_CHAIN_ID ?? '480'),
-  name: 'World Chain',
+  id: Number(import.meta.env.VITE_WORLDCHAIN_CHAIN_ID ?? '4801'),
+  name: 'World Chain Sepolia',
   nativeCurrency: { decimals: 18, name: 'ETH', symbol: 'ETH' },
   rpcUrls: {
     default: {
-      http: [import.meta.env.VITE_WORLDCHAIN_RPC_URL ?? 'https://worldchain-mainnet.g.alchemy.com/public'],
+      http: [import.meta.env.VITE_WORLDCHAIN_RPC_URL ?? 'https://worldchain-sepolia.g.alchemy.com/public'],
     },
   },
   blockExplorers: {
     default: {
-      name: 'Worldscan',
-      url: import.meta.env.VITE_WORLDCHAIN_EXPLORER_URL ?? 'https://worldscan.org',
+      name: 'Worldchain Sepolia Explorer',
+      url: import.meta.env.VITE_WORLDCHAIN_EXPLORER_URL ?? 'https://worldchain-sepolia.explorer.alchemy.com',
     },
   },
 });

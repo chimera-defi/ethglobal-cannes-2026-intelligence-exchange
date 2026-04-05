@@ -618,7 +618,7 @@ export function ReviewPanel() {
   const isProcessing = acceptMutation.isPending || rejectMutation.isPending;
   const effectiveAttestation = acceptMutation.data?.attestation ?? latestAttestation;
   const releaseFlowVisible = (showReleaseFlow || isAccepted) && !!effectiveAttestation;
-  const attestationChainId = effectiveAttestation?.chainId ?? integrations?.worldchain.chainId ?? 480;
+  const attestationChainId = effectiveAttestation?.chainId ?? integrations?.worldchain.chainId ?? 4801;
   const attestationRegistryAddress = (effectiveAttestation?.registryAddress
     ?? integrations?.worldchain.agentRegistryAddress
     ?? null) as `0x${string}` | null;
