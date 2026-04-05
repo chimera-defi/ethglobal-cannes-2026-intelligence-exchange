@@ -14,6 +14,7 @@ flowchart LR
     subgraph DataLayer["Data Layer"]
         PG[(Postgres)]
         RD[(Redis)]
+        ZG[(0G Storage)]
     end
 
     subgraph WorkerLayer["Worker Layer"]
@@ -23,6 +24,7 @@ flowchart LR
     subgraph ChainLayer["Blockchain Layer"]
         WC[Worldchain Contracts]
         AC[Arc Contracts]
+        ZC[0G Contracts]
     end
 
     WebApp -->|HTTP/JSON| BrokerAPI
@@ -41,6 +43,9 @@ flowchart LR
     
     ChainSvc -->|Read/Write| WC
     ChainSvc -->|Read/Write| AC
+    ChainSvc -->|Read/Write| ZC
+    
+    JobSvc -->|Upload| ZG
     
     AgentKitSvc -->|Verify| AgentBook
 
@@ -49,5 +54,7 @@ flowchart LR
     style CLI fill:#fef3c7
     style PG fill:#f3e8ff
     style RD fill:#fef3c7
+    style ZG fill:#e0f2fe
     style WC fill:#fce7f3
     style AC fill:#dbeafe
+    style ZC fill:#e0f2fe
