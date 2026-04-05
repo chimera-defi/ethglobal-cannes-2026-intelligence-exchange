@@ -12,6 +12,7 @@ arc-testnet = "https://rpc.testnet.arc.network"
 arc-mainnet = "https://rpc.arc.network"
 worldchain-sepolia = "https://worldchain-sepolia.g.alchemy.com/public"
 worldchain-mainnet = "https://worldchain-mainnet.g.alchemy.com/public"
+zerog-testnet = "https://evmrpc-testnet.0g.ai"
 
 [etherscan]
 arc-testnet = { key = "", url = "https://testnet.arcscan.app/api" }
