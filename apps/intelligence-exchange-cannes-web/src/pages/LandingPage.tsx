@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ExternalLink, ArrowRight, Lightbulb, Cpu, ShieldCheck, BarChart3, Users, Zap, Bot } from 'lucide-react';
+import { ExternalLink, ArrowRight, Lightbulb, Cpu, ShieldCheck, BarChart3, Users, Zap, Bot, TrendingUp, Coins, Layers, Globe, Rocket } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -128,8 +128,148 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* Built for Both Sides */}
+      {/* The Path to Base Price of Intelligence — 5 Phase Roadmap */}
       <section className="max-w-5xl mx-auto px-4 py-14">
+        <div className="flex items-center gap-3 mb-2">
+          <TrendingUp className="h-5 w-5 text-primary" />
+          <h2 className="text-xl font-semibold text-foreground">The Path to the Base Price of Intelligence</h2>
+        </div>
+        <p className="text-sm text-muted-foreground mb-8 max-w-2xl">
+          Intelligence is ephemeral. Compute is mechanical. This marketplace is designed to discover 
+          the true cost of producing accepted, benchmarked intelligence work.
+        </p>
+
+        {/* Roadmap Timeline */}
+        <div className="relative">
+          {/* Connecting line */}
+          <div className="absolute left-6 top-8 bottom-8 w-0.5 bg-gradient-to-b from-blue-500/50 via-purple-500/50 to-emerald-500/50 hidden md:block" />
+          
+          <div className="space-y-4">
+            {/* Phase 1 */}
+            <div className="relative flex gap-4 group">
+              <div className="hidden md:flex flex-col items-center">
+                <div className="w-12 h-12 rounded-full bg-blue-500/20 border border-blue-500/40 flex items-center justify-center text-blue-400 font-bold text-sm z-10 group-hover:bg-blue-500/30 transition-colors">
+                  <Rocket className="h-5 w-5" />
+                </div>
+              </div>
+              <Card className="flex-1 border-blue-500/20 bg-blue-950/10 hover:border-blue-500/40 transition-all">
+                <CardHeader className="pb-2">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="info" className="text-xs">Current</Badge>
+                    <CardTitle className="text-base text-white">Phase 1: Volume & Discovery</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">
+                    Stablecoin-settled milestone marketplace. Human reviewers gate acceptance. 
+                    Reputation and scoring create quality signals. Building transaction volume 
+                    for reliable price discovery.
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Phase 2 */}
+            <div className="relative flex gap-4 group">
+              <div className="hidden md:flex flex-col items-center">
+                <div className="w-12 h-12 rounded-full bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400 font-bold text-sm z-10 group-hover:bg-indigo-500/30 transition-colors">
+                  <Layers className="h-5 w-5" />
+                </div>
+              </div>
+              <Card className="flex-1 border-indigo-500/20 bg-indigo-950/10 hover:border-indigo-500/40 transition-all">
+                <CardHeader className="pb-2">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="warning" className="text-xs">Upcoming</Badge>
+                    <CardTitle className="text-base text-white">Phase 2: Normalization (AIU Index)</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">
+                    WorkReceipt1155 minted on every accepted job. AIU (Accepted Intelligence Units) 
+                    index derived from normalized receipts—accounting for task weight, quality score, 
+                    and acceptance multiplier.
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Phase 3 */}
+            <div className="relative flex gap-4 group">
+              <div className="hidden md:flex flex-col items-center">
+                <div className="w-12 h-12 rounded-full bg-violet-500/20 border border-violet-500/40 flex items-center justify-center text-violet-400 font-bold text-sm z-10 group-hover:bg-violet-500/30 transition-colors">
+                  <Coins className="h-5 w-5" />
+                </div>
+              </div>
+              <Card className="flex-1 border-violet-500/20 bg-violet-950/10 hover:border-violet-500/40 transition-all">
+                <CardHeader className="pb-2">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="warning" className="text-xs">Upcoming</Badge>
+                    <CardTitle className="text-base text-white">Phase 3: Tokenization (IX Protocol)</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">
+                    IX utility token for staking, rewards, and coordination. IXP (Intelligence Exchange 
+                    Points) bridge activity to token ownership. Stake-and-slash mechanics improve 
+                    worker quality without breaking stablecoin settlement.
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Phase 4 */}
+            <div className="relative flex gap-4 group">
+              <div className="hidden md:flex flex-col items-center">
+                <div className="w-12 h-12 rounded-full bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-400 font-bold text-sm z-10 group-hover:bg-purple-500/30 transition-colors">
+                  <Globe className="h-5 w-5" />
+                </div>
+              </div>
+              <Card className="flex-1 border-purple-500/20 bg-purple-950/10 hover:border-purple-500/40 transition-all">
+                <CardHeader className="pb-2">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="warning" className="text-xs">Future</Badge>
+                    <CardTitle className="text-base text-white">Phase 4: Derivatives Core</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">
+                    AIU Perpetuals and Task Class Futures. Hedge or speculate on intelligence costs. 
+                    An AI company worried about rising agent costs could short AIU perpetuals. 
+                    Worker pools confident in their productivity could go long.
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Phase 5 */}
+            <div className="relative flex gap-4 group">
+              <div className="hidden md:flex flex-col items-center">
+                <div className="w-12 h-12 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 font-bold text-sm z-10 group-hover:bg-emerald-500/30 transition-colors">
+                  <BarChart3 className="h-5 w-5" />
+                </div>
+              </div>
+              <Card className="flex-1 border-emerald-500/20 bg-emerald-950/10 hover:border-emerald-500/40 transition-all">
+                <CardHeader className="pb-2">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="success" className="text-xs">Vision</Badge>
+                    <CardTitle className="text-base text-white">Phase 5: Structured Products</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">
+                    Receipt-Backed Vaults, Intelligence Bonds, and Forward AIU Delivery. 
+                    This is not a derivative on model credits—this is a derivative on 
+                    verified, accepted, benchmarked intelligence output.
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Built for Both Sides */}
+      <section className="max-w-5xl mx-auto px-4 py-14 border-t border-border">
         <h2 className="text-xl font-semibold text-foreground mb-8">Built for Both Sides</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Card className="hover:shadow-blue-500/20 hover:shadow-xl hover:-translate-y-0.5 transition-all">
