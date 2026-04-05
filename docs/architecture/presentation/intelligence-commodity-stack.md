@@ -4,7 +4,7 @@
 
 ```mermaid
 flowchart TB
-    subgraph ComputeLayer["🔧 COMPUTE LAYER"]
+    subgraph ComputeLayer["COMPUTE LAYER"]
         direction TB
         GPU1["🖥️ NVIDIA A100"]
         GPU2["🖥️ NVIDIA H100"]
@@ -16,10 +16,10 @@ flowchart TB
         GPU3 --> Hardware
         Cloud --> Hardware
         
-        Hardware["Hardware Layer<br/>Fungible, Depreciating"]
+        Hardware["Hardware Layer (Fungible, Depreciating)"]
     end
 
-    subgraph ModelLayer["🧠 MODEL LAYER"]
+    subgraph ModelLayer["MODEL LAYER"]
         direction TB
         GPT["GPT-4o / o1"]
         Claude["Claude 3.5/3.7"]
@@ -31,33 +31,33 @@ flowchart TB
         Gemini --> Models
         Local --> Models
         
-        Models["Intelligence Models<br/>Differentiated, Improving"]
+        Models["Intelligence Models (Differentiated, Improving)"]
     end
 
-    subgraph AgentLayer["🤖 AGENT LAYER"]
+    subgraph AgentLayer["AGENT LAYER"]
         direction TB
-        Agent1["Claude Code<br/>Developer Agent"]
-        Agent2["Kimi<br/>Research Agent"]
-        Agent3["Codex<br/>Contract Agent"]
-        Agent4["Custom Agents<br/>Specialized Workers"]
+        Agent1["Claude Code (Developer)"]
+        Agent2["Kimi (Research)"]
+        Agent3["Codex (Contracts)"]
+        Agent4["Custom Agents (Specialized)"]
         
         Agent1 --> Agents
         Agent2 --> Agents
         Agent3 --> Agents
         Agent4 --> Agents
         
-        Agents["Autonomous Workers<br/>Execute, Verify, Deliver"]
+        Agents["Autonomous Workers"]
     end
 
-    subgraph BrokerLayer["⚡ INTELLIGENCE BROKER"]
+    subgraph BrokerLayer["INTELLIGENCE BROKER"]
         direction TB
-        IEX["<b>IEX / INTELLEX</b><br/>Intelligence Exchange"]
+        IEX["IEX / INTELLEX - Intelligence Exchange"]
         
         subgraph BrokerFunctions[""]
-            Discovery["🔍 Job Discovery"]
-            Reputation["⭐ Reputation System"]
-            Quality["✓ Quality Scoring"]
-            Settlement["💰 USDC Settlement"]
+            Discovery["Job Discovery"]
+            Reputation["Reputation System"]
+            Quality["Quality Scoring"]
+            Settlement["USDC Settlement"]
         end
         
         IEX --> Discovery
@@ -66,15 +66,15 @@ flowchart TB
         IEX --> Settlement
     end
 
-    subgraph MarketLayer["📈 DERIVATIVES & MARKETS"]
+    subgraph MarketLayer["DERIVATIVES & MARKETS"]
         direction TB
-        AIU["AIU Index<br/>Normalized Intelligence Unit"]
+        AIU["AIU Index (Normalized Intelligence Unit)"]
         
         subgraph Instruments["Financial Instruments"]
-            Perps["AIU Perpetuals<br/>Hedge Intelligence Costs"]
-            Futures["Task Futures<br/>Category Exposure"]
-            Vaults["Receipt Vaults<br/>iIX-top10, iIX-codegen"]
-            Bonds["Intelligence Bonds<br/>Fee-Stream Yield"]
+            Perps["AIU Perpetuals"]
+            Futures["Task Futures"]
+            Vaults["Receipt Vaults"]
+            Bonds["Intelligence Bonds"]
         end
         
         AIU --> Perps

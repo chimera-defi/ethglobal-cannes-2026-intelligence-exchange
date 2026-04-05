@@ -17,26 +17,26 @@ For a detailed package-level architecture, see [high-level-architecture.md](./hi
 ```mermaid
 flowchart TB
   subgraph Apps["Application Layer"]
-    Web["Web App\nReact + Vite\nlocalhost:3000"]
-    Broker["Broker API\nHono + Bun\nlocalhost:3001"]
-    Worker["Worker CLI\nTypeScript"]
+    Web["Web App (React + Vite)"]
+    Broker["Broker API (Hono + Bun)"]
+    Worker["Worker CLI (TypeScript)"]
   end
 
   subgraph Data["Data Layer"]
-    Postgres[("Postgres\nJobs & Reputation")]
-    Redis[("Redis\nQueues & Sessions")]
+    Postgres[("Postgres")]
+    Redis[("Redis")]
   end
 
   subgraph Identity["Identity Layer"]
-    WorldID["World ID\nHuman Verification"]
-    AgentBook["AgentBook\nAgent Registry"]
-    IdentityGate["IdentityGate\nRole Verification"]
-    Registry["AgentIdentityRegistry\nERC-8004 Reputation"]
+    WorldID["World ID"]
+    AgentBook["AgentBook"]
+    IdentityGate["IdentityGate"]
+    Registry["AgentIdentityRegistry"]
   end
 
   subgraph Settlement["Settlement Layer"]
-    Arc["AdvancedArcEscrow\nUSDC Escrow"]
-    ZeroG["0G Storage\nDossiers"]
+    Arc["AdvancedArcEscrow"]
+    ZeroG["0G Storage"]
   end
 
   Web <-->|HTTP/JSON| Broker

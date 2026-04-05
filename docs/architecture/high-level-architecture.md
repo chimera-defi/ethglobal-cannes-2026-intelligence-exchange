@@ -49,37 +49,25 @@ flowchart TB
     end
     
     subgraph WorldServices["World Services"]
-        AgentBook["AgentBook
-Human Verification"]
-        WorldID["World ID
-Proof of Human"]
+        AgentBook["AgentBook<br/>Human Verification"]
+        WorldID["World ID<br/>Proof of Human"]
     end
 
     %% Web App connections
-    Web <-->|"HTTP API Calls
-JSON"| Broker
-    Web -->|"Wallet Connection
-RainbowKit"| WorldID
+    Web <-->|"HTTP API Calls<br/>JSON"| Broker
+    Web -->|"Wallet Connection<br/>RainbowKit"| WorldID
     
     %% Worker CLI connections
-    Worker <-->|"HTTP API
-Signed Requests"| Broker
-    Worker -->|"Local Execution
-skill.md"| Worker
+    Worker <-->|"HTTP API<br/>Signed Requests"| Broker
+    Worker -->|"Local Execution<br/>skill.md"| Worker
     
     %% Broker connections
-    Broker <-->|"SQL
-Drizzle ORM"| Postgres
-    Broker <-->|"Redis Protocol
-BullMQ"| Redis
-    Broker <-->|"Contract Calls
-Viem/Ethers"| Worldchain
-    Broker <-->|"Contract Calls
-Viem/Ethers"| Arc
-    Broker <-->|"API Calls
-AgentKit SDK"| AgentBook
-    Broker <-->|"Verify Proofs
-IDKit"| WorldID
+    Broker <-->|"SQL<br/>Drizzle ORM"| Postgres
+    Broker <-->|"Redis Protocol<br/>BullMQ"| Redis
+    Broker <-->|"Contract Calls<br/>Viem/Ethers"| Worldchain
+    Broker <-->|"Contract Calls<br/>Viem/Ethers"| Arc
+    Broker <-->|"API Calls<br/>AgentKit SDK"| AgentBook
+    Broker <-->|"Verify Proofs<br/>IDKit"| WorldID
     
     %% Shared package usage
     Web -->|"Imports types"| Shared

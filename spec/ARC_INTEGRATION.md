@@ -137,12 +137,20 @@ stateDiagram-v2
 
 ### Vesting Schedule Visualization
 
-```mermaid
-xychart-beta
-    title "Linear Vesting Example (30 days, 7-day cliff)"
-    x-axis [0, 7, 14, 21, 30]
-    y-axis "Released %" 0 --> 100
-    line [0, 0, 33, 66, 100]
+```
+Linear Vesting Example (30 days, 7-day cliff)
+
+Day 0:   0% released (cliff period)
+Day 7:   0% released (cliff ends)
+Day 14:  33% released
+Day 21:  66% released
+Day 30:  100% released
+
+Milestone-Based Alternative:
+Day 0:   25% released (at cliff)
+Day 14:  50% released
+Day 21:  75% released
+Day 30:  100% released
 ```
 
 ### Contract Deployment
