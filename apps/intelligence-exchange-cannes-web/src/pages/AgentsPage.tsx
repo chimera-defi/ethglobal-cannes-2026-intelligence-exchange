@@ -671,7 +671,7 @@ IdentityGate: ${worldchainRoleSynced ? 'synced on Worldchain' : 'not synced yet'
           </div>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid gap-6 md:grid-cols-3">
           <Card className="border-slate-800 bg-slate-900/40">
             <CardHeader>
               <CardTitle className="text-white">Worldchain Sepolia (Agent Registry)</CardTitle>
@@ -712,6 +712,30 @@ IdentityGate: ${worldchainRoleSynced ? 'synced on Worldchain' : 'not synced yet'
               <div className="rounded-xl border border-slate-800 bg-slate-900/40 backdrop-blur-sm p-4">
                 <p className="text-sm font-semibold text-white">USDC (Native Gas)</p>
                 <p className="mt-1 text-xs text-gray-500">{shortHex(integrations?.arc.usdcAddress, 14, 10)}</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-slate-800 bg-slate-900/40">
+            <CardHeader>
+              <CardTitle className="text-white">0G Testnet (Storage)</CardTitle>
+              <CardDescription>
+                Dossier storage and data availability live on 0G Testnet (Chain 16602).
+                Submission data hashes are propagated here for permanent posterity.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-3">
+              <div className="rounded-xl border border-slate-800 bg-slate-900/40 backdrop-blur-sm p-4">
+                <p className="text-sm font-semibold text-white">Storage Network</p>
+                <p className="mt-1 text-xs text-gray-500">Active on Chain {integrations?.zeroG?.chainId ?? 16602}</p>
+              </div>
+              <div className="rounded-xl border border-slate-800 bg-slate-900/40 backdrop-blur-sm p-4">
+                <p className="text-sm font-semibold text-white">Indexer RPC</p>
+                <p className="mt-1 text-xs text-gray-500">{integrations?.zeroG?.indexerRpcUrl ? shortHex(integrations.zeroG.indexerRpcUrl.replace('https://', ''), 20, 0) : 'indexer-storage-testnet-turbo.0g.ai'}</p>
+              </div>
+              <div className="rounded-xl border border-slate-800 bg-slate-900/40 backdrop-blur-sm p-4">
+                <p className="text-sm font-semibold text-white">Mode</p>
+                <p className="mt-1 text-xs text-gray-500">{integrations?.zeroG?.mode === 'live' ? 'Live' : 'Demo'}</p>
               </div>
             </CardContent>
           </Card>
