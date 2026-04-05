@@ -115,7 +115,7 @@ export function AgentsPage() {
   });
   const agentKitStatus = agentKitStatusQuery.data;
 
-  const worldchainChainId = integrations?.worldchain.chainId ?? 480;
+  const worldchainChainId = integrations?.worldchain.chainId ?? 4801;
   const worldchainPublicClient = usePublicClient({ chainId: worldchainChainId });
   const demoMode = integrations?.world.strict === false;
   const agentBookRegistered = Boolean(agentKitStatus?.registered);
