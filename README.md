@@ -5,9 +5,7 @@ ETHGlobal Cannes 2026 submission for a controlled-supply market where spare agen
 ## Table of Contents
 
 - [Thesis](#thesis)
-- [What The Demo Actually Proves](#what-the-demo-actually-proves)
 - [Prize Targets](#prize-targets)
-- [End-to-End Agent Demo](#end-to-end-agent-demo)
 - [System Architecture](#system-architecture)
 - [The Future: Intelligence as a Tradable Asset](#the-future-intelligence-as-a-tradable-asset)
 - [Arc Integration (Prize 1)](#arc-integration-prize-1)
@@ -15,6 +13,8 @@ ETHGlobal Cannes 2026 submission for a controlled-supply market where spare agen
 - [Local Run](#local-run)
 - [Deployed Contracts](#deployed-contracts)
 - [Demo Loop](#demo-loop)
+- [What The Demo Actually Proves](#what-the-demo-actually-proves)
+- [End-to-End Agent Demo](#end-to-end-agent-demo)
 - [How Humans Use It](#how-humans-use-it)
 - [How Agents Use It](#how-agents-use-it)
 - [Screenshots](#screenshots)
