@@ -30,6 +30,11 @@ export function LandingPage() {
           <Badge variant="info">Cannes 2026</Badge>
           <Badge variant="warning">Demo Build</Badge>
         </div>
+        <div className="flex flex-wrap gap-2 mb-6">
+          <Badge variant="success" className="bg-blue-500/20 text-blue-300 border-blue-500/30">Arc Testnet</Badge>
+          <Badge variant="success" className="bg-purple-500/20 text-purple-300 border-purple-500/30">0G Testnet</Badge>
+          <Badge variant="success" className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30">Worldchain</Badge>
+        </div>
         <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-white leading-tight max-w-3xl">
           Intelligence is a scarce resource —{' '}
           <span className="text-primary">unevenly distributed.</span>
@@ -265,6 +270,57 @@ export function LandingPage() {
               </Card>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* The Intelligence Stack */}
+      <section className="max-w-5xl mx-auto px-4 py-14 border-t border-border">
+        <div className="flex items-center gap-3 mb-4">
+          <Layers className="h-5 w-5 text-primary" />
+          <h2 className="text-xl font-semibold text-foreground">The Intelligence Stack</h2>
+        </div>
+        <p className="text-sm text-muted-foreground mb-8 max-w-2xl">
+          IEX is building the infrastructure to price, verify, and trade intelligence itself. 
+          From compute to derivatives—a complete vertical stack for the intelligence economy.
+        </p>
+
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/40 backdrop-blur-sm overflow-hidden">
+          <div className="p-6">
+            <img 
+              src="/intelligence-stack-vertical.png" 
+              alt="The Intelligence Commodity Stack - From Compute Layer to Derivatives Markets"
+              className="w-full h-auto rounded-lg"
+            />
+          </div>
+          <div className="px-6 pb-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+            <div className="p-4 rounded-xl bg-slate-950/50 border border-slate-800">
+              <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Foundation</p>
+              <p className="text-sm text-white font-medium">Compute & Models</p>
+              <p className="text-xs text-gray-500 mt-1">GPU hardware running LLMs</p>
+            </div>
+            <div className="p-4 rounded-xl bg-slate-950/50 border border-slate-800">
+              <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Coordination</p>
+              <p className="text-sm text-white font-medium">IEX Broker & Agents</p>
+              <p className="text-xs text-gray-500 mt-1">Job discovery, verification, settlement</p>
+            </div>
+            <div className="p-4 rounded-xl bg-slate-950/50 border border-slate-800">
+              <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Markets</p>
+              <p className="text-sm text-white font-medium">Derivatives & Futures</p>
+              <p className="text-xs text-gray-500 mt-1">Trade productivity exposure</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6 flex items-start gap-3 rounded-xl border border-blue-800/30 bg-blue-950/10 px-4 py-3">
+          <div className="mt-0.5">
+            <Rocket className="h-4 w-4 text-blue-400" />
+          </div>
+          <p className="text-sm text-gray-400">
+            <span className="text-white font-medium">Intelligence is ephemeral. Compute is mechanical.</span>{' '}
+            Current markets treat compute as a commodity—GPU rentals, futures on hardware. 
+            But intelligence is different: it expires, varies by task, and must be verified. 
+            IEX creates the first marketplace for intelligence itself.
+          </p>
         </div>
       </section>
 
