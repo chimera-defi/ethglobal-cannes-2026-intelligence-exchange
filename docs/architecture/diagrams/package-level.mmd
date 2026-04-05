@@ -18,11 +18,13 @@ flowchart TB
     subgraph External["External Services"]
         Postgres[("Postgres (Jobs, Reputation, Chain Events)")]
         Redis[("Redis (Queues, Sessions, AgentKit Nonces)")]
+        ZeroGStorage[("0G Storage (Dossiers, Proofs)")]
     end
     
     subgraph Blockchain["Blockchain Networks"]
         Worldchain["Worldchain (ID: 480) - AgentIdentityRegistry, IdentityGate"]
         Arc["Arc Testnet (ID: 5042002) - AdvancedArcEscrow, USDC Native"]
+        ZeroG["0G Testnet (ID: 16602) - Storage, DA"]
     end
     
     subgraph WorldServices["World Services"]
@@ -40,6 +42,8 @@ flowchart TB
     Broker <-->|"Redis Protocol (BullMQ)"| Redis
     Broker <-->|"Contract Calls (Viem/Ethers)"| Worldchain
     Broker <-->|"Contract Calls (Viem/Ethers)"| Arc
+    Broker <-->|"Upload Dossiers"| ZeroGStorage
+    Broker <-->|"Contract Calls"| ZeroG
     Broker <-->|"API Calls (AgentKit SDK)"| AgentBook
     Broker <-->|"Verify Proofs (IDKit)"| WorldID
     
@@ -53,5 +57,7 @@ flowchart TB
     style Contracts fill:#fce7f3,stroke:#ec4899
     style Postgres fill:#f3e8ff,stroke:#a855f7
     style Redis fill:#fef3c7,stroke:#f97316
+    style ZeroGStorage fill:#e0f2fe,stroke:#0ea5e9
     style Worldchain fill:#fce7f3,stroke:#8b5cf6
     style Arc fill:#dbeafe,stroke:#3b82f6
+    style ZeroG fill:#e0f2fe,stroke:#0ea5e9
