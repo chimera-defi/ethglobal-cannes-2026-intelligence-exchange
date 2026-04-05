@@ -633,25 +633,51 @@ IdentityGate: ${worldchainRoleSynced ? 'synced on Worldchain' : 'not synced yet'
           </div>
         </div>
 
-        <Card className="border-slate-800 bg-slate-900/40">
-          <CardHeader>
-            <CardTitle className="text-white">Worldchain Wiring</CardTitle>
-            <CardDescription>
-              Local fork and live deployment both target World Chain so the same registration flow
-              can be rehearsed before a real deployment.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-3 md:grid-cols-2">
-            <div className="rounded-xl border border-slate-800 bg-slate-900/40 backdrop-blur-sm p-4">
-              <p className="text-sm font-semibold text-white">AgentBook</p>
-              <p className="mt-1 text-xs text-gray-500">{shortHex(agentKitStatus?.agentBookContractAddress ?? integrations?.worldchain.agentBookContractAddress, 14, 10)}</p>
-            </div>
-            <div className="rounded-xl border border-slate-800 bg-slate-900/40 backdrop-blur-sm p-4">
-              <p className="text-sm font-semibold text-white">Registry</p>
-              <p className="mt-1 text-xs text-gray-500">{shortHex(integrations?.worldchain.agentRegistryAddress, 14, 10)}</p>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="grid gap-6 md:grid-cols-2">
+          <Card className="border-slate-800 bg-slate-900/40">
+            <CardHeader>
+              <CardTitle className="text-white">Worldchain Sepolia (Agent Registry)</CardTitle>
+              <CardDescription>
+                Agent identity and reputation live on Worldchain Sepolia (Chain 4801).
+                This is where the AgentBook and IEX Agent Registry are deployed.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-3">
+              <div className="rounded-xl border border-slate-800 bg-slate-900/40 backdrop-blur-sm p-4">
+                <p className="text-sm font-semibold text-white">AgentBook</p>
+                <p className="mt-1 text-xs text-gray-500">{shortHex(agentKitStatus?.agentBookContractAddress ?? integrations?.worldchain.agentBookContractAddress, 14, 10)}</p>
+              </div>
+              <div className="rounded-xl border border-slate-800 bg-slate-900/40 backdrop-blur-sm p-4">
+                <p className="text-sm font-semibold text-white">IEX Agent Registry</p>
+                <p className="mt-1 text-xs text-gray-500">{shortHex(integrations?.worldchain.agentRegistryAddress, 14, 10)}</p>
+              </div>
+              <div className="rounded-xl border border-slate-800 bg-slate-900/40 backdrop-blur-sm p-4">
+                <p className="text-sm font-semibold text-white">IdentityGate</p>
+                <p className="mt-1 text-xs text-gray-500">{shortHex(integrations?.worldchain.identityGateAddress, 14, 10)}</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-slate-800 bg-slate-900/40">
+            <CardHeader>
+              <CardTitle className="text-white">Arc Testnet (Escrow)</CardTitle>
+              <CardDescription>
+                Funds and escrow logic live on Arc Testnet (Chain 5042002).
+                USDC is the native gas token for all escrow operations.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-3">
+              <div className="rounded-xl border border-slate-800 bg-slate-900/40 backdrop-blur-sm p-4">
+                <p className="text-sm font-semibold text-white">AdvancedArcEscrow</p>
+                <p className="mt-1 text-xs text-gray-500">{shortHex(integrations?.arc.escrowContractAddress, 14, 10)}</p>
+              </div>
+              <div className="rounded-xl border border-slate-800 bg-slate-900/40 backdrop-blur-sm p-4">
+                <p className="text-sm font-semibold text-white">USDC (Native Gas)</p>
+                <p className="mt-1 text-xs text-gray-500">{shortHex(integrations?.arc.usdcAddress, 14, 10)}</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
         {[setupError, registrationError]
           .filter(Boolean)
