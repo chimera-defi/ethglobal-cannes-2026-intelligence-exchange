@@ -1,0 +1,258 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" width="1200" height="800">
+  <defs>
+    <!-- Gradients -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#0a1628"/>
+      <stop offset="100%" style="stop-color:#070D1A"/>
+    </linearGradient>
+    <linearGradient id="teamAGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#ef4444"/>
+      <stop offset="100%" style="stop-color:#dc2626"/>
+    </linearGradient>
+    <linearGradient id="teamBGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#3b82f6"/>
+      <stop offset="100%" style="stop-color:#2563eb"/>
+    </linearGradient>
+    <linearGradient id="iexGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#f59e0b"/>
+      <stop offset="100%" style="stop-color:#d97706"/>
+    </linearGradient>
+    <linearGradient id="successGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#10b981"/>
+      <stop offset="100%" style="stop-color:#059669"/>
+    </linearGradient>
+    
+    <!-- Glow filters -->
+    <filter id="redGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+    <filter id="blueGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+    <filter id="goldGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+    
+    <!-- Arrow marker -->
+    <marker id="arrowhead" markerWidth="12" markerHeight="8" refX="10" refY="4" orient="auto">
+      <polygon points="0 0, 12 4, 0 8" fill="#4B5A70"/>
+    </marker>
+    <marker id="arrowheadRed" markerWidth="12" markerHeight="8" refX="10" refY="4" orient="auto">
+      <polygon points="0 0, 12 4, 0 8" fill="#ef4444"/>
+    </marker>
+    <marker id="arrowheadBlue" markerWidth="12" markerHeight="8" refX="10" refY="4" orient="auto">
+      <polygon points="0 0, 12 4, 0 8" fill="#3b82f6"/>
+    </marker>
+    <marker id="arrowheadGold" markerWidth="12" markerHeight="8" refX="10" refY="4" orient="auto">
+      <polygon points="0 0, 12 4, 0 8" fill="#f59e0b"/>
+    </marker>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="1200" height="800" fill="url(#bgGrad)"/>
+  
+  <!-- Title -->
+  <text x="600" y="45" text-anchor="middle" font-family="monospace" font-size="28" font-weight="bold" fill="#C8D6E8">
+    THE INTELLIGENCE CAPACITY MARKET
+  </text>
+  <text x="600" y="75" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#4B5A70">
+    Matching teams with excess capacity to teams with excess demand
+  </text>
+  
+  <!-- === LEFT PANEL: The Problem Over Time === -->
+  <rect x="50" y="100" width="500" height="580" rx="8" fill="#0D1625" stroke="#1E2D42" stroke-width="2"/>
+  <text x="300" y="135" text-anchor="middle" font-family="monospace" font-size="18" font-weight="bold" fill="#C8D6E8">
+    THE WEEKLY CYCLE
+  </text>
+  
+  <!-- Y-Axis Labels -->
+  <text x="80" y="180" font-family="sans-serif" font-size="11" fill="#4B5A70">High</text>
+  <text x="75" y="450" font-family="sans-serif" font-size="11" fill="#4B5A70">Low</text>
+  
+  <!-- Y-Axis Lines -->
+  <line x1="100" y1="170" x2="100" y2="640" stroke="#1E2D42" stroke-width="2"/>
+  <line x1="100" y1="170" x2="520" y2="170" stroke="#1E2D42" stroke-width="1" stroke-dasharray="4"/>
+  <line x1="100" y1="640" x2="520" y2="640" stroke="#1E2D42" stroke-width="1" stroke-dasharray="4"/>
+  
+  <!-- X-Axis: Days of Week -->
+  <line x1="100" y1="640" x2="520" y2="640" stroke="#1E2D42" stroke-width="2"/>
+  <text x="130" y="665" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#4B5A70">Mon</text>
+  <text x="200" y="665" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#4B5A70">Tue</text>
+  <text x="270" y="665" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#4B5A70">Wed</text>
+  <text x="340" y="665" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#4B5A70">Thu</text>
+  <text x="410" y="665" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#4B5A70">Fri</text>
+  <text x="480" y="665" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#4B5A70">Weekend</text>
+  
+  <!-- === TEAM A: Overflow Demand (Red) === -->
+  <text x="120" y="200" font-family="sans-serif" font-size="12" font-weight="bold" fill="#ef4444">TEAM A: Overflow Demand</text>
+  <text x="120" y="218" font-family="sans-serif" font-size="10" fill="#4B5A70">AI startup with ambitious roadmap</text>
+  
+  <!-- Task Line (Solid - going UP) -->
+  <path d="M 130 600 L 200 520 L 270 440 L 340 360 L 410 280 L 480 200" 
+        stroke="#ef4444" stroke-width="4" fill="none" filter="url(#redGlow)"/>
+  
+  <!-- Tasks remaining dots -->
+  <circle cx="130" cy="600" r="6" fill="#ef4444"/>
+  <circle cx="270" cy="440" r="6" fill="#ef4444"/>
+  <circle cx="410" cy="280" r="6" fill="#ef4444"/>
+  <circle cx="480" cy="200" r="8" fill="#ef4444" stroke="#fca5a5" stroke-width="2"/>
+  
+  <!-- Token Line (Dashed - going DOWN) -->
+  <path d="M 130 250 L 200 320 L 270 400 L 340 480 L 410 560 L 480 620" 
+        stroke="#ef4444" stroke-width="3" fill="none" stroke-dasharray="8,4" opacity="0.7"/>
+  
+  <!-- Tokens remaining dots -->
+  <circle cx="130" cy="250" r="6" fill="#ef4444" opacity="0.7"/>
+  <circle cx="270" cy="400" r="6" fill="#ef4444" opacity="0.7"/>
+  <circle cx="410" cy="560" r="6" fill="#ef4444" opacity="0.7"/>
+  <circle cx="480" cy="620" r="6" fill="#7f1d1d"/>
+  
+  <!-- Legend for Team A -->
+  <rect x="320" y="190" width="180" height="50" rx="4" fill="#131F32" stroke="#1E2D42"/>
+  <line x1="330" y1="205" x2="360" y2="205" stroke="#ef4444" stroke-width="3"/>
+  <text x="370" y="209" font-family="sans-serif" font-size="10" fill="#C8D6E8">Tasks (increasing)</text>
+  <line x1="330" y1="225" x2="360" y2="225" stroke="#ef4444" stroke-width="2" stroke-dasharray="4,2" opacity="0.7"/>
+  <text x="370" y="229" font-family="sans-serif" font-size="10" fill="#C8D6E8">Tokens (depleted)</text>
+  
+  <!-- Crisis annotation for Team A -->
+  <rect x="460" y="180" width="50" height="30" rx="4" fill="#7f1d1d" stroke="#ef4444" stroke-width="1"/>
+  <text x="485" y="200" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#fca5a5">HELP!</text>
+  
+  <!-- === TEAM B: Excess Capacity (Blue) === -->
+  <text x="120" y="320" font-family="sans-serif" font-size="12" font-weight="bold" fill="#3b82f6">TEAM B: Excess Capacity</text>
+  <text x="120" y="338" font-family="sans-serif" font-size="10" fill="#4B5A70">Agency between projects</text>
+  
+  <!-- Task Line (Solid - going DOWN) -->
+  <path d="M 130 350 L 200 380 L 270 450 L 340 520 L 410 580 L 480 620" 
+        stroke="#3b82f6" stroke-width="4" fill="none" filter="url(#blueGlow)"/>
+  
+  <!-- Tasks remaining dots -->
+  <circle cx="130" cy="350" r="6" fill="#3b82f6"/>
+  <circle cx="270" cy="450" r="6" fill="#3b82f6"/>
+  <circle cx="410" cy="580" r="6" fill="#3b82f6"/>
+  <circle cx="480" cy="620" r="6" fill="#1e3a8a"/>
+  
+  <!-- Token Line (Dashed - flat/high) -->
+  <path d="M 130 220 L 480 240" 
+        stroke="#3b82f6" stroke-width="3" fill="none" stroke-dasharray="8,4" opacity="0.7"/>
+  
+  <!-- Tokens remaining dots -->
+  <circle cx="130" cy="220" r="6" fill="#3b82f6" opacity="0.7"/>
+  <circle cx="270" cy="230" r="6" fill="#3b82f6" opacity="0.7"/>
+  <circle cx="410" cy="235" r="6" fill="#3b82f6" opacity="0.7"/>
+  <circle cx="480" cy="240" r="8" fill="#3b82f6" stroke="#93c5fd" stroke-width="2"/>
+  
+  <!-- Legend for Team B -->
+  <rect x="320" y="310" width="180" height="50" rx="4" fill="#131F32" stroke="#1E2D42"/>
+  <line x1="330" y1="325" x2="360" y2="325" stroke="#3b82f6" stroke-width="3"/>
+  <text x="370" y="329" font-family="sans-serif" font-size="10" fill="#C8D6E8">Tasks (completed)</text>
+  <line x1="330" y1="345" x2="360" y2="345" stroke="#3b82f6" stroke-width="2" stroke-dasharray="4,2" opacity="0.7"/>
+  <text x="370" y="349" font-family="sans-serif" font-size="10" fill="#C8D6E8">Tokens (available)</text>
+  
+  <!-- Available annotation for Team B -->
+  <rect x="460" y="225" width="50" height="30" rx="4" fill="#1e3a8a" stroke="#3b82f6" stroke-width="1"/>
+  <text x="485" y="245" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#93c5fd">IDLE</text>
+  
+  <!-- === CENTER: IEX MATCHING === -->
+  <rect x="570" y="200" width="260" height="400" rx="12" fill="url(#iexGrad)" stroke="#fbbf24" stroke-width="3" filter="url(#goldGlow)"/>
+  
+  <!-- IEX Logo Area -->
+  <rect x="590" y="220" width="220" height="80" rx="8" fill="#92400e" stroke="#fbbf24" stroke-width="2"/>
+  <text x="700" y="260" text-anchor="middle" font-family="monospace" font-size="28" font-weight="bold" fill="#FFFFFF">
+    IEX
+  </text>
+  <text x="700" y="285" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#fef3c7">
+    Intelligence Exchange
+  </text>
+  
+  <!-- Matching arrows -->
+  <line x1="520" y1="300" x2="590" y2="350" stroke="#ef4444" stroke-width="3" marker-end="url(#arrowheadRed)" opacity="0.8"/>
+  <line x1="520" y1="450" x2="590" y2="420" stroke="#3b82f6" stroke-width="3" marker-end="url(#arrowheadBlue)" opacity="0.8"/>
+  
+  <!-- Job Posting from Team A -->
+  <rect x="600" y="320" width="200" height="70" rx="6" fill="#7f1d1d" stroke="#ef4444" stroke-width="1"/>
+  <text x="700" y="345" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#fca5a5">
+    Team A Posts Job
+  </text>
+  <text x="700" y="362" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#C8D6E8">
+    "Build landing page"
+  </text>
+  <text x="700" y="378" text-anchor="middle" font-family="monospace" font-size="10" fill="#fbbf24">
+    $500 USDC
+  </text>
+  
+  <!-- Job Fulfillment from Team B -->
+  <rect x="600" y="410" width="200" height="70" rx="6" fill="#1e3a8a" stroke="#3b82f6" stroke-width="1"/>
+  <text x="700" y="435" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#93c5fd">
+    Team B Claims Job
+  </text>
+  <text x="700" y="452" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#C8D6E8">
+    Delivers in 2 hours
+  </text>
+  <text x="700" y="468" text-anchor="middle" font-family="monospace" font-size="10" fill="#10b981">
+    Earns $450
+  </text>
+  
+  <!-- Settlement -->
+  <rect x="600" y="500" width="200" height="80" rx="6" fill="#065f46" stroke="#10b981" stroke-width="2"/>
+  <text x="700" y="525" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="bold" fill="#6ee7b7">
+    SMART CONTRACT SETTLEMENT
+  </text>
+  <text x="700" y="545" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#C8D6E8">
+    Funds locked in escrow
+  </text>
+  <text x="700" y="562" text-anchor="middle" font-family="sans-serif" font-size="10" fill="#C8D6E8">
+    Released on acceptance
+  </text>
+  
+  <!-- === RIGHT PANEL: After IEX === -->
+  <rect x="850" y="100" width="320" height="580" rx="8" fill="#0D1625" stroke="#10b981" stroke-width="2"/>
+  <text x="1010" y="135" text-anchor="middle" font-family="monospace" font-size="18" font-weight="bold" fill="#10b981">
+    AFTER IEX
+  </text>
+  
+  <!-- Team A - Happy -->
+  <rect x="870" y="160" width="280" height="120" rx="6" fill="#131F32" stroke="#1E2D42"/>
+  <text x="880" y="185" font-family="sans-serif" font-size="14" font-weight="bold" fill="#ef4444">Team A</text>
+  <text x="1010" y="210" text-anchor="middle" font-family="sans-serif" font-size="24">✅</text>
+  <text x="1010" y="240" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#C8D6E8">Shipped feature on time</text>
+  <text x="1010" y="258" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#C8D6E8">Product launch saved</text>
+  
+  <!-- Team B - Happy -->
+  <rect x="870" y="300" width="280" height="120" rx="6" fill="#131F32" stroke="#1E2D42"/>
+  <text x="880" y="325" font-family="sans-serif" font-size="14" font-weight="bold" fill="#3b82f6">Team B</text>
+  <text x="1010" y="350" text-anchor="middle" font-family="sans-serif" font-size="24">💰</text>
+  <text x="1010" y="380" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#C8D6E8">Converted idle time</text>
+  <text x="1010" y="398" text-anchor="middle" font-family="monospace" font-size="12" fill="#10b981">+$450 revenue</text>
+  
+  <!-- The Win-Win -->
+  <rect x="870" y="440" width="280" height="110" rx="6" fill="url(#successGrad)" stroke="#34d399" stroke-width="2"/>
+  <text x="1010" y="470" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="bold" fill="#FFFFFF">
+    WIN-WIN
+  </text>
+  <text x="1010" y="495" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#d1fae5">
+    No waste. No idle capacity.
+  </text>
+  <text x="1010" y="515" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#d1fae5">
+    Intelligence priced and traded
+  </text>
+  <text x="1010" y="535" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#d1fae5">
+    like any other commodity.
+  </text>
+  
+  <!-- Connection arrows from IEX to After -->
+  <line x1="830" y1="360" x2="870" y2="220" stroke="#10b981" stroke-width="2" marker-end="url(#arrowhead)" opacity="0.6"/>
+  <line x1="830" y1="440" x2="870" y2="360" stroke="#10b981" stroke-width="2" marker-end="url(#arrowhead)" opacity="0.6"/>
+  
+  <!-- Bottom tagline -->
+  <rect x="100" y="710" width="1000" height="70" rx="4" fill="#131F32" stroke="#1E2D42"/>
+  <text x="600" y="735" text-anchor="middle" font-family="sans-serif" font-size="14" fill="#C8D6E8">
+    Intelligence is becoming a scarce operating resource.
+  </text>
+  <text x="600" y="760" text-anchor="middle" font-family="monospace" font-size="16" font-weight="bold" fill="#f59e0b">
+    IEX is the broker that makes it tradable.
+  </text>
+</svg>
