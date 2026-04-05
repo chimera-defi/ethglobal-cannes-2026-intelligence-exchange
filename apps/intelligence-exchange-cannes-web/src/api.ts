@@ -201,6 +201,14 @@ export function getAgentKitStatus(address: string, fingerprint?: string) {
   return get<AgentKitStatusResponse>(`/agentkit/status?${params.toString()}`);
 }
 
+export function registerAgentBook(address: string) {
+  return post<{ alreadyRegistered: boolean; humanId?: string | null; output?: string; success?: boolean; message?: string }>(
+    '/agentkit/register-agentbook',
+    { address },
+    true,
+  );
+}
+
 // ─── Chain Sync ───────────────────────────────────────────────────────────
 
 export function syncChainReceipt(body: {

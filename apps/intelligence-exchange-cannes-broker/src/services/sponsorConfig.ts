@@ -17,7 +17,9 @@ export function getWorldConfig() {
   const action = process.env.WORLD_ACTION_ID;
   const signingKey = process.env.WORLD_SIGNING_KEY ?? process.env.RP_SIGNING_KEY;
   const environment = (process.env.WORLD_ENVIRONMENT ?? 'staging') as 'production' | 'staging';
-  const configured = Boolean(appId && rpId && action && signingKey);
+  // configured = app can show the IDKitWidget and verify proofs (signingKey is only
+  // needed for the optional RP-signature/SIWE flow, not for basic verification)
+  const configured = Boolean(appId && rpId && action);
   const strictFallback = process.env.NODE_ENV === 'test';
 
   return {
@@ -58,14 +60,19 @@ export function getAgentKitConfig() {
   const accessMode = (process.env.AGENTKIT_ACCESS_MODE ?? 'free-trial') as 'free' | 'free-trial';
   const freeTrialUses = Number(process.env.AGENTKIT_FREE_TRIAL_USES ?? '3');
 
+  // AgentBook is deployed on World Mainnet (480), not Worldchain Sepolia.
+  // Use the mainnet RPC for verifier / lookupHuman calls.
+  const agentBookChainId = Number(process.env.WORLDCHAIN_MAINNET_CHAIN_ID ?? '480');
+  const agentBookRpcUrl = process.env.WORLDCHAIN_MAINNET_RPC_URL ?? 'https://worldchain-mainnet.g.alchemy.com/public';
+
   return {
     enabled,
     headerName: 'agentkit',
     accessMode,
     freeTrialUses: Number.isFinite(freeTrialUses) && freeTrialUses > 0 ? freeTrialUses : 3,
     statement: process.env.AGENTKIT_STATEMENT ?? 'Verify your agent is backed by a real human',
-    chainId: `eip155:${worldchain.chainId}`,
-    rpcUrl: worldchain.rpcUrl,
+    chainId: `eip155:${agentBookChainId}`,
+    rpcUrl: agentBookRpcUrl,
     agentBookContractAddress: worldchain.agentBookContractAddress,
   };
 }

@@ -23,6 +23,7 @@ import {
   getAgentKitStatus,
   getIntegrationsStatus,
   listAgentAuthorizations,
+  registerAgentBook,
   syncAgentRegistration,
   syncWorldchainRole,
   verifyWorldRole,
@@ -87,6 +88,8 @@ export function AgentsPage() {
   const [isCompletingSetup, setIsCompletingSetup] = useState(false);
   const [isRefreshingStatus, setIsRefreshingStatus] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
+  const [isRegisteringAgentBook, setIsRegisteringAgentBook] = useState(false);
+  const [agentBookRegisterResult, setAgentBookRegisterResult] = useState<string | null>(null);
 
   const integrationsQuery = useQuery({
     queryKey: ['integrations-status'],
@@ -160,6 +163,29 @@ export function AgentsPage() {
       ]);
     } finally {
       setIsRefreshingStatus(false);
+    }
+  }
+
+  async function handleRegisterAgentBook() {
+    if (!address) return;
+    setIsRegisteringAgentBook(true);
+    setAgentBookRegisterResult(null);
+    setRegistrationError(null);
+    try {
+      const result = await registerAgentBook(address);
+      if (result.alreadyRegistered) {
+        setAgentBookRegisterResult('Already registered in AgentBook.');
+      } else if (result.success) {
+        setAgentBookRegisterResult('Successfully registered in AgentBook!');
+      } else {
+        setAgentBookRegisterResult(result.output ?? 'Registration may have failed — click Refresh to check.');
+      }
+      await refreshAgentStatus();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Registration failed';
+      setRegistrationError(message);
+    } finally {
+      setIsRegisteringAgentBook(false);
     }
   }
 
@@ -354,7 +380,7 @@ export function AgentsPage() {
           </div>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+        <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
           <Card className="border-slate-800 bg-slate-900/40">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-white">
@@ -431,6 +457,11 @@ Worker verification: ${isWorkerVerified ? 'verified' : 'pending'}
 Authorization: ${workerAuthorization ? `${workerAuthorization.agentType} ${workerAuthorization.agentVersion ?? DEFAULT_AGENT_PROFILE.agentVersion}` : 'not created'}
 IdentityGate: ${worldchainRoleSynced ? 'synced on Worldchain' : 'not synced yet'}`}
                 </pre>
+                {setupError && (
+                  <p className="text-xs text-red-400 rounded-lg border border-red-900/40 bg-red-950/20 px-3 py-2">
+                    {setupError}
+                  </p>
+                )}
                 <div className="flex flex-wrap gap-2">
                   {(demoMode || !integrations) ? (
                     <Button
@@ -482,34 +513,41 @@ IdentityGate: ${worldchainRoleSynced ? 'synced on Worldchain' : 'not synced yet'
                     <p className="text-sm font-semibold text-white">3. Register in AgentBook</p>
                     <p className="mt-1 text-xs text-gray-500">
                       Agent Kit resolves the wallet into an anonymous human ID at request time.
-                      This app reads the official AgentBook on Worldchain, but the registration
-                      itself still happens with the World CLI today.
+                      Click the button to register via the broker, or run the CLI manually:
                     </p>
                   </div>
                   <Badge variant={agentBookRegistered ? 'success' : 'warning'}>
-                    {agentBookRegistered ? 'Registered' : 'External step'}
+                    {agentBookRegistered ? 'Registered' : 'Not registered'}
                   </Badge>
                 </div>
                 <pre className="overflow-x-auto rounded-lg border border-slate-800 bg-black/40 p-3 text-xs text-gray-200">
-{agentKitStatus?.registrationCommand ?? (address ? `npx @worldcoin/agentkit-cli register ${address}` : 'Connect a wallet to generate the command')}
+{`bunx @worldcoin/agentkit-cli register ${address ?? '<your-wallet-address>'}`}
                 </pre>
+                {agentBookRegisterResult && (
+                  <p className="text-xs text-green-400 rounded-lg border border-green-900/40 bg-green-950/20 px-3 py-2">
+                    {agentBookRegisterResult}
+                  </p>
+                )}
+                {registrationError && (
+                  <p className="text-xs text-red-400 rounded-lg border border-red-900/40 bg-red-950/20 px-3 py-2">
+                    {registrationError}
+                  </p>
+                )}
                 <div className="flex flex-wrap gap-2">
-                  {agentKitStatus?.registrationCommand && (
-                    <Button
-                      variant="outline"
-                      onClick={() => void handleCopy(agentKitStatus.registrationCommand, 'register-command')}
-                    >
-                      <Copy className="h-4 w-4" />
-                      {copyState === 'register-command' ? 'Copied' : 'Copy command'}
-                    </Button>
-                  )}
+                  <Button
+                    onClick={() => void handleRegisterAgentBook()}
+                    disabled={!session || !address || agentBookRegistered || isRegisteringAgentBook}
+                  >
+                    {isRegisteringAgentBook ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
+                    {agentBookRegistered ? 'Already Registered' : 'Register in AgentBook'}
+                  </Button>
                   <Button
                     variant="outline"
                     onClick={() => void refreshAgentStatus()}
                     disabled={isRefreshingStatus}
                   >
                     {isRefreshingStatus ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
-                    Refresh AgentBook
+                    Refresh Status
                   </Button>
                   <Button variant="ghost" asChild>
                     <a href="https://docs.world.org/agents/agent-kit/integrate" target="_blank" rel="noreferrer">
