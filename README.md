@@ -374,6 +374,8 @@ Key variables:
 ```bash
 POSTGRES_PORT=55432   # Host port Docker binds Postgres to
 REDIS_PORT=56379      # Host port Docker binds Redis to
+POSTGRES_PASSWORD=... # Postgres password used by Docker + DATABASE_URL
+REDIS_PASSWORD=...    # Redis password required by Redis + REDIS_URL
 PORT=3101             # Broker API port
 # Web frontend port is controlled by vite.config.ts (default: 3100)
 ```
@@ -392,6 +394,8 @@ make dev
 - Loads `.env` for port configuration
 - Uses either `docker compose` or `docker-compose` (whichever is installed)
 - Starts Postgres and Redis via Docker
+- Binds Postgres/Redis to `127.0.0.1` only (not LAN-exposed)
+- Requires Redis authentication using `REDIS_PASSWORD`
 - Runs database migrations and seeds demo data
 - Starts the broker API on `PORT` from `.env` (default: 3101)
 - Starts the web frontend on port 3100
@@ -416,18 +420,21 @@ If you prefer to run each service in a separate terminal:
 
 ```bash
 # Terminal 1: Infrastructure (reads POSTGRES_PORT and REDIS_PORT from .env)
-POSTGRES_PORT=55432 REDIS_PORT=56379 ./scripts/tooling/docker-compose.sh up -d
+POSTGRES_PORT=55432 REDIS_PORT=56379 \
+POSTGRES_PASSWORD=change-this-postgres-password \
+REDIS_PASSWORD=change-this-redis-password \
+./scripts/tooling/docker-compose.sh up -d
 
 # Terminal 2: Broker
 PORT=3101 \
-DATABASE_URL=postgres://iex:iex@localhost:55432/iex_cannes \
-REDIS_URL=redis://localhost:56379 \
+DATABASE_URL=postgres://iex:change-this-postgres-password@localhost:55432/iex_cannes \
+REDIS_URL=redis://:change-this-redis-password@localhost:56379 \
 BROKER_URL=http://localhost:3101 \
 corepack pnpm --filter intelligence-exchange-cannes-broker dev
 
 # Terminal 3: Seed database (run once after broker is up)
-DATABASE_URL=postgres://iex:iex@localhost:55432/iex_cannes \
-REDIS_URL=redis://localhost:56379 \
+DATABASE_URL=postgres://iex:change-this-postgres-password@localhost:55432/iex_cannes \
+REDIS_URL=redis://:change-this-redis-password@localhost:56379 \
 BROKER_URL=http://localhost:3101 \
 corepack pnpm --filter intelligence-exchange-cannes-broker seed
 
@@ -763,10 +770,13 @@ export AGENTKIT_FREE_TRIAL_USES=3
 If those ports are already occupied on your machine, run the infra on alternate ports:
 
 ```bash
-POSTGRES_PORT=55432 REDIS_PORT=56379 docker compose up -d
+POSTGRES_PORT=55432 REDIS_PORT=56379 \
+POSTGRES_PASSWORD=change-this-postgres-password \
+REDIS_PASSWORD=change-this-redis-password \
+docker compose up -d
 
-DATABASE_URL=postgres://iex:iex@localhost:55432/iex_cannes \
-REDIS_URL=redis://localhost:56379 \
+DATABASE_URL=postgres://iex:change-this-postgres-password@localhost:55432/iex_cannes \
+REDIS_URL=redis://:change-this-redis-password@localhost:56379 \
 PORT=3101 \
 BROKER_URL=http://127.0.0.1:3101 \
 corepack pnpm --filter intelligence-exchange-cannes-broker dev
