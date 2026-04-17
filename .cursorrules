@@ -21,8 +21,21 @@
 
 - Never push directly to `main`.
 - One task = one branch = one PR.
+- Sync and branch before coding: `git fetch origin && git rebase origin/main` then `git checkout -b feat/<slug>`.
 - When a task is complete and the user has not opted out, create the branch, commit, push, and open a PR instead of leaving changes uncommitted on `main`.
 - Keep related commits stacked in the same PR.
+- Install hooks once per clone: `corepack pnpm hooks:install`.
+
+## Test Infra Discipline
+
+- If a test command starts Docker infra, it must also stop it in the same command path.
+- Use `./scripts/tooling/run-with-test-infra.sh <command>` for acceptance or full-validate test runs.
+- `make test-acceptance` and `make validate` must leave no running infra containers after completion.
+
+## Enforcement Surfaces
+
+- Local hooks in `.githooks/` enforce commit format and block direct pushes to `main`/`master`.
+- CI workflows enforce PR attribution and commit-message requirements on pull requests.
 
 ## Multi-Pass Review
 

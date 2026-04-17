@@ -5,9 +5,12 @@
 ## Quick Start
 
 1. Read `.cursorrules`.
-2. Use `./skills/token-reduce/scripts/token-reduce-paths.sh topic words` before broad repo exploration.
-3. Keep the read set narrow.
-4. Verify outputs before finishing.
+2. Sync before changes: `git fetch origin && git rebase origin/main`.
+3. Branch before edits: `git checkout -b feat/<slug>`.
+4. Install hooks once per clone: `corepack pnpm hooks:install`.
+5. Use `./skills/token-reduce/scripts/token-reduce-paths.sh topic words` before broad repo exploration.
+6. Keep the read set narrow.
+7. Verify outputs before finishing.
 
 ## Required Attribution
 
@@ -51,6 +54,17 @@ Before opening or updating a PR:
 - Use repo-local `skills/token-reduce/`.
 - Prefer QMD or scoped `rg` over broad scans.
 - Do not narrate tool usage in detail.
+
+## Infra Test Lifecycle
+
+- Any command that starts test infra must tear it down in the same execution path.
+- Use `./scripts/tooling/run-with-test-infra.sh <command>` for acceptance and full validation runs.
+- `make test-acceptance` and `make validate` are expected to leave Docker infra down when they finish.
+
+## Enforcement
+
+- Local hooks: `.githooks/commit-msg` and `.githooks/pre-push`.
+- CI checks: `.github/workflows/pr-attribution-check.yml` and `.github/workflows/commit-message-check.yml`.
 
 ## Design System
 

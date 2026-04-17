@@ -449,6 +449,7 @@ cloudflared tunnel --url http://localhost:3100
 ```bash
 make help              # Show all available commands
 make install           # Install dependencies
+make hooks-install     # Configure local git hooks path
 make setup             # Full setup (install deps + tooling + infra)
 make dev               # Start full stack (broker + web + seed)
 make dev-broker        # Start broker only
@@ -471,6 +472,23 @@ make validate
 ```
 
 This runs: typecheck → build → test → acceptance tests
+
+`make test-acceptance` and `make validate` now run via `scripts/tooling/run-with-test-infra.sh`, which starts Docker infra and always tears it down afterward.
+
+### Contributor Workflow Guardrails
+
+```bash
+# One-time per clone
+corepack pnpm hooks:install
+
+# Start each task from latest main
+git fetch origin && git rebase origin/main
+git checkout -b feat/<short-slug>
+```
+
+Enforcement:
+- Local hooks in `.githooks/` block direct push to `main/master` and validate commit attribution format.
+- CI workflows validate PR attribution fields and commit message requirements.
 
 ## Deployed Contracts
 

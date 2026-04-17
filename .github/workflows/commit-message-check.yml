@@ -1,0 +1,57 @@
+name: Commit Message Check
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+
+permissions:
+  contents: read
+
+jobs:
+  commit-format:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate commit message format
+        run: |
+          set -euo pipefail
+
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+
+          mapfile -t commits < <(git rev-list --no-merges "${BASE_SHA}..${HEAD_SHA}")
+
+          if [[ "${#commits[@]}" -eq 0 ]]; then
+            echo "No non-merge commits to validate."
+            exit 0
+          fi
+
+          failed=0
+          for sha in "${commits[@]}"; do
+            subject="$(git log -1 --pretty=%s "${sha}")"
+            body="$(git log -1 --pretty=%B "${sha}")"
+
+            if [[ ! "${subject}" =~ \[Agent:[[:space:]][^]]+\]$ ]]; then
+              echo "FAIL (${sha}): Commit subject must end with [Agent: <MODEL NAME>]"
+              echo "Subject: ${subject}"
+              failed=1
+            fi
+
+            if ! grep -Eq '^Co-authored-by:[[:space:]]+Chimera <chimera_defi@protonmail\.com>$' <<< "${body}"; then
+              echo "FAIL (${sha}): Missing required co-author trailer"
+              failed=1
+            fi
+          done
+
+          if [[ "${failed}" -ne 0 ]]; then
+            exit 1
+          fi
+
+          echo "Commit message checks passed."

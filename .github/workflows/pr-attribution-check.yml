@@ -1,0 +1,47 @@
+name: PR Attribution Check
+
+on:
+  pull_request:
+    types:
+      - opened
+      - edited
+      - reopened
+      - synchronize
+
+permissions:
+  pull-requests: read
+
+jobs:
+  pr-attribution:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate required PR sections
+        run: |
+          set -euo pipefail
+
+          BODY="$(jq -r '.pull_request.body // ""' "${GITHUB_EVENT_PATH}")"
+          TITLE="$(jq -r '.pull_request.title // ""' "${GITHUB_EVENT_PATH}")"
+
+          missing=0
+
+          if ! grep -Fq "**Agent:**" <<< "${BODY}"; then
+            echo "FAIL: Missing '**Agent:**' in PR description"
+            missing=1
+          fi
+
+          if ! grep -Fq "**Co-authored-by:** Chimera <chimera_defi@protonmail.com>" <<< "${BODY}"; then
+            echo "FAIL: Missing canonical co-author attribution in PR description"
+            missing=1
+          fi
+
+          if ! grep -Fq "## Original Request" <<< "${BODY}"; then
+            echo "FAIL: Missing '## Original Request' section in PR description"
+            missing=1
+          fi
+
+          if [[ "${missing}" -ne 0 ]]; then
+            echo "PR Title: ${TITLE}"
+            exit 1
+          fi
+
+          echo "PR attribution format checks passed."
