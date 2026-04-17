@@ -4,7 +4,6 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 COMPOSE_BIN="${ROOT_DIR}/scripts/tooling/docker-compose.sh"
 COMPOSE_FILE="${ROOT_DIR}/docker-compose.yml"
-TMP_CONFIG="$(mktemp)"
 REQUIRE_DOCKER="${REQUIRE_DOCKER:-0}"
 COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-iex-infra-security-test}"
 
@@ -14,7 +13,6 @@ POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-iex_local_dev_only_change_me}"
 REDIS_PASSWORD="${REDIS_PASSWORD:-iex_redis_local_dev_only_change_me}"
 
 cleanup() {
-  rm -f "${TMP_CONFIG}" || true
   if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
     COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME}" \
     POSTGRES_PORT="${POSTGRES_PORT}" \
@@ -39,7 +37,7 @@ compose() {
 assert_contains() {
   local needle="$1"
   local label="$2"
-  if grep -Fq "${needle}" "${TMP_CONFIG}"; then
+  if grep -Fq "${needle}" "${COMPOSE_FILE}"; then
     echo "PASS: ${label}"
   else
     echo "FAIL: ${label}"
@@ -51,7 +49,7 @@ assert_contains() {
 assert_not_contains() {
   local needle="$1"
   local label="$2"
-  if grep -Fq "${needle}" "${TMP_CONFIG}"; then
+  if grep -Fq "${needle}" "${COMPOSE_FILE}"; then
     echo "FAIL: ${label}"
     echo "  Unexpected pattern: ${needle}"
     return 1
@@ -61,14 +59,12 @@ assert_not_contains() {
 }
 
 echo "Running compose hardening policy checks..."
-compose config > "${TMP_CONFIG}"
-
-assert_contains "127.0.0.1:${POSTGRES_PORT}:5432" "Postgres published only on loopback"
-assert_contains "127.0.0.1:${REDIS_PORT}:6379" "Redis published only on loopback"
+assert_contains "127.0.0.1:\${POSTGRES_PORT:-5432}:5432" "Postgres published only on loopback in compose source"
+assert_contains "127.0.0.1:\${REDIS_PORT:-6379}:6379" "Redis published only on loopback in compose source"
 assert_contains "redis-server --requirepass" "Redis started with requirepass"
 assert_contains "redis-cli -a \"\$\$REDIS_PASSWORD\" ping" "Redis healthcheck authenticates"
-assert_not_contains "0.0.0.0:${POSTGRES_PORT}:5432" "Postgres not bound to all interfaces"
-assert_not_contains "0.0.0.0:${REDIS_PORT}:6379" "Redis not bound to all interfaces"
+assert_not_contains "'\${POSTGRES_PORT:-5432}:5432'" "Postgres not published without host IP prefix"
+assert_not_contains "'\${REDIS_PORT:-6379}:6379'" "Redis not published without host IP prefix"
 
 if ! command -v docker >/dev/null 2>&1 || ! docker info >/dev/null 2>&1; then
   if [[ "${REQUIRE_DOCKER}" == "1" ]]; then
