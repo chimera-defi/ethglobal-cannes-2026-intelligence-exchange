@@ -18,7 +18,7 @@ BROKER_URL ?= http://localhost:$(BROKER_PORT)
 VITE_DEV_PROXY_TARGET ?= $(BROKER_URL)
 COMPOSE ?= ./scripts/tooling/docker-compose.sh
 
-.PHONY: help install setup dev dev-broker dev-web seed stop clean test validate tunnel
+.PHONY: help install setup dev dev-broker dev-web seed stop clean test test-infra-security validate tunnel
 
 # Default command
 help:
@@ -41,6 +41,7 @@ help:
 	@echo ""
 	@echo "Testing:"
 	@echo "  make test            Run all tests"
+	@echo "  make test-infra-security Run infra hardening regression checks"
 	@echo "  make test-acceptance Run acceptance tests"
 	@echo "  make validate        Full validation (typecheck + build + test)"
 	@echo ""
@@ -101,6 +102,10 @@ db-reset: infra-reset
 # Testing
 test:
 	corepack pnpm test
+
+test-infra-security:
+	@echo "Running infra hardening regression checks..."
+	corepack pnpm test:infra-security
 
 test-acceptance: infra-up
 	@echo "Running acceptance tests..."

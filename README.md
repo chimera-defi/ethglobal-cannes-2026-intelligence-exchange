@@ -465,6 +465,7 @@ make infra-up          # Start Docker infrastructure
 make infra-down        # Stop Docker infrastructure
 make tunnel            # Start Cloudflare Quick Tunnel (public HTTPS URL)
 make test              # Run all tests
+make test-infra-security # Run Redis/Postgres infra hardening checks
 make test-acceptance   # Run acceptance tests
 make validate          # Full validation (typecheck + build + test)
 make stop              # Stop all running services
@@ -478,6 +479,10 @@ make validate
 ```
 
 This runs: typecheck → build → test → acceptance tests
+
+Infra hardening regression checks are run by:
+- `make test-infra-security` (local)
+- CI workflow `Infra Security` (requires Docker daemon)
 
 ## Deployed Contracts
 
