@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+remote_name="$1"
+remote_url="$2"
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  if [[ "${remote_ref}" == "refs/heads/main" || "${remote_ref}" == "refs/heads/master" ]]; then
+    echo "ERROR: Direct pushes to main/master are blocked."
+    echo "Remote: ${remote_name} (${remote_url})"
+    echo "Push a feature branch and open a PR instead."
+    exit 1
+  fi
+done

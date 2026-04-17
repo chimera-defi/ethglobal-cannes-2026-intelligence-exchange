@@ -8,6 +8,7 @@
     "packages/*"
   ],
   "scripts": {
+    "hooks:install": "bash scripts/tooling/install-git-hooks.sh",
     "tooling:install": "bash scripts/tooling/ensure-foundry.sh",
     "dev:cannes": "pnpm --filter '*cannes*' --parallel run dev",
     "build": "pnpm tooling:install && pnpm --filter '*cannes*' run build",

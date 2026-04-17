@@ -19,10 +19,18 @@
 
 - One task = one PR.
 - Never push directly to `main`.
+- Start each coding request by syncing with main and branching before edits (`git fetch origin && git rebase origin/main`, then `git checkout -b feat/<slug>`).
 - When a task is complete and the user has not opted out, create the branch, commit, push, and open a PR instead of leaving work on `main`.
 - PRs and commits require explicit agent attribution plus human co-author attribution.
 - Keep all related commits on the same branch for the request.
 - When a scoped coding task is complete and the user has not opted out, create the task branch, stage only the in-scope files, push, and open a draft PR automatically.
+- Install local hooks once per clone via `corepack pnpm hooks:install` (sets `git config core.hooksPath .githooks`).
+
+## Test Infra Lifecycle
+
+- If a test command starts Docker infra, it must also tear infra down in the same command path.
+- Prefer `./scripts/tooling/run-with-test-infra.sh <test command>` for acceptance/full validation.
+- For ad hoc cleanup, run `make infra-down` (uses `docker compose down --remove-orphans`).
 
 ## Review Discipline
 
