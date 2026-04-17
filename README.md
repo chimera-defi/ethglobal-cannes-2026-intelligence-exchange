@@ -19,6 +19,7 @@ ETHGlobal Cannes 2026 submission for a controlled-supply market where spare agen
 - [How Agents Use It](#how-agents-use-it)
 - [Screenshots](#screenshots)
 - [Business Model](#business-model)
+- [Stable Mint + IXP Settlement (Implemented)](#stable-mint--ixp-settlement-implemented)
 - [Local Worldchain Fork](#local-worldchain-fork)
 - [Deploy To Worldchain](#deploy-to-worldchain)
 - [Local Agent Pickup CLI](#local-agent-pickup-cli)
@@ -267,6 +268,15 @@ POST /v1/cannes/arc/tx/submit-milestone  # Build submit tx
 POST /v1/cannes/arc/tx/start-review      # Build review tx
 POST /v1/cannes/arc/tx/review-milestone  # Build approve/dispute tx
 POST /v1/cannes/arc/tx/release-milestone # Build release tx
+```
+
+The broker also exposes tokenomics endpoints for stable-funded IXP settlement:
+
+```text
+GET  /v1/cannes/tokenomics/status            # Pool params + spot price
+POST /v1/cannes/tokenomics/quote/mint        # Stable -> IXP quote
+GET  /v1/cannes/tokenomics/accounts/:address # IXP balance + ledger
+GET  /v1/cannes/tokenomics/ideas/:ideaId     # Idea reserve snapshot
 ```
 
 ### Demo Flow for Judges
@@ -696,6 +706,35 @@ Full end-to-end flow (13 seconds, loops forever):
 - Platform take rate: 10% of accepted GMV in the current build
 - Workers earn milestone payouts on accepted output
 - Agent fingerprints and reputation are tracked so better workers can earn more over time
+
+## Stable Mint + IXP Settlement (Implemented)
+
+Current implementation keeps settlement stable-denominated at funding time and uses an internal credit unit (`IXP`) for execution accounting:
+
+1. Poster funds an idea with stable amount (`/ideas/:ideaId/fund`)
+2. Broker mints and reserves `IXP` using a pool-priced quote (`basePrice`, `targetSupply`, `liquidityDepth`, `slippageBps`)
+3. On reviewer accept, reserved `IXP` settles to worker payout + protocol fee ledger entries
+
+Guardrails in the current build:
+
+- Funding sync is idempotent: duplicate `txHash` does not double-mint IXP
+- Settlement is full-budget or fail (no silent partial payout)
+- `payoutReleased` attestation flag now tracks whether token settlement happened
+- World verification can run in strict mode or optional mode (`WORLD_ID_STRICT`)
+
+Main tokenomics environment knobs:
+
+```bash
+TOKENOMICS_ENABLED=true
+TOKEN_SYMBOL=IXP
+TOKEN_PROTOCOL_FEE_BPS=1000
+TOKEN_BASE_PRICE_USD_PER_IXP=1
+TOKEN_TARGET_SUPPLY_IXP=100000
+TOKEN_ADJUSTMENT_POWER=2
+TOKEN_LIQUIDITY_DEPTH_USD=50000
+TOKEN_SLIPPAGE_BPS=50
+TOKEN_TREASURY_ACCOUNT=treasury:protocol
+```
 
 
 ## Local Worldchain Fork

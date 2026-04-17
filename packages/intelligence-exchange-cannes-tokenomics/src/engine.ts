@@ -9,70 +9,61 @@ function clampPositive(value: number, fallback: number) {
   return Number.isFinite(value) && value > 0 ? value : fallback;
 }
 
-export function getCurvePriceUsdPerIntel(state: PoolState) {
-  const basePrice = clampPositive(state.basePriceUsdPerIntel, 1);
-  const targetSupply = clampPositive(state.targetSupplyIntel, 1);
+export function getCurvePriceUsdPerIxp(state: PoolState) {
+  const basePrice = clampPositive(state.basePriceUsdPerIxp, 1);
+  const targetSupply = clampPositive(state.targetSupplyIxp, 1);
   const adjustmentPower = Number.isFinite(state.adjustmentPower) ? state.adjustmentPower : 0;
-  const currentSupply = Math.max(0, state.currentSupplyIntel);
+  const currentSupply = Math.max(0, state.currentSupplyIxp);
 
   const utilization = currentSupply / targetSupply;
   const curveMultiplier = Math.exp(adjustmentPower * Math.pow(utilization, 3));
   return round(basePrice * curveMultiplier, 8);
 }
 
-export function quoteMintIntel(stableAmountUsd: number, state: PoolState): MintQuote {
+export function quoteMintIxp(stableAmountUsd: number, state: PoolState): MintQuote {
   const stableUsd = clampPositive(stableAmountUsd, 0);
   if (stableUsd <= 0) {
     return {
       stableAmountUsd: 0,
-      effectivePriceUsdPerIntel: getCurvePriceUsdPerIntel(state),
-      mintedIntel: 0,
-      nextPriceUsdPerIntel: getCurvePriceUsdPerIntel(state),
-      nextSupplyIntel: round(state.currentSupplyIntel, 8),
+      effectivePriceUsdPerIxp: getCurvePriceUsdPerIxp(state),
+      mintedIxp: 0,
+      nextPriceUsdPerIxp: getCurvePriceUsdPerIxp(state),
+      nextSupplyIxp: round(state.currentSupplyIxp, 8),
     };
   }
 
-  const curvePrice = getCurvePriceUsdPerIntel(state);
+  const curvePrice = getCurvePriceUsdPerIxp(state);
   const liquidityDepthUsd = clampPositive(state.liquidityDepthUsd, 1_000);
   const slippageBps = Math.max(0, state.slippageBps);
   const slippageMultiplier = 1 + ((stableUsd / liquidityDepthUsd) * (slippageBps / 10_000));
   const effectivePrice = curvePrice * slippageMultiplier;
 
-  const mintedIntel = stableUsd / effectivePrice;
-  const nextSupplyIntel = state.currentSupplyIntel + mintedIntel;
-  const nextPriceUsdPerIntel = getCurvePriceUsdPerIntel({
+  const mintedIxp = stableUsd / effectivePrice;
+  const nextSupplyIxp = state.currentSupplyIxp + mintedIxp;
+  const nextPriceUsdPerIxp = getCurvePriceUsdPerIxp({
     ...state,
-    currentSupplyIntel: nextSupplyIntel,
+    currentSupplyIxp: nextSupplyIxp,
   });
 
   return {
     stableAmountUsd: round(stableUsd, 6),
-    effectivePriceUsdPerIntel: round(effectivePrice, 8),
-    mintedIntel: round(mintedIntel, 8),
-    nextPriceUsdPerIntel: round(nextPriceUsdPerIntel, 8),
-    nextSupplyIntel: round(nextSupplyIntel, 8),
+    effectivePriceUsdPerIxp: round(effectivePrice, 8),
+    mintedIxp: round(mintedIxp, 8),
+    nextPriceUsdPerIxp: round(nextPriceUsdPerIxp, 8),
+    nextSupplyIxp: round(nextSupplyIxp, 8),
   };
 }
 
-export function splitSettlementIntel(grossIntel: number, policy: FeePolicy): SettlementSplit {
-  const gross = clampPositive(grossIntel, 0);
+export function splitSettlementIxp(grossIxp: number, policy: FeePolicy): SettlementSplit {
+  const gross = clampPositive(grossIxp, 0);
   const protocolFeeBps = Math.min(10_000, Math.max(0, policy.protocolFeeBps));
-  const stakerYieldBps = Math.min(10_000, Math.max(0, policy.stakerYieldBps ?? 900));
 
-  if (protocolFeeBps + stakerYieldBps > 10_000) {
-    throw new Error(
-      `FeePolicy overflow: protocolFeeBps (${protocolFeeBps}) + stakerYieldBps (${stakerYieldBps}) exceeds 10_000`,
-    );
-  }
-
-  const protocolFeeIntel = gross * (protocolFeeBps / 10_000);
-  const stakerYieldIntel = gross * (stakerYieldBps / 10_000);
-  const workerPayoutIntel = gross - protocolFeeIntel - stakerYieldIntel;
+  const protocolFeeIxp = gross * (protocolFeeBps / 10_000);
+  const workerPayoutIxp = gross - protocolFeeIxp;
 
   return {
-    grossIntel: round(gross, 8),
-    workerPayoutIntel: round(workerPayoutIntel, 8),
-    stakerYieldIntel: round(stakerYieldIntel, 8),
-    protocolFeeIntel: round(protocolFeeIntel, 8),
+    grossIxp: round(gross, 8),
+    workerPayoutIxp: round(workerPayoutIxp, 8),
+    protocolFeeIxp: round(protocolFeeIxp, 8),
   };
 }

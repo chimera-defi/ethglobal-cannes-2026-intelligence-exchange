@@ -6,8 +6,7 @@
   "types": "./src/index.ts",
   "scripts": {
     "test": "bun test",
-    "typecheck": "tsc --noEmit",
-    "demo:intel:actors": "npx tsx src/demo-actors.ts"
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "typescript": "^5.4.5"

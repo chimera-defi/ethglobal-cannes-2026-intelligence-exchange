@@ -1,110 +1,101 @@
-## TOKENOMICS (INTEL-Native Launch Spec)
+## TOKENOMICS (Current Build)
 
-Last updated: 2026-04-18
+### Scope
 
-## Settlement Rail Design
+This document defines the tokenomics currently implemented in the broker.
 
-`INTEL` is the primary pricing and settlement unit. A prior internal credit system (IXP) used synthetic stable-points; those cannot surface real price discovery for AI labor. INTEL replaces IXP entirely — open-market token price is the intelligence price oracle.
+- Funding unit: stable-denominated USD amount at idea funding time
+- Execution accounting unit: internal `IXP` credits
+- Settlement trigger: human reviewer acceptance
+- Public token launch: **out of scope** for current build
 
-- Stable rails are optional on-ramp UX only.
-- Legacy stable-point accounting and Arc-first settlement are out of launch scope.
+### Why This Shape
 
-## Launch Principles
+The current product loop needs low user friction and deterministic payout behavior.
+So the protocol uses stable funding for user-facing pricing and `IXP` for internal execution accounting.
 
-1. Single monetary rail for task pricing and settlement.
-2. Open-market token price as the intelligence price-discovery engine.
-3. Yield and treasury flows must be tied to real accepted-task demand.
-4. Economic controls first; avoid heavy gating in core product loops.
+This mirrors a "stable in, metered utility unit out" pattern that can later evolve into a transferable token only after sufficient volume and compliance gating.
 
-## Launch Mechanics
+### Pricing Engine
 
-### Task Settlement
+Implemented in `packages/intelligence-exchange-cannes-tokenomics`.
 
-Buyer acquires `INTEL`, escrows task budget, and accepted settlement splits:
-
-```text
-workerPayout = grossIntel * 0.81
-stakerYield = grossIntel * 0.09
-treasury = grossIntel * 0.10
-```
-
-### Staking + Mint
-
-Stake `INTEL` for mint rights and yield participation:
+Spot price:
 
 ```text
-allowancePerEpoch(wallet) = min(k * sqrt(stakedIntel(wallet)), walletCap, globalCapRemaining)
-mintPrice = max(TWAP * (1 + premium), floorPrice) * utilizationMultiplier
+curvePrice = basePriceUsdPerIxp * exp(adjustmentPower * (currentSupplyIxp / targetSupplyIxp)^3)
 ```
 
-`utilizationMultiplier` is the anti-reflexivity brake: it rises with pending task volume relative to settled capacity. A hot task market makes mint more expensive, capping supply expansion at exactly the moment speculative demand peaks.
-
-### Mint Inflow Routing
+Mint quote:
 
 ```text
-protocolOwnedLiquidity = stableInflow * 0.50
-stakerYield = stableInflow * 0.45
-treasury = stableInflow * 0.05
+effectivePrice = curvePrice * (1 + (stableAmountUsd / liquidityDepthUsd) * (slippageBps / 10_000))
+mintedIxp = stableAmountUsd / effectivePrice
 ```
 
-## Sources and Sinks
+### Settlement Engine
 
-### Sources
+On accepted jobs:
 
-- Market buys
-- Direct mint (bounded by caps + pricing controls)
-- Worker payouts from accepted tasks
+1. Read idea reserve and average mint price
+2. Convert job budget USD to required gross IXP
+3. Split gross IXP:
+   - worker payout: `gross * (1 - protocolFeeBps/10_000)`
+   - protocol fee: `gross * (protocolFeeBps/10_000)`
+4. Write ledger entries for poster debit, worker payout, treasury fee
 
-### Sinks
+### Invariants
 
-- Task escrow/settlement
-- Staking locks
-- Buyback-and-burn policy
+1. Duplicate `idea_funded` sync events must not double-mint.
+2. Settlement must be full-budget or fail (`IXP_RESERVE_INSUFFICIENT`), never partial-silent.
+3. `payoutReleased` attestation flag reflects whether settlement executed.
+4. All token movements are append-only in `token_ledger_entries`.
 
-### Sinks (updated)
+### Runtime Configuration
 
-- **BuybackBurn**: Epoch-triggered operator buys INTEL from UniV3 POL and burns, creating programmatic pressure
-- **Dynamic mint caps**: `epochMintCap` is now dynamically adjustable via `activityCapEnabled` in `IntelMintController` (disabled by default)
-
-## Blind Spots and Controls
-
-1. Reflexive mint loop.
-   - Control: strict epoch caps and utilization premiums.
-2. Thin-liquidity manipulation.
-   - Control: TWAP windows, mint floor, and slippage clamps.
-3. Demandless emissions.
-   - Control: emissions keyed to accepted-task volume.
-4. Worker sell pressure shocks.
-   - Control: optional vesting tiers and performance multipliers.
-5. Mercenary staking churn.
-   - Control: cooldown and time-weighted rewards.
-
-## Hard Launch Constraints
-
-1. No stable-denominated settlement in user-facing flows.
-2. No IXP/legacy credit terminology in launch UX.
-3. No Arc escrow dependency in the launch critical path.
-4. No mandatory identity gate for core task posting/claiming.
-5. Full-budget settlement or fail; no silent partial payout.
-
-## Architecture Snapshot
-
-```mermaid
-flowchart LR
-  U[User Demand] --> O[Acquire INTEL]
-  O --> T[Task Budget Escrow]
-  T --> S[Accepted Settlement]
-  S --> W[Workers 81%]
-  S --> K[Stakers 9%]
-  S --> R[Treasury 10%]
-
-  M[Direct Mint] --> P[POL 50%]
-  M --> Y[Staker Yield 45%]
-  M --> Q[Treasury 5%]
-  R --> B[Buyback/Burn or POL]
+```bash
+TOKENOMICS_ENABLED=true
+TOKEN_SYMBOL=IXP
+TOKEN_PROTOCOL_FEE_BPS=1000
+TOKEN_BASE_PRICE_USD_PER_IXP=1
+TOKEN_TARGET_SUPPLY_IXP=100000
+TOKEN_ADJUSTMENT_POWER=2
+TOKEN_LIQUIDITY_DEPTH_USD=50000
+TOKEN_SLIPPAGE_BPS=50
+TOKEN_TREASURY_ACCOUNT=treasury:protocol
 ```
 
-Detailed launch architecture:
+### API Surface
 
-- `spec/tokenomics/INTEL_LAUNCH_ARCHITECTURE.md`
-- `spec/tokenomics/TOKENOMICS_COVERAGE_MATRIX.md`
+- `GET /v1/cannes/tokenomics/status`
+- `POST /v1/cannes/tokenomics/quote/mint`
+- `GET /v1/cannes/tokenomics/accounts/:accountAddress`
+- `GET /v1/cannes/tokenomics/ideas/:ideaId`
+
+### Non-Goals (Current Build)
+
+- No AMM contract deployment for IXP yet
+- No open transfer/trading path for IXP
+- No automatic market making or external LP dependency
+- No forced World verification when `WORLD_ID_STRICT=0`
+
+### Evolution Path
+
+Phase-gated extension can introduce transferable utility semantics (staking/governance/rewards) after:
+
+1. sufficient accepted-job history,
+2. stable settlement reliability,
+3. explicit legal/compliance review.
+
+### Comparative Patterns To Evaluate
+
+For next-phase token design, evaluate two patterns explicitly:
+
+1. Utility-token + stable settlement split
+   - user-facing pricing stays stable
+   - utility token captures protocol coordination value
+2. Stable mint + pool-tracked credit pricing
+   - mint credits from stable inflow
+   - adjust mint price via liquidity-depth and supply curve
+
+Current implementation follows pattern 2 inside the broker, without externalized trading.
