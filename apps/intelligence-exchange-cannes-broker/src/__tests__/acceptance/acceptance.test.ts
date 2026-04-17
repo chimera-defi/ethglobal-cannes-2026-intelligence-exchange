@@ -181,6 +181,9 @@ async function buildAgentkitHeader(account: WalletAccount, path: string) {
 async function truncateAllTables() {
   await sql.unsafe(`
     TRUNCATE TABLE
+      token_ledger_entries,
+      idea_token_reserves,
+      token_accounts,
       accepted_attestations,
       chain_events,
       chain_syncs,
@@ -286,6 +289,27 @@ describe('spec-compliance acceptance', () => {
     });
     expect(fundRes.status).toBe(200);
     expect(fundRes.data.fundingStatus).toBe('funded');
+
+    const duplicateFundRes = await api<{ fundingStatus: string; tokenomics: unknown }>(
+      posterClient,
+      'POST',
+      `/v1/cannes/ideas/${ideaId}/fund`,
+      {
+        txHash: txHash('1'),
+        amountUsd: 15,
+      },
+    );
+    expect(duplicateFundRes.status).toBe(200);
+    expect(duplicateFundRes.data.fundingStatus).toBe('funded');
+    expect(duplicateFundRes.data.tokenomics).toBeNull();
+
+    const reserveSnapshot = await api<{
+      stableFundedUsd: number;
+      status: string;
+    }>(posterClient, 'GET', `/v1/cannes/tokenomics/ideas/${ideaId}`);
+    expect(reserveSnapshot.status).toBe(200);
+    expect(reserveSnapshot.data.stableFundedUsd).toBe(15);
+    expect(reserveSnapshot.data.status).toBe('active');
 
     const planRes = await api<{ briefId: string; status: string }>(posterClient, 'POST', `/v1/cannes/ideas/${ideaId}/plan`);
     expect(planRes.status).toBe(200);
@@ -504,13 +528,21 @@ describe('spec-compliance acceptance', () => {
         chainId: number;
         registryAddress: string;
       };
+      settlement: {
+        tokenSymbol: string;
+        grossIxp: number;
+        workerPayoutIxp: number;
+        protocolFeeIxp: number;
+        budgetUsd: number;
+        avgMintPriceUsdPerIxp: number;
+      } | null;
     }>(reviewerClient, 'POST', `/v1/cannes/ideas/${ideaId}/accept`, {
       jobId: firstJob.jobId,
     });
     expect(acceptRes.status).toBe(200);
     expect(acceptRes.data.accepted).toBe(true);
     expect(acceptRes.data.attestation.agentFingerprint).toBe(workerFingerprint);
-    expect(acceptRes.data.attestation.payoutReleased).toBe(false);
+    expect(acceptRes.data.attestation.payoutReleased).toBe(Boolean(acceptRes.data.settlement));
     expect(acceptRes.data.attestation.signature).toMatch(/^0x[a-f0-9]+$/);
 
     const jobAfterAccept = await api<{ job: { status: string } }>(posterClient, 'GET', `/v1/cannes/jobs/${firstJob.jobId}`);

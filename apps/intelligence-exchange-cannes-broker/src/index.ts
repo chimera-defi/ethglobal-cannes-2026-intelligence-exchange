@@ -9,6 +9,7 @@ import { chainRouter } from './routes/chain';
 import { ideasRouter } from './routes/ideas';
 import { integrationsRouter } from './routes/integrations';
 import { jobsRouter } from './routes/jobs';
+import { tokenomicsRouter } from './routes/tokenomics';
 import { worldRouter } from './routes/world';
 import { workersRouter } from './routes/workers';
 import { migrate } from './db/migrate';
@@ -34,6 +35,7 @@ app.route('/v1/cannes/arc', arcRouter);
 app.route('/v1/cannes/chain', chainRouter);
 app.route('/v1/cannes/ideas', ideasRouter);
 app.route('/v1/cannes/jobs', jobsRouter);
+app.route('/v1/cannes/tokenomics', tokenomicsRouter);
 app.route('/v1/cannes/workers', workersRouter);
 
 // Error handler

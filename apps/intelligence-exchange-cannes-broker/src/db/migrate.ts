@@ -185,6 +185,47 @@ export async function migrate() {
   `;
 
   await sql`
+    CREATE TABLE IF NOT EXISTS token_accounts (
+      account_address TEXT PRIMARY KEY,
+      stable_deposited_usd NUMERIC(18,6) NOT NULL DEFAULT 0,
+      ixp_balance NUMERIC(24,8) NOT NULL DEFAULT 0,
+      ixp_reserved NUMERIC(24,8) NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS token_ledger_entries (
+      entry_id UUID PRIMARY KEY,
+      account_address TEXT NOT NULL,
+      entry_type TEXT NOT NULL,
+      delta_ixp NUMERIC(24,8) NOT NULL,
+      delta_stable_usd NUMERIC(18,6) NOT NULL DEFAULT 0,
+      reference_type TEXT,
+      reference_id TEXT,
+      metadata JSONB NOT NULL DEFAULT '{}',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS idea_token_reserves (
+      idea_id TEXT PRIMARY KEY REFERENCES ideas(idea_id),
+      poster_id TEXT NOT NULL,
+      stable_funded_usd NUMERIC(18,6) NOT NULL DEFAULT 0,
+      avg_mint_price_usd_per_ixp NUMERIC(24,8) NOT NULL DEFAULT 1,
+      ixp_minted NUMERIC(24,8) NOT NULL DEFAULT 0,
+      ixp_reserved NUMERIC(24,8) NOT NULL DEFAULT 0,
+      ixp_spent NUMERIC(24,8) NOT NULL DEFAULT 0,
+      ixp_protocol_fee NUMERIC(24,8) NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'active',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+
+  await sql`
     CREATE TABLE IF NOT EXISTS agent_identities (
       fingerprint TEXT PRIMARY KEY,
       account_address TEXT,
@@ -332,6 +373,16 @@ export async function migrate() {
   await sql`
     CREATE UNIQUE INDEX IF NOT EXISTS agentkit_usage_counters_endpoint_human_idx
     ON agentkit_usage_counters (endpoint, human_id)
+  `;
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS token_ledger_entries_account_created_idx
+    ON token_ledger_entries (account_address, created_at DESC)
+  `;
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS token_ledger_entries_reference_idx
+    ON token_ledger_entries (reference_type, reference_id)
   `;
 
   console.log('✓ Database schema ready');

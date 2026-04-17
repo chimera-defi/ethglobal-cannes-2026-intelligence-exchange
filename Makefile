@@ -100,12 +100,12 @@ db-reset: infra-reset
 test:
 	corepack pnpm test
 
-test-acceptance: infra-up
+test-acceptance:
 	@echo "Running acceptance tests..."
 	@DATABASE_URL=$(DATABASE_URL) REDIS_URL=$(REDIS_URL) BROKER_URL=$(BROKER_URL) \
 	corepack pnpm test:acceptance
 
-validate: infra-up
+validate:
 	corepack pnpm validate:all
 
 # Screenshots
