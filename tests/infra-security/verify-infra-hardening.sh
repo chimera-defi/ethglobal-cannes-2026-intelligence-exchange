@@ -124,7 +124,9 @@ else
   exit 1
 fi
 
-postgres_wrong_output="$(compose exec -T postgres sh -lc 'PGPASSWORD=wrong-password psql -h 127.0.0.1 -U iex -d iex_cannes -tAc "select 1"' 2>&1 || true)"
+network_name="${COMPOSE_PROJECT_NAME}_default"
+
+postgres_wrong_output="$(docker run --rm --network "${network_name}" -e PGPASSWORD=wrong-password postgres:16-alpine psql -h postgres -U iex -d iex_cannes -tAc "select 1" 2>&1 || true)"
 if grep -Fq "password authentication failed" <<< "${postgres_wrong_output}"; then
   echo "PASS: Postgres rejects incorrect password"
 else
@@ -133,7 +135,7 @@ else
   exit 1
 fi
 
-postgres_ok_output="$(compose exec -T postgres sh -lc 'PGPASSWORD="$POSTGRES_PASSWORD" psql -h 127.0.0.1 -U iex -d iex_cannes -tAc "select 1"' 2>&1 || true)"
+postgres_ok_output="$(docker run --rm --network "${network_name}" -e PGPASSWORD="${POSTGRES_PASSWORD}" postgres:16-alpine psql -h postgres -U iex -d iex_cannes -tAc "select 1" 2>&1 || true)"
 if grep -Eq '(^|[[:space:]])1($|[[:space:]])' <<< "${postgres_ok_output}"; then
   echo "PASS: Postgres accepts correct password"
 else
