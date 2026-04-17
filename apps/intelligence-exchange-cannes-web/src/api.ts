@@ -275,12 +275,6 @@ export interface IntegrationsStatusResponse {
     chainId: string;
     agentBookContractAddress: string;
   };
-  zeroG: {
-    mode: 'live' | 'demo';
-    rpcUrl: string;
-    indexerRpcUrl: string;
-    chainId: number;
-  };
 }
 
 export interface IdeaDetailResponse {
@@ -347,7 +341,18 @@ export function createIdea(body: {
 }
 
 export function fundIdea(ideaId: string, txHash: string, amountUsd: number) {
-  return post<{ ideaId: string; fundingStatus: string; txHash: string }>(
+  return post<{
+    ideaId: string;
+    fundingStatus: string;
+    txHash: string;
+    tokenomics?: {
+      tokenSymbol: string;
+      stableAmountUsd: number;
+      mintedIxp: number;
+      effectivePriceUsdPerIxp: number;
+      nextPriceUsdPerIxp: number;
+    } | null;
+  }>(
     `/ideas/${ideaId}/fund`,
     { txHash, amountUsd },
     true
@@ -394,7 +399,7 @@ export interface JobResponse {
     vendor: string;
     purpose: string;
     amountUsd: string;
-    settlementRail: 'demo' | 'arc';
+    settlementRail: 'demo' | 'arc' | 'ixp';
     txHash?: string | null;
     createdAt: string;
   }>;
@@ -821,4 +826,80 @@ export function buildArcReleaseMilestoneTx(jobId: string, autoRelease = false) {
     { jobId, autoRelease },
     true
   );
+}
+
+// ─── Tokenomics (stable -> IXP mint/reserve) ────────────────────────────────
+
+export interface TokenomicsStatusResponse {
+  enabled: boolean;
+  symbol: string;
+  protocolFeeBps: number;
+  treasuryAccount: string;
+  pool: {
+    basePriceUsdPerIxp: number;
+    targetSupplyIxp: number;
+    adjustmentPower: number;
+    liquidityDepthUsd: number;
+    slippageBps: number;
+    currentSupplyIxp: number;
+    spotPriceUsdPerIxp: number;
+  };
+}
+
+export interface TokenMintQuoteResponse {
+  pool: TokenomicsStatusResponse['pool'];
+  quote: {
+    stableAmountUsd: number;
+    effectivePriceUsdPerIxp: number;
+    mintedIxp: number;
+    nextPriceUsdPerIxp: number;
+    nextSupplyIxp: number;
+  };
+}
+
+export interface TokenAccountSnapshotResponse {
+  accountAddress: string;
+  stableDepositedUsd: number;
+  ixpBalance: number;
+  ixpReserved: number;
+  ledger: Array<{
+    entryId: string;
+    accountAddress: string;
+    entryType: string;
+    deltaIxp: number;
+    deltaStableUsd: number;
+    referenceType: string | null;
+    referenceId: string | null;
+    metadata: Record<string, unknown>;
+    createdAt: string;
+  }>;
+}
+
+export interface IdeaTokenReserveResponse {
+  ideaId: string;
+  posterId: string;
+  stableFundedUsd: number;
+  avgMintPriceUsdPerIxp: number;
+  ixpMinted: number;
+  ixpReserved: number;
+  ixpSpent: number;
+  ixpProtocolFee: number;
+  status: string;
+  updatedAt: string;
+}
+
+export function getTokenomicsStatus() {
+  return get<TokenomicsStatusResponse>('/tokenomics/status');
+}
+
+export function quoteTokenMint(stableAmountUsd: number) {
+  return post<TokenMintQuoteResponse>('/tokenomics/quote/mint', { stableAmountUsd }, true);
+}
+
+export function getTokenAccountSnapshot(accountAddress: string) {
+  return get<TokenAccountSnapshotResponse>(`/tokenomics/accounts/${accountAddress}`);
+}
+
+export function getIdeaTokenReserve(ideaId: string) {
+  return get<IdeaTokenReserveResponse>(`/tokenomics/ideas/${ideaId}`);
 }

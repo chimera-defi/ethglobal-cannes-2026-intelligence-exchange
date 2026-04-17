@@ -12,6 +12,7 @@ import { randomUUID } from 'crypto';
 import { httpError } from './errors';
 import { issueAcceptedSubmissionAttestation } from './chainService';
 import { logJobEvent } from './jobEvents';
+import { settleAcceptedJobCredits } from './tokenomicsService';
 import { uploadAcceptedDossier } from './zeroG';
 
 type SpendEventInput = {
@@ -19,7 +20,7 @@ type SpendEventInput = {
   vendor: string;
   purpose: string;
   amountUsd: number;
-  settlementRail: 'demo' | 'arc';
+  settlementRail: 'demo' | 'arc' | 'ixp';
   txHash?: string;
 };
 
@@ -283,13 +284,6 @@ export async function acceptJob(jobId: string, reviewerId: string) {
   }
 
   const score = (sub.scoreBreakdown as { totalScore?: number })?.totalScore ?? 0;
-  const attestation = await issueAcceptedSubmissionAttestation({
-    jobId,
-    agentFingerprint: sub.agentFingerprint,
-    score,
-    reviewerAddress: reviewerId,
-    payoutReleased: false,
-  });
 
   const now = new Date();
   await db.update(jobs).set({ status: 'accepted', updatedAt: now }).where(eq(jobs.jobId, jobId));
@@ -301,6 +295,21 @@ export async function acceptJob(jobId: string, reviewerId: string) {
   if (job.activeClaimId) {
     await db.update(claims).set({ status: 'submitted' }).where(eq(claims.claimId, job.activeClaimId));
   }
+
+  const settlement = await settleAcceptedJobCredits({
+    ideaId: job.ideaId,
+    jobId,
+    workerId: job.activeClaimWorkerId ?? sub.workerId,
+    budgetUsd: Number.parseFloat(job.budgetUsd),
+  });
+
+  const attestation = await issueAcceptedSubmissionAttestation({
+    jobId,
+    agentFingerprint: sub.agentFingerprint,
+    score,
+    reviewerAddress: reviewerId,
+    payoutReleased: Boolean(settlement),
+  });
 
   void (async () => {
     try {
@@ -329,7 +338,7 @@ export async function acceptJob(jobId: string, reviewerId: string) {
     }
   })();
 
-  return { accepted: true, attestation };
+  return { accepted: true, attestation, settlement };
 }
 
 export async function rejectJob(jobId: string, reviewerId: string, reason?: string) {

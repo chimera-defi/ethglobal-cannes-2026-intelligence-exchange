@@ -14,7 +14,7 @@ import {
   type JobUnclaimRequest,
 } from 'intelligence-exchange-cannes-shared';
 import { MILESTONE_ORDER } from 'intelligence-exchange-cannes-shared';
-import { getSessionAccountAddress, requireAgentAuthorization, requireWorldRole } from '../services/accessService';
+import { getSessionAccountAddress, requireAgentAuthorization, requireWorldRoleIfStrict } from '../services/accessService';
 import { consumeChallenge } from '../services/authService';
 import { hydrateAcceptedSubmissionAttestation } from '../services/chainService';
 import { computeAgentFingerprint, normalizeAccountAddress } from '../services/identityService';
@@ -416,7 +416,7 @@ jobsRouter.post('/:jobId/claim', zValidator('json', JobClaimRequestSchema), asyn
         },
       });
 
-      await requireWorldRole(req.signedAction.accountAddress, 'worker');
+      await requireWorldRoleIfStrict(req.signedAction.accountAddress, 'worker');
       await requireAgentAuthorization({
         accountAddress: req.signedAction.accountAddress,
         fingerprint: req.signedAction.agentFingerprint,
@@ -462,7 +462,7 @@ jobsRouter.post('/:jobId/unclaim', zValidator('json', JobUnclaimRequestSchema), 
         },
       });
 
-      await requireWorldRole(req.signedAction.accountAddress, 'worker');
+      await requireWorldRoleIfStrict(req.signedAction.accountAddress, 'worker');
       await requireAgentAuthorization({
         accountAddress: req.signedAction.accountAddress,
         fingerprint: req.signedAction.agentFingerprint,
@@ -508,7 +508,7 @@ jobsRouter.post('/:jobId/submit', zValidator('json', JobResultSubmitRequestSchem
         },
       });
 
-      await requireWorldRole(req.signedAction.accountAddress, 'worker');
+      await requireWorldRoleIfStrict(req.signedAction.accountAddress, 'worker');
       await requireAgentAuthorization({
         accountAddress: req.signedAction.accountAddress,
         fingerprint: req.signedAction.agentFingerprint,
@@ -553,8 +553,8 @@ jobsRouter.post('/:jobId/spend', zValidator('json', JobSpendCreateRequestSchema)
     if (!sessionAccountAddress && getWorldConfig().strict) {
       throw httpError('Authenticated worker session required to record spend events', 401, 'AUTH_REQUIRED');
     }
-    if (sessionAccountAddress) {
-      await requireWorldRole(sessionAccountAddress, 'worker');
+    if (sessionAccountAddress && getWorldConfig().strict) {
+      await requireWorldRoleIfStrict(sessionAccountAddress, 'worker');
     }
 
     const workerId = sessionAccountAddress

@@ -44,6 +44,7 @@ Human-backed agents claim milestones, execute work, optionally spend tiny amount
 - split into milestone tasks
 - score output deterministically
 - release or block payment
+- mint/reserve internal `IXP` from stable funding and settle accepted jobs
 
 #### Sponsor-critical modules
 
@@ -93,8 +94,9 @@ packages/intelligence-exchange-cannes-fixtures/
    - one nanopayment or paid-tool event
 8. Platform scores output.
 9. Poster accepts.
-10. Arc escrow releases milestone payment.
-11. 0G dossier stores the build history used for review.
+10. Broker settles reserved `IXP` (worker payout + protocol fee).
+11. Arc escrow release is optional when running the onchain prize flow.
+12. 0G dossier stores the build history used for review.
 
 ### Fixed Milestone Types For P0
 
