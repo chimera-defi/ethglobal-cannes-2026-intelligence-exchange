@@ -16,7 +16,7 @@ BROKER_URL ?= http://localhost:$(BROKER_PORT)
 VITE_DEV_PROXY_TARGET ?= $(BROKER_URL)
 COMPOSE ?= ./scripts/tooling/docker-compose.sh
 
-.PHONY: help install setup dev dev-broker dev-web seed stop clean test validate tunnel
+.PHONY: help install hooks-install setup dev dev-broker dev-web seed stop clean test test-acceptance validate tunnel infra-up infra-down infra-reset db-reset screenshots
 
 # Default command
 help:
@@ -24,6 +24,7 @@ help:
 	@echo ""
 	@echo "Setup:"
 	@echo "  make install         Install dependencies"
+	@echo "  make hooks-install   Configure local git hooks path"
 	@echo "  make setup           Full setup (install + tooling + infra)"
 	@echo ""
 	@echo "Development:"
@@ -51,6 +52,10 @@ help:
 # Setup commands
 install:
 	corepack pnpm install
+	corepack pnpm hooks:install
+
+hooks-install:
+	corepack pnpm hooks:install
 
 setup: install
 	corepack pnpm tooling:install
@@ -64,10 +69,10 @@ infra-up:
 	@echo "Infrastructure ready!"
 
 infra-down:
-	POSTGRES_PORT=$(POSTGRES_PORT) REDIS_PORT=$(REDIS_PORT) $(COMPOSE) down
+	POSTGRES_PORT=$(POSTGRES_PORT) REDIS_PORT=$(REDIS_PORT) $(COMPOSE) down --remove-orphans
 
 infra-reset:
-	POSTGRES_PORT=$(POSTGRES_PORT) REDIS_PORT=$(REDIS_PORT) $(COMPOSE) down -v
+	POSTGRES_PORT=$(POSTGRES_PORT) REDIS_PORT=$(REDIS_PORT) $(COMPOSE) down -v --remove-orphans
 	POSTGRES_PORT=$(POSTGRES_PORT) REDIS_PORT=$(REDIS_PORT) $(COMPOSE) up -d
 	@echo "Infrastructure reset (data wiped)"
 
@@ -100,13 +105,14 @@ db-reset: infra-reset
 test:
 	corepack pnpm test
 
-test-acceptance: infra-up
+test-acceptance:
 	@echo "Running acceptance tests..."
 	@DATABASE_URL=$(DATABASE_URL) REDIS_URL=$(REDIS_URL) BROKER_URL=$(BROKER_URL) \
-	corepack pnpm test:acceptance
+	./scripts/tooling/run-with-test-infra.sh corepack pnpm test:acceptance
 
-validate: infra-up
-	corepack pnpm validate:all
+validate:
+	@echo "Running full validation with guaranteed infra teardown..."
+	@./scripts/tooling/run-with-test-infra.sh corepack pnpm validate:all
 
 # Screenshots
 screenshots:
