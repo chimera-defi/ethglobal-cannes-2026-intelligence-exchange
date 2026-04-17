@@ -18,7 +18,7 @@ BROKER_URL ?= http://localhost:$(BROKER_PORT)
 VITE_DEV_PROXY_TARGET ?= $(BROKER_URL)
 COMPOSE ?= ./scripts/tooling/docker-compose.sh
 
-.PHONY: help install setup dev dev-broker dev-web seed stop clean test validate tunnel fork-mainnet deploy-intel-liquidity fork-mainnet-smoke tokenomics-demo demo-fork
+.PHONY: help install setup dev dev-broker dev-web seed stop clean test test-infra-security validate tunnel
 
 # Default command
 help:
@@ -41,6 +41,7 @@ help:
 	@echo ""
 	@echo "Testing:"
 	@echo "  make test            Run all tests"
+	@echo "  make test-infra-security Run infra hardening regression checks"
 	@echo "  make test-acceptance Run acceptance tests"
 	@echo "  make validate        Full validation (typecheck + build + test)"
 	@echo ""
@@ -108,7 +109,11 @@ db-reset: infra-reset
 test:
 	corepack pnpm test
 
-test-acceptance:
+test-infra-security:
+	@echo "Running infra hardening regression checks..."
+	corepack pnpm test:infra-security
+
+test-acceptance: infra-up
 	@echo "Running acceptance tests..."
 	@DATABASE_URL=$(DATABASE_URL) REDIS_URL=$(REDIS_URL) BROKER_URL=$(BROKER_URL) \
 	corepack pnpm test:acceptance
