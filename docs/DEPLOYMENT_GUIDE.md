@@ -155,8 +155,8 @@ services:
     ports:
       - '3001:3001'
     environment:
-      - DATABASE_URL=postgres://iex:iex@postgres:5432/iex_cannes
-      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgres://iex:${POSTGRES_PASSWORD}@postgres:5432/iex_cannes
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
       - PORT=3001
     depends_on:
       - postgres
@@ -166,13 +166,16 @@ services:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: iex
-      POSTGRES_PASSWORD: iex
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: iex_cannes
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
   redis:
     image: redis:7-alpine
+    command: ['sh', '-c', 'exec redis-server --requirepass "$$REDIS_PASSWORD"']
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
 
   nginx:
     image: nginx:alpine

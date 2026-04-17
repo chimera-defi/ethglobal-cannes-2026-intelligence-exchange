@@ -7,16 +7,18 @@ export
 
 POSTGRES_PORT ?= 5432
 REDIS_PORT ?= 6379
+POSTGRES_PASSWORD ?= iex_local_dev_only_change_me
+REDIS_PASSWORD ?= iex_redis_local_dev_only_change_me
 # PORT in .env is the broker port; fall back to 3001
 BROKER_PORT ?= $(or $(PORT),3001)
 WEB_PORT ?= 3100
-DATABASE_URL ?= postgres://iex:iex@localhost:$(POSTGRES_PORT)/iex_cannes
-REDIS_URL ?= redis://localhost:$(REDIS_PORT)
+DATABASE_URL ?= postgres://iex:$(POSTGRES_PASSWORD)@localhost:$(POSTGRES_PORT)/iex_cannes
+REDIS_URL ?= redis://:$(REDIS_PASSWORD)@localhost:$(REDIS_PORT)
 BROKER_URL ?= http://localhost:$(BROKER_PORT)
 VITE_DEV_PROXY_TARGET ?= $(BROKER_URL)
 COMPOSE ?= ./scripts/tooling/docker-compose.sh
 
-.PHONY: help install setup dev dev-broker dev-web seed stop clean test validate tunnel
+.PHONY: help install setup dev dev-broker dev-web seed stop clean test test-infra-security validate tunnel
 
 # Default command
 help:
@@ -39,6 +41,7 @@ help:
 	@echo ""
 	@echo "Testing:"
 	@echo "  make test            Run all tests"
+	@echo "  make test-infra-security Run infra hardening regression checks"
 	@echo "  make test-acceptance Run acceptance tests"
 	@echo "  make validate        Full validation (typecheck + build + test)"
 	@echo ""
@@ -58,17 +61,17 @@ setup: install
 
 # Infrastructure
 infra-up:
-	POSTGRES_PORT=$(POSTGRES_PORT) REDIS_PORT=$(REDIS_PORT) $(COMPOSE) up -d
+	POSTGRES_PORT=$(POSTGRES_PORT) REDIS_PORT=$(REDIS_PORT) POSTGRES_PASSWORD=$(POSTGRES_PASSWORD) REDIS_PASSWORD=$(REDIS_PASSWORD) $(COMPOSE) up -d
 	@echo "Waiting for Postgres and Redis to be ready..."
 	@sleep 3
 	@echo "Infrastructure ready!"
 
 infra-down:
-	POSTGRES_PORT=$(POSTGRES_PORT) REDIS_PORT=$(REDIS_PORT) $(COMPOSE) down
+	POSTGRES_PORT=$(POSTGRES_PORT) REDIS_PORT=$(REDIS_PORT) POSTGRES_PASSWORD=$(POSTGRES_PASSWORD) REDIS_PASSWORD=$(REDIS_PASSWORD) $(COMPOSE) down
 
 infra-reset:
-	POSTGRES_PORT=$(POSTGRES_PORT) REDIS_PORT=$(REDIS_PORT) $(COMPOSE) down -v
-	POSTGRES_PORT=$(POSTGRES_PORT) REDIS_PORT=$(REDIS_PORT) $(COMPOSE) up -d
+	POSTGRES_PORT=$(POSTGRES_PORT) REDIS_PORT=$(REDIS_PORT) POSTGRES_PASSWORD=$(POSTGRES_PASSWORD) REDIS_PASSWORD=$(REDIS_PASSWORD) $(COMPOSE) down -v
+	POSTGRES_PORT=$(POSTGRES_PORT) REDIS_PORT=$(REDIS_PORT) POSTGRES_PASSWORD=$(POSTGRES_PASSWORD) REDIS_PASSWORD=$(REDIS_PASSWORD) $(COMPOSE) up -d
 	@echo "Infrastructure reset (data wiped)"
 
 # Development - Full stack
@@ -99,6 +102,10 @@ db-reset: infra-reset
 # Testing
 test:
 	corepack pnpm test
+
+test-infra-security:
+	@echo "Running infra hardening regression checks..."
+	corepack pnpm test:infra-security
 
 test-acceptance: infra-up
 	@echo "Running acceptance tests..."
