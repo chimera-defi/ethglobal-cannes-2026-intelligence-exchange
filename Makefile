@@ -16,7 +16,7 @@ BROKER_URL ?= http://localhost:$(BROKER_PORT)
 VITE_DEV_PROXY_TARGET ?= $(BROKER_URL)
 COMPOSE ?= ./scripts/tooling/docker-compose.sh
 
-.PHONY: help install setup dev dev-broker dev-web seed stop clean test validate tunnel fork-mainnet deploy-intel-liquidity fork-mainnet-smoke
+.PHONY: help install setup dev dev-broker dev-web seed stop clean test validate tunnel fork-mainnet deploy-intel-liquidity fork-mainnet-smoke tokenomics-demo
 
 # Default command
 help:
@@ -50,6 +50,7 @@ help:
 	@echo "  make fork-mainnet    Start Ethereum mainnet fork (blocking)"
 	@echo "  make deploy-intel-liquidity  Deploy INTEL + WETH pool to local fork"
 	@echo "  make fork-mainnet-smoke      Full fork + liquidity smoke test"
+	@echo "  make tokenomics-demo         Run LP/staker/holder tokenomics actor simulation"
 
 # Setup commands
 install:
@@ -148,6 +149,9 @@ deploy-intel-liquidity:
 
 fork-mainnet-smoke:
 	corepack pnpm --filter intelligence-exchange-cannes-contracts smoke:intel-liquidity:mainnet-fork
+
+tokenomics-demo:
+	corepack pnpm demo:tokenomics:actors
 
 # Quick start for demos
 demo: setup

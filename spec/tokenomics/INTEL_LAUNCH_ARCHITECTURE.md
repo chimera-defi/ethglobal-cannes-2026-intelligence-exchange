@@ -101,3 +101,9 @@ flowchart LR
 2. Remove Arc-specific settlement coupling from default flow.
 3. Add stake/mint accounting primitives around epoch caps and yield routing.
 4. Expose market observability: utilization, realized fee yield, liquidity depth.
+
+## Current Demo And Test Coverage
+
+- Actor-flow simulation command: `corepack pnpm demo:tokenomics:actors`
+- Mainnet-fork liquidity smoke: `corepack pnpm --filter intelligence-exchange-cannes-contracts smoke:intel-liquidity:mainnet-fork`
+- Coverage matrix: `spec/tokenomics/TOKENOMICS_COVERAGE_MATRIX.md`
