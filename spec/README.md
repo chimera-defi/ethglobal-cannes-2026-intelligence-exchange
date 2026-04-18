@@ -36,7 +36,7 @@ The direct "unused subscription/credit resale" framing is weak and fragile. The 
 24. `TOKEN_ARCHITECTURE.md`
 25. `TOKENOMICS.md`
 26. `TOKEN_HANDOFF_PACKAGE.md`
-27. `tokenomics/PUBLIC_MARKET_PATH.md`
+27. `tokenomics/INTEL_LAUNCH_ARCHITECTURE.md`
 
 ### Full Pack (Grouped)
 - Strategy and product: `EXECUTIVE_SUMMARY`, `PRD`, `ALTERNATIVES_AND_VARIANTS`, `COMPETITOR_ANALYSIS`, `COMPETITOR_MATRIX`
@@ -46,7 +46,7 @@ The direct "unused subscription/credit resale" framing is weak and fragile. The 
 - Cannes bootstrap: `CANNES_2026_FIRST_60_MINUTES`
 - Cannes skepticism pass: `CANNES_2026_ADVERSARIAL_REVIEW`
 - Technical design: `SPEC`, `ARCHITECTURE_DIAGRAMS`, `ARCHITECTURE_DECISIONS`, `TASKMARKET_COMPATIBILITY`
-- Token design (current build + speculative path): `TOKEN_ARCHITECTURE`, `TOKENOMICS`, `TOKEN_HANDOFF_PACKAGE`, `tokenomics/PUBLIC_MARKET_PATH`
+- Token design (launch reset): `TOKEN_ARCHITECTURE`, `TOKENOMICS`, `TOKEN_HANDOFF_PACKAGE`, `tokenomics/INTEL_LAUNCH_ARCHITECTURE`
 - UX and interface: `UX_AND_PAYMENTS_FLOW`, `UX_PRINCIPLES`, `USER_FLOWS`, `FRONTEND_VISION`, `WIREFRAMES`, `STATE_MODEL`
 - Validation and economics: `VALIDATION_PLAN`, `GO_NO_GO_SCORECARD`, `PILOT_SCORECARD_TEMPLATE`, `FINANCIAL_MODEL`, `RISK_REGISTER`
 - Execution and governance: `90_DAY_EXECUTION_PLAN`, `DECISIONS`, `OPEN_QUESTIONS`
