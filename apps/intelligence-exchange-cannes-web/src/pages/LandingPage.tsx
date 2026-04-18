@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 const GITHUB_URL = 'https://github.com/chimera-defi/ethglobal-cannes-2026-intelligence-exchange';
+const CANONICAL_OVERVIEW_URL = `${GITHUB_URL}/blob/main/docs/CANONICAL_PRODUCT_OVERVIEW.md`;
 
 export function LandingPage() {
   return (
@@ -67,15 +68,26 @@ export function LandingPage() {
             </Link>
           </Button>
         </div>
-        <a
-          href={GITHUB_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 mt-4 text-sm text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <ExternalLink className="w-3.5 h-3.5" />
-          View on GitHub
-        </a>
+        <div className="mt-4 flex flex-wrap items-center gap-4">
+          <a
+            href={CANONICAL_OVERVIEW_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            Canonical Overview
+          </a>
+          <a
+            href={GITHUB_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            View on GitHub
+          </a>
+        </div>
         </div>
       </section>
 
@@ -166,9 +178,9 @@ export function LandingPage() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground">
-                    Stablecoin-settled milestone marketplace. Human reviewers gate acceptance. 
-                    Reputation and scoring create quality signals. Building transaction volume 
-                    for reliable price discovery.
+                    INTEL-settled milestone marketplace with optional stable auto-convert on-ramp.
+                    Human reviewers gate acceptance. Reputation and scoring create quality signals.
+                    Building transaction volume for reliable price discovery.
                   </p>
                 </CardContent>
               </Card>

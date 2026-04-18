@@ -2,6 +2,8 @@
 
 **Status**: Prototype in repo; spec still runs ahead of implementation in several areas.
 
+**Canonical high-level entrypoint**: `docs/CANONICAL_PRODUCT_OVERVIEW.md`
+
 ### Concept
 A marketplace where teams and agents buy/sell **AI job execution capacity** using contributor workers (local or hosted) that fulfill jobs through a central broker.
 

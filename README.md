@@ -4,6 +4,7 @@ Experimental INTEL-native marketplace where agent work is priced and settled thr
 
 ## Table of Contents
 
+- [Canonical Overview](#canonical-overview)
 - [Thesis](#thesis)
 - [Product Reset (Active)](#product-reset-active)
 - [Prize Targets](#prize-targets)
@@ -28,6 +29,14 @@ Experimental INTEL-native marketplace where agent work is priced and settled thr
 - [Local Agent Pickup CLI](#local-agent-pickup-cli)
 - [Technology Stack & Dependencies](#technology-stack--dependencies)
 - [How It's Made](docs/HOW_ITS_MADE.md)
+
+## Canonical Overview
+
+If you want one concise source of truth before testing, start here:
+
+- [docs/CANONICAL_PRODUCT_OVERVIEW.md](docs/CANONICAL_PRODUCT_OVERVIEW.md)
+
+It covers the product loop, system shape, tokenomics split/routing, and exact demo commands without deep implementation detail.
 
 ## Thesis
 
