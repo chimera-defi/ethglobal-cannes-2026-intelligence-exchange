@@ -2,7 +2,7 @@
 
 ### Purpose
 
-Implementation handoff for the current stable-to-IXP tokenomics loop in this repository.
+Implementation handoff for the active `INTEL` tokenomics loop in this repository.
 
 ### Delivered Components
 
@@ -13,8 +13,8 @@ Implementation handoff for the current stable-to-IXP tokenomics loop in this rep
    - `token_ledger_entries`
    - `idea_token_reserves`
 3. Broker services
-   - mint/reserve on funding
-   - settle on acceptance
+   - mint/reserve `INTEL` on funding
+   - settle `INTEL` on acceptance
    - account/reserve snapshots
 4. Broker API routes
    - `/v1/cannes/tokenomics/*`
@@ -29,7 +29,7 @@ Implementation handoff for the current stable-to-IXP tokenomics loop in this rep
    - settlement returns worker payout + protocol fee
    - attestation `payoutReleased` follows settlement result
 3. Reserve safety:
-   - insufficient reserve returns `IXP_RESERVE_INSUFFICIENT`
+   - insufficient reserve returns `INTEL_RESERVE_INSUFFICIENT`
 
 ### Environment Configuration
 
@@ -48,4 +48,4 @@ See `TOKENOMICS.md` for full variable list and defaults.
 
 1. UI surface for tokenomics account/reserve views
 2. Explicit policy decision on Arc vs internal settlement precedence in production mode
-3. External LP/AMM design only after legal/compliance review
+3. Fully onchain stake-to-mint accounting integration with broker settlement loop

@@ -283,12 +283,27 @@ describe('spec-compliance acceptance', () => {
     expect(unfundedPlanRes.status).toBe(409);
     expect(unfundedPlanRes.data.error?.code).toBe('IDEA_NOT_FUNDED');
 
-    const fundRes = await api<{ fundingStatus: string }>(posterClient, 'POST', `/v1/cannes/ideas/${ideaId}/fund`, {
+    const fundRes = await api<{
+      fundingStatus: string;
+      tokenomics: {
+        tokenSymbol: string;
+        stableAmountUsd: number;
+        mintedIntel: number;
+        effectivePriceUsdPerIntel: number;
+        nextPriceUsdPerIntel: number;
+      } | null;
+    }>(posterClient, 'POST', `/v1/cannes/ideas/${ideaId}/fund`, {
       txHash: txHash('1'),
       amountUsd: 15,
     });
     expect(fundRes.status).toBe(200);
     expect(fundRes.data.fundingStatus).toBe('funded');
+    expect(fundRes.data.tokenomics).not.toBeNull();
+    expect(fundRes.data.tokenomics?.tokenSymbol).toBe('INTEL');
+    expect(fundRes.data.tokenomics?.mintedIntel ?? 0).toBeGreaterThan(0);
+    expect(fundRes.data.tokenomics?.effectivePriceUsdPerIntel ?? 0).toBeGreaterThan(0);
+    expect(fundRes.data.tokenomics?.nextPriceUsdPerIntel ?? 0).toBeGreaterThan(0);
+    expect('mintedIxp' in ((fundRes.data.tokenomics ?? {}) as Record<string, unknown>)).toBe(false);
 
     const duplicateFundRes = await api<{ fundingStatus: string; tokenomics: unknown }>(
       posterClient,
@@ -305,10 +320,20 @@ describe('spec-compliance acceptance', () => {
 
     const reserveSnapshot = await api<{
       stableFundedUsd: number;
+      avgMintPriceUsdPerIntel: number;
+      intelMinted: number;
+      intelReserved: number;
+      intelSpent: number;
+      intelProtocolFee: number;
       status: string;
     }>(posterClient, 'GET', `/v1/cannes/tokenomics/ideas/${ideaId}`);
     expect(reserveSnapshot.status).toBe(200);
     expect(reserveSnapshot.data.stableFundedUsd).toBe(15);
+    expect(reserveSnapshot.data.avgMintPriceUsdPerIntel).toBeGreaterThan(0);
+    expect(reserveSnapshot.data.intelMinted).toBeGreaterThan(0);
+    expect(reserveSnapshot.data.intelReserved).toBeGreaterThan(0);
+    expect(reserveSnapshot.data.intelSpent).toBe(0);
+    expect(reserveSnapshot.data.intelProtocolFee).toBe(0);
     expect(reserveSnapshot.data.status).toBe('active');
 
     const planRes = await api<{ briefId: string; status: string }>(posterClient, 'POST', `/v1/cannes/ideas/${ideaId}/plan`);
@@ -544,6 +569,11 @@ describe('spec-compliance acceptance', () => {
     expect(acceptRes.data.attestation.agentFingerprint).toBe(workerFingerprint);
     expect(acceptRes.data.attestation.payoutReleased).toBe(Boolean(acceptRes.data.settlement));
     expect(acceptRes.data.attestation.signature).toMatch(/^0x[a-f0-9]+$/);
+    expect(acceptRes.data.settlement).not.toBeNull();
+    expect(acceptRes.data.settlement?.tokenSymbol).toBe('INTEL');
+    expect(acceptRes.data.settlement?.grossIntel ?? 0).toBeGreaterThan(0);
+    expect(acceptRes.data.settlement?.workerPayoutIntel ?? 0).toBeGreaterThan(0);
+    expect(acceptRes.data.settlement?.protocolFeeIntel ?? 0).toBeGreaterThan(0);
 
     const jobAfterAccept = await api<{ job: { status: string } }>(posterClient, 'GET', `/v1/cannes/jobs/${firstJob.jobId}`);
     expect(jobAfterAccept.status).toBe(200);
