@@ -14,6 +14,8 @@
     "test": "pnpm tooling:install && ./scripts/tooling/run-with-test-infra.sh pnpm --filter '*cannes*' run test",
     "test:acceptance": "./scripts/tooling/run-with-test-infra.sh pnpm --filter 'intelligence-exchange-cannes-broker' run test:acceptance",
     "contracts:validate": "pnpm tooling:install && pnpm --filter 'intelligence-exchange-cannes-contracts' run test",
+    "fork:mainnet": "pnpm --filter 'intelligence-exchange-cannes-contracts' run mainnet:fork",
+    "fork:mainnet:smoke": "pnpm --filter 'intelligence-exchange-cannes-contracts' run smoke:intel-liquidity:mainnet-fork",
     "seed:cannes": "pnpm --filter 'intelligence-exchange-cannes-broker' run seed",
     "typecheck": "pnpm --filter '*cannes*' run typecheck",
     "validate:all": "pnpm tooling:install && pnpm typecheck && pnpm build && pnpm test && pnpm test:acceptance"
