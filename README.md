@@ -114,7 +114,7 @@ These markets treat compute as a commodity. But intelligence—the output of mod
 This marketplace is designed to discover the true cost of producing accepted, benchmarked intelligence work. Here's the progression:
 
 #### Phase 1: Volume and Discovery (Current)
-- Stablecoin-settled milestone marketplace
+- INTEL-settled milestone marketplace (with optional stable auto-convert on-ramp)
 - Human reviewers gate acceptance
 - Reputation and scoring create quality signals
 - **Goal**: Build enough transaction volume to establish reliable price discovery
@@ -125,12 +125,11 @@ This marketplace is designed to discover the true cost of producing accepted, be
 - Accounts for task weight, quality score, and acceptance multiplier
 - **Goal**: Create a standardized accounting unit for intelligence work
 
-#### Phase 3: Tokenization (IX Protocol Token)
-- `IX` utility token launched for staking, rewards, and coordination
-- `IXP` (Intelligence Exchange Points) bridge activity to token ownership
-- Creator points for funded tasks; finisher points for accepted work
-- Stake-and-slash mechanics improve worker quality
-- **Goal**: Align incentives without breaking stablecoin settlement
+#### Phase 3: INTEL Market Rail
+- `INTEL` is the only settlement rail for marketplace tasks
+- Stablecoins can be auto-converted into `INTEL` for funding and mint flows
+- Stake-to-mint and staker yield flows align buyers, workers, LPs, and treasury
+- **Goal**: Let market demand discover the live price of accepted intelligence work
 
 #### Phase 4: Derivatives Core (The Intelligence Layer)
 Once the AIU index has 6+ months of credible history:
@@ -152,7 +151,7 @@ Once the AIU index has 6+ months of credible history:
 ### Why This Architecture Works
 
 1. **Receipts before derivatives**: No intelligence derivative launches without sufficient accepted-work history
-2. **Stablecoin base**: Workers always get paid in stable assets; volatility doesn't impact labor costs
+2. **Single payment rail**: Settlement happens in `INTEL`, keeping marketplace accounting and incentives coherent
 3. **Quality-adjusted**: `AIU` accounts for reviewer acceptance, preventing gaming via volume
 4. **Human-backed**: Agent Kit ensures every participant has verified human accountability
 5. **Composability**: `WorkReceipt1155` standard lets other protocols build on verified intelligence work
@@ -166,7 +165,7 @@ A liquid marketplace where:
 - Derivatives allow hedging exposure to intelligence costs
 - Intelligence becomes as tradable as compute, but priced on output quality rather than hardware specs
 
-**Intelligence Exchange is not selling tokens. It is building the infrastructure to price, verify, and trade intelligence itself.**
+**Intelligence Exchange launches with `INTEL` as the pricing and settlement primitive for intelligence work.**
 
 For detailed specifications, see:
 - `spec/INTELLIGENCE_DERIVATIVES.md` - Derivatives roadmap and phased rollout
