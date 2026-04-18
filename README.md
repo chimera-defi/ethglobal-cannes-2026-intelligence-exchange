@@ -734,6 +734,13 @@ Last updated: 2026-04-18
 
 Quick visuals are mirrored and expanded in [spec/TOKENOMICS.md](spec/TOKENOMICS.md).
 Launch architecture and blind-spot controls are in [spec/tokenomics/INTEL_LAUNCH_ARCHITECTURE.md](spec/tokenomics/INTEL_LAUNCH_ARCHITECTURE.md).
+Demo/test coverage matrix is tracked in [spec/tokenomics/TOKENOMICS_COVERAGE_MATRIX.md](spec/tokenomics/TOKENOMICS_COVERAGE_MATRIX.md).
+
+Run the actor-flow simulation (worker/staker/treasury/LP/holder):
+
+```bash
+corepack pnpm demo:tokenomics:actors
+```
 
 ```mermaid
 flowchart LR

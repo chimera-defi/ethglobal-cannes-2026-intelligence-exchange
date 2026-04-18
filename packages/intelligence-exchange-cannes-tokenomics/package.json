@@ -6,7 +6,8 @@
   "types": "./src/index.ts",
   "scripts": {
     "test": "bun test",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "demo:intel:actors": "bun scripts/demo-intel-actor-flow.ts"
   },
   "devDependencies": {
     "typescript": "^5.4.5"

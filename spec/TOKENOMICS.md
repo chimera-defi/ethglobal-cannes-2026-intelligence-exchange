@@ -101,3 +101,4 @@ flowchart LR
 Detailed launch architecture:
 
 - `spec/tokenomics/INTEL_LAUNCH_ARCHITECTURE.md`
+- `spec/tokenomics/TOKENOMICS_COVERAGE_MATRIX.md`

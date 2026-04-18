@@ -16,6 +16,7 @@
     "contracts:validate": "pnpm tooling:install && pnpm --filter 'intelligence-exchange-cannes-contracts' run test",
     "fork:mainnet": "pnpm --filter 'intelligence-exchange-cannes-contracts' run mainnet:fork",
     "fork:mainnet:smoke": "pnpm --filter 'intelligence-exchange-cannes-contracts' run smoke:intel-liquidity:mainnet-fork",
+    "demo:tokenomics:actors": "pnpm --filter 'intelligence-exchange-cannes-tokenomics' run demo:intel:actors",
     "seed:cannes": "pnpm --filter 'intelligence-exchange-cannes-broker' run seed",
     "typecheck": "pnpm --filter '*cannes*' run typecheck",
     "validate:all": "pnpm tooling:install && pnpm typecheck && pnpm build && pnpm test && pnpm test:acceptance"
