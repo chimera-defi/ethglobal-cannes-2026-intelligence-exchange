@@ -348,9 +348,9 @@ export function fundIdea(ideaId: string, txHash: string, amountUsd: number) {
     tokenomics?: {
       tokenSymbol: string;
       stableAmountUsd: number;
-      mintedIxp: number;
-      effectivePriceUsdPerIxp: number;
-      nextPriceUsdPerIxp: number;
+      mintedIntel: number;
+      effectivePriceUsdPerIntel: number;
+      nextPriceUsdPerIntel: number;
     } | null;
   }>(
     `/ideas/${ideaId}/fund`,
@@ -399,7 +399,7 @@ export interface JobResponse {
     vendor: string;
     purpose: string;
     amountUsd: string;
-    settlementRail: 'demo' | 'arc' | 'ixp';
+    settlementRail: 'demo' | 'arc' | 'intel';
     txHash?: string | null;
     createdAt: string;
   }>;
@@ -828,7 +828,7 @@ export function buildArcReleaseMilestoneTx(jobId: string, autoRelease = false) {
   );
 }
 
-// ─── Tokenomics (stable -> IXP mint/reserve) ────────────────────────────────
+// ─── Tokenomics (stable -> INTEL mint/reserve) ──────────────────────────────
 
 export interface TokenomicsStatusResponse {
   enabled: boolean;
@@ -836,13 +836,13 @@ export interface TokenomicsStatusResponse {
   protocolFeeBps: number;
   treasuryAccount: string;
   pool: {
-    basePriceUsdPerIxp: number;
-    targetSupplyIxp: number;
+    basePriceUsdPerIntel: number;
+    targetSupplyIntel: number;
     adjustmentPower: number;
     liquidityDepthUsd: number;
     slippageBps: number;
-    currentSupplyIxp: number;
-    spotPriceUsdPerIxp: number;
+    currentSupplyIntel: number;
+    spotPriceUsdPerIntel: number;
   };
 }
 
@@ -850,23 +850,23 @@ export interface TokenMintQuoteResponse {
   pool: TokenomicsStatusResponse['pool'];
   quote: {
     stableAmountUsd: number;
-    effectivePriceUsdPerIxp: number;
-    mintedIxp: number;
-    nextPriceUsdPerIxp: number;
-    nextSupplyIxp: number;
+    effectivePriceUsdPerIntel: number;
+    mintedIntel: number;
+    nextPriceUsdPerIntel: number;
+    nextSupplyIntel: number;
   };
 }
 
 export interface TokenAccountSnapshotResponse {
   accountAddress: string;
   stableDepositedUsd: number;
-  ixpBalance: number;
-  ixpReserved: number;
+  intelBalance: number;
+  intelReserved: number;
   ledger: Array<{
     entryId: string;
     accountAddress: string;
     entryType: string;
-    deltaIxp: number;
+    deltaIntel: number;
     deltaStableUsd: number;
     referenceType: string | null;
     referenceId: string | null;
@@ -879,11 +879,11 @@ export interface IdeaTokenReserveResponse {
   ideaId: string;
   posterId: string;
   stableFundedUsd: number;
-  avgMintPriceUsdPerIxp: number;
-  ixpMinted: number;
-  ixpReserved: number;
-  ixpSpent: number;
-  ixpProtocolFee: number;
+  avgMintPriceUsdPerIntel: number;
+  intelMinted: number;
+  intelReserved: number;
+  intelSpent: number;
+  intelProtocolFee: number;
   status: string;
   updatedAt: string;
 }

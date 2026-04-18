@@ -284,12 +284,12 @@ POST /v1/cannes/arc/tx/review-milestone  # Build approve/dispute tx
 POST /v1/cannes/arc/tx/release-milestone # Build release tx
 ```
 
-The broker also exposes tokenomics endpoints for stable-funded IXP settlement:
+The broker also exposes tokenomics endpoints for stable-funded INTEL settlement:
 
 ```text
 GET  /v1/cannes/tokenomics/status            # Pool params + spot price
-POST /v1/cannes/tokenomics/quote/mint        # Stable -> IXP quote
-GET  /v1/cannes/tokenomics/accounts/:address # IXP balance + ledger
+POST /v1/cannes/tokenomics/quote/mint        # Stable -> INTEL quote
+GET  /v1/cannes/tokenomics/accounts/:address # INTEL balance + ledger
 GET  /v1/cannes/tokenomics/ideas/:ideaId     # Idea reserve snapshot
 ```
 

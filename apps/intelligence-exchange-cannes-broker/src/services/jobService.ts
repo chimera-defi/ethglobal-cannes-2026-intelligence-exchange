@@ -20,7 +20,7 @@ type SpendEventInput = {
   vendor: string;
   purpose: string;
   amountUsd: number;
-  settlementRail: 'demo' | 'arc' | 'ixp';
+  settlementRail: 'demo' | 'arc' | 'intel';
   txHash?: string;
 };
 
