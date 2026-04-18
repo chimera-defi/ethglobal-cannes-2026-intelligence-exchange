@@ -10,6 +10,7 @@ Last updated: 2026-04-18
 | Task payment rail | Designed next | `INTEL` becomes the single payment rail for task settlement |
 | Stake-to-mint allowance | Designed next | Staking grants epoch-capped mint rights with TWAP-anchored pricing |
 | Yield recipients | Designed next | Staker distributions are pro-rata across all stakers |
+| Public market path | Designed next | Speculative roadmap in `spec/tokenomics/PUBLIC_MARKET_PATH.md` |
 
 This spec intentionally separates shipped behavior from design direction so the demo remains honest while we iterate toward the token plan.
 
@@ -145,3 +146,15 @@ Protocol-specific differences for this repo:
 1. `INTEL` remains the only task settlement unit.
 2. Stable payments are a UX bridge, not a second settlement rail.
 3. Reward routing prioritizes all-staker distribution instead of minter-only rebates.
+
+### Speculative Public-Market Refinement
+
+We added a dedicated roadmap focused on building a public token path for intelligence price discovery:
+
+- `spec/tokenomics/PUBLIC_MARKET_PATH.md`
+
+That refinement explicitly addresses desync risk and blind spots:
+
+1. one-rail settlement (`INTEL`) with stable auto-convert as UX only,
+2. bounded stake-to-mint rights with epoch caps and utilization pricing,
+3. demand-linked emissions and explicit sink design before high emissions.
