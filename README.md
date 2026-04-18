@@ -715,11 +715,13 @@ Last updated: 2026-04-18
 - Implemented now: stable-funded minting into internal `IXP`, acceptance-time settlement, idempotent funding sync, append-only ledger accounting.
 - Next design update (not shipped yet): `INTEL` as the only task payment rail with automatic stable-to-`INTEL` conversion for UX.
 - Stake-to-mint extension (planned): staking grants epoch-capped mint allowance; direct mint uses TWAP-anchored pricing plus premium/curve utilization.
+- Strategic direction: speculative public-token path focused on price discovery for intelligence.
 - Intended default fee/yield splits:
   - Task fee split: `81% workers / 9% all stakers / 10% treasury`
   - Mint stable inflow split: `50% protocol-owned liquidity / 45% all stakers / 5% treasury`
 
 Quick visuals are mirrored and expanded in [spec/TOKENOMICS.md](spec/TOKENOMICS.md).
+The speculative market path and blind-spot controls are in [spec/tokenomics/PUBLIC_MARKET_PATH.md](spec/tokenomics/PUBLIC_MARKET_PATH.md).
 
 ```mermaid
 flowchart LR
