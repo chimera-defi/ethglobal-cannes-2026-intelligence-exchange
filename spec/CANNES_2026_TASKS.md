@@ -84,7 +84,7 @@ Done criteria:
 ### Workstream 6: Integrations
 
 - Arc escrow deployment
-- World proof stubs or real verification wrapper
+- World proof deterministic fallback or real verification wrapper
 - 0G dossier write path
 
 Done criteria:
