@@ -6,7 +6,7 @@
 
 - broker, planner, scorer, and web app run locally
 - Arc contract interactions mocked or pointed to local chain
-- World and 0G have local or stubbed fallback modes
+- World and 0G run in local deterministic fallback modes when live services are unavailable
 
 Purpose:
 - guaranteed demo backup
@@ -114,4 +114,4 @@ Required proof artifacts from this run:
 1. Do not claim open marketplace liquidity if only one worker exists.
 2. Do not claim autonomous payouts if approval remains human-gated.
 3. Do not claim censorship-resistant dispute resolution if disputes remain offchain.
-4. Clearly label any stubbed sponsor integration.
+4. Clearly label any deterministic fallback sponsor integration.
