@@ -209,14 +209,14 @@ export function LandingPage() {
                 <CardHeader className="pb-2">
                   <div className="flex items-center gap-2">
                     <Badge variant="warning" className="text-xs">Upcoming</Badge>
-                    <CardTitle className="text-base text-white">Phase 3: Tokenization (IX Protocol)</CardTitle>
+                    <CardTitle className="text-base text-white">Phase 3: Tokenization (INTEL Protocol)</CardTitle>
                   </div>
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground">
-                    IX utility token for staking, rewards, and coordination. IXP (Intelligence Exchange 
-                    Points) bridge activity to token ownership. Stake-and-slash mechanics improve 
-                    worker quality without breaking stablecoin settlement.
+                    INTEL utility token for staking, rewards, and coordination. Task settlement,
+                    mint routing, and staker yield all clear through INTEL so market price
+                    discovery tracks real accepted work demand.
                   </p>
                 </CardContent>
               </Card>

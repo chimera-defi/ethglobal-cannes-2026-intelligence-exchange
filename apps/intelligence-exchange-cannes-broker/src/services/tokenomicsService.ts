@@ -32,14 +32,23 @@ function round(value: number, decimals = 8) {
 }
 
 export function getTokenomicsConfig() {
+  const basePriceUsdPerIntel = toNumber(
+    process.env.TOKEN_BASE_PRICE_USD_PER_INTEL ?? process.env.TOKEN_BASE_PRICE_USD_PER_IXP,
+    1,
+  );
+  const targetSupplyIntel = toNumber(
+    process.env.TOKEN_TARGET_SUPPLY_INTEL ?? process.env.TOKEN_TARGET_SUPPLY_IXP,
+    100_000,
+  );
+
   return {
     enabled: parseBoolean(process.env.TOKENOMICS_ENABLED, true),
-    symbol: process.env.TOKEN_SYMBOL ?? 'IXP',
+    symbol: process.env.TOKEN_SYMBOL ?? 'INTEL',
     treasuryAccount: normalizeAccountAddress(process.env.TOKEN_TREASURY_ACCOUNT ?? 'treasury:protocol'),
     protocolFeeBps: Math.max(0, Math.min(10_000, Number.parseInt(process.env.TOKEN_PROTOCOL_FEE_BPS ?? '1000', 10) || 1000)),
     pool: {
-      basePriceUsdPerIxp: toNumber(process.env.TOKEN_BASE_PRICE_USD_PER_IXP, 1),
-      targetSupplyIxp: toNumber(process.env.TOKEN_TARGET_SUPPLY_IXP, 100_000),
+      basePriceUsdPerIxp: basePriceUsdPerIntel,
+      targetSupplyIxp: targetSupplyIntel,
       adjustmentPower: toNumber(process.env.TOKEN_ADJUSTMENT_POWER, 2),
       liquidityDepthUsd: toNumber(process.env.TOKEN_LIQUIDITY_DEPTH_USD, 50_000),
       slippageBps: toNumber(process.env.TOKEN_SLIPPAGE_BPS, 50),
@@ -67,8 +76,22 @@ export async function quoteStableMint(stableAmountUsd: number) {
   const pool = await getTokenPoolState();
   const quote = quoteMintIxp(stableAmountUsd, pool);
   return {
-    pool,
-    quote,
+    pool: {
+      basePriceUsdPerIntel: pool.basePriceUsdPerIxp,
+      targetSupplyIntel: pool.targetSupplyIxp,
+      adjustmentPower: pool.adjustmentPower,
+      liquidityDepthUsd: pool.liquidityDepthUsd,
+      slippageBps: pool.slippageBps,
+      currentSupplyIntel: pool.currentSupplyIxp,
+      spotPriceUsdPerIntel: getCurvePriceUsdPerIxp(pool),
+    },
+    quote: {
+      stableAmountUsd: quote.stableAmountUsd,
+      effectivePriceUsdPerIntel: quote.effectivePriceUsdPerIxp,
+      mintedIntel: quote.mintedIxp,
+      nextPriceUsdPerIntel: quote.nextPriceUsdPerIxp,
+      nextSupplyIntel: quote.nextSupplyIxp,
+    },
   };
 }
 
@@ -101,8 +124,8 @@ export async function mintAndReserveIdeaCredits(input: {
 
   const posterId = await ensureTokenAccount(input.posterId);
   const { quote } = await quoteStableMint(stableAmountUsd);
-  if (quote.mintedIxp <= 0) {
-    throw httpError('Mint quote returned zero IXP', 409, 'MINT_QUOTE_ZERO');
+  if (quote.mintedIntel <= 0) {
+    throw httpError('Mint quote returned zero INTEL', 409, 'MINT_QUOTE_ZERO');
   }
 
   const now = new Date();
@@ -110,7 +133,7 @@ export async function mintAndReserveIdeaCredits(input: {
     await tx.update(tokenAccounts)
       .set({
         stableDepositedUsd: sql`${tokenAccounts.stableDepositedUsd} + ${stableAmountUsd}`,
-        ixpReserved: sql`${tokenAccounts.ixpReserved} + ${quote.mintedIxp}`,
+        ixpReserved: sql`${tokenAccounts.ixpReserved} + ${quote.mintedIntel}`,
         updatedAt: now,
       })
       .where(eq(tokenAccounts.accountAddress, posterId));
@@ -120,13 +143,13 @@ export async function mintAndReserveIdeaCredits(input: {
         entryId: randomUUID(),
         accountAddress: posterId,
         entryType: 'mint',
-        deltaIxp: quote.mintedIxp.toFixed(8),
+        deltaIxp: quote.mintedIntel.toFixed(8),
         deltaStableUsd: stableAmountUsd.toFixed(6),
         referenceType: 'idea',
         referenceId: input.ideaId,
         metadata: {
           txHash: input.txHash ?? null,
-          effectivePriceUsdPerIxp: quote.effectivePriceUsdPerIxp,
+          effectivePriceUsdPerIntel: quote.effectivePriceUsdPerIntel,
         },
         createdAt: now,
       },
@@ -134,7 +157,7 @@ export async function mintAndReserveIdeaCredits(input: {
         entryId: randomUUID(),
         accountAddress: posterId,
         entryType: 'reserve',
-        deltaIxp: (-quote.mintedIxp).toFixed(8),
+        deltaIxp: (-quote.mintedIntel).toFixed(8),
         deltaStableUsd: '0',
         referenceType: 'idea',
         referenceId: input.ideaId,
@@ -152,9 +175,9 @@ export async function mintAndReserveIdeaCredits(input: {
         ideaId: input.ideaId,
         posterId,
         stableFundedUsd: stableAmountUsd.toFixed(6),
-        avgMintPriceUsdPerIxp: quote.effectivePriceUsdPerIxp.toFixed(8),
-        ixpMinted: quote.mintedIxp.toFixed(8),
-        ixpReserved: quote.mintedIxp.toFixed(8),
+        avgMintPriceUsdPerIxp: quote.effectivePriceUsdPerIntel.toFixed(8),
+        ixpMinted: quote.mintedIntel.toFixed(8),
+        ixpReserved: quote.mintedIntel.toFixed(8),
         ixpSpent: '0',
         ixpProtocolFee: '0',
         status: 'active',
@@ -165,14 +188,14 @@ export async function mintAndReserveIdeaCredits(input: {
     }
 
     const totalStable = toNumber(existingReserve.stableFundedUsd, 0) + stableAmountUsd;
-    const totalMinted = toNumber(existingReserve.ixpMinted, 0) + quote.mintedIxp;
-    const avgMintPrice = totalMinted > 0 ? totalStable / totalMinted : quote.effectivePriceUsdPerIxp;
+    const totalMinted = toNumber(existingReserve.ixpMinted, 0) + quote.mintedIntel;
+    const avgMintPrice = totalMinted > 0 ? totalStable / totalMinted : quote.effectivePriceUsdPerIntel;
 
     await tx.update(ideaTokenReserves).set({
       stableFundedUsd: totalStable.toFixed(6),
       avgMintPriceUsdPerIxp: round(avgMintPrice, 8).toFixed(8),
       ixpMinted: totalMinted.toFixed(8),
-      ixpReserved: (toNumber(existingReserve.ixpReserved, 0) + quote.mintedIxp).toFixed(8),
+      ixpReserved: (toNumber(existingReserve.ixpReserved, 0) + quote.mintedIntel).toFixed(8),
       status: 'active',
       updatedAt: now,
     }).where(eq(ideaTokenReserves.ideaId, input.ideaId));
@@ -181,9 +204,9 @@ export async function mintAndReserveIdeaCredits(input: {
   return {
     tokenSymbol: config.symbol,
     stableAmountUsd,
-    mintedIxp: quote.mintedIxp,
-    effectivePriceUsdPerIxp: quote.effectivePriceUsdPerIxp,
-    nextPriceUsdPerIxp: quote.nextPriceUsdPerIxp,
+    mintedIntel: quote.mintedIntel,
+    effectivePriceUsdPerIntel: quote.effectivePriceUsdPerIntel,
+    nextPriceUsdPerIntel: quote.nextPriceUsdPerIntel,
   };
 }
 
@@ -209,12 +232,12 @@ export async function settleAcceptedJobCredits(input: {
   const avgMintPriceUsdPerIxp = Math.max(0.00000001, toNumber(reserve.avgMintPriceUsdPerIxp, 1));
   const remainingIxp = toNumber(reserve.ixpReserved, 0);
   if (remainingIxp <= 0) {
-    throw httpError('No reserved IXP remaining for this idea', 409, 'IXP_RESERVE_EMPTY');
+    throw httpError('No reserved INTEL remaining for this idea', 409, 'INTEL_RESERVE_EMPTY');
   }
 
   const requestedGrossIxp = round(budgetUsd / avgMintPriceUsdPerIxp, 8);
   if (remainingIxp + 0.000001 < requestedGrossIxp) {
-    throw httpError('Reserved IXP is insufficient for this job budget', 409, 'IXP_RESERVE_INSUFFICIENT');
+    throw httpError('Reserved INTEL is insufficient for this job budget', 409, 'INTEL_RESERVE_INSUFFICIENT');
   }
 
   const grossIxp = requestedGrossIxp;
@@ -297,11 +320,11 @@ export async function settleAcceptedJobCredits(input: {
 
   return {
     tokenSymbol: config.symbol,
-    grossIxp: split.grossIxp,
-    workerPayoutIxp: split.workerPayoutIxp,
-    protocolFeeIxp: split.protocolFeeIxp,
+    grossIntel: split.grossIxp,
+    workerPayoutIntel: split.workerPayoutIxp,
+    protocolFeeIntel: split.protocolFeeIxp,
     budgetUsd,
-    avgMintPriceUsdPerIxp: round(avgMintPriceUsdPerIxp, 8),
+    avgMintPriceUsdPerIntel: round(avgMintPriceUsdPerIxp, 8),
   };
 }
 
@@ -318,12 +341,18 @@ export async function getTokenAccountSnapshot(accountAddress: string) {
   return {
     accountAddress: normalized,
     stableDepositedUsd: toNumber(account?.stableDepositedUsd, 0),
-    ixpBalance: toNumber(account?.ixpBalance, 0),
-    ixpReserved: toNumber(account?.ixpReserved, 0),
+    intelBalance: toNumber(account?.ixpBalance, 0),
+    intelReserved: toNumber(account?.ixpReserved, 0),
     ledger: ledger.map((entry) => ({
-      ...entry,
-      deltaIxp: toNumber(entry.deltaIxp, 0),
+      entryId: entry.entryId,
+      accountAddress: entry.accountAddress,
+      entryType: entry.entryType,
+      deltaIntel: toNumber(entry.deltaIxp, 0),
       deltaStableUsd: toNumber(entry.deltaStableUsd, 0),
+      referenceType: entry.referenceType,
+      referenceId: entry.referenceId,
+      metadata: entry.metadata,
+      createdAt: entry.createdAt,
     })),
   };
 }
@@ -335,11 +364,11 @@ export async function getIdeaReserveSnapshot(ideaId: string) {
     ideaId: reserve.ideaId,
     posterId: reserve.posterId,
     stableFundedUsd: toNumber(reserve.stableFundedUsd, 0),
-    avgMintPriceUsdPerIxp: toNumber(reserve.avgMintPriceUsdPerIxp, 0),
-    ixpMinted: toNumber(reserve.ixpMinted, 0),
-    ixpReserved: toNumber(reserve.ixpReserved, 0),
-    ixpSpent: toNumber(reserve.ixpSpent, 0),
-    ixpProtocolFee: toNumber(reserve.ixpProtocolFee, 0),
+    avgMintPriceUsdPerIntel: toNumber(reserve.avgMintPriceUsdPerIxp, 0),
+    intelMinted: toNumber(reserve.ixpMinted, 0),
+    intelReserved: toNumber(reserve.ixpReserved, 0),
+    intelSpent: toNumber(reserve.ixpSpent, 0),
+    intelProtocolFee: toNumber(reserve.ixpProtocolFee, 0),
     status: reserve.status,
     updatedAt: reserve.updatedAt,
   };
@@ -354,8 +383,13 @@ export async function getTokenomicsStatus() {
     protocolFeeBps: config.protocolFeeBps,
     treasuryAccount: config.treasuryAccount,
     pool: {
-      ...pool,
-      spotPriceUsdPerIxp: getCurvePriceUsdPerIxp(pool),
+      basePriceUsdPerIntel: pool.basePriceUsdPerIxp,
+      targetSupplyIntel: pool.targetSupplyIxp,
+      adjustmentPower: pool.adjustmentPower,
+      liquidityDepthUsd: pool.liquidityDepthUsd,
+      slippageBps: pool.slippageBps,
+      currentSupplyIntel: pool.currentSupplyIxp,
+      spotPriceUsdPerIntel: getCurvePriceUsdPerIxp(pool),
     },
   };
 }

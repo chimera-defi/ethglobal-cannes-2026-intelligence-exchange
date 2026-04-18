@@ -170,7 +170,7 @@ export const agentSpendEvents = pgTable('agent_spend_events', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
-// ─── Tokenomics (stable -> IXP minting and settlement ledger) ─────────────────
+// ─── Tokenomics (stable -> INTEL minting and settlement ledger; legacy ixp_* column names) ──────
 
 export const tokenAccounts = pgTable('token_accounts', {
   accountAddress: text('account_address').primaryKey(),
