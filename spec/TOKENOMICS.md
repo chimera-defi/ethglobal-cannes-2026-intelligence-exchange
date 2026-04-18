@@ -1,81 +1,27 @@
-## TOKENOMICS (Implemented + Design Update)
-
-### Executive Summary (Living)
+## TOKENOMICS (INTEL-Native Launch Spec)
 
 Last updated: 2026-04-18
 
-| Area | Status | Canonical Behavior |
-|---|---|---|
-| Stable-funded mint + settlement | Implemented | Stable funding mints internal `IXP`; acceptance settles `IXP` with ledger accounting |
-| Task payment rail | Designed next | `INTEL` becomes the single payment rail for task settlement |
-| Stake-to-mint allowance | Designed next | Staking grants epoch-capped mint rights with TWAP-anchored pricing |
-| Yield recipients | Designed next | Staker distributions are pro-rata across all stakers |
-| Public market path | Designed next | Speculative roadmap in `spec/tokenomics/PUBLIC_MARKET_PATH.md` |
+## Product Reset
 
-This spec intentionally separates shipped behavior from design direction so the demo remains honest while we iterate toward the token plan.
+This is a launch spec for a new product direction, not a migration plan.
 
-### Implemented Today: Broker `IXP` Loop
+- `INTEL` is the primary pricing and settlement unit.
+- Stable rails are optional on-ramp UX only.
+- Legacy stable-point accounting and Arc-first settlement are out of launch scope.
 
-Scope in production broker:
+## Launch Principles
 
-- Funding unit: stable-denominated USD amount at idea funding time
-- Execution accounting unit: internal `IXP` credits
-- Settlement trigger: human reviewer acceptance
-- Public transferable token launch: out of scope for current build
+1. Single monetary rail for task pricing and settlement.
+2. Open-market token price as the intelligence price-discovery engine.
+3. Yield and treasury flows must be tied to real accepted-task demand.
+4. Economic controls first; avoid heavy gating in core product loops.
 
-Pricing engine implementation lives in `packages/intelligence-exchange-cannes-tokenomics`.
+## Launch Mechanics
 
-```text
-curvePrice = basePriceUsdPerIxp * exp(adjustmentPower * (currentSupplyIxp / targetSupplyIxp)^3)
-effectivePrice = curvePrice * (1 + (stableAmountUsd / liquidityDepthUsd) * (slippageBps / 10_000))
-mintedIxp = stableAmountUsd / effectivePrice
-```
+### Task Settlement
 
-Acceptance-time settlement steps:
-
-1. Read idea reserve and average mint price.
-2. Convert job budget USD to required gross `IXP`.
-3. Split gross `IXP` into worker payout and protocol fee.
-4. Write append-only ledger entries for poster debit, worker payout, treasury fee.
-
-Implemented invariants:
-
-1. Duplicate `idea_funded` sync events do not double-mint.
-2. Settlement is full-budget or fail (`IXP_RESERVE_INSUFFICIENT`), never silent-partial.
-3. `payoutReleased` reflects whether settlement actually executed.
-4. All token movements are append-only in `token_ledger_entries`.
-
-Runtime configuration:
-
-```bash
-TOKENOMICS_ENABLED=true
-TOKEN_SYMBOL=IXP
-TOKEN_PROTOCOL_FEE_BPS=1000
-TOKEN_BASE_PRICE_USD_PER_IXP=1
-TOKEN_TARGET_SUPPLY_IXP=100000
-TOKEN_ADJUSTMENT_POWER=2
-TOKEN_LIQUIDITY_DEPTH_USD=50000
-TOKEN_SLIPPAGE_BPS=50
-TOKEN_TREASURY_ACCOUNT=treasury:protocol
-```
-
-API surface:
-
-- `GET /v1/cannes/tokenomics/status`
-- `POST /v1/cannes/tokenomics/quote/mint`
-- `GET /v1/cannes/tokenomics/accounts/:accountAddress`
-- `GET /v1/cannes/tokenomics/ideas/:ideaId`
-
-### Design Update: `INTEL` Rail + Stake-to-Mint (Planned)
-
-Design constraints already agreed:
-
-- `INTEL` is the only settlement rail for task payments.
-- Users can still pay with stables through broker-side auto-convert to `INTEL`.
-- Direct mint and stake-to-mint are epoch-capped per wallet.
-- Staker rewards are distributed to all stakers pro-rata.
-
-Target task fee split (on accepted jobs):
+Buyer acquires `INTEL`, escrows task budget, and accepted settlement splits:
 
 ```text
 workerPayout = grossIntel * 0.81
@@ -83,7 +29,16 @@ stakerYield = grossIntel * 0.09
 treasury = grossIntel * 0.10
 ```
 
-Target direct-mint inflow split:
+### Staking + Mint
+
+Stake `INTEL` for mint rights and yield participation:
+
+```text
+allowancePerEpoch(wallet) = min(k * sqrt(stakedIntel(wallet)), walletCap, globalCapRemaining)
+mintPrice = max(TWAP * (1 + premium), floorPrice) * utilizationMultiplier
+```
+
+### Mint Inflow Routing
 
 ```text
 protocolOwnedLiquidity = stableInflow * 0.50
@@ -91,70 +46,58 @@ stakerYield = stableInflow * 0.45
 treasury = stableInflow * 0.05
 ```
 
-Stake-to-mint primitives:
+## Sources and Sinks
 
-```text
-allowancePerEpoch(wallet) = min(k * sqrt(stakedIntel(wallet)), walletEpochCap, globalRemainingCap)
-mintPrice = max(twapIntelUsd * (1 + premiumBps/10_000), floorPrice) * utilizationMultiplier
-```
+### Sources
 
-Planned anti-abuse controls:
+- Market buys
+- Direct mint (bounded by caps + pricing controls)
+- Worker payouts from accepted tasks
 
-1. Wallet and global epoch mint caps.
-2. Minted-token vesting/cooldown before full transferability.
-3. TWAP + premium pricing to reduce oracle and burst-mint manipulation.
+### Sinks
 
-### Visuals: Fee, Yield, and Distribution
+- Task escrow/settlement
+- Staking locks
+- Buyback-and-burn policy
+
+## Blind Spots and Controls
+
+1. Reflexive mint loop.
+   - Control: strict epoch caps and utilization premiums.
+2. Thin-liquidity manipulation.
+   - Control: TWAP windows, mint floor, and slippage clamps.
+3. Demandless emissions.
+   - Control: emissions keyed to accepted-task volume.
+4. Worker sell pressure shocks.
+   - Control: optional vesting tiers and performance multipliers.
+5. Mercenary staking churn.
+   - Control: cooldown and time-weighted rewards.
+
+## Hard Launch Constraints
+
+1. No stable-denominated settlement in user-facing flows.
+2. No IXP/legacy credit terminology in launch UX.
+3. No Arc escrow dependency in the launch critical path.
+4. No mandatory identity gate for core task posting/claiming.
+5. Full-budget settlement or fail; no silent partial payout.
+
+## Architecture Snapshot
 
 ```mermaid
 flowchart LR
-  A[Accepted Task Fee: 100 INTEL] --> B[Worker Payout 81 INTEL]
-  A --> C[Staker Yield Pool 9 INTEL]
-  A --> D[Treasury 10 INTEL]
+  U[User Demand] --> O[Acquire INTEL]
+  O --> T[Task Budget Escrow]
+  T --> S[Accepted Settlement]
+  S --> W[Workers 81%]
+  S --> K[Stakers 9%]
+  S --> R[Treasury 10%]
 
-  E[Direct Mint Inflow: 100 USDC] --> F[POL 50 USDC]
-  E --> G[Staker Yield Pool 45 USDC]
-  E --> H[Treasury 5 USDC]
+  M[Direct Mint] --> P[POL 50%]
+  M --> Y[Staker Yield 45%]
+  M --> Q[Treasury 5%]
+  R --> B[Buyback/Burn or POL]
 ```
 
-```mermaid
-pie showData title Task Fee Distribution (Target)
-  "Workers" : 81
-  "All Stakers" : 9
-  "Treasury" : 10
-```
+Detailed launch architecture:
 
-```mermaid
-pie showData title Direct Mint Inflow Distribution (Target)
-  "Protocol-Owned Liquidity" : 50
-  "All Stakers" : 45
-  "Treasury" : 5
-```
-
-### Overlap With DIEM-Style Stake-to-Mint Patterns
-
-Overlaps:
-
-1. Staking-derived mint rights (stake position gates mint allowance).
-2. Epoch-governed mint schedule and quota controls.
-3. Market-anchored mint pricing via TWAP plus premium/utilization.
-4. Explicit revenue routing from mint and usage flows to stakers.
-5. Controlled release mechanics to reduce extractive, short-horizon minting.
-
-Protocol-specific differences for this repo:
-
-1. `INTEL` remains the only task settlement unit.
-2. Stable payments are a UX bridge, not a second settlement rail.
-3. Reward routing prioritizes all-staker distribution instead of minter-only rebates.
-
-### Speculative Public-Market Refinement
-
-We added a dedicated roadmap focused on building a public token path for intelligence price discovery:
-
-- `spec/tokenomics/PUBLIC_MARKET_PATH.md`
-
-That refinement explicitly addresses desync risk and blind spots:
-
-1. one-rail settlement (`INTEL`) with stable auto-convert as UX only,
-2. bounded stake-to-mint rights with epoch caps and utilization pricing,
-3. demand-linked emissions and explicit sink design before high emissions.
+- `spec/tokenomics/INTEL_LAUNCH_ARCHITECTURE.md`
