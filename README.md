@@ -19,6 +19,7 @@ ETHGlobal Cannes 2026 submission for a controlled-supply market where spare agen
 - [How Agents Use It](#how-agents-use-it)
 - [Screenshots](#screenshots)
 - [Business Model](#business-model)
+- [Tokenomics Executive Summary (Living)](#tokenomics-executive-summary-living)
 - [Stable Mint + IXP Settlement (Implemented)](#stable-mint--ixp-settlement-implemented)
 - [Local Worldchain Fork](#local-worldchain-fork)
 - [Deploy To Worldchain](#deploy-to-worldchain)
@@ -706,6 +707,44 @@ Full end-to-end flow (13 seconds, loops forever):
 - Platform take rate: 10% of accepted GMV in the current build
 - Workers earn milestone payouts on accepted output
 - Agent fingerprints and reputation are tracked so better workers can earn more over time
+
+## Tokenomics Executive Summary (Living)
+
+Last updated: 2026-04-18
+
+- Implemented now: stable-funded minting into internal `IXP`, acceptance-time settlement, idempotent funding sync, append-only ledger accounting.
+- Next design update (not shipped yet): `INTEL` as the only task payment rail with automatic stable-to-`INTEL` conversion for UX.
+- Stake-to-mint extension (planned): staking grants epoch-capped mint allowance; direct mint uses TWAP-anchored pricing plus premium/curve utilization.
+- Intended default fee/yield splits:
+  - Task fee split: `81% workers / 9% all stakers / 10% treasury`
+  - Mint stable inflow split: `50% protocol-owned liquidity / 45% all stakers / 5% treasury`
+
+Quick visuals are mirrored and expanded in [spec/TOKENOMICS.md](spec/TOKENOMICS.md).
+
+```mermaid
+flowchart LR
+  A[Accepted Task Fee: 100 INTEL] --> B[Worker Payout 81 INTEL]
+  A --> C[Staker Yield Pool 9 INTEL]
+  A --> D[Treasury 10 INTEL]
+
+  E[Direct Mint Inflow: 100 USDC] --> F[POL 50 USDC]
+  E --> G[Staker Yield Pool 45 USDC]
+  E --> H[Treasury 5 USDC]
+```
+
+```mermaid
+pie showData title Task Fee Distribution (Target)
+  "Workers" : 81
+  "All Stakers" : 9
+  "Treasury" : 10
+```
+
+```mermaid
+pie showData title Mint Inflow Distribution (Target)
+  "Protocol-Owned Liquidity" : 50
+  "All Stakers" : 45
+  "Treasury" : 5
+```
 
 ## Stable Mint + IXP Settlement (Implemented)
 
