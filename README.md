@@ -1,10 +1,11 @@
 # Intelligence Exchange Cannes 2026
 
-ETHGlobal Cannes 2026 submission for a controlled-supply market where spare agent capacity can pick up scoped build work and get paid only when a human reviewer accepts the result.
+Experimental INTEL-native marketplace where agent work is priced and settled through a publicly traded token to discover the market price of intelligence.
 
 ## Table of Contents
 
 - [Thesis](#thesis)
+- [Product Reset (Active)](#product-reset-active)
 - [Prize Targets](#prize-targets)
 - [System Architecture](#system-architecture)
 - [The Future: Intelligence as a Tradable Asset](#the-future-intelligence-as-a-tradable-asset)
@@ -20,7 +21,7 @@ ETHGlobal Cannes 2026 submission for a controlled-supply market where spare agen
 - [Screenshots](#screenshots)
 - [Business Model](#business-model)
 - [Tokenomics Executive Summary (Living)](#tokenomics-executive-summary-living)
-- [Stable Mint + IXP Settlement (Implemented)](#stable-mint--ixp-settlement-implemented)
+- [Legacy Notes (Deprecated)](#legacy-notes-deprecated)
 - [Local Worldchain Fork](#local-worldchain-fork)
 - [Deploy To Worldchain](#deploy-to-worldchain)
 - [Local Agent Pickup CLI](#local-agent-pickup-cli)
@@ -33,7 +34,18 @@ Intelligence is becoming a scarce operating resource.
 
 Some teams finish the month with idle agent time, unused model budget, and automation capacity that would otherwise go to waste. Other teams have overflow demand and would pay to turn that spare capacity into shipped work. Intelligence Exchange is the broker that sits in the middle.
 
-This repo does **not** implement credit resale or a token market. It turns spare intelligence capacity into milestone work:
+The current design target is a token-native intelligence market where demand, supply, and yield all clear through `INTEL`.
+
+## Product Reset (Active)
+
+Active product direction:
+
+- Launch directly with `INTEL` as the pricing and settlement rail.
+- Treat stablecoins as optional acquisition/on-ramp UX only.
+- Deprioritize legacy stable-point accounting and Arc-first settlement from the launch critical path.
+- Keep the core marketplace loop: post task -> claim -> submit -> accept -> settle.
+
+Core loop:
 
 1. A buyer funds an idea
 2. The broker decomposes it into fixed milestones
@@ -712,16 +724,15 @@ Full end-to-end flow (13 seconds, loops forever):
 
 Last updated: 2026-04-18
 
-- Implemented now: stable-funded minting into internal `IXP`, acceptance-time settlement, idempotent funding sync, append-only ledger accounting.
-- Next design update (not shipped yet): `INTEL` as the only task payment rail with automatic stable-to-`INTEL` conversion for UX.
-- Stake-to-mint extension (planned): staking grants epoch-capped mint allowance; direct mint uses TWAP-anchored pricing plus premium/curve utilization.
-- Strategic direction: speculative public-token path focused on price discovery for intelligence.
-- Intended default fee/yield splits:
+- Launch spec: `INTEL` is the single pricing and settlement unit.
+- Stable rails: optional acquisition/on-ramp UX only, not a second settlement rail.
+- Stake-to-mint: epoch-capped mint rights with TWAP-anchored pricing controls.
+- Launch-default fee/yield splits:
   - Task fee split: `81% workers / 9% all stakers / 10% treasury`
   - Mint stable inflow split: `50% protocol-owned liquidity / 45% all stakers / 5% treasury`
 
 Quick visuals are mirrored and expanded in [spec/TOKENOMICS.md](spec/TOKENOMICS.md).
-The speculative market path and blind-spot controls are in [spec/tokenomics/PUBLIC_MARKET_PATH.md](spec/tokenomics/PUBLIC_MARKET_PATH.md).
+Launch architecture and blind-spot controls are in [spec/tokenomics/INTEL_LAUNCH_ARCHITECTURE.md](spec/tokenomics/INTEL_LAUNCH_ARCHITECTURE.md).
 
 ```mermaid
 flowchart LR
@@ -748,34 +759,10 @@ pie showData title Mint Inflow Distribution (Target)
   "Treasury" : 5
 ```
 
-## Stable Mint + IXP Settlement (Implemented)
+## Legacy Notes (Deprecated)
 
-Current implementation keeps settlement stable-denominated at funding time and uses an internal credit unit (`IXP`) for execution accounting:
-
-1. Poster funds an idea with stable amount (`/ideas/:ideaId/fund`)
-2. Broker mints and reserves `IXP` using a pool-priced quote (`basePrice`, `targetSupply`, `liquidityDepth`, `slippageBps`)
-3. On reviewer accept, reserved `IXP` settles to worker payout + protocol fee ledger entries
-
-Guardrails in the current build:
-
-- Funding sync is idempotent: duplicate `txHash` does not double-mint IXP
-- Settlement is full-budget or fail (no silent partial payout)
-- `payoutReleased` attestation flag now tracks whether token settlement happened
-- World verification can run in strict mode or optional mode (`WORLD_ID_STRICT`)
-
-Main tokenomics environment knobs:
-
-```bash
-TOKENOMICS_ENABLED=true
-TOKEN_SYMBOL=IXP
-TOKEN_PROTOCOL_FEE_BPS=1000
-TOKEN_BASE_PRICE_USD_PER_IXP=1
-TOKEN_TARGET_SUPPLY_IXP=100000
-TOKEN_ADJUSTMENT_POWER=2
-TOKEN_LIQUIDITY_DEPTH_USD=50000
-TOKEN_SLIPPAGE_BPS=50
-TOKEN_TREASURY_ACCOUNT=treasury:protocol
-```
+Older stable-point (`IXP`) + Arc-first settlement notes remain in repo history for reference but are no longer the launch target.
+Current direction is defined by `INTEL`-native tokenomics and launch architecture docs under `spec/tokenomics/`.
 
 
 ## Local Worldchain Fork
