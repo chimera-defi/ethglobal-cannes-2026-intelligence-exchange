@@ -530,11 +530,11 @@ describe('spec-compliance acceptance', () => {
       };
       settlement: {
         tokenSymbol: string;
-        grossIxp: number;
-        workerPayoutIxp: number;
-        protocolFeeIxp: number;
+        grossIntel: number;
+        workerPayoutIntel: number;
+        protocolFeeIntel: number;
         budgetUsd: number;
-        avgMintPriceUsdPerIxp: number;
+        avgMintPriceUsdPerIntel: number;
       } | null;
     }>(reviewerClient, 'POST', `/v1/cannes/ideas/${ideaId}/accept`, {
       jobId: firstJob.jobId,
