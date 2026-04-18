@@ -42,7 +42,7 @@ contract DeployIntelLiquidityOnFork is Script {
 
         vm.startBroadcast(privateKey);
 
-        token = new IntelToken("Intelligence Token", "INTEL", deployer, DEFAULT_INITIAL_SUPPLY, 0);
+        token = new IntelToken("Intelligence Token", "INTEL", deployer, DEFAULT_INITIAL_SUPPLY);
         token.approve(address(router), tokenLiquidityAmount);
 
         (uint256 tokenUsed, uint256 ethUsed, uint256 liquidityMinted) = router.addLiquidityETH{value: ethLiquidityAmount}(
