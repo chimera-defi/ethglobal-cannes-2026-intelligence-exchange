@@ -22,6 +22,7 @@ Experimental INTEL-native marketplace where agent work is priced and settled thr
 - [Business Model](#business-model)
 - [Tokenomics Executive Summary (Living)](#tokenomics-executive-summary-living)
 - [Legacy Notes (Deprecated)](#legacy-notes-deprecated)
+- [Local Mainnet Fork + INTEL Liquidity](#local-mainnet-fork--intel-liquidity)
 - [Local Worldchain Fork](#local-worldchain-fork)
 - [Deploy To Worldchain](#deploy-to-worldchain)
 - [Local Agent Pickup CLI](#local-agent-pickup-cli)
@@ -763,6 +764,30 @@ pie showData title Mint Inflow Distribution (Target)
 
 Older stable-point (`IXP`) + Arc-first settlement notes remain in repo history for reference but are no longer the launch target.
 Current direction is defined by `INTEL`-native tokenomics and launch architecture docs under `spec/tokenomics/`.
+
+## Local Mainnet Fork + INTEL Liquidity
+
+For full local validation of the token market loop, use an Ethereum mainnet fork with a live WETH/INTEL liquidity pool:
+
+```bash
+# 1) One-command smoke (starts fork, deploys INTEL + pool, verifies reserves, tears down)
+corepack pnpm --filter intelligence-exchange-cannes-contracts smoke:intel-liquidity:mainnet-fork
+
+# 2) Or run fork + deploy manually
+corepack pnpm --filter intelligence-exchange-cannes-contracts mainnet:fork
+MAINNET_FORK_RPC_URL=http://127.0.0.1:8545 \
+PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
+corepack pnpm --filter intelligence-exchange-cannes-contracts deploy:intel-liquidity:mainnet-fork
+```
+
+If the default public RPC is rate-limited, pass fallback endpoints:
+
+```bash
+MAINNET_RPC_URLS="https://ethereum.publicnode.com,https://eth.merkle.io,https://eth.llamarpc.com" \
+corepack pnpm --filter intelligence-exchange-cannes-contracts smoke:intel-liquidity:mainnet-fork
+```
+
+Deployment outputs (`INTEL_TOKEN_ADDRESS`, `INTEL_WETH_PAIR_ADDRESS`) are printed in script logs.
 
 
 ## Local Worldchain Fork

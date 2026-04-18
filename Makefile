@@ -16,7 +16,7 @@ BROKER_URL ?= http://localhost:$(BROKER_PORT)
 VITE_DEV_PROXY_TARGET ?= $(BROKER_URL)
 COMPOSE ?= ./scripts/tooling/docker-compose.sh
 
-.PHONY: help install setup dev dev-broker dev-web seed stop clean test validate tunnel
+.PHONY: help install setup dev dev-broker dev-web seed stop clean test validate tunnel fork-mainnet deploy-intel-liquidity fork-mainnet-smoke
 
 # Default command
 help:
@@ -47,6 +47,9 @@ help:
 	@echo "  make clean           Clean build artifacts and node_modules"
 	@echo "  make screenshots     Update screenshots (requires running stack)"
 	@echo "  make tunnel          Start Cloudflare Quick Tunnel for web app"
+	@echo "  make fork-mainnet    Start Ethereum mainnet fork (blocking)"
+	@echo "  make deploy-intel-liquidity  Deploy INTEL + WETH pool to local fork"
+	@echo "  make fork-mainnet-smoke      Full fork + liquidity smoke test"
 
 # Setup commands
 install:
@@ -133,6 +136,18 @@ tunnel:
 	@echo "Starting Cloudflare Quick Tunnel for web app on port $(WEB_PORT)"
 	@echo "A public URL will appear below (valid for the duration of this process)"
 	@cloudflared tunnel --url http://localhost:$(WEB_PORT)
+
+fork-mainnet:
+	corepack pnpm --filter intelligence-exchange-cannes-contracts mainnet:fork
+
+deploy-intel-liquidity:
+	@echo "Deploying INTEL + WETH liquidity on local fork (http://127.0.0.1:8545)"
+	@MAINNET_FORK_RPC_URL=http://127.0.0.1:8545 \
+	PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
+	corepack pnpm --filter intelligence-exchange-cannes-contracts deploy:intel-liquidity:mainnet-fork
+
+fork-mainnet-smoke:
+	corepack pnpm --filter intelligence-exchange-cannes-contracts smoke:intel-liquidity:mainnet-fork
 
 # Quick start for demos
 demo: setup

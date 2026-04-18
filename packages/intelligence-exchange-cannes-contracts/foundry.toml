@@ -8,6 +8,7 @@ optimizer_runs = 200
 
 # RPC Endpoints
 [rpc_endpoints]
+mainnet = "https://ethereum.publicnode.com"
 arc-testnet = "https://rpc.testnet.arc.network"
 arc-mainnet = "https://rpc.arc.network"
 worldchain-sepolia = "https://worldchain-sepolia.g.alchemy.com/public"

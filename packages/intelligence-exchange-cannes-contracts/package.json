@@ -11,6 +11,9 @@
     "deploy:arc-testnet": "bash ../../scripts/tooling/with-foundry.sh forge script script/Deploy.s.sol --rpc-url https://rpc.testnet.arc.network --broadcast --verify",
     "deploy:arc-testnet:legacy": "bash ../../scripts/tooling/with-foundry.sh forge script script/Deploy.s.sol --rpc-url https://rpc.testnet.arc.network --broadcast --legacy",
     "deploy:0g-testnet": "bash ../../scripts/tooling/with-foundry.sh bash script/deploy_0g.sh",
+    "mainnet:fork": "bash ../../scripts/tooling/with-foundry.sh bash script/fork_mainnet.sh",
+    "deploy:intel-liquidity:mainnet-fork": "MAINNET_FORK_RPC_URL=${MAINNET_FORK_RPC_URL:-http://127.0.0.1:8545} bash ../../scripts/tooling/with-foundry.sh forge script script/DeployIntelLiquidityOnFork.s.sol --rpc-url ${MAINNET_FORK_RPC_URL:-http://127.0.0.1:8545} --broadcast",
+    "smoke:intel-liquidity:mainnet-fork": "bash ../../scripts/tooling/with-foundry.sh bash script/smoke_intel_liquidity_fork.sh",
     "worldchain:fork": "bash ../../scripts/tooling/with-foundry.sh bash script/fork_worldchain.sh",
     "deploy:worldchain-fork": "WORLDCHAIN_DEPLOY_RPC_URL=${WORLDCHAIN_DEPLOY_RPC_URL:-http://127.0.0.1:8545} bash ../../scripts/tooling/with-foundry.sh bash script/deploy_worldchain.sh",
     "deploy:worldchain": "bash ../../scripts/tooling/with-foundry.sh bash script/deploy_worldchain.sh"
