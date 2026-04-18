@@ -2,6 +2,9 @@
 
 Snapshot as of 2026-04-04.
 
+> Historical parity snapshot only. This file is not the launch acceptance checklist.
+> Launch-critical behavior is defined by `README.md`, `spec/CANNES_2026_MVP_SPEC.md`, and `spec/tokenomics/INTEL_LAUNCH_ARCHITECTURE.md`.
+
 Short version:
 
 - Cannes MVP spec: high parity for the core judgeable loop
@@ -75,7 +78,7 @@ Status: partial
 
 Status: low
 
-Not implemented yet:
+Outside launch scope in this historical snapshot:
 
 - `claim` / `bounty` / `benchmark` / `auction` task-market modes as live broker behavior
 - bid flow
@@ -156,7 +159,7 @@ Status: strong but environment-dependent
 Status: planned only
 
 - narrative-level add-ons in the spec
-- not implemented in the current product
+- outside the current launch product scope
 
 ## README And Landing Page Changes To Keep Honest
 

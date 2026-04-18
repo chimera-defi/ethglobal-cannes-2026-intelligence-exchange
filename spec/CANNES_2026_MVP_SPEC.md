@@ -354,7 +354,7 @@ Use a staged deployment model instead of jumping directly from local to mainnet.
 
 #### Stage 1: Local deterministic
 
-- all sponsor integrations mocked or stubbed
+- run integrations either against local deterministic fixtures or real test endpoints; do not present hidden fallback behavior as production-ready
 - local chain for escrow tests
 
 #### Stage 2: Public testnet rehearsal

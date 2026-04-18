@@ -318,6 +318,10 @@ describe('spec-compliance acceptance', () => {
     expect(duplicateFundRes.data.fundingStatus).toBe('funded');
     expect(duplicateFundRes.data.tokenomics).toBeNull();
 
+    const cancelFundedRes = await api<{ error?: { code: string } }>(posterClient, 'POST', `/v1/cannes/ideas/${ideaId}/cancel`);
+    expect(cancelFundedRes.status).toBe(409);
+    expect(cancelFundedRes.data.error?.code).toBe('CANCEL_REQUIRES_ESCROW_REFUND');
+
     const reserveSnapshot = await api<{
       stableFundedUsd: number;
       avgMintPriceUsdPerIntel: number;
