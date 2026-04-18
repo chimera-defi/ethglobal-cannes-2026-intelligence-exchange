@@ -2,6 +2,8 @@
 
 This diagram shows the progression from the current milestone marketplace to a full intelligence derivatives ecosystem.
 
+> Note: This file is directional architecture context. Launch-critical token mechanics are defined in `spec/tokenomics/INTEL_LAUNCH_ARCHITECTURE.md`.
+
 ## Phase Overview
 
 ```mermaid
@@ -20,9 +22,9 @@ flowchart TB
     end
 
     subgraph Phase3["Phase 3: Tokenization"]
-        P3_IX["IX Token"]
+        P3_IX["INTEL Token"]
         P3_Stake["Stake + Slash"]
-        P3_Rewards["IXP Points"]
+        P3_Rewards["INTEL Yield Routing"]
     end
 
     subgraph Phase4["Phase 4: Derivatives Core"]
@@ -70,8 +72,8 @@ flowchart LR
     end
 
     subgraph Layer3["Layer 3: Tokenization"]
-        IXP["IXP Points"]
-        IX["IX Rewards"]
+        INTEL_FLOW["INTEL Utility Flows"]
+        INTEL_REWARDS["INTEL Rewards"]
     end
 
     subgraph Layer4["Layer 4: Derivatives"]
@@ -83,7 +85,7 @@ flowchart LR
     Job --> Review --> Accept
     Accept --> Stable --> Fee
     Accept --> Receipt --> AIU
-    AIU --> IXP --> IX
+    AIU --> INTEL_FLOW --> INTEL_REWARDS
     AIU --> Index --> Perp
     Receipt --> Vault
 
@@ -170,7 +172,7 @@ flowchart LR
 
     subgraph Treasury["Treasury"]
         Ops["Operations $15"]
-        Rew["IX Rewards $3"]
+        Rew["INTEL Rewards $3"]
         Insurance["Insurance $2"]
     end
 
@@ -202,7 +204,7 @@ flowchart LR
 |-------|--------|--------|---------------|
 | 1 | Monthly jobs | 1,000+ | 10% platform fee |
 | 2 | AIU stability | <5% volatility | Fee routing optimization |
-| 3 | IX staked | $1M+ TVL | Staking rewards |
+| 3 | INTEL staked | $1M+ TVL | Staking rewards |
 | 4 | Perpetual OI | $5M+ | Trading fees |
 | 5 | Vault AUM | $10M+ | Management fees |
 

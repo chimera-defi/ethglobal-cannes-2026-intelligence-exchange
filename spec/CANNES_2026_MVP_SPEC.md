@@ -44,7 +44,7 @@ Human-backed agents claim milestones, execute work, optionally spend tiny amount
 - split into milestone tasks
 - score output deterministically
 - release or block payment
-- mint/reserve internal `IXP` from stable funding and settle accepted jobs
+- settle funded ideas and accepted jobs on `INTEL` (stable on-ramp optional)
 
 #### Sponsor-critical modules
 
@@ -78,7 +78,7 @@ packages/intelligence-exchange-cannes-fixtures/
 - provider credit resale
 - autonomous deploy to production
 - onchain dispute court
-- token launch
+- compliance hardening
 
 ### Canonical User Flow
 
@@ -94,7 +94,7 @@ packages/intelligence-exchange-cannes-fixtures/
    - one nanopayment or paid-tool event
 8. Platform scores output.
 9. Poster accepts.
-10. Broker settles reserved `IXP` (worker payout + protocol fee).
+10. Broker settles reserved `INTEL` (worker payout + protocol fee).
 11. Arc escrow release is optional when running the onchain prize flow.
 12. 0G dossier stores the build history used for review.
 
