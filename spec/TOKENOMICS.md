@@ -1,57 +1,50 @@
-## TOKENOMICS (Current Build)
+## TOKENOMICS (Implemented + Design Update)
 
-### Scope
+### Executive Summary (Living)
 
-This document defines the tokenomics currently implemented in the broker.
+Last updated: 2026-04-18
+
+| Area | Status | Canonical Behavior |
+|---|---|---|
+| Stable-funded mint + settlement | Implemented | Stable funding mints internal `IXP`; acceptance settles `IXP` with ledger accounting |
+| Task payment rail | Designed next | `INTEL` becomes the single payment rail for task settlement |
+| Stake-to-mint allowance | Designed next | Staking grants epoch-capped mint rights with TWAP-anchored pricing |
+| Yield recipients | Designed next | Staker distributions are pro-rata across all stakers |
+
+This spec intentionally separates shipped behavior from design direction so the demo remains honest while we iterate toward the token plan.
+
+### Implemented Today: Broker `IXP` Loop
+
+Scope in production broker:
 
 - Funding unit: stable-denominated USD amount at idea funding time
 - Execution accounting unit: internal `IXP` credits
 - Settlement trigger: human reviewer acceptance
-- Public token launch: **out of scope** for current build
+- Public transferable token launch: out of scope for current build
 
-### Why This Shape
-
-The current product loop needs low user friction and deterministic payout behavior.
-So the protocol uses stable funding for user-facing pricing and `IXP` for internal execution accounting.
-
-This mirrors a "stable in, metered utility unit out" pattern that can later evolve into a transferable token only after sufficient volume and compliance gating.
-
-### Pricing Engine
-
-Implemented in `packages/intelligence-exchange-cannes-tokenomics`.
-
-Spot price:
+Pricing engine implementation lives in `packages/intelligence-exchange-cannes-tokenomics`.
 
 ```text
 curvePrice = basePriceUsdPerIxp * exp(adjustmentPower * (currentSupplyIxp / targetSupplyIxp)^3)
-```
-
-Mint quote:
-
-```text
 effectivePrice = curvePrice * (1 + (stableAmountUsd / liquidityDepthUsd) * (slippageBps / 10_000))
 mintedIxp = stableAmountUsd / effectivePrice
 ```
 
-### Settlement Engine
+Acceptance-time settlement steps:
 
-On accepted jobs:
+1. Read idea reserve and average mint price.
+2. Convert job budget USD to required gross `IXP`.
+3. Split gross `IXP` into worker payout and protocol fee.
+4. Write append-only ledger entries for poster debit, worker payout, treasury fee.
 
-1. Read idea reserve and average mint price
-2. Convert job budget USD to required gross IXP
-3. Split gross IXP:
-   - worker payout: `gross * (1 - protocolFeeBps/10_000)`
-   - protocol fee: `gross * (protocolFeeBps/10_000)`
-4. Write ledger entries for poster debit, worker payout, treasury fee
+Implemented invariants:
 
-### Invariants
-
-1. Duplicate `idea_funded` sync events must not double-mint.
-2. Settlement must be full-budget or fail (`IXP_RESERVE_INSUFFICIENT`), never partial-silent.
-3. `payoutReleased` attestation flag reflects whether settlement executed.
+1. Duplicate `idea_funded` sync events do not double-mint.
+2. Settlement is full-budget or fail (`IXP_RESERVE_INSUFFICIENT`), never silent-partial.
+3. `payoutReleased` reflects whether settlement actually executed.
 4. All token movements are append-only in `token_ledger_entries`.
 
-### Runtime Configuration
+Runtime configuration:
 
 ```bash
 TOKENOMICS_ENABLED=true
@@ -65,37 +58,90 @@ TOKEN_SLIPPAGE_BPS=50
 TOKEN_TREASURY_ACCOUNT=treasury:protocol
 ```
 
-### API Surface
+API surface:
 
 - `GET /v1/cannes/tokenomics/status`
 - `POST /v1/cannes/tokenomics/quote/mint`
 - `GET /v1/cannes/tokenomics/accounts/:accountAddress`
 - `GET /v1/cannes/tokenomics/ideas/:ideaId`
 
-### Non-Goals (Current Build)
+### Design Update: `INTEL` Rail + Stake-to-Mint (Planned)
 
-- No AMM contract deployment for IXP yet
-- No open transfer/trading path for IXP
-- No automatic market making or external LP dependency
-- No forced World verification when `WORLD_ID_STRICT=0`
+Design constraints already agreed:
 
-### Evolution Path
+- `INTEL` is the only settlement rail for task payments.
+- Users can still pay with stables through broker-side auto-convert to `INTEL`.
+- Direct mint and stake-to-mint are epoch-capped per wallet.
+- Staker rewards are distributed to all stakers pro-rata.
 
-Phase-gated extension can introduce transferable utility semantics (staking/governance/rewards) after:
+Target task fee split (on accepted jobs):
 
-1. sufficient accepted-job history,
-2. stable settlement reliability,
-3. explicit legal/compliance review.
+```text
+workerPayout = grossIntel * 0.81
+stakerYield = grossIntel * 0.09
+treasury = grossIntel * 0.10
+```
 
-### Comparative Patterns To Evaluate
+Target direct-mint inflow split:
 
-For next-phase token design, evaluate two patterns explicitly:
+```text
+protocolOwnedLiquidity = stableInflow * 0.50
+stakerYield = stableInflow * 0.45
+treasury = stableInflow * 0.05
+```
 
-1. Utility-token + stable settlement split
-   - user-facing pricing stays stable
-   - utility token captures protocol coordination value
-2. Stable mint + pool-tracked credit pricing
-   - mint credits from stable inflow
-   - adjust mint price via liquidity-depth and supply curve
+Stake-to-mint primitives:
 
-Current implementation follows pattern 2 inside the broker, without externalized trading.
+```text
+allowancePerEpoch(wallet) = min(k * sqrt(stakedIntel(wallet)), walletEpochCap, globalRemainingCap)
+mintPrice = max(twapIntelUsd * (1 + premiumBps/10_000), floorPrice) * utilizationMultiplier
+```
+
+Planned anti-abuse controls:
+
+1. Wallet and global epoch mint caps.
+2. Minted-token vesting/cooldown before full transferability.
+3. TWAP + premium pricing to reduce oracle and burst-mint manipulation.
+
+### Visuals: Fee, Yield, and Distribution
+
+```mermaid
+flowchart LR
+  A[Accepted Task Fee: 100 INTEL] --> B[Worker Payout 81 INTEL]
+  A --> C[Staker Yield Pool 9 INTEL]
+  A --> D[Treasury 10 INTEL]
+
+  E[Direct Mint Inflow: 100 USDC] --> F[POL 50 USDC]
+  E --> G[Staker Yield Pool 45 USDC]
+  E --> H[Treasury 5 USDC]
+```
+
+```mermaid
+pie showData title Task Fee Distribution (Target)
+  "Workers" : 81
+  "All Stakers" : 9
+  "Treasury" : 10
+```
+
+```mermaid
+pie showData title Direct Mint Inflow Distribution (Target)
+  "Protocol-Owned Liquidity" : 50
+  "All Stakers" : 45
+  "Treasury" : 5
+```
+
+### Overlap With DIEM-Style Stake-to-Mint Patterns
+
+Overlaps:
+
+1. Staking-derived mint rights (stake position gates mint allowance).
+2. Epoch-governed mint schedule and quota controls.
+3. Market-anchored mint pricing via TWAP plus premium/utilization.
+4. Explicit revenue routing from mint and usage flows to stakers.
+5. Controlled release mechanics to reduce extractive, short-horizon minting.
+
+Protocol-specific differences for this repo:
+
+1. `INTEL` remains the only task settlement unit.
+2. Stable payments are a UX bridge, not a second settlement rail.
+3. Reward routing prioritizes all-staker distribution instead of minter-only rebates.
