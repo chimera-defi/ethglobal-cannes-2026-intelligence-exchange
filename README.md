@@ -86,6 +86,13 @@ Mainnet-fork liquidity smoke:
 corepack pnpm --filter intelligence-exchange-cannes-contracts smoke:intel-liquidity:mainnet-fork
 ```
 
+## CI Gates
+
+GitHub Actions now runs on pull requests and `main` pushes with:
+
+- `make validate` (typecheck + build + tests + acceptance)
+- `make tokenomics-demo` (tokenomics regression actor-flow demo)
+
 ## Worker CLI (Local Pickup Loop)
 
 Build:
@@ -132,6 +139,7 @@ Active docs:
 
 Historical and archive references:
 
+- [spec/archive/HISTORY_INDEX.md](spec/archive/HISTORY_INDEX.md)
 - [spec/archive/README.md](spec/archive/README.md)
 - [spec/ARC_INTEGRATION.md](spec/ARC_INTEGRATION.md) (historical prize-track documentation)
 - [spec/CANNES_2026_PRIZE_MAPPING.md](spec/CANNES_2026_PRIZE_MAPPING.md) (historical sponsor mapping)

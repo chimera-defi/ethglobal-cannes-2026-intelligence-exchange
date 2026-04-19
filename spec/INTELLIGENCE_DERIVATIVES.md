@@ -1,8 +1,11 @@
 # Intelligence Derivatives Specification
 
+> Scope note (2026-04-19): this is a forward-looking market roadmap, not a launch acceptance checklist.
+> Current launch behavior is defined by `docs/CANONICAL_PRODUCT_OVERVIEW.md` and `spec/tokenomics/INTEL_LAUNCH_ARCHITECTURE.md`.
+
 ## Overview
 
-This document defines the path from a stablecoin-settled intelligence marketplace to a complete derivatives ecosystem for intelligence as a tradable asset class.
+This document defines the path from an INTEL-settled intelligence marketplace to a complete derivatives ecosystem for intelligence as a tradable asset class.
 
 > Launch reset note: the current token rail is `INTEL`. Legacy `IX/IXP` terminology has been removed from this roadmap.
 
@@ -33,7 +36,7 @@ This document defines the path from a stablecoin-settled intelligence marketplac
 **Status**: In Progress (Cannes 2026 build)
 
 **Components**:
-- Stablecoin-settled milestone marketplace (USDC/Arc)
+- INTEL-settled milestone marketplace (stablecoins as optional on-ramp only)
 - Human reviewer acceptance gates
 - Basic reputation scoring
 - Worker CLI and web app
