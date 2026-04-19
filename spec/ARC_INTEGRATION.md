@@ -1,5 +1,9 @@
 # Arc Integration Documentation
 
+> Historical archive note (2026-04-19): this document captures sponsor/prize-track integration detail from an earlier phase.
+> It is not the launch source-of-truth for current INTEL-native product behavior.
+> Use `docs/CANONICAL_PRODUCT_OVERVIEW.md` and `spec/tokenomics/INTEL_LAUNCH_ARCHITECTURE.md` for current launch design.
+
 ## ETHGlobal Cannes 2026 Prize 1: Best Smart Contract on Arc
 
 ### Submission Overview

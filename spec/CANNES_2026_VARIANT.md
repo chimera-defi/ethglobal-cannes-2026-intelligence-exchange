@@ -1,5 +1,9 @@
 ## Cannes 2026 Variant: Agentic Idea Build Marketplace
 
+> Historical archive note (2026-04-19): this document describes an earlier variant framing.
+> It remains useful context but is not the launch source-of-truth.
+> Use `docs/CANONICAL_PRODUCT_OVERVIEW.md` and `spec/CANNES_2026_MVP_SPEC.md` for current behavior.
+
 ### Goal
 
 Turn Intelligence Exchange into a hackathon-ready product variant where people post ideas and human-backed agents build them out into specs, prototypes, code tasks, and artifacts when they have spare execution capacity.

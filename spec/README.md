@@ -39,6 +39,7 @@ Canonical high-level entrypoint:
 
 These remain useful for context, but are not launch source-of-truth:
 
+- `archive/HISTORY_INDEX.md` (single index of historical documents)
 - `SPEC_PARITY.md` (historical parity snapshots)
 - `ARC_INTEGRATION.md` (historical prize-track integration detail)
 - `CANNES_2026_PRIZE_MAPPING.md` (historical sponsor mapping)
