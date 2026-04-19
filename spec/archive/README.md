@@ -10,11 +10,13 @@ They were archived because they are one or more of:
 
 Use these current docs first:
 
-- `../README.md`
+- `../../README.md`
 - `../SPEC_PARITY.md`
+- `../SPEC.md`
 - `../CANNES_2026_MVP_SPEC.md`
-- `../CANNES_2026_PRIZE_MAPPING.md`
-- `../CANNES_2026_FIRST_60_MINUTES.md`
+- `../TOKENOMICS.md`
+- `../tokenomics/INTEL_LAUNCH_ARCHITECTURE.md`
+- `HISTORY_INDEX.md`
 
 ## Archived Docs
 
@@ -34,3 +36,14 @@ Use these current docs first:
   - historical review pass notes
 - `META_LEARNINGS.md`
   - historical meta-takeaways
+
+## Historical Docs Kept At Spec Root
+
+Some legacy documents remain at `spec/` for link stability and now carry explicit archive notes:
+
+- `../ARC_INTEGRATION.md`
+- `../CANNES_2026_PRIZE_MAPPING.md`
+- `../CANNES_2026_VARIANT.md`
+- `../INTELLIGENCE_DERIVATIVES.md`
+
+See `HISTORY_INDEX.md` for the grouped historical map.
