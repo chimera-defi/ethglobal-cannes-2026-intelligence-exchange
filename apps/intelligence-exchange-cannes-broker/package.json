@@ -24,6 +24,7 @@
     "hono": "^4.3.0",
     "intelligence-exchange-cannes-fixtures": "workspace:*",
     "intelligence-exchange-cannes-shared": "workspace:*",
+    "intelligence-exchange-cannes-tokenomics": "workspace:*",
     "ioredis": "^5.3.2",
     "postgres": "^3.4.4",
     "viem": "^2.11.0",

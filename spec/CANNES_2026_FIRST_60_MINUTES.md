@@ -74,4 +74,4 @@ pnpm dev:cannes
 2. Worker can claim one milestone.
 3. Submission can pass through score and acceptance.
 4. Escrow state changes are visible.
-5. Dossier panel shows a local or stubbed URI.
+5. Dossier panel shows either a real write URI or a clearly labeled local deterministic URI.

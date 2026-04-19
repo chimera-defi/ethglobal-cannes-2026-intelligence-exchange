@@ -6,7 +6,7 @@
 
 - broker, planner, scorer, and web app run locally
 - Arc contract interactions mocked or pointed to local chain
-- World and 0G have local or stubbed fallback modes
+- World and 0G run in local deterministic fallback modes when live services are unavailable
 
 Purpose:
 - guaranteed demo backup
@@ -29,6 +29,37 @@ Purpose:
 
 Purpose:
 - prize eligibility and live proof
+
+### Forked Mainnet Liquidity Rehearsal
+
+Use this rehearsal mode to validate token-market behavior locally against Ethereum mainnet state.
+
+1. Run a one-command smoke that starts a mainnet fork, deploys `INTEL`, seeds `INTEL/WETH` liquidity on Uniswap V2, verifies non-zero reserves, and shuts down:
+
+```bash
+corepack pnpm --filter intelligence-exchange-cannes-contracts smoke:intel-liquidity:mainnet-fork
+```
+
+2. If you want manual control, run fork and deploy separately:
+
+```bash
+corepack pnpm --filter intelligence-exchange-cannes-contracts mainnet:fork
+MAINNET_FORK_RPC_URL=http://127.0.0.1:8545 \
+PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
+corepack pnpm --filter intelligence-exchange-cannes-contracts deploy:intel-liquidity:mainnet-fork
+```
+
+3. If a public RPC endpoint throttles requests, use fallback endpoints:
+
+```bash
+MAINNET_RPC_URLS="https://ethereum.publicnode.com,https://eth.merkle.io,https://eth.llamarpc.com" \
+corepack pnpm --filter intelligence-exchange-cannes-contracts smoke:intel-liquidity:mainnet-fork
+```
+
+Required proof artifacts from this run:
+- `INTEL_TOKEN_ADDRESS`
+- `INTEL_WETH_PAIR_ADDRESS`
+- `getReserves()` output with non-zero reserves
 
 ### Recommended Public-Network Strategy
 
@@ -83,4 +114,4 @@ Purpose:
 1. Do not claim open marketplace liquidity if only one worker exists.
 2. Do not claim autonomous payouts if approval remains human-gated.
 3. Do not claim censorship-resistant dispute resolution if disputes remain offchain.
-4. Clearly label any stubbed sponsor integration.
+4. Clearly label any deterministic fallback sponsor integration.

@@ -377,7 +377,7 @@ export const JobSpendCreateRequestSchema = z.object({
   vendor: z.string().min(1).max(200),
   purpose: z.string().min(1).max(500),
   amountUsd: z.number().positive(),
-  settlementRail: z.enum(['demo', 'arc']).default('demo'),
+  settlementRail: z.enum(['demo', 'arc', 'intel']).default('demo'),
   txHash: z.string().optional(),
 });
 export type JobSpendCreateRequest = z.infer<typeof JobSpendCreateRequestSchema>;

@@ -1,5 +1,8 @@
 # Architecture vs Code Reconciliation
 
+> Historical reconciliation snapshot (2026-04-04) retained for audit context.
+> For current launch behavior, follow `README.md`, `spec/CANNES_2026_MVP_SPEC.md`, and `spec/tokenomics/INTEL_LAUNCH_ARCHITECTURE.md`.
+
 ## Status: 2026-04-04
 
 This document reconciles claims in the README/architecture with actual code implementation.

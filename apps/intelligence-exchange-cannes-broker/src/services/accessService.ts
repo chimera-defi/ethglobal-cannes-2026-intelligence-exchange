@@ -7,6 +7,7 @@ import { agentAuthorizations, worldVerifications } from '../db/schema';
 import { httpError } from './errors';
 import { getActiveSession, SESSION_COOKIE_NAME } from './authService';
 import { normalizeAccountAddress } from './identityService';
+import { getWorldConfig } from './sponsorConfig';
 
 export async function getSessionAccountAddress(c: Context) {
   const sessionId = getCookie(c, SESSION_COOKIE_NAME);
@@ -32,6 +33,20 @@ export async function requireWorldRole(accountAddress: string, role: AccountRole
   }
 
   return verification;
+}
+
+export async function hasWorldRole(accountAddress: string, role: AccountRole) {
+  const normalized = normalizeAccountAddress(accountAddress);
+  const [verification] = await db.select().from(worldVerifications).where(and(
+    eq(worldVerifications.accountAddress, normalized),
+    eq(worldVerifications.role, role),
+  ));
+  return Boolean(verification);
+}
+
+export async function requireWorldRoleIfStrict(accountAddress: string, role: AccountRole) {
+  if (!getWorldConfig().strict) return null;
+  return requireWorldRole(accountAddress, role);
 }
 
 export async function requireSessionWorldRole(c: Context, role: AccountRole) {

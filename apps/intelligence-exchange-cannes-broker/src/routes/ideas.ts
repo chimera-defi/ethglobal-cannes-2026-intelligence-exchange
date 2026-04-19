@@ -10,11 +10,18 @@ import { z } from 'zod';
 import { db } from '../db/client';
 import { briefs, ideas, jobs } from '../db/schema';
 import { syncIdeaFunding, syncMilestoneReservation } from '../services/chainService';
-import { getSessionAccountAddress, requireSessionAccountAddress, requireSessionWorldRole, requireWorldRole } from '../services/accessService';
+import {
+  getSessionAccountAddress,
+  hasWorldRole,
+  requireSessionAccountAddress,
+  requireSessionWorldRole,
+  requireWorldRole,
+} from '../services/accessService';
 import { httpError } from '../services/errors';
 import { deriveDeterministicAddress, normalizeAccountAddress } from '../services/identityService';
 import { createIdea, generateBrief, acceptJob, rejectJob } from '../services/jobService';
 import { getWorldConfig } from '../services/sponsorConfig';
+import { mintAndReserveIdeaCredits } from '../services/tokenomicsService';
 import { readWorldVerificationToken } from '../services/worldId';
 
 export const ideasRouter = new Hono();
@@ -40,9 +47,13 @@ ideasRouter.post('/', zValidator('json', JobCreateRequestSchema), async (c) => {
     let worldIdProof: CreateIdeaRequest['worldIdProof'] | { nullifierHash: string } | undefined = req.worldIdProof;
 
     if (sessionAccountAddress) {
-      await requireWorldRole(sessionAccountAddress, 'poster');
       accountAddress = sessionAccountAddress;
-      worldIdVerified = true;
+      if (worldConfig.strict) {
+        await requireWorldRole(sessionAccountAddress, 'poster');
+        worldIdVerified = true;
+      } else {
+        worldIdVerified = await hasWorldRole(sessionAccountAddress, 'poster');
+      }
     } else if (worldConfig.strict) {
       throw httpError('Authenticated session required', 401, 'AUTH_REQUIRED');
     } else if (req.worldVerificationToken) {
@@ -146,7 +157,7 @@ ideasRouter.post('/:ideaId/fund', zValidator('json', z.object({
     return c.json({ error: { code: 'UNAUTHORIZED_IDEA_ACCESS', message: 'Only the poster can fund the idea' } }, 403);
   }
 
-  await syncIdeaFunding({
+  const sync = await syncIdeaFunding({
     eventType: 'idea_funded',
     txHash,
     subjectId: ideaId,
@@ -154,7 +165,16 @@ ideasRouter.post('/:ideaId/fund', zValidator('json', z.object({
     status: 'confirmed',
   });
 
-  return c.json({ ideaId, fundingStatus: 'funded', txHash });
+  const tokenomics = sync.alreadyRecorded
+    ? null
+    : await mintAndReserveIdeaCredits({
+      ideaId,
+      posterId: accountAddress,
+      stableAmountUsd: amountUsd,
+      txHash,
+    });
+
+  return c.json({ ideaId, fundingStatus: 'funded', txHash, tokenomics });
 });
 
 ideasRouter.post('/:ideaId/accept', zValidator('json', AcceptJobRequestSchema), async (c) => {
@@ -173,7 +193,7 @@ ideasRouter.post('/:ideaId/accept', zValidator('json', AcceptJobRequestSchema), 
 
     if (
       normalizeAccountAddress(idea.posterId) !== normalizeAccountAddress(accountAddress)
-      && (worldConfig.strict || Boolean(sessionAccountAddress))
+      && worldConfig.strict
     ) {
       await requireWorldRole(accountAddress, 'reviewer');
     }
@@ -202,20 +222,17 @@ ideasRouter.post('/:ideaId/cancel', async (c) => {
   if (!['unfunded', 'funded'].includes(idea.fundingStatus)) {
     return c.json({ error: { code: 'CANNOT_CANCEL', message: `Cannot cancel idea with status: ${idea.fundingStatus}` } }, 409);
   }
+  if (idea.fundingStatus === 'funded' && idea.escrowTxHash) {
+    return c.json({
+      error: {
+        code: 'CANCEL_REQUIRES_ESCROW_REFUND',
+        message: 'Funded ideas require an explicit escrow refund flow before cancellation.',
+      },
+    }, 409);
+  }
+
   await db.update(ideas).set({ fundingStatus: 'cancelled', updatedAt: new Date() }).where(eq(ideas.ideaId, ideaId));
   console.log(`[idea:cancelled] ideaId=${ideaId}`);
-
-  // TODO(escrow-refund): When an idea is cancelled, the escrow funds should be returned to the poster.
-  // Required work:
-  //   1. Deploy updated IdeaEscrow.sol with operator support + withdrawIdea(bytes32).
-  //   2. Change IdeaSubmission.tsx to call approve() + fundIdea(ideaIdBytes32, usdcAddr, amount)
-  //      instead of the current raw ERC-20 transfer (which the contract never records).
-  //   3. Add broker operator calls: refundMilestone() for each reserved job milestone on cancel,
-  //      and releaseMilestone() after reviewer approval.
-  //   4. Add "Cancel & Refund" button in BuyerWorkspace that calls withdrawIdea() from the wallet
-  //      after the broker cancel endpoint returns.
-  // Until this is done, USDC sent to the escrow on a cancelled idea is recoverable only by
-  // calling closeEscrow() or the contract owner's recovery function directly.
 
   return c.json({ ideaId, cancelled: true });
 });
@@ -236,7 +253,7 @@ ideasRouter.post('/:ideaId/reject', zValidator('json', RejectJobRequestSchema), 
 
     if (
       normalizeAccountAddress(idea.posterId) !== normalizeAccountAddress(accountAddress)
-      && (worldConfig.strict || Boolean(sessionAccountAddress))
+      && worldConfig.strict
     ) {
       await requireWorldRole(accountAddress, 'reviewer');
     }
