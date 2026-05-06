@@ -30,7 +30,12 @@ jobs:
           cache: pnpm
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
+        # SECURITY: Pin to SHA to prevent tag-swapping supply-chain attacks.
+        # Replace with the actual SHA of oven-sh/setup-bun@v2 after verification.
+        uses: oven-sh/setup-bun@4de645d
+
+      - name: Audit dependencies
+        run: pnpm audit --audit-level high
         with:
           bun-version: latest
 

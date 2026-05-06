@@ -1,0 +1,16 @@
+[profile.default]
+src = "contracts"
+out = "out"
+libs = ["lib"]
+via_ir = true
+optimizer = true
+optimizer_runs = 200
+
+[rpc_endpoints]
+mainnet = "https://ethereum.publicnode.com"
+arc-testnet = "https://rpc.testnet.arc.network"
+worldchain-mainnet = "https://worldchain-mainnet.g.alchemy.com/public"
+
+[etherscan]
+arc-testnet = { key = "", url = "https://testnet.arcscan.app/api" }
+worldchain-mainnet = { key = "", url = "https://worldchain-mainnet.explorer.alchemy.com/api" }

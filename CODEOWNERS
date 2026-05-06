@@ -1,0 +1,18 @@
+# CODEOWNERS — Require review for security-critical paths
+
+# CI/CD workflows
+.github/workflows/ @chimera_defi
+
+# Smart contracts (all changes need security review)
+packages/intelligence-exchange-cannes-contracts/src/ @chimera_defi
+
+# Broker auth and core middleware
+apps/intelligence-exchange-cannes-broker/src/middleware/ @chimera_defi
+apps/intelligence-exchange-cannes-broker/src/services/authService.ts @chimera_defi
+apps/intelligence-exchange-cannes-broker/src/services/accessService.ts @chimera_defi
+apps/intelligence-exchange-cannes-broker/src/routes/auth.ts @chimera_defi
+
+# Root config
+package.json @chimera_defi
+foundry.toml @chimera_defi
+pnpm-workspace.yaml @chimera_defi

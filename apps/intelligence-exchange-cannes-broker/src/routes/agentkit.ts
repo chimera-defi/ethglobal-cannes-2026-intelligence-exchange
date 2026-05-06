@@ -1,7 +1,8 @@
+import { isAddress } from 'viem';
 import { Hono, type Context } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
-import { spawnSync } from 'child_process';
+import { spawn } from 'child_process';
 import { buildGroupedJobBoard, buildSkillMdResponse, getFlatJobs, getJobDetail } from './jobs';
 import { getAgentKitStatus, lookupAgentBookHuman, requireAgentKitAccess } from '../services/agentkitService';
 import { getSessionAccountAddress } from '../services/accessService';
@@ -20,7 +21,7 @@ async function authorize(c: Context, endpoint: string) {
 // Runs the World AgentKit CLI registration for the authenticated wallet.
 // This is a convenience wrapper so users don't need the CLI installed locally.
 agentkitRouter.post('/register-agentbook', zValidator('json', z.object({
-  address: z.string().min(1),
+  address: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid Ethereum address'),
 })), async (c) => {
   const accountAddress = await getSessionAccountAddress(c);
   if (!accountAddress) {
@@ -28,6 +29,10 @@ agentkitRouter.post('/register-agentbook', zValidator('json', z.object({
   }
 
   const { address } = c.req.valid('json');
+  if (!isAddress(address, { strict: true })) {
+    return c.json({ error: { code: 'INVALID_ADDRESS', message: 'Address is not a valid checksummed Ethereum address' } }, 400);
+  }
+
   if (accountAddress.toLowerCase() !== address.toLowerCase()) {
     return c.json({ error: { code: 'FORBIDDEN', message: 'Address does not match session' } }, 403);
   }
@@ -38,24 +43,28 @@ agentkitRouter.post('/register-agentbook', zValidator('json', z.object({
     return c.json({ alreadyRegistered: true, humanId, message: 'Address is already registered in AgentBook' });
   }
 
-  // Run the CLI registration — outputs progress to stdout and exits 0 on success
-  // Use absolute path to bun since broker runs in a limited shell env where bunx may not be in PATH
+  // Run the CLI registration asynchronously to avoid blocking the event loop
   const bunBin = process.env.BUN_INSTALL
     ? `${process.env.BUN_INSTALL}/bin/bun`
     : '/root/.bun/bin/bun';
-  const result = spawnSync(bunBin, ['x', '@worldcoin/agentkit-cli', 'register', address], {
-    encoding: 'utf8',
+  const child = spawn(bunBin, ['x', '@worldcoin/agentkit-cli', 'register', address], {
     timeout: 60_000,
     env: { ...process.env, PATH: `/root/.bun/bin:${process.env.PATH ?? ''}` },
   });
 
-  if (result.error) {
-    return c.json({ error: { code: 'SPAWN_ERROR', message: result.error.message } }, 500);
-  }
+  let stdout = '';
+  let stderr = '';
+  child.stdout?.on('data', (data) => { stdout += String(data); });
+  child.stderr?.on('data', (data) => { stderr += String(data); });
 
-  const output = ((result.stdout ?? '') + (result.stderr ?? '')).trim();
-  if (result.status !== 0) {
-    return c.json({ error: { code: 'CLI_ERROR', message: output || 'AgentKit CLI exited with error', exitCode: result.status } }, 500);
+  const exitCode = await new Promise<number | null>((resolve) => {
+    child.on('close', (code) => resolve(code));
+    child.on('error', () => resolve(null));
+  });
+
+  const output = (stdout + stderr).trim();
+  if (exitCode !== 0) {
+    return c.json({ error: { code: 'CLI_ERROR', message: output || 'AgentKit CLI exited with error', exitCode } }, 500);
   }
 
   // Re-check registration after CLI run
