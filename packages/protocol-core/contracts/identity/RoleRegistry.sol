@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-/// @title IdentityGate
-/// @notice On-chain mirror for backend World verification state.
-contract IdentityGate {
+import {IAuthorization} from "./IAuthorization.sol";
+
+/// @title RoleRegistry
+/// @notice On-chain role verification with pluggable IAuthorization interface.
+///         Backend attestation state mirrored on-chain for settlement contracts.
+contract RoleRegistry is IAuthorization {
     error Unauthorized();
 
     bytes32 public constant POSTER_ROLE = keccak256("poster");
@@ -34,9 +37,18 @@ contract IdentityGate {
         emit RoleVerificationUpdated(account, role, verified);
     }
 
+    function grantRole(address account, bytes32 role) external onlyAttestor {
+        verifiedRoles[account][role] = true;
+        emit RoleVerificationUpdated(account, role, true);
+    }
+
     function revokeRole(address account, bytes32 role) external onlyAttestor {
         verifiedRoles[account][role] = false;
         emit RoleRevoked(account, role);
+    }
+
+    function isAuthorized(address account, bytes32 role) external view returns (bool) {
+        return verifiedRoles[account][role];
     }
 
     function isVerified(address account, bytes32 role) external view returns (bool) {

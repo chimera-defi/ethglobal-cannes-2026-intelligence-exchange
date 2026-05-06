@@ -15,17 +15,27 @@ import { workersRouter } from './routes/workers';
 import { migrate } from './db/migrate';
 import { setupLeaseExpiryRequeue } from './queue/milestoneQueue';
 import { db } from './db/client';
+import { rateLimit, walletRateLimit } from './middleware/rateLimit';
+import { getSessionAccountAddress } from './services/accessService';
 
 export const app = new Hono();
 
+// CORS: restrict to known origins in production; allow local dev fallback
+const CORS_ORIGIN = process.env.WEB_APP_URL ?? 'http://localhost:3000';
+
 // Middleware
-app.use('*', cors({ origin: '*', allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'] }));
+app.use('*', cors({
+  origin: CORS_ORIGIN,
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  credentials: true,
+}));
 app.use('*', logger());
+app.use('*', rateLimit());
 
 // Health check
 app.get('/health', (c) => c.json({ status: 'ok', ts: new Date().toISOString() }));
 
-// API routes
+// API routes — apply wallet rate limiting on mutation endpoints
 app.route('/v1/cannes/auth', authRouter);
 app.route('/v1/cannes/world', worldRouter);
 app.route('/v1/cannes/integrations', integrationsRouter);
@@ -34,6 +44,7 @@ app.route('/v1/cannes/agentkit', agentkitRouter);
 app.route('/v1/cannes/arc', arcRouter);
 app.route('/v1/cannes/chain', chainRouter);
 app.route('/v1/cannes/ideas', ideasRouter);
+app.use('/v1/cannes/jobs/*', walletRateLimit(async (c) => getSessionAccountAddress(c)));
 app.route('/v1/cannes/jobs', jobsRouter);
 app.route('/v1/cannes/tokenomics', tokenomicsRouter);
 app.route('/v1/cannes/workers', workersRouter);
