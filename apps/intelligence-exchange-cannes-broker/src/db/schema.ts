@@ -170,6 +170,43 @@ export const agentSpendEvents = pgTable('agent_spend_events', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+// ─── Tokenomics (stable -> INTEL minting and settlement ledger; legacy ixp_* column names) ──────
+
+export const tokenAccounts = pgTable('token_accounts', {
+  accountAddress: text('account_address').primaryKey(),
+  stableDepositedUsd: numeric('stable_deposited_usd', { precision: 18, scale: 6 }).notNull().default('0'),
+  ixpBalance: numeric('ixp_balance', { precision: 24, scale: 8 }).notNull().default('0'),
+  ixpReserved: numeric('ixp_reserved', { precision: 24, scale: 8 }).notNull().default('0'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const tokenLedgerEntries = pgTable('token_ledger_entries', {
+  entryId: uuid('entry_id').primaryKey(),
+  accountAddress: text('account_address').notNull(),
+  entryType: text('entry_type').notNull(),
+  deltaIxp: numeric('delta_ixp', { precision: 24, scale: 8 }).notNull(),
+  deltaStableUsd: numeric('delta_stable_usd', { precision: 18, scale: 6 }).notNull().default('0'),
+  referenceType: text('reference_type'),
+  referenceId: text('reference_id'),
+  metadata: jsonb('metadata').notNull().default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const ideaTokenReserves = pgTable('idea_token_reserves', {
+  ideaId: text('idea_id').primaryKey().references(() => ideas.ideaId),
+  posterId: text('poster_id').notNull(),
+  stableFundedUsd: numeric('stable_funded_usd', { precision: 18, scale: 6 }).notNull().default('0'),
+  avgMintPriceUsdPerIxp: numeric('avg_mint_price_usd_per_ixp', { precision: 24, scale: 8 }).notNull().default('1'),
+  ixpMinted: numeric('ixp_minted', { precision: 24, scale: 8 }).notNull().default('0'),
+  ixpReserved: numeric('ixp_reserved', { precision: 24, scale: 8 }).notNull().default('0'),
+  ixpSpent: numeric('ixp_spent', { precision: 24, scale: 8 }).notNull().default('0'),
+  ixpProtocolFee: numeric('ixp_protocol_fee', { precision: 24, scale: 8 }).notNull().default('0'),
+  status: text('status').notNull().default('active'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 // ─── Agent Identities (mirrors on-chain registry) ─────────────────────────────
 
 export const agentIdentities = pgTable('agent_identities', {

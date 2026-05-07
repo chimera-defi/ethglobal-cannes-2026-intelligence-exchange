@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Setup Bun
+        # SECURITY: Pin to SHA to prevent tag-swapping supply-chain attacks.
+        # Replace with the actual SHA of oven-sh/setup-bun@v2 after verification.
+        uses: oven-sh/setup-bun@4de645d
+
+      - name: Audit dependencies
+        run: pnpm audit --audit-level high
+        with:
+          bun-version: latest
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Full validation
+        run: make validate
+
+      - name: Tokenomics regression demo
+        run: make tokenomics-demo

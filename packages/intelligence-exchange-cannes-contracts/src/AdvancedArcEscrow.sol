@@ -752,6 +752,7 @@ contract AdvancedArcEscrow {
         uint256 amount = m.amount;
         m.status = MilestoneStatus.Refunded;
         fund.available += amount;
+        totalEscrowed -= amount;
 
         emit MilestoneRefunded(ideaId, milestoneId, fund.poster, amount);
     }

@@ -16,6 +16,7 @@ contract IdentityGate {
     mapping(address account => mapping(bytes32 role => bool verified)) private verifiedRoles;
 
     event RoleVerificationUpdated(address indexed account, bytes32 indexed role, bool verified);
+    event RoleRevoked(address indexed account, bytes32 indexed role);
     event AttestorUpdated(address indexed attestor);
 
     constructor(address _attestor) {
@@ -31,6 +32,11 @@ contract IdentityGate {
     function setVerified(address account, bytes32 role, bool verified) external onlyAttestor {
         verifiedRoles[account][role] = verified;
         emit RoleVerificationUpdated(account, role, verified);
+    }
+
+    function revokeRole(address account, bytes32 role) external onlyAttestor {
+        verifiedRoles[account][role] = false;
+        emit RoleRevoked(account, role);
     }
 
     function isVerified(address account, bytes32 role) external view returns (bool) {
