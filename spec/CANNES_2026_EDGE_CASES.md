@@ -50,7 +50,7 @@
 16. Arc RPC unavailable
    - expected: local fallback mode available and clearly labeled
 17. World proof service unstable
-   - expected: demo-safe stub path only if explicitly labeled, otherwise block action
+   - expected: demo-safe deterministic fallback path only if explicitly labeled, otherwise block action
 18. 0G storage write delayed
    - expected: show pending dossier state and do not pretend write succeeded
 

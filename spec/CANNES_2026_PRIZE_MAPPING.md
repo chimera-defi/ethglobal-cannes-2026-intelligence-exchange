@@ -1,5 +1,9 @@
 ## Cannes 2026 Prize Mapping
 
+> Historical archive note (2026-04-19): this mapping reflects sponsor-prize positioning work.
+> It is retained for provenance and is not the current launch product specification.
+> Use `docs/CANONICAL_PRODUCT_OVERVIEW.md` for current launch scope.
+
 Source:
 - official ETHGlobal Cannes 2026 prizes page: https://ethglobal.com/events/cannes2026/prizes
 

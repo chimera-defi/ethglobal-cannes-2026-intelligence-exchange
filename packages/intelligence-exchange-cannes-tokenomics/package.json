@@ -1,0 +1,15 @@
+{
+  "name": "intelligence-exchange-cannes-tokenomics",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "demo:intel:actors": "bun scripts/demo-intel-actor-flow.ts"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}

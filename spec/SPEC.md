@@ -68,6 +68,11 @@ Trust registries (v2):
 - Daily/weekly netting windows.
 - Payment rails abstraction (fiat first, optional agentic and crypto rails).
 - Dispute workflow with replayable artifacts.
+- Internal tokenomics rail (implemented):
+  - `INTEL` is the settlement rail for funded ideas and accepted jobs
+  - stable funding can auto-convert into `INTEL` for mint/settlement flows
+  - settlement splits worker payout + protocol fee with append-only ledger entries
+  - funding sync must be idempotent (duplicate chain receipts cannot double-mint)
 
 Protocol adapters (v2):
 - Payment adapter interface (`fiat`, `x402-style`, optional `onchain`).
@@ -145,7 +150,7 @@ Canonical lifecycle states are defined in `STATE_MODEL.md`.
 4. Marketplace operations (worker onboarding, disputes, QA, support).
 
 ### Decision Note
-Do not model tradable credits in core architecture. Keep the platform anchored to fulfilled execution jobs and measured outcomes.
+Launch with a publicly tradable `INTEL` token as the single pricing and settlement rail. Keep settlement anchored to fulfilled execution jobs and measured outcomes, with stablecoin UX treated as an optional on-ramp that auto-converts into `INTEL`.
 
 ### Related Docs
 1. `UX_AND_PAYMENTS_FLOW.md`
@@ -160,3 +165,6 @@ Do not model tradable credits in core architecture. Keep the platform anchored t
 10. `contracts/README.md`
 11. `ACCEPTANCE_TEST_MATRIX.md`
 12. `CANNES_2026_FIRST_60_MINUTES.md`
+13. `TOKEN_ARCHITECTURE.md`
+14. `TOKENOMICS.md`
+15. `TOKEN_HANDOFF_PACKAGE.md`
