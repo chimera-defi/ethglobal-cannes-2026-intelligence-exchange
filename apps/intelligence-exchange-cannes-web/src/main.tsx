@@ -120,6 +120,12 @@ const BuyerHistory = React.lazy(() =>
 const AgentsPage = React.lazy(() =>
   import('./pages/AgentsPage').then(m => ({ default: m.AgentsPage }))
 );
+const EscrowStatusPanel = React.lazy(() =>
+  import('./pages/EscrowStatusPanel').then(m => ({ default: m.EscrowStatusPanel }))
+);
+const DossierPanel = React.lazy(() =>
+  import('./pages/DossierPanel').then(m => ({ default: m.DossierPanel }))
+);
 const LandingPage = React.lazy(() =>
   import('./pages/LandingPage').then(m => ({ default: m.LandingPage }))
 );
@@ -148,6 +154,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Nav />
             <Suspense fallback={<PageFallback />}>
               <Routes>
+                <Route path="/escrow/:ideaId" element={<EscrowStatusPanel />} />
+                <Route path="/dossier/:ideaId" element={<DossierPanel />} />
                 <Route path="/" element={<LandingPage />} />
                 <Route path="/submit" element={<IdeaSubmission />} />
                 <Route path="/ideas" element={<IdeasList />} />
