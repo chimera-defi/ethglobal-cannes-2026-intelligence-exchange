@@ -1,0 +1,37 @@
+name: PR Attribution Check
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - edited
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  attribution:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate PR description attribution
+        run: |
+          set -euo pipefail
+
+          pr_body="${{ github.event.pull_request.body }}"
+
+          if ! grep -Eq '^\*\*Agent:\*\*' <<< "${pr_body}"; then
+            echo "FAIL: PR description must include '**Agent:** <MODEL NAME>'"
+            exit 1
+          fi
+
+          if ! grep -Eq '^\*\*Co-authored-by:\*\* Chimera' <<< "${pr_body}"; then
+            echo "FAIL: PR description must include '**Co-authored-by:** Chimera <chimera_defi@protonmail.com>'"
+            exit 1
+          fi
+
+          echo "PR attribution checks passed."
