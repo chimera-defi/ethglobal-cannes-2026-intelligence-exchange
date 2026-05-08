@@ -352,7 +352,15 @@ export function IdeaDetail() {
             >
               {idea.fundingStatus.toUpperCase()}
             </Badge>
-            {allSettled && <Badge variant="settled">SETTLED</Badge>}
+            {idea.fundingStatus === 'funded' && (
+              <button
+                className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 mt-1"
+                onClick={() => navigate(`/escrow/${ideaId}`)}
+              >
+                <ExternalLink className="h-3 w-3" />
+                Escrow status
+              </button>
+            )}
             {!allSettled && allAccepted && <Badge variant="accepted">ALL ACCEPTED</Badge>}
             {anyActive && (
               <Badge variant="claimed" className="animate-pulse">
@@ -428,9 +436,16 @@ export function IdeaDetail() {
             <CardContent className="space-y-3">
               <p className="text-gray-300 text-sm leading-relaxed">{brief.summary}</p>
               {brief.dossierUri && (
-                <div className="bg-blue-900/20 border border-blue-800 rounded-lg p-3">
+                <div className="bg-blue-900/20 border border-blue-800 rounded-lg p-3 space-y-2">
                   <p className="text-blue-400 text-xs font-medium mb-1">0G Dossier URI</p>
                   <p className="text-blue-300 font-mono text-xs break-all">{brief.dossierUri}</p>
+                  <button
+                    className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                    onClick={() => navigate(`/dossier/${ideaId}`)}
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    Open full dossier
+                  </button>
                 </div>
               )}
             </CardContent>
