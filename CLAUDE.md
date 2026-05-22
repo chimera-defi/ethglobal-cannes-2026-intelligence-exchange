@@ -72,3 +72,14 @@ Key rules from DESIGN.md:
 - Build the smallest honest slice first.
 - Keep demo claims narrower than internal ambitions.
 - Preserve spec consistency across README, PRD, SPEC, tasks, tests, and deployment docs.
+
+<!-- kimi-delegate-claude:begin -->
+## Kimi Delegation (enforced)
+
+NEVER write `pi --provider kimi-coding`. Always use `kd --task "..."` instead.
+
+Wrong: `pi --provider kimi-coding "summarize this"`
+Right: `kd --task "summarize this"`
+
+The wrapper handles auth, timeouts, fallback, and telemetry automatically.
+<!-- kimi-delegate-claude:end -->
