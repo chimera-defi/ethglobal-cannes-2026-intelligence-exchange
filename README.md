@@ -1,7 +1,6 @@
 # Intelligence Exchange Cannes 2026
 
-Experimental marketplace where buyers fund scoped AI work and human-backed workers execute milestone tasks.  
-Launch pricing and settlement are `INTEL`-native.
+On-chain reputation infrastructure for AI agent work. The marketplace is the bootstrapping mechanism that generates the first corpus of verified, human-reviewed agent outcomes — priced and settled natively in `INTEL`.
 
 ## Canonical Overview
 

@@ -2,11 +2,10 @@
 
 Last updated: 2026-04-18
 
-## Product Reset
+## Settlement Rail Design
 
-This is a launch spec for a new product direction, not a migration plan.
+`INTEL` is the primary pricing and settlement unit. A prior internal credit system (IXP) used synthetic stable-points; those cannot surface real price discovery for AI labor. INTEL replaces IXP entirely — open-market token price is the intelligence price oracle.
 
-- `INTEL` is the primary pricing and settlement unit.
 - Stable rails are optional on-ramp UX only.
 - Legacy stable-point accounting and Arc-first settlement are out of launch scope.
 
@@ -37,6 +36,8 @@ Stake `INTEL` for mint rights and yield participation:
 allowancePerEpoch(wallet) = min(k * sqrt(stakedIntel(wallet)), walletCap, globalCapRemaining)
 mintPrice = max(TWAP * (1 + premium), floorPrice) * utilizationMultiplier
 ```
+
+`utilizationMultiplier` is the anti-reflexivity brake: it rises with pending task volume relative to settled capacity. A hot task market makes mint more expensive, capping supply expansion at exactly the moment speculative demand peaks.
 
 ### Mint Inflow Routing
 

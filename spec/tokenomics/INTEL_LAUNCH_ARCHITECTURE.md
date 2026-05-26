@@ -1,14 +1,16 @@
-# INTEL Launch Architecture (Speculative Product Reset)
+# INTEL Launch Architecture
 
-Last updated: 2026-04-18
+Last updated: 2026-05-26
 
-## Product Position
+## Why INTEL
 
-This is a fresh launch spec, not a migration plan.
+An earlier design used IXP — a stable-point credit rail for internal task accounting. IXP could not do price discovery: credits are synthetic, their price is set by policy, not markets. The market has no way to express what a unit of AI execution is actually worth via a credit ledger.
+
+INTEL replaces it. A public token routed through real task settlement makes open-market price the oracle for intelligence cost. This is not a migration — the IXP accounting layer is being replaced in full. Any `ixp_*` column names still in the database are pending rename in the current sprint.
 
 - `INTEL` is the native unit for pricing and settling intelligence work.
 - Stablecoins are optional on-ramp UX only.
-- Legacy stable-point rails and Arc-first settlement are out of launch scope.
+- All legacy credit terminology is removed from launch UX.
 
 ## Launch Objective
 
@@ -34,6 +36,8 @@ Make the token market itself discover the price of intelligence by routing deman
 allowancePerEpoch(wallet) = min(k * sqrt(stakedIntel(wallet)), walletCap, globalCapRemaining)
 mintPrice = max(TWAP * (1 + premium), floorPrice) * utilizationMultiplier
 ```
+
+`utilizationMultiplier` is the key anti-reflexivity control. It measures pending task volume divided by settled capacity in the current epoch. When the task market is hot — lots of open claims, high escrow, slow settlement — utilization rises and mint becomes more expensive. This means a demand surge tightens supply expansion rather than loosening it: exactly the opposite of a reflexive mint loop. When utilization is low, mint is cheap and the protocol can grow supply to serve real demand growth.
 
 ### 3) Treasury + Liquidity Policy
 
