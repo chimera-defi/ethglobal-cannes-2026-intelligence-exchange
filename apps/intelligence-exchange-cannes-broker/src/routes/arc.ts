@@ -13,7 +13,7 @@ import { db } from '../db/client';
 import { jobs, ideas, milestones, escrowReleases } from '../db/schema';
 import { requireSessionAccountAddress, requireWorldRole } from '../services/accessService';
 import { httpError } from '../services/errors';
-import { randomUUID } from 'crypto';
+import { randomUUID, createHmac, timingSafeEqual } from 'crypto';
 import {
   getArcIntegrationStatus,
   getEscrowConfig,
@@ -588,11 +588,22 @@ arcRouter.post('/tx/release-milestone', zValidator('json', ReleaseMilestoneSchem
  * Receive escrow events from indexer/webhook
  */
 arcRouter.post('/webhook/escrow-event', async (c) => {
-  const event = await c.req.json();
-  
-  // Validate webhook signature (implement based on your indexer)
-  // For now, accept and process
-  
+  const ARC_WEBHOOK_SECRET = process.env.ARC_WEBHOOK_SECRET ?? '';
+  const rawBody = await c.req.text();
+
+  if (ARC_WEBHOOK_SECRET) {
+    const signature = c.req.header('X-Arc-Signature');
+    if (!signature) {
+      return c.json({ error: 'Missing webhook signature' }, 401);
+    }
+    const expected = 'sha256=' + createHmac('sha256', ARC_WEBHOOK_SECRET).update(rawBody).digest('hex');
+    if (!timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) {
+      return c.json({ error: 'Invalid webhook signature' }, 401);
+    }
+  }
+
+  const event = JSON.parse(rawBody);
+
   const { eventType, txHash, milestoneId, ideaId, ...payload } = event;
   
   // Update database based on event type

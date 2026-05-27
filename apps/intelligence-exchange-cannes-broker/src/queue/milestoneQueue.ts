@@ -1,6 +1,7 @@
 import { Queue } from 'bullmq';
 import { STALLED_JOB_INTERVAL_MS } from 'intelligence-exchange-cannes-shared';
 import type { BrokerDb } from '../db/client';
+import { logJobEvent } from '../services/jobEvents';
 
 const REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6379';
 
@@ -37,37 +38,59 @@ function getMilestoneQueue() {
 // Re-queue stalled jobs (lease expired) back to the queue.
 // This runs every STALLED_JOB_INTERVAL_MS (10s for demo responsiveness).
 export async function setupLeaseExpiryRequeue(db: BrokerDb) {
-  const { jobs } = await import('../db/schema');
+  const { jobs, claims } = await import('../db/schema');
   const { eq, lt, and, inArray } = await import('drizzle-orm');
 
   setInterval(async () => {
     const now = new Date();
-    const stalled = await db.select({ jobId: jobs.jobId, milestoneType: jobs.milestoneType })
-      .from(jobs)
+
+    // Find active claims that have expired
+    const expiredClaims = await db.select({
+      claimId: claims.claimId,
+      jobId: claims.jobId,
+      workerId: claims.workerId,
+    })
+      .from(claims)
       .where(
         and(
-          inArray(jobs.status, ['claimed', 'running']),
-          lt(jobs.leaseExpiry, now)
+          eq(claims.status, 'active'),
+          lt(claims.expiresAt, now)
         )
       );
 
-    for (const job of stalled) {
+    for (const claim of expiredClaims) {
+      // Update claim status to expired
+      await db.update(claims)
+        .set({ status: 'expired' })
+        .where(eq(claims.claimId, claim.claimId));
+
+      // Unclaim the associated job
       await db.update(jobs).set({
         status: 'queued',
         activeClaimId: null,
         activeClaimWorkerId: null,
         leaseExpiry: null,
         updatedAt: now,
-      }).where(eq(jobs.jobId, job.jobId));
+      }).where(eq(jobs.jobId, claim.jobId));
 
       // Re-add to BullMQ
-      await getMilestoneQueue().add(`job:${job.jobId}:requeue`, {
-        jobId: job.jobId,
-        milestoneType: job.milestoneType,
+      const [jobRow] = await db.select({ milestoneType: jobs.milestoneType })
+        .from(jobs)
+        .where(eq(jobs.jobId, claim.jobId));
+
+      await getMilestoneQueue().add(`job:${claim.jobId}:requeue`, {
+        jobId: claim.jobId,
+        milestoneType: jobRow?.milestoneType ?? 'unknown',
         requeued: true,
       });
 
-      console.log(`[job:requeued] jobId=${job.jobId} lease expired`);
+      await logJobEvent(claim.jobId, 'queued', 'system', {
+        claimId: claim.claimId,
+        workerId: claim.workerId,
+        reason: 'lease_expired_auto_unclaim',
+      });
+
+      console.log(`[job:requeued] jobId=${claim.jobId} claimId=${claim.claimId} lease expired (auto-unclaim)`);
     }
   }, STALLED_JOB_INTERVAL_MS);
 }
