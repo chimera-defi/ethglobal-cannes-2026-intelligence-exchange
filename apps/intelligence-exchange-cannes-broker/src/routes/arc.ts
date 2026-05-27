@@ -90,12 +90,6 @@ const ReleaseMilestoneSchema = z.object({
   autoRelease: z.boolean().default(false),
 });
 
-const ResolveDisputeSchema = z.object({
-  jobId: z.string(),
-  resolution: z.enum(['workerWins', 'posterWins', 'split']),
-  workerPayoutBps: z.number().int().min(0).max(10000).optional(), // For split resolution
-});
-
 // ═════════════════════════════════════════════════════════════════════════════
 // Status & Config Routes
 // ═════════════════════════════════════════════════════════════════════════════
@@ -470,15 +464,19 @@ arcRouter.post('/tx/submit-milestone', zValidator('json', SubmitMilestoneSchema)
   });
 });
 
+const StartReviewSchema = z.object({
+  jobId: z.string(),
+});
+
 /**
  * POST /v1/cannes/arc/tx/start-review
  * Build transaction for reviewer to start review
  */
-arcRouter.post('/tx/start-review', async (c) => {
+arcRouter.post('/tx/start-review', zValidator('json', StartReviewSchema), async (c) => {
   const accountAddress = await requireSessionAccountAddress(c);
   await requireWorldRole(accountAddress, 'reviewer');
   
-  const { jobId } = await c.req.json();
+  const { jobId } = c.req.valid('json');
   
   const [job] = await db.select().from(jobs).where(eq(jobs.jobId, jobId));
   if (!job) throw httpError('Job not found', 404, 'JOB_NOT_FOUND');
@@ -609,11 +607,17 @@ arcRouter.post('/webhook/escrow-event', async (c) => {
     }
   }
 
-  const event = JSON.parse(rawBody);
+  let event: Record<string, unknown>;
+  try {
+    event = JSON.parse(rawBody);
+  } catch {
+    return c.json({ error: 'Invalid JSON body' }, 400);
+  }
 
   const { eventType, txHash, milestoneId, ideaId, ...payload } = event;
   
   // Update database based on event type
+  try {
   switch (eventType) {
     case 'MilestoneReleased':
     case 'MilestoneAutoReleased': {
@@ -662,6 +666,13 @@ arcRouter.post('/webhook/escrow-event', async (c) => {
     }
   }
   
+  } catch (error) {
+    return c.json({
+      error: 'Failed to process event',
+      details: error instanceof Error ? error.message : String(error),
+    }, 500);
+  }
+
   return c.json({ received: true, eventType });
 });
 
