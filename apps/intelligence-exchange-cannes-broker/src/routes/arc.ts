@@ -39,11 +39,8 @@ import {
   parseUSDC,
   getArcExplorerUrl,
   getArcAddressExplorerUrl,
-  MilestoneStatus,
   DisputeResolution,
 } from '../services/arcEscrowService';
-import { getIntegrationStatus } from '../services/sponsorConfig';
-
 export const arcRouter = new Hono();
 
 function toBytes32Id(value: string): `0x${string}` {
@@ -128,8 +125,7 @@ arcRouter.get('/status', async (c) => {
  */
 arcRouter.get('/config', async (c) => {
   const status = getArcIntegrationStatus();
-  const integration = getIntegrationStatus();
-  
+
   if (!status.configured) {
     return c.json({
       configured: false,
@@ -614,8 +610,13 @@ arcRouter.post('/webhook/escrow-event', async (c) => {
     return c.json({ error: 'Invalid JSON body' }, 400);
   }
 
-  const { eventType, txHash, milestoneId, ideaId, ...payload } = event;
-  
+  const eventType = String(event.eventType ?? '');
+  const txHash = event.txHash != null ? String(event.txHash) : undefined;
+  const milestoneId = String(event.milestoneId ?? '');
+  const ideaId = event.ideaId != null ? String(event.ideaId) : undefined;
+  const workerAddress = event.worker != null ? String(event.worker) : '';
+  const amountUsd = event.amount != null ? String(event.amount) : '0';
+
   // Update database based on event type
   try {
   switch (eventType) {
@@ -629,9 +630,9 @@ arcRouter.post('/webhook/escrow-event', async (c) => {
           jobId: job.jobId,
           ideaId: job.ideaId,
           milestoneId,
-          payer: ideaId || 'poster',
-          payee: payload.worker,
-          amountUsd: payload.amount,
+          payer: ideaId ?? 'poster',
+          payee: workerAddress,
+          amountUsd,
           txHash,
           status: 'confirmed',
           releasedAt: new Date(),
