@@ -139,8 +139,9 @@ contract IntelStaking {
         s.stakedAt = block.timestamp;
         totalStaked += amount;
 
-        // Pull tokens
-        intel.transferFrom(msg.sender, address(this), amount);
+        // Pull tokens; IntelToken always returns true or reverts — check anyway for safety
+        bool stakeOk = intel.transferFrom(msg.sender, address(this), amount);
+        require(stakeOk, "IntelStaking: stake transferFrom failed");
 
         emit Staked(msg.sender, amount, s.staked, currentEpoch);
     }
@@ -176,7 +177,8 @@ contract IntelStaking {
         s.pendingUnstake = 0;
         s.unstakeAvailableAt = 0;
 
-        intel.transfer(msg.sender, amount);
+        bool unstakeOk = intel.transfer(msg.sender, amount);
+        require(unstakeOk, "IntelStaking: unstake transfer failed");
 
         emit Unstaked(msg.sender, amount);
     }
@@ -187,7 +189,8 @@ contract IntelStaking {
     /// @dev Caller must have approved this contract to transfer `amount` of INTEL.
     function depositYield(uint256 amount) external {
         if (amount == 0) revert ZeroAmount();
-        intel.transferFrom(msg.sender, address(this), amount);
+        bool yieldOk = intel.transferFrom(msg.sender, address(this), amount);
+        require(yieldOk, "IntelStaking: depositYield transferFrom failed");
 
         if (totalStaked > 0) {
             // Distribute immediately to current stakers
@@ -297,7 +300,8 @@ contract IntelStaking {
         if (accumulated > s.yieldDebt) {
             claimed = accumulated - s.yieldDebt;
             s.yieldDebt = accumulated;
-            intel.transfer(wallet, claimed);
+            bool claimOk = intel.transfer(wallet, claimed);
+            require(claimOk, "IntelStaking: yield transfer failed");
         }
     }
 
