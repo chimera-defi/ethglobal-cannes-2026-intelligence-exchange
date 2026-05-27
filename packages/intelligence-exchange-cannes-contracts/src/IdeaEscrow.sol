@@ -155,6 +155,8 @@ contract IdeaEscrow {
         IdeaFund storage fund = ideas[ideaId];
         if (!fund.exists) revert IdeaNotFunded(ideaId);
         if (msg.sender != fund.poster) revert Unauthorized();
+        // Binding check: milestoneId must belong to ideaId (prevents cross-idea release)
+        if (milestoneIdea[milestoneId] != ideaId) revert Unauthorized();
 
         MilestoneFund storage m = milestones[milestoneId];
         if (m.status != MilestoneStatus.Reserved) {
@@ -189,6 +191,8 @@ contract IdeaEscrow {
         if (!fund.exists) revert IdeaNotFunded(ideaId);
         if (msg.sender != fund.poster) revert Unauthorized();
         if (poster != fund.poster) revert Unauthorized();
+        // Binding check: milestoneId must belong to ideaId (prevents cross-idea refund exploit)
+        if (milestoneIdea[milestoneId] != ideaId) revert Unauthorized();
 
         MilestoneFund storage m = milestones[milestoneId];
         if (m.status != MilestoneStatus.Reserved) {
