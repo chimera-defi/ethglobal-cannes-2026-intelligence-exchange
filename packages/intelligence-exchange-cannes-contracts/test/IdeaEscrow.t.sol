@@ -53,7 +53,9 @@ contract IdeaEscrowTest is Test {
     uint256 constant MILESTONE_AMT = 250e6;
 
     function setUp() public {
-        escrow = new IdeaEscrow();
+        address stakerYieldAddr = makeAddr("stakerYield");
+        address treasuryAddr = makeAddr("treasury");
+        escrow = new IdeaEscrow(stakerYieldAddr, treasuryAddr);
         usdc = new MockUSDC();
 
         usdc.mint(poster, IDEA_BUDGET * 2);
@@ -166,7 +168,8 @@ contract IdeaEscrowTest is Test {
         vm.prank(poster);
         escrow.releaseMilestone(ideaId, milestoneId1, worker);
 
-        assertEq(usdc.balanceOf(worker), workerBefore + MILESTONE_AMT);
+        // Worker gets 81% of MILESTONE_AMT (staker 9% + treasury 10% deducted)
+        assertEq(usdc.balanceOf(worker), workerBefore + (MILESTONE_AMT * 8100) / 10000);
     }
 
     function test_refundMilestone_restoresAvailable() public {
@@ -199,7 +202,8 @@ contract IdeaEscrowTest is Test {
 
         vm.prank(poster);
         escrow.releaseMilestone(ideaId, milestoneId1, worker);
-        assertEq(usdc.balanceOf(worker), MILESTONE_AMT);
+        // Worker gets 81% (staker 9% + treasury 10% deducted)
+        assertEq(usdc.balanceOf(worker), (MILESTONE_AMT * 8100) / 10000);
         assertEq(uint256(escrow.getMilestoneStatus(milestoneId1)), uint256(IdeaEscrow.MilestoneStatus.Released));
 
         vm.prank(poster);
