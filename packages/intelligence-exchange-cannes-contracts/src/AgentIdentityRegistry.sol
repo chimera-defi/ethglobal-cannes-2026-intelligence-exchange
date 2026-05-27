@@ -53,6 +53,8 @@ contract AgentIdentityRegistry {
     bytes32 public constant WORKER_ROLE = keccak256("worker");
 
     constructor(address _identityGate, address _attestor) {
+        if (_identityGate == address(0)) revert Unauthorized();
+        if (_attestor == address(0)) revert Unauthorized();
         identityGate = IdentityGate(_identityGate);
         attestor = _attestor;
         owner = msg.sender;
@@ -141,6 +143,7 @@ contract AgentIdentityRegistry {
     }
 
     function setAttestor(address _attestor) external onlyOwner {
+        if (_attestor == address(0)) revert Unauthorized();
         attestor = _attestor;
         emit AttestorUpdated(_attestor);
     }

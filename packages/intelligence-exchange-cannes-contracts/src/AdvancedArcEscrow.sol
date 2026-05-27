@@ -125,6 +125,9 @@ contract AdvancedArcEscrow {
     event ReviewTimeoutSet(uint256 newTimeout);
     event DisputeWindowSet(uint256 newWindow);
     event PlatformFeeRateSet(uint256 newRate);
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+    event TreasuryReceiverUpdated(address indexed newReceiver);
+    event StakerYieldReceiverUpdated(address indexed newReceiver);
 
     // ─────────────────────────────────────────────────────────────────────────
     // Enums
@@ -391,10 +394,14 @@ contract AdvancedArcEscrow {
 
         uint256 totalRequired = 0;
         for (uint256 i = 0; i < milestoneIds.length; i++) {
+            if (amounts[i] == 0) revert ZeroAmount();
+            if (vestingDurations[i] > 0 && vestingDurations[i] < MIN_VESTING_DURATION) revert VestingPeriodTooShort();
+            if (vestingCliffs[i] > vestingDurations[i]) revert InvalidVestingSchedule();
             totalRequired += amounts[i];
         }
 
         IdeaFund storage fund = ideas[ideaId];
+        if (!fund.exists) revert IdeaNotFunded(ideaId);
         if (fund.available < totalRequired) {
             revert InsufficientBalance(ideaId, totalRequired, fund.available);
         }
@@ -533,14 +540,17 @@ contract AdvancedArcEscrow {
         m.releasedAmount = releasable;
 
         // Calculate 81/9/10 split on this tranche
-        uint256 workerAmount = (toRelease * WORKER_BPS) / BPS_DENOMINATOR;        // 81%
         uint256 stakerAmount = (toRelease * STAKER_BPS) / BPS_DENOMINATOR;        // 9%
         uint256 treasuryAmount = (toRelease * TREASURY_BPS) / BPS_DENOMINATOR;    // 10%
+        // Worker gets remainder to avoid dust accumulation from independent rounding
+        uint256 workerAmount = toRelease - stakerAmount - treasuryAmount;          // ~81%
 
         // Update state
         if (releasable >= m.amount) {
             m.status = MilestoneStatus.Released;
         }
+        // Track total escrowed outflow
+        totalEscrowed -= toRelease;
 
         // Transfer staker yield (9%)
         if (stakerAmount > 0) {
@@ -556,7 +566,7 @@ contract AdvancedArcEscrow {
             emit TreasuryPaid(m.ideaId, milestoneId, treasuryReceiver, treasuryAmount);
         }
 
-        // Transfer to worker (81%)
+        // Transfer to worker (remainder ~81%, absorbs rounding dust)
         bool ok = IERC20(USDC).transfer(m.worker, workerAmount);
         if (!ok) revert TransferFailed();
 
@@ -583,11 +593,14 @@ contract AdvancedArcEscrow {
             // Auto-approve and release immediately (no vesting on timeout)
             m.approvedAt = block.timestamp;
             m.status = MilestoneStatus.AutoReleased;
-            
-            // 81/9/10 split on auto-release
-            uint256 workerAmount = (m.amount * WORKER_BPS) / BPS_DENOMINATOR;        // 81%
+
+            // 81/9/10 split on auto-release; worker gets remainder to avoid dust
             uint256 stakerAmount = (m.amount * STAKER_BPS) / BPS_DENOMINATOR;        // 9%
             uint256 treasuryAmount = (m.amount * TREASURY_BPS) / BPS_DENOMINATOR;    // 10%
+            uint256 workerAmount = m.amount - stakerAmount - treasuryAmount;          // ~81%
+
+            // Update escrowed tracker
+            totalEscrowed -= m.amount;
 
             if (stakerAmount > 0) {
                 bool stakeOk = IERC20(USDC).transfer(stakerYieldReceiver, stakerAmount);
@@ -693,7 +706,10 @@ contract AdvancedArcEscrow {
 
         uint256 stakerAmount = (m.amount * STAKER_BPS) / BPS_DENOMINATOR;      // 9%
         uint256 treasuryAmount = (m.amount * TREASURY_BPS) / BPS_DENOMINATOR;  // 10%
-        uint256 workerPool = m.amount - stakerAmount - treasuryAmount;          // 81%
+        uint256 workerPool = m.amount - stakerAmount - treasuryAmount;          // ~81% (remainder, no dust)
+
+        // Update escrowed tracker
+        totalEscrowed -= m.amount;
 
         // Transfer staker yield on all resolutions
         if (stakerAmount > 0) {
@@ -883,11 +899,15 @@ contract AdvancedArcEscrow {
     // ─────────────────────────────────────────────────────────────────────────
     
     function setTreasuryReceiver(address _treasuryReceiver) external onlyOwner {
+        if (_treasuryReceiver == address(0)) revert Unauthorized();
         treasuryReceiver = _treasuryReceiver;
+        emit TreasuryReceiverUpdated(_treasuryReceiver);
     }
 
     function setStakerYieldReceiver(address _stakerYieldReceiver) external onlyOwner {
+        if (_stakerYieldReceiver == address(0)) revert Unauthorized();
         stakerYieldReceiver = _stakerYieldReceiver;
+        emit StakerYieldReceiverUpdated(_stakerYieldReceiver);
     }
 
     function setDisputeResolver(address _disputeResolver) external onlyOwner {
@@ -906,6 +926,8 @@ contract AdvancedArcEscrow {
     }
 
     function transferOwnership(address newOwner) external onlyOwner {
+        if (newOwner == address(0)) revert Unauthorized();
+        emit OwnershipTransferred(owner, newOwner);
         owner = newOwner;
     }
 
