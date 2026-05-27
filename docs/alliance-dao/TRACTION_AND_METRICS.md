@@ -20,7 +20,7 @@
 
 All contracts have passing test suites. Mainnet-fork liquidity smoke test runs against the INTEL/USDC pair.
 
-**Known contract gap (honest):** `IdeaEscrow.sol` releases the full milestone amount to the worker with no split. The 81/9/10 settlement split is implemented in the off-chain broker ledger (verified working), not yet in the contract layer. `AdvancedArcEscrow.sol` routes 90% to worker / 10% to treasury — missing the 9% staker yield extraction. These gaps are tracked and are the first contract work in the funded roadmap.
+**Contract layer status:** `IdeaEscrow.sol` implements the 81/9/10 split (commit `2685173`) with `stakerYieldReceiver` and `treasuryReceiver` constructor params — fixed during hackathon build. `AdvancedArcEscrow.sol` routes 90% worker / 10% treasury — missing the 9% staker yield extraction. The `AdvancedArcEscrow.sol` gap is tracked and is in the funded roadmap. The off-chain broker ledger implements the full 81/9/10 split and has been verified end-to-end.
 
 ### Application layer
 
@@ -70,7 +70,7 @@ corepack pnpm validate:all
 - `WorkReceipt1155` contract (Phase 2) — not yet written
 - AIU index calculator — not yet live
 - INTEL token deployment to a public network — not yet done
-- Contract-layer 81/9/10 split — implemented in broker ledger, not yet in `IdeaEscrow.sol`
+- `AdvancedArcEscrow.sol` 81/9/10 contract split — `IdeaEscrow.sol` is fixed (commit `2685173`); `AdvancedArcEscrow.sol` still routes 90/10 (missing staker yield)
 
 ---
 
@@ -200,7 +200,7 @@ The current position is pre-seed by any measure. The argument for funding at thi
 |------|------------------|
 | Cold-start supply | High. 100 workers from zero is hard. Pilot design addresses this by seeding with INTEL credits and direct outreach. |
 | Cold-start demand | High. Buyers need to trust the reviewer gate before routing real spend. Needs design/trust work. |
-| Contract split gap | Real. IdeaEscrow.sol and AdvancedArcEscrow.sol do not implement the full 81/9/10 split in the contract layer. Off-chain ledger is correct. Contract fix is first funded work item. |
+| Contract split gap | Partially resolved. `IdeaEscrow.sol` now implements 81/9/10 (commit `2685173`). `AdvancedArcEscrow.sol` still routes 90/10 — missing staker yield. Off-chain ledger is fully correct and verified. `AdvancedArcEscrow.sol` fix is in funded roadmap. |
 | Output quality variance | Medium. Human reviewer gate is the control. Quality degrades if reviewer pool is too small or incentive is wrong. |
 | Token reflexivity | Mitigated by design (`utilizationMultiplier` makes minting expensive when activity is low). Not eliminated. |
 | Audit cost | High one-time cost. Non-negotiable before real value on-chain. Included in grant ask. |
