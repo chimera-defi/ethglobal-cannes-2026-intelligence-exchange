@@ -306,6 +306,95 @@ contract IntelStakingTest is Test {
         assertGt(allowance, 0);
     }
 
+    // ─── Security: yieldDebt initialization (pass-2 audit) ───────────────────
+
+    /// @dev Regression: a new staker must NOT be able to claim yield that
+    ///      accumulated before their deposit (flash-staker / pre-stake yield exploit).
+    ///
+    ///      Before fix: _settleYield wrote yieldDebt = 0 when staked == 0,
+    ///      then stake() increased staked without re-syncing debt, letting the
+    ///      new staker claim (staked * accYieldPerShare) / PRECISION on first claim.
+    ///
+    ///      After fix: stake() writes yieldDebt = (newStaked * accYieldPerShare)
+    ///      / PRECISION immediately after updating staked, so pendingYield == 0
+    ///      right after staking.
+    function test_new_staker_cannot_claim_prestake_yield() public {
+        // Alice stakes first and earns 100 INTEL yield
+        vm.prank(alice);
+        staking.stake(100e18);
+
+        intel.mint(owner, 100e18);
+        intel.approve(address(staking), 100e18);
+        staking.depositYield(100e18);
+
+        // Sanity: alice has 100 INTEL pending
+        assertEq(staking.pendingYield(alice), 100e18);
+
+        // Bob stakes AFTER the yield was deposited
+        vm.prank(bob);
+        staking.stake(100e18); // same size as alice
+
+        // Bob must have zero pending yield — he was not staked when yield was deposited
+        assertEq(staking.pendingYield(bob), 0, "new staker must not receive pre-stake yield");
+
+        // Attempting to claimYield should revert with NothingToClaim
+        vm.prank(bob);
+        vm.expectRevert(IntelStaking.NothingToClaim.selector);
+        staking.claimYield();
+    }
+
+    /// @dev Deposit yield after Bob already has a stake; he should receive his fair share.
+    function test_existing_staker_receives_yield_after_deposit() public {
+        vm.prank(alice);
+        staking.stake(100e18);
+        vm.prank(bob);
+        staking.stake(100e18);
+
+        intel.mint(owner, 200e18);
+        intel.approve(address(staking), 200e18);
+        staking.depositYield(200e18);
+
+        // Each has 50% share → 100 INTEL each
+        assertEq(staking.pendingYield(alice), 100e18);
+        assertEq(staking.pendingYield(bob), 100e18);
+    }
+
+    /// @dev A user who stakes, partially unstakes, then re-stakes should not
+    ///      receive yield that accumulated during the period they had no stake.
+    function test_restaker_cannot_claim_yield_from_zero_stake_period() public {
+        // Alice stakes
+        vm.prank(alice);
+        staking.stake(50e18);
+
+        // Deposit yield — alice should get it all
+        intel.mint(owner, 50e18);
+        intel.approve(address(staking), 50e18);
+        staking.depositYield(50e18);
+        assertEq(staking.pendingYield(alice), 50e18);
+
+        // Alice claims, then fully unstakes (enters cooldown, staked drops to 0)
+        vm.prank(alice);
+        staking.claimYield();
+        vm.prank(alice);
+        staking.requestUnstake(50e18);
+        assertEq(staking.totalStaked(), 0);
+
+        // More yield deposited while alice has zero stake
+        intel.mint(owner, 50e18);
+        intel.approve(address(staking), 50e18);
+        staking.depositYield(50e18); // goes to pendingYieldPool (no stakers)
+
+        // Alice re-stakes (same amount)
+        intel.mint(alice, 50e18);
+        vm.prank(alice);
+        intel.approve(address(staking), 50e18);
+        vm.prank(alice);
+        staking.stake(50e18);
+
+        // Alice should have 0 pending — the 50 INTEL is in pendingYieldPool, not yet distributed
+        assertEq(staking.pendingYield(alice), 0, "re-staker must not receive pre-stake pending pool yield at stake time");
+    }
+
     // ─── Access control ───────────────────────────────────────────────────────
 
     function test_setOperator_only_owner() public {
