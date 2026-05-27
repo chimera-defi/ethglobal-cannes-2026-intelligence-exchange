@@ -53,7 +53,6 @@ contract WorkReceipt1155 {
     );
     event OperatorSet(address indexed op, bool approved);
     event OwnershipTransferred(address indexed previous, address indexed next);
-    event OwnershipTransferStarted(address indexed previousOwner, address indexed newOwner);
 
     // ─── Storage ──────────────────────────────────────────────────────────────
 
@@ -65,7 +64,6 @@ contract WorkReceipt1155 {
     }
 
     address public owner;
-    address public pendingOwner;
     mapping(address => bool) public operators;
 
     string public baseURI; // e.g. "ipfs://Qm.../metadata/"
@@ -129,9 +127,8 @@ contract WorkReceipt1155 {
     }
 
     /// @dev Approval is a no-op since transfers are blocked, but kept for interface compliance.
-    ///      Emits event for wallet compatibility without actually setting approval.
-    function setApprovalForAll(address operator, bool approved) external {
-        emit ApprovalForAll(msg.sender, operator, approved);
+    function setApprovalForAll(address /*operator*/, bool /*approved*/) external pure {
+        revert Soulbound();
     }
 
     function isApprovedForAll(address /*account*/, address /*operator*/) external pure returns (bool) {
@@ -214,16 +211,8 @@ contract WorkReceipt1155 {
 
     function transferOwnership(address newOwner) external onlyOwner {
         if (newOwner == address(0)) revert ZeroAddress();
-        pendingOwner = newOwner;
-        emit OwnershipTransferStarted(owner, newOwner);
-    }
-
-    function acceptOwnership() external {
-        if (msg.sender != pendingOwner) revert Unauthorized();
-        address old = owner;
-        owner = pendingOwner;
-        pendingOwner = address(0);
-        emit OwnershipTransferred(old, owner);
+        emit OwnershipTransferred(owner, newOwner);
+        owner = newOwner;
     }
 
     // ─── Internal ─────────────────────────────────────────────────────────────

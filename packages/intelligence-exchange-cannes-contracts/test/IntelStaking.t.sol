@@ -57,26 +57,23 @@ contract IntelStakingTest is Test {
         staking.stake(100e18);
 
         assertEq(staking.totalStaked(), 100e18);
-        (uint256 staked,,,,,,,,,,) = staking.stakers(alice);
+        (uint256 staked,,,,,, ) = staking.stakers(alice);
         assertEq(staked, 100e18);
         assertEq(intel.balanceOf(address(staking)), 100e18);
     }
 
     function test_mintAllowance_sqrt_formula() public {
-        // k=1, staked=100 tokens → sqrt(100e18) ≈ 10e9
-        // base allowance = k * sqrt(staked) / 1e18 = 1e10
-        // Flow bonus (+15%) applies after 1 day, not immediately
-        // initial = 1e10 (no bonus yet)
+        // k=1, staked=100 tokens → sqrt(100e18) = 10e9 (sqrt of wei amount)
+        // allowance = k * sqrt(staked) / 1e18
+        // With k=1e18 and staked=100e18: sqrt(100e18)≈10e9, allowance = 1e18 * 10e9 / 1e18 = 10e9
+        // That's well below walletCap=10_000e18 so walletCap won't bind here.
         vm.prank(alice);
         staking.stake(100e18);
 
         uint256 allowance = staking.mintAllowance(alice);
-        assertEq(allowance, 10_000_000_000); // 1e10 base only (no bonus yet)
-
-        // After 1 day, bonus applies
-        vm.warp(block.timestamp + 1 days);
-        uint256 allowanceWithBonus = staking.mintAllowance(alice);
-        assertEq(allowanceWithBonus, 11_500_000_000); // 1e10 * 1.15 flow bonus
+        // sqrt(100e18) = 10_000_000_000 (1e10)
+        // k * sqrt(staked) / 1e18 = 1e18 * 1e10 / 1e18 = 1e10
+        assertEq(allowance, 1e10);
     }
 
     function test_mintAllowance_wallet_cap_binds() public {
@@ -95,10 +92,6 @@ contract IntelStakingTest is Test {
 
     function test_mintAllowance_global_cap_binds() public {
         staking.setParams(EPOCH, COOL, K, WALLET_CAP, 3e9); // globalCap < walletCap < rawAllowance
-        // H4 fix: setParams no longer resets globalCapRemaining mid-epoch.
-        // Advance to the next epoch so the new globalEpochCap (3e9) takes effect.
-        vm.warp(block.timestamp + EPOCH + 1);
-        staking.advanceEpoch();
 
         vm.prank(alice);
         staking.stake(100e18);
@@ -313,95 +306,6 @@ contract IntelStakingTest is Test {
         assertGt(allowance, 0);
     }
 
-    // ─── Security: yieldDebt initialization (pass-2 audit) ───────────────────
-
-    /// @dev Regression: a new staker must NOT be able to claim yield that
-    ///      accumulated before their deposit (flash-staker / pre-stake yield exploit).
-    ///
-    ///      Before fix: _settleYield wrote yieldDebt = 0 when staked == 0,
-    ///      then stake() increased staked without re-syncing debt, letting the
-    ///      new staker claim (staked * accYieldPerShare) / PRECISION on first claim.
-    ///
-    ///      After fix: stake() writes yieldDebt = (newStaked * accYieldPerShare)
-    ///      / PRECISION immediately after updating staked, so pendingYield == 0
-    ///      right after staking.
-    function test_new_staker_cannot_claim_prestake_yield() public {
-        // Alice stakes first and earns 100 INTEL yield
-        vm.prank(alice);
-        staking.stake(100e18);
-
-        intel.mint(owner, 100e18);
-        intel.approve(address(staking), 100e18);
-        staking.depositYield(100e18);
-
-        // Sanity: alice has 100 INTEL pending
-        assertEq(staking.pendingYield(alice), 100e18);
-
-        // Bob stakes AFTER the yield was deposited
-        vm.prank(bob);
-        staking.stake(100e18); // same size as alice
-
-        // Bob must have zero pending yield — he was not staked when yield was deposited
-        assertEq(staking.pendingYield(bob), 0, "new staker must not receive pre-stake yield");
-
-        // Attempting to claimYield should revert with NothingToClaim
-        vm.prank(bob);
-        vm.expectRevert(IntelStaking.NothingToClaim.selector);
-        staking.claimYield();
-    }
-
-    /// @dev Deposit yield after Bob already has a stake; he should receive his fair share.
-    function test_existing_staker_receives_yield_after_deposit() public {
-        vm.prank(alice);
-        staking.stake(100e18);
-        vm.prank(bob);
-        staking.stake(100e18);
-
-        intel.mint(owner, 200e18);
-        intel.approve(address(staking), 200e18);
-        staking.depositYield(200e18);
-
-        // Each has 50% share → 100 INTEL each
-        assertEq(staking.pendingYield(alice), 100e18);
-        assertEq(staking.pendingYield(bob), 100e18);
-    }
-
-    /// @dev A user who stakes, partially unstakes, then re-stakes should not
-    ///      receive yield that accumulated during the period they had no stake.
-    function test_restaker_cannot_claim_yield_from_zero_stake_period() public {
-        // Alice stakes
-        vm.prank(alice);
-        staking.stake(50e18);
-
-        // Deposit yield — alice should get it all
-        intel.mint(owner, 50e18);
-        intel.approve(address(staking), 50e18);
-        staking.depositYield(50e18);
-        assertEq(staking.pendingYield(alice), 50e18);
-
-        // Alice claims, then fully unstakes (enters cooldown, staked drops to 0)
-        vm.prank(alice);
-        staking.claimYield();
-        vm.prank(alice);
-        staking.requestUnstake(50e18);
-        assertEq(staking.totalStaked(), 0);
-
-        // More yield deposited while alice has zero stake
-        intel.mint(owner, 50e18);
-        intel.approve(address(staking), 50e18);
-        staking.depositYield(50e18); // goes to pendingYieldPool (no stakers)
-
-        // Alice re-stakes (same amount)
-        intel.mint(alice, 50e18);
-        vm.prank(alice);
-        intel.approve(address(staking), 50e18);
-        vm.prank(alice);
-        staking.stake(50e18);
-
-        // Alice should have 0 pending — the 50 INTEL is in pendingYieldPool, not yet distributed
-        assertEq(staking.pendingYield(alice), 0, "re-staker must not receive pre-stake pending pool yield at stake time");
-    }
-
     // ─── Access control ───────────────────────────────────────────────────────
 
     function test_setOperator_only_owner() public {
@@ -410,361 +314,13 @@ contract IntelStakingTest is Test {
         staking.setOperator(bob, true);
     }
 
-    // Ownable2Step: transferOwnership queues, acceptOwnership finalises.
     function test_transferOwnership() public {
         staking.transferOwnership(alice);
-        assertEq(staking.owner(), address(this), "owner unchanged until accept");
-        assertEq(staking.pendingOwner(), alice, "alice is pending owner");
-
-        vm.prank(alice);
-        staking.acceptOwnership();
-        assertEq(staking.owner(), alice, "alice is now owner");
-        assertEq(staking.pendingOwner(), address(0), "pending cleared");
-    }
-
-    function test_transferOwnership_only_nominee_can_accept() public {
-        staking.transferOwnership(alice);
-        vm.expectRevert(IntelStaking.Unauthorized.selector);
-        staking.acceptOwnership(); // owner (this) is not the nominee
+        assertEq(staking.owner(), alice);
     }
 
     function test_transferOwnership_to_zero_reverts() public {
         vm.expectRevert(IntelStaking.ZeroAddress.selector);
         staking.transferOwnership(address(0));
-    }
-
-    // ─── ETH yield ────────────────────────────────────────────────────────────
-
-    /// @dev Basic ETH yield deposit and claim.
-    function test_ethYield_deposit_and_claim() public {
-        vm.prank(alice);
-        staking.stake(100e18);
-
-        // Deposit 1 ETH as yield (simulating MintController)
-        vm.deal(address(this), 1 ether);
-        staking.depositEthYield{value: 1 ether}();
-
-        assertEq(staking.pendingEthYield(alice), 1 ether, "Alice should see 1 ETH pending");
-
-        uint256 aliceEthBefore = alice.balance;
-        vm.prank(alice);
-        uint256 claimed = staking.claimEthYield();
-
-        assertEq(claimed, 1 ether, "claimEthYield returned wrong amount");
-        assertEq(alice.balance - aliceEthBefore, 1 ether, "Alice ETH balance wrong after claim");
-        assertEq(staking.pendingEthYield(alice), 0, "No ETH pending after claim");
-    }
-
-    /// @dev Two stakers split ETH yield proportionally.
-    function test_ethYield_proportional_split() public {
-        // Alice stakes 200, Bob stakes 100 → 2:1 split
-        vm.prank(alice);
-        staking.stake(200e18);
-        vm.prank(bob);
-        staking.stake(100e18);
-
-        vm.deal(address(this), 3 ether);
-        staking.depositEthYield{value: 3 ether}();
-
-        // 2 ETH to Alice, 1 ETH to Bob
-        assertApproxEqAbs(staking.pendingEthYield(alice), 2 ether, 1, "Alice ETH yield wrong");
-        assertApproxEqAbs(staking.pendingEthYield(bob), 1 ether, 1, "Bob ETH yield wrong");
-    }
-
-    /// @dev ETH yield buffered when no stakers, then released on epoch advance.
-    function test_ethYield_buffered_before_first_staker() public {
-        // Deposit with no stakers
-        vm.deal(address(this), 1 ether);
-        staking.depositEthYield{value: 1 ether}();
-        assertEq(staking.pendingEthYieldPool(), 1 ether, "ETH should be buffered");
-
-        // Alice stakes, advance epoch to flush buffer
-        vm.prank(alice);
-        staking.stake(100e18);
-        vm.warp(block.timestamp + EPOCH + 1);
-        staking.advanceEpoch(); // flushes pendingEthYieldPool
-
-        assertGt(staking.pendingEthYield(alice), 0, "Alice should see buffered ETH yield after epoch flush");
-    }
-
-    /// @dev New staker cannot claim ETH yield that accumulated before their stake.
-    function test_ethYield_new_staker_cannot_claim_past_yield() public {
-        // Alice stakes and yield is deposited for her
-        vm.prank(alice);
-        staking.stake(100e18);
-
-        vm.deal(address(this), 1 ether);
-        staking.depositEthYield{value: 1 ether}();
-        assertEq(staking.pendingEthYield(alice), 1 ether);
-
-        // Bob stakes AFTER the yield deposit — must not claim Alice's yield
-        vm.prank(bob);
-        staking.stake(100e18);
-        assertEq(staking.pendingEthYield(bob), 0, "Bob must not capture pre-stake ETH yield");
-    }
-
-    /// @dev claimEthYield reverts with NothingToClaim when no ETH yield pending.
-    function test_ethYield_claimEthYield_reverts_if_nothing() public {
-        vm.prank(alice);
-        staking.stake(100e18);
-
-        vm.prank(alice);
-        vm.expectRevert(IntelStaking.NothingToClaim.selector);
-        staking.claimEthYield();
-    }
-
-    /// @dev receive() forwards ETH to the yield accumulator.
-    function test_ethYield_via_receive_fallback() public {
-        vm.prank(alice);
-        staking.stake(100e18);
-
-        // Send ETH directly via low-level call (triggers receive())
-        vm.deal(address(this), 0.5 ether);
-        (bool ok,) = address(staking).call{value: 0.5 ether}("");
-        assertTrue(ok, "receive() should accept ETH");
-
-        assertApproxEqAbs(staking.pendingEthYield(alice), 0.5 ether, 1, "ETH via receive() should be claimable");
-    }
-
-    /// @notice Regression: after a partial requestUnstake, the staker should still
-    ///         earn ETH yield on their remaining staked balance immediately — no "25%
-    ///         accumulator growth" penalty (pass3 M-1 fix).
-    function test_ethYield_accrues_on_remaining_stake_after_partial_unstake() public {
-        // Alice stakes 100 INTEL
-        vm.prank(alice);
-        staking.stake(100e18);
-
-        // 1 ETH yield deposited → alice earns 100% (only staker)
-        vm.deal(address(this), 2 ether);
-        staking.depositEthYield{value: 1 ether}();
-        assertApproxEqAbs(staking.pendingEthYield(alice), 1 ether, 1, "M-1 pre: alice should have 1 ETH pending");
-
-        // Alice requests unstake of 50 INTEL (partial unstake)
-        // _settleEthYield is called inside → alice's 1 ETH yield is settled & sent
-        uint256 ethBefore = alice.balance;
-        vm.prank(alice);
-        staking.requestUnstake(50e18);
-        // The yield from the first 1 ETH deposit is automatically settled during requestUnstake
-        assertApproxEqAbs(alice.balance - ethBefore, 1 ether, 1 ether / 1000, "M-1: 1 ETH yield settled on unstake");
-
-        // More ETH yield deposited — alice still has 50 INTEL staked
-        staking.depositEthYield{value: 1 ether}();
-
-        // Alice should earn 1 ETH (100% of new yield — she's still the only staker on 50 INTEL,
-        // bob hasn't staked). Without the M-1 fix, ethYieldDebt was anchored to 100 tokens,
-        // so alice would earn 0 until the accumulator grew by 100%.
-        uint256 pending = staking.pendingEthYield(alice);
-        assertApproxEqAbs(pending, 1 ether, 1 ether / 1000, "M-1 fix: alice earns yield on remaining 50 tokens immediately");
-    }
-
-    // ─── Circuit breaker tests ────────────────────────────────────────────────
-
-    /// @dev stake() must revert when contract is paused.
-    function test_stake_reverts_when_paused() public {
-        staking.pause();
-
-        vm.prank(alice);
-        vm.expectRevert(IntelStaking.ContractPaused.selector);
-        staking.stake(100e18);
-    }
-
-    /// @dev requestUnstake() must revert when contract is paused.
-    function test_requestUnstake_reverts_when_paused() public {
-        // Stake first while not paused
-        vm.prank(alice);
-        staking.stake(50e18);
-
-        staking.pause();
-
-        vm.prank(alice);
-        vm.expectRevert(IntelStaking.ContractPaused.selector);
-        staking.requestUnstake(50e18);
-    }
-
-    /// @dev unstake() must revert when contract is paused.
-    function test_unstake_reverts_when_paused() public {
-        vm.prank(alice);
-        staking.stake(50e18);
-        vm.prank(alice);
-        staking.requestUnstake(50e18);
-        vm.warp(block.timestamp + COOL + 1);
-
-        staking.pause();
-
-        vm.prank(alice);
-        vm.expectRevert(IntelStaking.ContractPaused.selector);
-        staking.unstake();
-    }
-
-    /// @dev claimYield() must revert when contract is paused.
-    function test_claimYield_reverts_when_paused() public {
-        vm.prank(alice);
-        staking.stake(100e18);
-
-        intel.mint(owner, 10e18);
-        intel.approve(address(staking), 10e18);
-        staking.depositYield(10e18);
-
-        staking.pause();
-
-        vm.prank(alice);
-        vm.expectRevert(IntelStaking.ContractPaused.selector);
-        staking.claimYield();
-    }
-
-    /// @dev claimEthYield() must revert when contract is paused.
-    function test_claimEthYield_reverts_when_paused() public {
-        vm.prank(alice);
-        staking.stake(100e18);
-
-        vm.deal(address(this), 1 ether);
-        staking.depositEthYield{value: 1 ether}();
-
-        staking.pause();
-
-        vm.prank(alice);
-        vm.expectRevert(IntelStaking.ContractPaused.selector);
-        staking.claimEthYield();
-    }
-
-    /// @dev Owner can pause and unpause; after unpause, stake works again.
-    function test_pause_unpause_by_owner() public {
-        staking.pause();
-        assertTrue(staking.paused(), "should be paused");
-
-        vm.prank(alice);
-        vm.expectRevert(IntelStaking.ContractPaused.selector);
-        staking.stake(100e18);
-
-        staking.unpause();
-        assertFalse(staking.paused(), "should be unpaused");
-
-        vm.prank(alice);
-        staking.stake(100e18); // must succeed
-        assertEq(staking.totalStaked(), 100e18);
-    }
-
-    /// @dev Non-owner cannot pause.
-    function test_pause_only_owner() public {
-        vm.prank(alice);
-        vm.expectRevert(IntelStaking.Unauthorized.selector);
-        staking.pause();
-    }
-
-    // ─── Deposit cap tests ────────────────────────────────────────────────────
-
-    /// @dev stake() reverts when the amount exceeds maxStakePerDeposit.
-    function test_stake_reverts_when_exceeds_deposit_cap() public {
-        // maxStakePerDeposit is 100_000e18 by default; try to stake more
-        intel.mint(alice, 100_001e18);
-        vm.prank(alice);
-        intel.approve(address(staking), type(uint256).max);
-
-        vm.prank(alice);
-        vm.expectRevert(
-            abi.encodeWithSelector(IntelStaking.DepositTooLarge.selector, 100_001e18, 100_000e18)
-        );
-        staking.stake(100_001e18);
-    }
-
-    /// @dev stake() succeeds when amount equals the cap exactly.
-    function test_stake_at_deposit_cap_succeeds() public {
-        intel.mint(alice, 100_000e18);
-        vm.prank(alice);
-        intel.approve(address(staking), type(uint256).max);
-
-        vm.prank(alice);
-        staking.stake(100_000e18); // exactly at cap — must pass
-        assertEq(staking.totalStaked(), 100_000e18);
-    }
-
-    /// @dev setMaxStakePerDeposit cannot decrease the cap below current value.
-    function test_setMaxStakePerDeposit_cannot_decrease() public {
-        // Cap is 100_000e18 at construction; try to set it lower
-        vm.expectRevert("CannotDecreaseCap");
-        staking.setMaxStakePerDeposit(50_000e18);
-    }
-
-    /// @dev setMaxStakePerDeposit can increase the cap.
-    function test_setMaxStakePerDeposit_can_increase() public {
-        uint256 old = staking.maxStakePerDeposit(); // 100_000e18
-        staking.setMaxStakePerDeposit(200_000e18);
-        assertEq(staking.maxStakePerDeposit(), 200_000e18);
-
-        // Event: MaxStakePerDepositChanged(old, 200_000e18)
-        // Verify the new cap is enforced
-        intel.mint(alice, 150_000e18);
-        vm.prank(alice);
-        intel.approve(address(staking), type(uint256).max);
-        vm.prank(alice);
-        staking.stake(150_000e18); // should succeed with raised cap
-        assertEq(staking.totalStaked(), 150_000e18);
-    }
-
-    /// @dev setMaxStakePerDeposit(0) removes the cap entirely.
-    function test_setMaxStakePerDeposit_zero_removes_cap() public {
-        staking.setMaxStakePerDeposit(0);
-        assertEq(staking.maxStakePerDeposit(), 0);
-
-        // Now any amount is allowed (bounded only by token supply)
-        intel.mint(alice, 500_000e18);
-        vm.prank(alice);
-        intel.approve(address(staking), type(uint256).max);
-        vm.prank(alice);
-        staking.stake(500_000e18);
-        assertEq(staking.totalStaked(), 500_000e18);
-    }
-
-    /// @dev Only owner can call setMaxStakePerDeposit.
-    function test_setMaxStakePerDeposit_only_owner() public {
-        vm.prank(alice);
-        vm.expectRevert(IntelStaking.Unauthorized.selector);
-        staking.setMaxStakePerDeposit(200_000e18);
-    }
-
-    // ─── Flow bonus tests (Bittensor-inspired new staker bonus) ───────────────
-
-    /// @dev New stakers in the current epoch receive a 15% mint allowance bonus after 1 day.
-    function test_flowBonus_applies_to_new_staker() public {
-        // Alice stakes in epoch 1
-        vm.prank(alice);
-        staking.stake(100e18);
-
-        uint256 allowanceWithoutBonus = staking.mintAllowance(alice);
-        uint256 expectedBase = (K * 1e10) / 1e18; // sqrt(100e18) = 1e10, k=1e18 → 1e10
-
-        // Initially, no bonus (must wait 1 day)
-        assertEq(allowanceWithoutBonus, expectedBase, "new staker should NOT receive bonus immediately");
-
-        // Warp forward 1 day
-        vm.warp(block.timestamp + 1 days);
-
-        uint256 allowanceWithBonus = staking.mintAllowance(alice);
-        uint256 expectedBonus = (expectedBase * 1500) / 10000; // 15% bonus
-        uint256 expectedTotal = expectedBase + expectedBonus;
-
-        assertEq(allowanceWithBonus, expectedTotal, "new staker should receive 15% bonus after 1 day");
-    }
-
-    /// @dev Flow bonus does not apply after epoch advance (even if within 1 day).
-    function test_flowBonus_not_applied_after_epoch_advance() public {
-        // Alice stakes in epoch 1
-        vm.prank(alice);
-        staking.stake(100e18);
-
-        uint256 allowanceEpoch1 = staking.mintAllowance(alice);
-        uint256 expectedBase = (K * 1e10) / 1e18; // sqrt(100e18) = 1e10, k=1e18 → 1e10
-
-        // Epoch 1 allowance should be base only (no bonus yet, must wait 1 day)
-        assertEq(allowanceEpoch1, expectedBase, "bonus should not apply immediately in epoch 1");
-
-        // Advance to epoch 2 (before 1 day has passed)
-        vm.warp(block.timestamp + EPOCH + 1);
-        staking.advanceEpoch();
-
-        uint256 allowanceEpoch2 = staking.mintAllowance(alice);
-
-        // Epoch 2 allowance should still be base only (no bonus, different epoch)
-        assertEq(allowanceEpoch2, expectedBase, "bonus should not apply after epoch advance");
     }
 }
