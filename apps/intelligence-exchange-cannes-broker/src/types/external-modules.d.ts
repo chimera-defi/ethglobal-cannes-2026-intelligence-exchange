@@ -7,11 +7,6 @@ declare module '@worldcoin/idkit/signing' {
   };
 }
 
-declare module '@0gfoundation/0g-ts-sdk' {
-  export const Indexer: new (...args: any[]) => any;
-  export const MemData: new (...args: any[]) => any;
-}
-
 declare module 'ethers' {
   export const JsonRpcProvider: new (...args: any[]) => any;
   export const Wallet: new (...args: any[]) => any;
