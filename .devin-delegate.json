@@ -1,0 +1,11 @@
+{
+  "timeout_seconds": 600,
+  "max_retries": 1,
+  "fallback_engine": "kimi",
+  "fallback_model": "kimi-default",
+  "workspace": "/home/agents/workspace/ethglobal-cannes-2026-intelligence-exchange",
+  "task_defaults": {
+    "include_git_context": true,
+    "include_recent_history": true
+  }
+}
