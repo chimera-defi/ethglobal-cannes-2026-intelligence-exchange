@@ -139,6 +139,11 @@ contract IntelStaking {
         s.stakedAt = block.timestamp;
         totalStaked += amount;
 
+        // Sync yieldDebt to the current accumulator AFTER updating staked.
+        // This prevents a new (or returning) staker from claiming yield that
+        // accumulated before their stake was added.
+        s.yieldDebt = (s.staked * accYieldPerShare) / PRECISION;
+
         // Pull tokens; IntelToken always returns true or reverts — check anyway for safety
         bool stakeOk = intel.transferFrom(msg.sender, address(this), amount);
         require(stakeOk, "IntelStaking: stake transferFrom failed");
@@ -289,11 +294,11 @@ contract IntelStaking {
     // ─── Internal ─────────────────────────────────────────────────────────────
 
     /// @dev Settle pending yield for a staker and return the claimed amount.
+    ///      yieldDebt is initialized/synced in stake() after staked is updated,
+    ///      so this branch just early-returns when there is nothing staked.
     function _settleYield(address wallet) internal returns (uint256 claimed) {
         StakerInfo storage s = stakers[wallet];
         if (s.staked == 0) {
-            // Update debt so future stakes start from current acc
-            s.yieldDebt = (s.staked * accYieldPerShare) / PRECISION;
             return 0;
         }
         uint256 accumulated = (s.staked * accYieldPerShare) / PRECISION;
