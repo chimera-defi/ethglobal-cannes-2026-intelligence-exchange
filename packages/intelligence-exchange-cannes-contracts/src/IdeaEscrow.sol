@@ -11,6 +11,15 @@ import {IERC20} from "forge-std/interfaces/IERC20.sol";
 ///   funded → reserved → released
 ///                    → refunded
 contract IdeaEscrow {
+    // ─── Settlement split constants ──────────────────────────────────────────
+    // worker 81%, staker yield 9%, treasury 10%
+    uint256 public constant WORKER_BPS = 8100;
+    uint256 public constant STAKER_BPS = 900;
+    uint256 public constant TREASURY_BPS = 1000;
+    uint256 public constant BPS_DENOMINATOR = 10000;
+
+    address public immutable stakerYieldReceiver;
+    address public immutable treasuryReceiver;
     // ─── Errors ──────────────────────────────────────────────────────────────
 
     error Unauthorized();
@@ -29,6 +38,8 @@ contract IdeaEscrow {
     event IdeaFunded(bytes32 indexed ideaId, address indexed poster, address token, uint256 amount);
     event MilestoneReserved(bytes32 indexed ideaId, bytes32 indexed milestoneId, uint256 amount);
     event MilestoneReleased(bytes32 indexed ideaId, bytes32 indexed milestoneId, address indexed worker, uint256 amount);
+    event StakerYieldPaid(bytes32 indexed ideaId, bytes32 indexed milestoneId, address indexed receiver, uint256 amount);
+    event TreasuryPaid(bytes32 indexed ideaId, bytes32 indexed milestoneId, address indexed receiver, uint256 amount);
     event MilestoneRefunded(bytes32 indexed ideaId, bytes32 indexed milestoneId, address indexed poster, uint256 amount);
 
     // ─── Storage ──────────────────────────────────────────────────────────────
@@ -52,6 +63,13 @@ contract IdeaEscrow {
     mapping(bytes32 milestoneId => MilestoneFund) public milestones;
     // milestoneId → ideaId (for lookups)
     mapping(bytes32 milestoneId => bytes32) public milestoneIdea;
+
+    // ─── Constructor ──────────────────────────────────────────────────────────
+
+    constructor(address _stakerYieldReceiver, address _treasuryReceiver) {
+        stakerYieldReceiver = _stakerYieldReceiver;
+        treasuryReceiver = _treasuryReceiver;
+    }
 
     // ─── Functions ────────────────────────────────────────────────────────────
 
@@ -132,6 +150,7 @@ contract IdeaEscrow {
 
     /// @notice Release reserved funds to a worker after accepted output.
     /// @dev Only the poster can call this (human approval gate).
+    ///      Splits: 81% worker, 9% staker yield, 10% treasury.
     function releaseMilestone(bytes32 ideaId, bytes32 milestoneId, address worker) external {
         IdeaFund storage fund = ideas[ideaId];
         if (!fund.exists) revert IdeaNotFunded(ideaId);
@@ -146,10 +165,22 @@ contract IdeaEscrow {
         uint256 amount = m.amount;
         m.status = MilestoneStatus.Released;
 
-        bool ok = IERC20(fund.token).transfer(worker, amount);
-        if (!ok) revert TransferFailed();
+        uint256 workerAmount = amount * WORKER_BPS / BPS_DENOMINATOR;
+        uint256 stakerAmount = amount * STAKER_BPS / BPS_DENOMINATOR;
+        uint256 treasuryAmount = amount * TREASURY_BPS / BPS_DENOMINATOR;
 
-        emit MilestoneReleased(ideaId, milestoneId, worker, amount);
+        bool ok1 = IERC20(fund.token).transfer(worker, workerAmount);
+        if (!ok1) revert TransferFailed();
+
+        bool ok2 = IERC20(fund.token).transfer(stakerYieldReceiver, stakerAmount);
+        if (!ok2) revert TransferFailed();
+
+        bool ok3 = IERC20(fund.token).transfer(treasuryReceiver, treasuryAmount);
+        if (!ok3) revert TransferFailed();
+
+        emit MilestoneReleased(ideaId, milestoneId, worker, workerAmount);
+        emit StakerYieldPaid(ideaId, milestoneId, stakerYieldReceiver, stakerAmount);
+        emit TreasuryPaid(ideaId, milestoneId, treasuryReceiver, treasuryAmount);
     }
 
     /// @notice Refund reserved funds back to the poster (on rejection or expiry).
