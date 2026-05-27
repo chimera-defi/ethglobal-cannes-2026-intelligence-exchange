@@ -94,10 +94,28 @@ Key routing rules:
 <!-- kimi-delegate-claude:begin -->
 ## Kimi Delegation (enforced)
 
-NEVER write `pi --provider kimi-coding`. Always use `kd --task "..."` instead.
+NEVER write `pi --provider kimi-coding`. Always use `kimi-delegate --task "..."` instead.
+(`kd` alias is not reliably on PATH — use `kimi-delegate` as the canonical form.)
 
 Wrong: `pi --provider kimi-coding "summarize this"`
-Right: `kd --task "summarize this"`
+Right: `kimi-delegate --task "summarize this"`
 
 The wrapper handles auth, timeouts, fallback, and telemetry automatically.
 <!-- kimi-delegate-claude:end -->
+
+<!-- devin-delegate:begin -->
+## Devin Delegation (enforced)
+
+All Devin subagent calls MUST route through `devin-delegate`. Direct `devin -p` or `devin --print` calls bypass telemetry, fallback routing, and workspace context injection.
+
+**NEVER** call `devin` directly. **ALWAYS** use:
+```bash
+devin-delegate --task "..." --workspace /home/agents/workspace/ethglobal-cannes-2026-intelligence-exchange
+```
+
+Skill installed at: `skills/devin-delegate/`
+Config: `.devin-delegate.json`
+
+Task classes: `research`, `implement`, `debug`, `review`, `browser`
+Fallback chain: Devin → Codex → Kimi → Claude
+<!-- devin-delegate:end -->
