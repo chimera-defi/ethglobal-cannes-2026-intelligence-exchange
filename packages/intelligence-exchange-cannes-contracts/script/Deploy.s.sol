@@ -34,6 +34,7 @@ contract Deploy is Script {
         AdvancedArcEscrow advancedEscrow;
         address deployer;
         address attestor;
+        address stakerYieldReceiver;
         address platformWallet;
         address disputeResolver;
     }
@@ -50,6 +51,14 @@ contract Deploy is Script {
             console2.log("Using deployer as attestor:", result.deployer);
         }
         
+        // Get or set staker yield receiver
+        try vm.envAddress("STAKER_YIELD_RECEIVER") returns (address configuredStaker) {
+            result.stakerYieldReceiver = configuredStaker;
+        } catch {
+            result.stakerYieldReceiver = result.deployer;
+            console2.log("Using deployer as staker yield receiver:", result.stakerYieldReceiver);
+        }
+
         // Get or set platform wallet
         try vm.envAddress("PLATFORM_WALLET") returns (address configuredPlatform) {
             result.platformWallet = configuredPlatform;
@@ -99,6 +108,7 @@ contract Deploy is Script {
         // Deploy AdvancedArcEscrow (Prize 1 submission)
         result.advancedEscrow = new AdvancedArcEscrow(
             address(result.identityGate),
+            result.stakerYieldReceiver,
             result.platformWallet,
             result.disputeResolver
         );
