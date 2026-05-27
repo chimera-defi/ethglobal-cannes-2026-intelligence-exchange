@@ -188,8 +188,8 @@ export async function migrate() {
     CREATE TABLE IF NOT EXISTS token_accounts (
       account_address TEXT PRIMARY KEY,
       stable_deposited_usd NUMERIC(18,6) NOT NULL DEFAULT 0,
-      ixp_balance NUMERIC(24,8) NOT NULL DEFAULT 0,
-      ixp_reserved NUMERIC(24,8) NOT NULL DEFAULT 0,
+      intel_balance NUMERIC(24,8) NOT NULL DEFAULT 0,
+      intel_reserved NUMERIC(24,8) NOT NULL DEFAULT 0,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
@@ -200,7 +200,7 @@ export async function migrate() {
       entry_id UUID PRIMARY KEY,
       account_address TEXT NOT NULL,
       entry_type TEXT NOT NULL,
-      delta_ixp NUMERIC(24,8) NOT NULL,
+      delta_intel NUMERIC(24,8) NOT NULL,
       delta_stable_usd NUMERIC(18,6) NOT NULL DEFAULT 0,
       reference_type TEXT,
       reference_id TEXT,
@@ -214,15 +214,45 @@ export async function migrate() {
       idea_id TEXT PRIMARY KEY REFERENCES ideas(idea_id),
       poster_id TEXT NOT NULL,
       stable_funded_usd NUMERIC(18,6) NOT NULL DEFAULT 0,
-      avg_mint_price_usd_per_ixp NUMERIC(24,8) NOT NULL DEFAULT 1,
-      ixp_minted NUMERIC(24,8) NOT NULL DEFAULT 0,
-      ixp_reserved NUMERIC(24,8) NOT NULL DEFAULT 0,
-      ixp_spent NUMERIC(24,8) NOT NULL DEFAULT 0,
-      ixp_protocol_fee NUMERIC(24,8) NOT NULL DEFAULT 0,
+      avg_mint_price_usd_per_intel NUMERIC(24,8) NOT NULL DEFAULT 1,
+      intel_minted NUMERIC(24,8) NOT NULL DEFAULT 0,
+      intel_reserved NUMERIC(24,8) NOT NULL DEFAULT 0,
+      intel_spent NUMERIC(24,8) NOT NULL DEFAULT 0,
+      intel_protocol_fee NUMERIC(24,8) NOT NULL DEFAULT 0,
       status TEXT NOT NULL DEFAULT 'active',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
+  `;
+
+  // Idempotent IXP → INTEL column renames for databases created before 2026-05-27
+  await sql`
+    DO $$ BEGIN
+      IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='token_accounts' AND column_name='ixp_balance') THEN
+        ALTER TABLE token_accounts RENAME COLUMN ixp_balance TO intel_balance;
+      END IF;
+      IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='token_accounts' AND column_name='ixp_reserved') THEN
+        ALTER TABLE token_accounts RENAME COLUMN ixp_reserved TO intel_reserved;
+      END IF;
+      IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='token_ledger_entries' AND column_name='delta_ixp') THEN
+        ALTER TABLE token_ledger_entries RENAME COLUMN delta_ixp TO delta_intel;
+      END IF;
+      IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='idea_token_reserves' AND column_name='avg_mint_price_usd_per_ixp') THEN
+        ALTER TABLE idea_token_reserves RENAME COLUMN avg_mint_price_usd_per_ixp TO avg_mint_price_usd_per_intel;
+      END IF;
+      IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='idea_token_reserves' AND column_name='ixp_minted') THEN
+        ALTER TABLE idea_token_reserves RENAME COLUMN ixp_minted TO intel_minted;
+      END IF;
+      IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='idea_token_reserves' AND column_name='ixp_reserved') THEN
+        ALTER TABLE idea_token_reserves RENAME COLUMN ixp_reserved TO intel_reserved;
+      END IF;
+      IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='idea_token_reserves' AND column_name='ixp_spent') THEN
+        ALTER TABLE idea_token_reserves RENAME COLUMN ixp_spent TO intel_spent;
+      END IF;
+      IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='idea_token_reserves' AND column_name='ixp_protocol_fee') THEN
+        ALTER TABLE idea_token_reserves RENAME COLUMN ixp_protocol_fee TO intel_protocol_fee;
+      END IF;
+    END $$
   `;
 
   await sql`
