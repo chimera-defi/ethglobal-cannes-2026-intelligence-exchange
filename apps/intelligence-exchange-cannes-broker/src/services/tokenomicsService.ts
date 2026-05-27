@@ -241,10 +241,11 @@ export async function settleAcceptedJobCredits(input: {
   }
 
   const grossIntel = requestedGrossIntel;
-  const split = splitSettlementIntel(grossIntel, { protocolFeeBps: config.protocolFeeBps });
+  const split = splitSettlementIntel(grossIntel, { protocolFeeBps: config.protocolFeeBps, stakerYieldBps: 900 });
 
   const workerId = await ensureTokenAccount(input.workerId);
   const treasuryAccount = await ensureTokenAccount(config.treasuryAccount);
+  const stakerYieldPoolAccount = await ensureTokenAccount('staker_yield_pool');
   const posterId = await ensureTokenAccount(reserve.posterId);
 
   const now = new Date();
@@ -269,6 +270,13 @@ export async function settleAcceptedJobCredits(input: {
         updatedAt: now,
       })
       .where(eq(tokenAccounts.accountAddress, treasuryAccount));
+
+    await tx.update(tokenAccounts)
+      .set({
+        intelBalance: sql`${tokenAccounts.intelBalance} + ${split.stakerYieldIntel}`,
+        updatedAt: now,
+      })
+      .where(eq(tokenAccounts.accountAddress, stakerYieldPoolAccount));
 
     const currentReserved = toNumber(reserve.intelReserved, 0);
     const nextReserved = round(Math.max(0, currentReserved - split.grossIntel), 8);
@@ -315,6 +323,17 @@ export async function settleAcceptedJobCredits(input: {
         metadata: { ideaId: input.ideaId, budgetUsd },
         createdAt: now,
       },
+      {
+        entryId: randomUUID(),
+        accountAddress: stakerYieldPoolAccount,
+        entryType: 'staker_yield_pool',
+        deltaIntel: split.stakerYieldIntel.toFixed(8),
+        deltaStableUsd: '0',
+        referenceType: 'idea',
+        referenceId: input.ideaId,
+        metadata: { ideaId: input.ideaId, budgetUsd, jobId: input.jobId },
+        createdAt: now,
+      },
     ]);
   });
 
@@ -322,6 +341,7 @@ export async function settleAcceptedJobCredits(input: {
     tokenSymbol: config.symbol,
     grossIntel: split.grossIntel,
     workerPayoutIntel: split.workerPayoutIntel,
+    stakerYieldIntel: split.stakerYieldIntel,
     protocolFeeIntel: split.protocolFeeIntel,
     budgetUsd,
     avgMintPriceUsdPerIntel: round(avgMintPriceUsdPerIntel, 8),
