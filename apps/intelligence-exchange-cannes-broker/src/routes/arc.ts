@@ -597,7 +597,14 @@ arcRouter.post('/webhook/escrow-event', async (c) => {
       return c.json({ error: 'Missing webhook signature' }, 401);
     }
     const expected = 'sha256=' + createHmac('sha256', ARC_WEBHOOK_SECRET).update(rawBody).digest('hex');
-    if (!timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) {
+    let signatureValid = false;
+    try {
+      signatureValid = timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
+    } catch {
+      // timingSafeEqual throws RangeError if buffers differ in length
+      signatureValid = false;
+    }
+    if (!signatureValid) {
       return c.json({ error: 'Invalid webhook signature' }, 401);
     }
   }
