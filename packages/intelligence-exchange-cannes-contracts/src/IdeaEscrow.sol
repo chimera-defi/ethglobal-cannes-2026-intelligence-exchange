@@ -41,6 +41,7 @@ contract IdeaEscrow {
     event StakerYieldPaid(bytes32 indexed ideaId, bytes32 indexed milestoneId, address indexed receiver, uint256 amount);
     event TreasuryPaid(bytes32 indexed ideaId, bytes32 indexed milestoneId, address indexed receiver, uint256 amount);
     event MilestoneRefunded(bytes32 indexed ideaId, bytes32 indexed milestoneId, address indexed poster, uint256 amount);
+    event FundsWithdrawn(bytes32 indexed ideaId, address indexed poster, uint256 amount);
 
     // ─── Storage ──────────────────────────────────────────────────────────────
 
@@ -208,6 +209,20 @@ contract IdeaEscrow {
         // To withdraw back to wallet, poster calls withdrawIdea() (future feature).
 
         emit MilestoneRefunded(ideaId, milestoneId, poster, amount);
+    }
+
+    /// @notice Withdraw unreserved funds back to poster.
+    /// @param ideaId Idea to withdraw available funds from.
+    function withdrawAvailable(bytes32 ideaId) external {
+        IdeaFund storage fund = ideas[ideaId];
+        if (fund.poster != msg.sender) revert Unauthorized();
+        uint256 amount = fund.available;
+        if (amount == 0) revert InsufficientBalance(ideaId, 0, 0);
+        fund.available = 0;
+        fund.totalFunded -= amount;
+        bool ok = IERC20(fund.token).transfer(msg.sender, amount);
+        if (!ok) revert TransferFailed();
+        emit FundsWithdrawn(ideaId, msg.sender, amount);
     }
 
     // ─── View helpers ─────────────────────────────────────────────────────────
