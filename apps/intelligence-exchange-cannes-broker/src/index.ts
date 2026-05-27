@@ -14,6 +14,7 @@ import { worldRouter } from './routes/world';
 import { workersRouter } from './routes/workers';
 import { migrate } from './db/migrate';
 import { setupLeaseExpiryRequeue } from './queue/milestoneQueue';
+import { STALLED_JOB_INTERVAL_MS } from 'intelligence-exchange-cannes-shared';
 import { db } from './db/client';
 import { rateLimit, walletRateLimit } from './middleware/rateLimit';
 import { getSessionAccountAddress } from './services/accessService';
@@ -78,7 +79,7 @@ export async function bootstrap() {
 if (import.meta.main) {
   bootstrap()
     .then(() => {
-      console.log(`✓ Lease expiry requeue active (${10}s interval)`);
+      console.log(`✓ Lease expiry requeue active (${STALLED_JOB_INTERVAL_MS / 1000}s interval)`);
       console.log(`✓ IEX Broker listening on port ${PORT}`);
     })
     .catch((err) => {
