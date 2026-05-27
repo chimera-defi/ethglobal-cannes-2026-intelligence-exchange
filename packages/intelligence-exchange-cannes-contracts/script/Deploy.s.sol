@@ -102,7 +102,7 @@ contract Deploy is Script {
         console2.log("AgentIdentityRegistry deployed at:", address(result.registry));
         
         // Deploy legacy IdeaEscrow (for backwards compatibility)
-        result.ideaEscrow = new IdeaEscrow();
+        result.ideaEscrow = new IdeaEscrow(result.stakerYieldReceiver, result.platformWallet);
         console2.log("IdeaEscrow (legacy) deployed at:", address(result.ideaEscrow));
         
         // Deploy AdvancedArcEscrow (Prize 1 submission)

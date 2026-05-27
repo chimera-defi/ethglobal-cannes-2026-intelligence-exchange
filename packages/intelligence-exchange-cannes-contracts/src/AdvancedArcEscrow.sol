@@ -157,7 +157,6 @@ contract AdvancedArcEscrow {
         address poster;
         uint256 totalFunded;        // Total USDC deposited
         uint256 available;          // Available for reservation
-        uint256 platformFeesReserved; // Portion reserved for platform
         bool exists;
         uint256 fundedAt;
     }
@@ -315,7 +314,6 @@ contract AdvancedArcEscrow {
             poster: msg.sender,
             totalFunded: amount,
             available: amount,
-            platformFeesReserved: 0,
             exists: true,
             fundedAt: block.timestamp
         });
@@ -916,12 +914,11 @@ contract AdvancedArcEscrow {
     // ─────────────────────────────────────────────────────────────────────────
     
     function getIdeaBalance(bytes32 ideaId) external view returns (
-        uint256 available, 
-        uint256 totalFunded,
-        uint256 platformFeesReserved
+        uint256 available,
+        uint256 totalFunded
     ) {
         IdeaFund storage fund = ideas[ideaId];
-        return (fund.available, fund.totalFunded, fund.platformFeesReserved);
+        return (fund.available, fund.totalFunded);
     }
 
     function getMilestoneStatus(bytes32 milestoneId) external view returns (MilestoneStatus) {
