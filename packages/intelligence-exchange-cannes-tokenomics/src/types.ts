@@ -20,10 +20,12 @@ export type MintQuote = {
 
 export type FeePolicy = {
   protocolFeeBps: number;
+  stakerYieldBps: number;
 };
 
 export type SettlementSplit = {
   grossIntel: number;
   workerPayoutIntel: number;
+  stakerYieldIntel: number;
   protocolFeeIntel: number;
 };

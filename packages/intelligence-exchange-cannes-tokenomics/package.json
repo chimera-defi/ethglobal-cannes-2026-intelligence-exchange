@@ -7,7 +7,7 @@
   "scripts": {
     "test": "bun test",
     "typecheck": "tsc --noEmit",
-    "demo:intel:actors": "bun scripts/demo-intel-actor-flow.ts"
+    "demo:intel:actors": "npx tsx src/demo-actors.ts"
   },
   "devDependencies": {
     "typescript": "^5.4.5"

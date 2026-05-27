@@ -57,13 +57,22 @@ export function quoteMintIntel(stableAmountUsd: number, state: PoolState): MintQ
 export function splitSettlementIntel(grossIntel: number, policy: FeePolicy): SettlementSplit {
   const gross = clampPositive(grossIntel, 0);
   const protocolFeeBps = Math.min(10_000, Math.max(0, policy.protocolFeeBps));
+  const stakerYieldBps = Math.min(10_000, Math.max(0, policy.stakerYieldBps ?? 900));
+
+  if (protocolFeeBps + stakerYieldBps > 10_000) {
+    throw new Error(
+      `FeePolicy overflow: protocolFeeBps (${protocolFeeBps}) + stakerYieldBps (${stakerYieldBps}) exceeds 10_000`,
+    );
+  }
 
   const protocolFeeIntel = gross * (protocolFeeBps / 10_000);
-  const workerPayoutIntel = gross - protocolFeeIntel;
+  const stakerYieldIntel = gross * (stakerYieldBps / 10_000);
+  const workerPayoutIntel = gross - protocolFeeIntel - stakerYieldIntel;
 
   return {
     grossIntel: round(gross, 8),
     workerPayoutIntel: round(workerPayoutIntel, 8),
+    stakerYieldIntel: round(stakerYieldIntel, 8),
     protocolFeeIntel: round(protocolFeeIntel, 8),
   };
 }
