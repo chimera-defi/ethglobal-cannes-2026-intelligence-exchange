@@ -149,6 +149,7 @@ contract AgentIdentityRegistry {
     }
 
     function setIdentityGate(address _identityGate) external onlyOwner {
+        if (_identityGate == address(0)) revert Unauthorized();
         identityGate = IdentityGate(_identityGate);
     }
 
