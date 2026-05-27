@@ -90,6 +90,8 @@ Key routing rules:
 - Ship/deploy/PR → invoke /ship or /land-and-deploy
 - Save progress → invoke /context-save
 - Resume context → invoke /context-restore
+- Smart contract audit → use x-ray methodology (skills/x-ray/README.md); reports go to packages/intelligence-exchange-cannes-contracts/x-ray/
+- Infrastructure/secrets/OWASP audit → invoke /cso (skills/cso/ → gstack CSO skill)
 
 <!-- kimi-delegate-claude:begin -->
 ## Kimi Delegation (enforced)
