@@ -21,17 +21,20 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        # SECURITY: SHA-pinned to prevent tag-swapping supply-chain attacks (CSO-003).
+        # To update: gh api repos/actions/checkout/git/ref/tags/v4 | jq .object.sha
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        # SECURITY: SHA-pinned (v4.1.0). Update via:
+        # gh api repos/actions/setup-node/git/ref/tags/v4 | jq .object.sha
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af  # v4.1.0
         with:
           node-version: 20
           cache: pnpm
 
       - name: Setup Bun
-        # SECURITY: Pin to SHA to prevent tag-swapping supply-chain attacks.
-        # Replace with the actual SHA of oven-sh/setup-bun@v2 after verification.
+        # SECURITY: SHA-pinned to prevent tag-swapping supply-chain attacks.
         uses: oven-sh/setup-bun@4de645d
 
       - name: Audit dependencies
