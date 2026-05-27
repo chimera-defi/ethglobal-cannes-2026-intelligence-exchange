@@ -20,6 +20,8 @@
 
 All contracts have passing test suites. Mainnet-fork liquidity smoke test runs against the INTEL/USDC pair.
 
+**Known contract gap (honest):** `IdeaEscrow.sol` releases the full milestone amount to the worker with no split. The 81/9/10 settlement split is implemented in the off-chain broker ledger (verified working), not yet in the contract layer. `AdvancedArcEscrow.sol` routes 90% to worker / 10% to treasury — missing the 9% staker yield extraction. These gaps are tracked and are the first contract work in the funded roadmap.
+
 ### Application layer
 
 | Component | Stack | Status |
@@ -28,10 +30,22 @@ All contracts have passing test suites. Mainnet-fork liquidity smoke test runs a
 | Worker CLI | TypeScript | Working — authenticated claim/submit loop via AgentKit |
 | Web App | React + Vite + RainbowKit | Working — buyer and reviewer UX |
 
+### End-to-end loop (verified 2026-05-27)
+
+The full 6-step flow works:
+
+1. POST /ideas + POST /ideas/:id/fund → mints INTEL from stable on-ramp, escrows in ledger
+2. POST /jobs/:id/claim → worker claims milestone with 45-min lease
+3. POST /jobs/:id/submit → worker submits artifact + deterministic scoring
+4. POST /ideas/:id/accept → reviewer accepts → settlement fires in broker ledger: 81% worker (3.037 INTEL on a $3.75 milestone), 9% staker yield pool (0.337 INTEL), 10% treasury (0.375 INTEL)
+5. Attestation signed: `{agentFingerprint, score, reviewerAddress, signature}`
+6. GET /workers/:fingerprint/reputation → returns acceptedCount + avgScore
+
 ### Verifiable demo commands
 
 ```bash
 # Full actor flow simulation (buyer → agent → reviewer → settlement)
+# Shows real 81/9/10 split numbers
 corepack pnpm demo:tokenomics:actors
 
 # Mainnet-fork INTEL liquidity smoke test
@@ -41,13 +55,12 @@ corepack pnpm --filter intelligence-exchange-cannes-contracts smoke:intel-liquid
 corepack pnpm validate:all
 ```
 
-### Documentation and spec artifacts
+### What a reviewer would see at demo
 
-- `docs/CANONICAL_PRODUCT_OVERVIEW.md` — canonical product reference
-- `spec/tokenomics/INTEL_LAUNCH_ARCHITECTURE.md` — tokenomics mechanics with formula-level detail
-- `spec/INTELLIGENCE_DERIVATIVES.md` — AIU index and derivatives roadmap
-- `spec/FINANCIAL_MODEL.md` — bottom-up unit economics model
-- `docs/architecture/system-overview.md` — full system architecture with component and sequence diagrams
+1. Fund idea with USDC on-ramp → INTEL minted at curve price, escrowed in ledger
+2. Worker CLI claim + submit → reviewer accepts → 81/9/10 split fires in ledger with exact token amounts
+3. `GET /workers/:fingerprint/reputation` → returns verified task count and average score
+4. `GET /tokenomics/status` → returns INTEL pool state and current spot price
 
 ### What is not built
 
@@ -57,10 +70,39 @@ corepack pnpm validate:all
 - `WorkReceipt1155` contract (Phase 2) — not yet written
 - AIU index calculator — not yet live
 - INTEL token deployment to a public network — not yet done
+- Contract-layer 81/9/10 split — implemented in broker ledger, not yet in `IdeaEscrow.sol`
 
 ---
 
-## 2. Phase 1 success definition (0–6 months)
+## 2. Pilot Design (what we'd run with grant funding)
+
+Grant funding enables a structured pilot to generate the first real dataset:
+
+**Week 1–2: Identify pilot teams**
+- Outbound to 3 engineering teams spending $10K+/month on AI agent tasks
+- Target profile: teams using Claude Code, Codex, Devin, or similar at production scale
+- Offer: $6.7K in pre-seeded INTEL credits (covered by grant) to route a slice of their existing agent workload through the platform
+
+**Week 3–4: Onboard and configure**
+- Deploy INTEL on Worldchain testnet with real settlement
+- Integrate buyer accounts and reviewer setup for each team
+- Worker CLI installation (target: under 15 minutes from zero)
+- Route first 5–10 real tasks per team to validate the flow end-to-end with actual users
+
+**Week 5–12: Route real tasks**
+- Target: 50+ tasks per week across all three teams
+- Human reviewer gate active — not automated acceptance
+- Real INTEL settlement per acceptance
+- Weekly metrics: acceptance rate, median completion time, task volume by category
+
+**Week 13+: Publish first AIU index reading**
+- Aggregate accepted job records into normalized AIU units: `task_weight × acceptance_multiplier × quality_multiplier`
+- Publish first weekly AIU index reading (not daily — insufficient data volume at this stage)
+- This is the first market-discovered price of intelligence output that is tamper-evident and composable
+
+---
+
+## 3. Phase 1 success definition (0–6 months)
 
 Phase 1 succeeds when the task market is live with real accepted jobs and real on-chain reputation accruing. Success is not measured by token price or TVL.
 
@@ -68,22 +110,24 @@ Phase 1 succeeds when the task market is live with real accepted jobs and real o
 
 | Metric | Target | Rationale |
 |--------|--------|-----------|
-| Accepted jobs | 1,000+ | Baseline for price discovery; from spec/INTELLIGENCE_DERIVATIVES.md |
-| Active workers with reputation | 100+ | Enough supply for meaningful routing decisions |
-| Median task completion time | Stable (no trend) | Signals the flow is predictable, not chaotic |
-| Price variance within task categories | < 30% | From INTELLIGENCE_DERIVATIVES.md Phase 1 success metrics |
-| Acceptance rate | > 70% | Workers are calibrated; not spamming submissions |
+| Pilot teams active | 3 | Cold-start proof; real buyers, real spend |
+| Accepted jobs | 500+ | Foundation for statistically meaningful AIU index; achievable at ~3 jobs/team/week |
+| INTEL live on testnet | Yes | On-chain proof of the settlement rail — not just simulation |
+| External AgentIdentityRegistry query | 1+ | Composability proof: reputation layer works without the marketplace |
 | Smart contract audit | Complete | Required before handling real value |
+
+Note: the original Phase 1 target was 1,000 accepted jobs. 500 is the revised honest target for 6 months from 3 teams. 1,000 remains the target for the full Phase 1 period if additional teams join.
 
 ### Soft targets (directional)
 
-- Three to five engineering teams using the platform for real overflow AI work
-- Buyer monthly spend per account visible and stable (target: $3K–$7K/month per active buyer)
+- Acceptance rate > 70% (workers are calibrated, not spamming submissions)
+- Median task completion time stable (flow is predictable, not chaotic)
 - Worker CLI installable in under 15 minutes
+- Buyer monthly spend per account visible and stable
 
 ---
 
-## 3. Phase 2 success definition (3–9 months)
+## 4. Phase 2 success definition (3–9 months, overlapping)
 
 Phase 2 begins once Phase 1 acceptance volume is credible. The goal is the AIU index.
 
@@ -101,7 +145,7 @@ Phase 2 completion is the prerequisite for evaluating whether derivatives (Phase
 
 ---
 
-## 4. Forward projections (6-month horizon)
+## 5. Forward projections (6-month horizon)
 
 These are planning assumptions from `spec/FINANCIAL_MODEL.md`, not forecasts. They will be replaced with observed pilot data.
 
@@ -134,7 +178,7 @@ The base scenario is the one that justifies continued build. The conservative sc
 
 ---
 
-## 5. Series A equivalent metrics for a protocol at this stage
+## 6. Series A equivalent metrics for a protocol at this stage
 
 The "Series A equivalent" for a protocol marketplace is not ARR — it is depth and defensibility of the liquidity flywheel. Comparable milestones:
 
@@ -150,15 +194,16 @@ The current position is pre-seed by any measure. The argument for funding at thi
 
 ---
 
-## 6. Risk-adjusted view
+## 7. Risk-adjusted view
 
 | Risk | Honest assessment |
 |------|------------------|
-| Cold-start supply | High. 100 workers from zero is hard. Will require direct outreach to existing agent operators. |
+| Cold-start supply | High. 100 workers from zero is hard. Pilot design addresses this by seeding with INTEL credits and direct outreach. |
 | Cold-start demand | High. Buyers need to trust the reviewer gate before routing real spend. Needs design/trust work. |
+| Contract split gap | Real. IdeaEscrow.sol and AdvancedArcEscrow.sol do not implement the full 81/9/10 split in the contract layer. Off-chain ledger is correct. Contract fix is first funded work item. |
 | Output quality variance | Medium. Human reviewer gate is the control. Quality degrades if reviewer pool is too small or incentive is wrong. |
 | Token reflexivity | Mitigated by design (`utilizationMultiplier` makes minting expensive when activity is low). Not eliminated. |
-| Audit cost | High one-time cost ($15K–$30K). Non-negotiable before real value on-chain. |
-| Solo builder concentration | High. Single point of failure. Addressed only by co-founder or team expansion. |
+| Audit cost | High one-time cost. Non-negotiable before real value on-chain. Included in grant ask. |
+| Solo builder concentration | High. Single point of failure. Addressed by active co-founder search funded by grant. |
 
 The risk register is honest. The thesis is that the design choices — human review gate, `utilizationMultiplier`, settlement-first tokenomics — address the most common failure modes of similar protocols. But these are design choices, not execution facts. Phase 1 converts them to facts or disproves them.

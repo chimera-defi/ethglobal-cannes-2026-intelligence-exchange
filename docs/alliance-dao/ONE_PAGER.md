@@ -4,62 +4,67 @@
 
 ---
 
-## The gap
-
-Every team running AI agents at scale today ($100K–$300K/year) faces the same invisible problem: there is no tamper-evident record of which work was accepted, which agent produced it, or what the effective cost-per-output was. GPU markets price hardware. API routers price tokens. Nobody prices *accepted intelligence output* — the thing that actually matters to a buyer.
-
-When an AI agent ships bad work, there is no neutral dispute layer. When a buyer wants to choose between agents, there is no portable reputation. When a CFO wants to hedge rising AI labor costs, there is no market to trade against. These are not hypothetical gaps — they are structural absences in a category that is already spending at scale.
-
----
-
-## The product
-
-Intelligence Exchange is a milestone marketplace where buyers post scoped AI tasks with INTEL-denominated budgets, human-backed worker agents execute them, and human reviewers gate every payout. On acceptance, settlement routes automatically (81% worker / 9% staker yield / 10% treasury) and an on-chain attestation records the accepted work in `AgentIdentityRegistry.sol`. The marketplace is live at the code level: four Solidity contracts, a Hono broker API, a TypeScript worker CLI, and a React frontend are all working at hackathon stage.
-
-The marketplace is how we bootstrap. On-chain reputation records are the durable infrastructure. Any protocol that needs to verify an agent's track record — lending, insurance, task routing — can query the registry without depending on our marketplace to stay alive.
-
----
-
-## Token design
-
-- **Settlement rail:** INTEL is the native unit for task budgets and payouts. Stablecoin is an on-ramp UX convenience, not a second rail.
-- **Supply control:** Epoch mint rights are capped by `min(k * sqrt(stakedIntel), walletCap, globalCapRemaining)` with a `utilizationMultiplier` that makes minting more expensive when marketplace activity is low — a deliberate brake against reflexive supply expansion.
-- **Yield composability:** 9% of every accepted settlement accrues to stakers, 10% to treasury. Direct mint inflow routes 50% to protocol-owned liquidity, 45% to staker yield. The token creates alignment between stakers and marketplace health, not speculation on roadmap.
-
----
-
-## Traction (what exists today)
-
-Built solo at ETHGlobal Cannes 2026:
-
-- `AgentIdentityRegistry.sol` — agent identity + reputation attestation on Worldchain
-- `AdvancedArcEscrow.sol` — milestone-gated budget escrow
-- `IntelToken.sol` — ERC-20, 100M cap, burn, pause
-- `IdeaEscrow.sol` — task budget container
-- Broker API, Worker CLI, Web App — full job lifecycle working end to end
-- Working demo: `corepack pnpm demo:tokenomics:actors`
-- Mainnet-fork smoke test: `corepack pnpm --filter intelligence-exchange-cannes-contracts smoke:intel-liquidity:mainnet-fork`
-
-No users, no revenue, no GMV. Design and code exist. Pilot does not.
+No market prices the output of AI work. We are building the one that does — and the on-chain reputation layer that makes it trustworthy.
 
 ---
 
 ## The intelligence derivatives angle
 
-The marketplace produces a side-effect that no other platform captures: a normalized, verifiable stream of accepted work records. Each record carries a task weight, an acceptance multiplier, and a quality score. Aggregated, these become the AIU (Accepted Intelligence Unit) index — the market-discovered price of one unit of verified AI work output.
+The end-state is a hedgeable market for AI labor cost. Engineering teams spending $200K+/year on AI agents have no way to hedge that exposure. GPU futures and compute tokens speculate on hardware scarcity. Nothing tracks the cost of verified, accepted intelligence work.
 
-This is what makes Intelligence Exchange crypto-native rather than crypto-wrapped. A credible AIU index, with six or more months of history, can underpin perpetual futures contracts. An AI-heavy company could short AIU perpetuals to hedge against rising agent costs the same way an airline hedges jet fuel. A worker pool could go long to bet on their own productivity. The AIU index would be to AI labor cost what the S&P 500 is to equity exposure — a normalized benchmark that makes a diffuse, heterogeneous market legible and tradable.
+Intelligence Exchange produces that index as a side-effect of operating a milestone marketplace. Every accepted job generates a signed attestation: `{agentFingerprint, score, reviewerAddress, signature}`. Aggregated, these records become the AIU (Accepted Intelligence Unit) index — the market-discovered price of one unit of verified AI work output. A credible AIU index, with six or more months of history, can underpin perpetual futures contracts. An AI-heavy company could short AIU perpetuals to hedge against rising agent costs the same way an airline hedges jet fuel. A worker pool could go long to bet on their own productivity.
 
-No compute futures market touches this. USDCI and GPU futures speculate on hardware scarcity. Intelligence Exchange measures and prices the output of intelligence work itself. The marketplace runs first, the index emerges from the data, and the derivatives follow once the index has earned credibility.
+No compute futures market touches this. USDCI and GPU futures speculate on hardware scarcity. Intelligence Exchange measures and prices the output of intelligence work itself. The marketplace runs first, the index emerges from the data, and the derivatives follow once the index has earned credibility. Derivatives are Phase 4 — 12+ months away. Phase 1 is the dataset-generation mechanism that makes Phase 4 possible.
 
 ---
 
-## Ask + contact
+## What exists today
+
+Working 6-step loop, verified 2026-05-27:
+
+**task → claim → submit → accept → settle (81/9/10 split) → attest**
+
+Demo: `corepack pnpm demo:tokenomics:actors`
+
+- Buyer funds idea → INTEL minted from stable on-ramp, escrowed in ledger
+- Worker claims milestone (45-min lease) → submits artifact with deterministic scoring
+- Reviewer accepts → settlement fires: 81% worker, 9% staker yield pool, 10% treasury
+- Signed attestation written: `{agentFingerprint, score, reviewerAddress, signature}`
+- `GET /workers/:fingerprint/reputation` → returns acceptedCount + avgScore
+
+No users, no revenue, no GMV. The loop works. The pilot does not exist yet.
+
+---
+
+## Token design
+
+- **Settlement rail:** INTEL is the native unit for task budgets and payouts. Stablecoin is an on-ramp UX convenience, not a second rail. INTEL price is the revealed price of AI labor — actual clearing, not a synthetic oracle.
+- **Supply control:** Epoch mint rights are capped by `min(k * sqrt(stakedIntel), walletCap, globalCapRemaining)` with a `utilizationMultiplier` that makes minting more expensive when marketplace activity is low — a deliberate brake against reflexive supply expansion.
+- **Yield composability:** 9% of every accepted settlement accrues to stakers, 10% to treasury. Direct mint inflow routes 50% to protocol-owned liquidity, 45% to staker yield. Staker alignment is with marketplace health, not speculation on roadmap.
+- **Not a governance token.** INTEL is a settlement rail. The value proposition is clearing.
+
+---
+
+## The gap we fill
+
+| What exists | What it prices | What it misses |
+|-------------|----------------|----------------|
+| GPU markets | Hardware hours | Intelligence output quality |
+| API routers | Token throughput | Acceptance gating, reputation |
+| Compute tokens | Hardware scarcity | Verified work records |
+| Human freelance platforms | Human labor | AI agents, on-chain settlement |
+| **Nothing** | **Accepted intelligence output** | **(this is the gap)** |
+
+---
+
+## Team and ask
+
+**Builder:** Chimera — DeFi contributor since 2020, solo build at ETHGlobal Cannes 2026. Actively seeking a co-founder with AI agent ecosystem BD experience. Co-founder equity reserved.
 
 **Funding ask:** $50K–$150K  
-**Use:** Smart contract audit ($15K–$30K), infrastructure ($2K–$4K/month), INTEL/USDC liquidity seed ($20K–$50K), six months of full-time builder execution  
-**Phase 1 target:** 1,000 accepted on-chain jobs, 100 workers with reputation scores, AIU index live
+**Use of funds:** $80K builder time (6 months) / $30K testnet deployment + INTEL liquidity / $20K pilot customer acquisition (3 teams × $6.7K INTEL credits) / $20K smart contract audit
 
-**Builder:** Chimera  
+**Phase 1 target (6 months):** 3 engineering teams routing real tasks, 500+ accepted jobs, INTEL live on Worldchain testnet, first external AgentIdentityRegistry query
+
 **Contact:** chimera_defi@protonmail.com  
 **Repo:** ethglobal-cannes-2026-intelligence-exchange (on request)
