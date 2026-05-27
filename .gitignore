@@ -54,3 +54,10 @@ artifacts/
 *.temp
 .gstack/
 .gstack-designs/
+
+# Agent/IDE local state
+.context/
+.claude/
+
+# External symlinks (environment-specific, not portable)
+skills/devin-delegate
