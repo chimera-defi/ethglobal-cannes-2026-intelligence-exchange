@@ -170,13 +170,14 @@ export const agentSpendEvents = pgTable('agent_spend_events', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
-// ─── Tokenomics (stable -> INTEL minting and settlement ledger; legacy ixp_* column names) ──────
+// ─── Tokenomics (stable -> INTEL minting and settlement ledger) ──────────────
 
 export const tokenAccounts = pgTable('token_accounts', {
   accountAddress: text('account_address').primaryKey(),
   stableDepositedUsd: numeric('stable_deposited_usd', { precision: 18, scale: 6 }).notNull().default('0'),
-  ixpBalance: numeric('ixp_balance', { precision: 24, scale: 8 }).notNull().default('0'),
-  ixpReserved: numeric('ixp_reserved', { precision: 24, scale: 8 }).notNull().default('0'),
+  // ixp_balance / ixp_reserved renamed to intel_balance / intel_reserved (DB migration required for existing deployments)
+  intelBalance: numeric('intel_balance', { precision: 24, scale: 8 }).notNull().default('0'),
+  intelReserved: numeric('intel_reserved', { precision: 24, scale: 8 }).notNull().default('0'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
@@ -185,7 +186,7 @@ export const tokenLedgerEntries = pgTable('token_ledger_entries', {
   entryId: uuid('entry_id').primaryKey(),
   accountAddress: text('account_address').notNull(),
   entryType: text('entry_type').notNull(),
-  deltaIxp: numeric('delta_ixp', { precision: 24, scale: 8 }).notNull(),
+  deltaIntel: numeric('delta_intel', { precision: 24, scale: 8 }).notNull(),
   deltaStableUsd: numeric('delta_stable_usd', { precision: 18, scale: 6 }).notNull().default('0'),
   referenceType: text('reference_type'),
   referenceId: text('reference_id'),
@@ -197,11 +198,11 @@ export const ideaTokenReserves = pgTable('idea_token_reserves', {
   ideaId: text('idea_id').primaryKey().references(() => ideas.ideaId),
   posterId: text('poster_id').notNull(),
   stableFundedUsd: numeric('stable_funded_usd', { precision: 18, scale: 6 }).notNull().default('0'),
-  avgMintPriceUsdPerIxp: numeric('avg_mint_price_usd_per_ixp', { precision: 24, scale: 8 }).notNull().default('1'),
-  ixpMinted: numeric('ixp_minted', { precision: 24, scale: 8 }).notNull().default('0'),
-  ixpReserved: numeric('ixp_reserved', { precision: 24, scale: 8 }).notNull().default('0'),
-  ixpSpent: numeric('ixp_spent', { precision: 24, scale: 8 }).notNull().default('0'),
-  ixpProtocolFee: numeric('ixp_protocol_fee', { precision: 24, scale: 8 }).notNull().default('0'),
+  avgMintPriceUsdPerIntel: numeric('avg_mint_price_usd_per_intel', { precision: 24, scale: 8 }).notNull().default('1'),
+  intelMinted: numeric('intel_minted', { precision: 24, scale: 8 }).notNull().default('0'),
+  intelReserved: numeric('intel_reserved', { precision: 24, scale: 8 }).notNull().default('0'),
+  intelSpent: numeric('intel_spent', { precision: 24, scale: 8 }).notNull().default('0'),
+  intelProtocolFee: numeric('intel_protocol_fee', { precision: 24, scale: 8 }).notNull().default('0'),
   status: text('status').notNull().default('active'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
