@@ -13,7 +13,6 @@ import { httpError } from './errors';
 import { issueAcceptedSubmissionAttestation } from './chainService';
 import { logJobEvent } from './jobEvents';
 import { settleAcceptedJobCredits } from './tokenomicsService';
-import { uploadAcceptedDossier } from './zeroG';
 
 type SpendEventInput = {
   workerId: string;
@@ -310,33 +309,6 @@ export async function acceptJob(jobId: string, reviewerId: string) {
     reviewerAddress: reviewerId,
     payoutReleased: Boolean(settlement),
   });
-
-  void (async () => {
-    try {
-      const dossierUpload = await uploadAcceptedDossier({
-        ideaId: job.ideaId,
-        briefId: job.briefId,
-        jobId,
-        milestoneType: job.milestoneType,
-        reviewerId,
-        workerId: job.activeClaimWorkerId ?? null,
-        score,
-        summary: sub.summary ?? null,
-        artifactUris: sub.artifactUris,
-        agentMetadata: sub.agentMetadata,
-        acceptedAt: now.toISOString(),
-      });
-
-      if (dossierUpload) {
-        await db.update(briefs)
-          .set({ dossierUri: dossierUpload.dossierUri })
-          .where(eq(briefs.briefId, job.briefId));
-        console.log(`[0g:dossier] jobId=${jobId} tx=${dossierUpload.txHash}`);
-      }
-    } catch (err) {
-      console.error('[0g:dossier] upload failed', err);
-    }
-  })();
 
   return { accepted: true, attestation, settlement };
 }

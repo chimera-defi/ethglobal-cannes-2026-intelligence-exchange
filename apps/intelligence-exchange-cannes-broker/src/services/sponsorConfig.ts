@@ -1,6 +1,4 @@
 const DEFAULT_ARC_TESTNET_RPC_URL = 'https://rpc.testnet.arc.network';
-const DEFAULT_ZERO_G_RPC_URL = 'https://evmrpc-testnet.0g.ai';
-const DEFAULT_ZERO_G_INDEXER_RPC = 'https://indexer-storage-testnet-turbo.0g.ai';
 const DEFAULT_WORLDCHAIN_RPC_URL = 'https://worldchain-sepolia.g.alchemy.com/public';
 const DEFAULT_WORLDCHAIN_CHAIN_ID = 4801;
 const DEFAULT_WORLDCHAIN_AGENTBOOK_ADDRESS = '0xA23aB2712eA7BBa896930544C7d6636a96b944dA';
@@ -77,25 +75,9 @@ export function getAgentKitConfig() {
   };
 }
 
-export function getZeroGConfig() {
-  return {
-    configured: Boolean(process.env.ZERO_G_PRIVATE_KEY),
-    rpcUrl: process.env.ZERO_G_RPC_URL ?? DEFAULT_ZERO_G_RPC_URL,
-    indexerRpcUrl: process.env.ZERO_G_INDEXER_RPC ?? DEFAULT_ZERO_G_INDEXER_RPC,
-    privateKey: process.env.ZERO_G_PRIVATE_KEY,
-    chainId: Number(process.env.ZERO_G_CHAIN_ID ?? '16602'),
-    explorerBaseUrl: process.env.ZERO_G_EXPLORER_BASE_URL ?? 'https://chainscan-galileo.0g.ai/tx/',
-    identityGateAddress: process.env.ZERO_G_IDENTITY_GATE_ADDRESS ?? null,
-    agentRegistryAddress: process.env.ZERO_G_AGENT_REGISTRY_ADDRESS ?? null,
-    escrowAddress: process.env.ZERO_G_ESCROW_ADDRESS ?? null,
-    advancedEscrowAddress: process.env.ZERO_G_ADVANCED_ESCROW_ADDRESS ?? null,
-  };
-}
-
 export function getIntegrationStatus() {
   const world = getWorldConfig();
   const arc = getArcConfig();
-  const zeroG = getZeroGConfig();
   const worldchain = getWorldChainConfig();
   const agentKit = getAgentKitConfig();
 
@@ -131,17 +113,6 @@ export function getIntegrationStatus() {
       statement: agentKit.statement,
       chainId: agentKit.chainId,
       agentBookContractAddress: agentKit.agentBookContractAddress,
-    },
-    zeroG: {
-      mode: zeroG.configured ? 'live' : 'demo',
-      rpcUrl: zeroG.rpcUrl,
-      indexerRpcUrl: zeroG.indexerRpcUrl,
-      chainId: zeroG.chainId,
-      explorerBaseUrl: zeroG.explorerBaseUrl,
-      identityGateAddress: zeroG.identityGateAddress,
-      agentRegistryAddress: zeroG.agentRegistryAddress,
-      escrowAddress: zeroG.escrowAddress,
-      advancedEscrowAddress: zeroG.advancedEscrowAddress,
     },
   };
 }
