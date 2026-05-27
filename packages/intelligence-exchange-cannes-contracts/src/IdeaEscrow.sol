@@ -127,13 +127,8 @@ contract IdeaEscrow {
 
         uint256 totalRequired = 0;
         for (uint256 i = 0; i < milestoneIds.length; i++) {
-            bytes32 milestoneId = milestoneIds[i];
-            uint256 amount = amounts[i];
-            if (amount == 0) revert ZeroAmount();
-            if (milestones[milestoneId].status != MilestoneStatus.None) {
-                revert MilestoneAlreadyReserved(milestoneId);
-            }
-            totalRequired += amount;
+            if (amounts[i] == 0) revert ZeroAmount();
+            totalRequired += amounts[i];
         }
 
         if (fund.available < totalRequired) revert InsufficientBalance(ideaId, totalRequired, fund.available);
@@ -142,6 +137,13 @@ contract IdeaEscrow {
         for (uint256 i = 0; i < milestoneIds.length; i++) {
             bytes32 milestoneId = milestoneIds[i];
             uint256 amount = amounts[i];
+            // Check here (after deduction) catches both pre-existing milestones AND intra-batch
+            // duplicates: the second occurrence of a duplicate milestoneId will find status==Reserved
+            // (set by the first iteration) and revert, rolling back the entire transaction including
+            // the fund.available deduction above.
+            if (milestones[milestoneId].status != MilestoneStatus.None) {
+                revert MilestoneAlreadyReserved(milestoneId);
+            }
             milestones[milestoneId] = MilestoneFund({ amount: amount, status: MilestoneStatus.Reserved });
             milestoneIdea[milestoneId] = ideaId;
 
