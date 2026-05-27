@@ -53,6 +53,7 @@ contract AdvancedArcEscrowTest is Test {
     address public constant USDC = 0x3600000000000000000000000000000000000000;
     
     address public owner;
+    address public stakerYieldReceiver;
     address public platformWallet;
     address public disputeResolver;
     address public poster;
@@ -80,6 +81,7 @@ contract AdvancedArcEscrowTest is Test {
 
     function setUp() public {
         owner = makeAddr("owner");
+        stakerYieldReceiver = makeAddr("stakerYieldReceiver");
         platformWallet = makeAddr("platformWallet");
         disputeResolver = makeAddr("disputeResolver");
         poster = makeAddr("poster");
@@ -95,6 +97,7 @@ contract AdvancedArcEscrowTest is Test {
         // Deploy AdvancedArcEscrow
         escrow = new AdvancedArcEscrow(
             address(identityGate),
+            stakerYieldReceiver,
             platformWallet,
             disputeResolver
         );

@@ -93,7 +93,8 @@ contract AdvancedArcEscrow {
         uint256 vestedAmount,
         uint256 platformFee
     );
-    event StakerYieldPaid(bytes32 indexed milestoneId, address indexed receiver, uint256 amount);
+    event StakerYieldPaid(bytes32 indexed ideaId, bytes32 indexed milestoneId, address indexed receiver, uint256 amount);
+    event TreasuryPaid(bytes32 indexed ideaId, bytes32 indexed milestoneId, address indexed receiver, uint256 amount);
     event MilestoneAutoReleased(
         bytes32 indexed milestoneId,
         address indexed worker,
@@ -205,7 +206,7 @@ contract AdvancedArcEscrow {
     /// @notice Settlement split: worker 81%, staker yield 9%, treasury 10%
     uint256 public constant WORKER_BPS = 8100;
     uint256 public constant STAKER_BPS = 900;
-    uint256 public constant PLATFORM_FEE_BPS = 1000; // treasury / platform fee
+    uint256 public constant TREASURY_BPS = 1000;
     uint256 public constant BPS_DENOMINATOR = 10000;
     
     /// @notice Minimum vesting period (1 day)
@@ -226,9 +227,9 @@ contract AdvancedArcEscrow {
     
     IdentityGate public immutable identityGate;
     address public owner;
-    address public platformWallet;       // Receives treasury fees (10%)
-    address public stakerYieldReceiver;  // Receives staker yield (9%)
-    address public disputeResolver;      // Can resolve disputes
+    address public stakerYieldReceiver; // Receives staker yield (9%)
+    address public treasuryReceiver;    // Receives treasury (10%)
+    address public disputeResolver;     // Can resolve disputes
     
     mapping(bytes32 ideaId => IdeaFund) public ideas;
     mapping(bytes32 milestoneId => MilestoneFund) public milestones;
@@ -282,13 +283,13 @@ contract AdvancedArcEscrow {
     
     constructor(
         address _identityGate,
-        address _platformWallet,
         address _stakerYieldReceiver,
+        address _treasuryReceiver,
         address _disputeResolver
     ) {
         identityGate = IdentityGate(_identityGate);
-        platformWallet = _platformWallet;
         stakerYieldReceiver = _stakerYieldReceiver;
+        treasuryReceiver = _treasuryReceiver;
         disputeResolver = _disputeResolver;
         owner = msg.sender;
     }
@@ -499,15 +500,15 @@ contract AdvancedArcEscrow {
         m.status = MilestoneStatus.Approved;
 
         // Preview amounts for event (actual transfer happens in releaseMilestone)
-        uint256 platformFee = (m.amount * PLATFORM_FEE_BPS) / BPS_DENOMINATOR;   // 10%
-        uint256 releaseAmount = (m.amount * WORKER_BPS) / BPS_DENOMINATOR;        // 81%
+        uint256 treasuryAmount = (m.amount * TREASURY_BPS) / BPS_DENOMINATOR;   // 10%
+        uint256 releaseAmount = (m.amount * WORKER_BPS) / BPS_DENOMINATOR;       // 81%
 
         emit MilestoneApproved(
             milestoneId,
             msg.sender,
             attestationHash,
-            releaseAmount, 
-            platformFee
+            releaseAmount,
+            treasuryAmount
         );
     }
 
@@ -534,26 +535,27 @@ contract AdvancedArcEscrow {
         m.releasedAmount = releasable;
 
         // Calculate 81/9/10 split on this tranche
-        uint256 treasuryFee = (toRelease * PLATFORM_FEE_BPS) / BPS_DENOMINATOR;  // 10%
+        uint256 workerAmount = (toRelease * WORKER_BPS) / BPS_DENOMINATOR;        // 81%
         uint256 stakerAmount = (toRelease * STAKER_BPS) / BPS_DENOMINATOR;        // 9%
-        uint256 workerAmount = toRelease - treasuryFee - stakerAmount;             // 81%
+        uint256 treasuryAmount = (toRelease * TREASURY_BPS) / BPS_DENOMINATOR;    // 10%
 
         // Update state
         if (releasable >= m.amount) {
             m.status = MilestoneStatus.Released;
         }
 
-        // Transfer treasury fee (10%)
-        if (treasuryFee > 0) {
-            bool feeOk = IERC20(USDC).transfer(platformWallet, treasuryFee);
-            if (!feeOk) revert PlatformFeeTransferFailed();
-        }
-
         // Transfer staker yield (9%)
         if (stakerAmount > 0) {
             bool stakeOk = IERC20(USDC).transfer(stakerYieldReceiver, stakerAmount);
             if (!stakeOk) revert StakerYieldTransferFailed();
-            emit StakerYieldPaid(milestoneId, stakerYieldReceiver, stakerAmount);
+            emit StakerYieldPaid(m.ideaId, milestoneId, stakerYieldReceiver, stakerAmount);
+        }
+
+        // Transfer treasury (10%)
+        if (treasuryAmount > 0) {
+            bool treasuryOk = IERC20(USDC).transfer(treasuryReceiver, treasuryAmount);
+            if (!treasuryOk) revert TransferFailed();
+            emit TreasuryPaid(m.ideaId, milestoneId, treasuryReceiver, treasuryAmount);
         }
 
         // Transfer to worker (81%)
@@ -566,7 +568,7 @@ contract AdvancedArcEscrow {
             m.worker,
             workerAmount,
             releasable,
-            treasuryFee
+            treasuryAmount
         );
     }
 
@@ -585,19 +587,20 @@ contract AdvancedArcEscrow {
             m.status = MilestoneStatus.AutoReleased;
             
             // 81/9/10 split on auto-release
-            uint256 treasuryFee = (m.amount * PLATFORM_FEE_BPS) / BPS_DENOMINATOR;  // 10%
+            uint256 workerAmount = (m.amount * WORKER_BPS) / BPS_DENOMINATOR;        // 81%
             uint256 stakerAmount = (m.amount * STAKER_BPS) / BPS_DENOMINATOR;        // 9%
-            uint256 workerAmount = m.amount - treasuryFee - stakerAmount;             // 81%
-
-            if (treasuryFee > 0) {
-                bool feeOk = IERC20(USDC).transfer(platformWallet, treasuryFee);
-                if (!feeOk) revert PlatformFeeTransferFailed();
-            }
+            uint256 treasuryAmount = (m.amount * TREASURY_BPS) / BPS_DENOMINATOR;    // 10%
 
             if (stakerAmount > 0) {
                 bool stakeOk = IERC20(USDC).transfer(stakerYieldReceiver, stakerAmount);
                 if (!stakeOk) revert StakerYieldTransferFailed();
-                emit StakerYieldPaid(milestoneId, stakerYieldReceiver, stakerAmount);
+                emit StakerYieldPaid(m.ideaId, milestoneId, stakerYieldReceiver, stakerAmount);
+            }
+
+            if (treasuryAmount > 0) {
+                bool treasuryOk = IERC20(USDC).transfer(treasuryReceiver, treasuryAmount);
+                if (!treasuryOk) revert TransferFailed();
+                emit TreasuryPaid(m.ideaId, milestoneId, treasuryReceiver, treasuryAmount);
             }
 
             bool ok = IERC20(USDC).transfer(m.worker, workerAmount);
@@ -690,56 +693,48 @@ contract AdvancedArcEscrow {
         d.resolved = true;
         d.resolver = resolver;
 
-        uint256 treasuryFee = (m.amount * PLATFORM_FEE_BPS) / BPS_DENOMINATOR; // 10%
+        uint256 stakerAmount = (m.amount * STAKER_BPS) / BPS_DENOMINATOR;      // 9%
+        uint256 treasuryAmount = (m.amount * TREASURY_BPS) / BPS_DENOMINATOR;  // 10%
+        uint256 workerPool = m.amount - stakerAmount - treasuryAmount;          // 81%
 
-        // Transfer treasury fee on all resolutions
-        if (treasuryFee > 0) {
-            bool feeOk = IERC20(USDC).transfer(platformWallet, treasuryFee);
-            if (!feeOk) revert PlatformFeeTransferFailed();
+        // Transfer staker yield on all resolutions
+        if (stakerAmount > 0) {
+            bool stakeOk = IERC20(USDC).transfer(stakerYieldReceiver, stakerAmount);
+            if (!stakeOk) revert StakerYieldTransferFailed();
+            emit StakerYieldPaid(m.ideaId, milestoneId, stakerYieldReceiver, stakerAmount);
+        }
+
+        // Transfer treasury on all resolutions
+        if (treasuryAmount > 0) {
+            bool treasuryOk = IERC20(USDC).transfer(treasuryReceiver, treasuryAmount);
+            if (!treasuryOk) revert TransferFailed();
+            emit TreasuryPaid(m.ideaId, milestoneId, treasuryReceiver, treasuryAmount);
         }
 
         if (resolution == DisputeResolution.WorkerWins) {
-            // Worker accepted work — apply 81/9/10 split
-            uint256 stakerAmount = (m.amount * STAKER_BPS) / BPS_DENOMINATOR;  // 9%
-            uint256 workerAmount = m.amount - treasuryFee - stakerAmount;        // 81%
+            // Full payout to worker from worker pool
             m.status = MilestoneStatus.Released;
 
-            if (stakerAmount > 0) {
-                bool stakeOk = IERC20(USDC).transfer(stakerYieldReceiver, stakerAmount);
-                if (!stakeOk) revert StakerYieldTransferFailed();
-                emit StakerYieldPaid(milestoneId, stakerYieldReceiver, stakerAmount);
-            }
-
-            bool ok = IERC20(USDC).transfer(m.worker, workerAmount);
+            bool ok = IERC20(USDC).transfer(m.worker, workerPool);
             if (!ok) revert TransferFailed();
 
-            emit DisputeResolved(milestoneId, resolver, uint8(resolution), workerAmount, 0);
+            emit DisputeResolved(milestoneId, resolver, uint8(resolution), workerPool, 0);
         } else if (resolution == DisputeResolution.PosterWins) {
-            // Work rejected — full refund to poster (minus treasury fee; no staker yield on rejected work)
-            uint256 posterRefund = m.amount - treasuryFee;
+            // Full refund to poster from worker pool
             m.status = MilestoneStatus.Refunded;
 
-            bool ok = IERC20(USDC).transfer(fund.poster, posterRefund);
+            bool ok = IERC20(USDC).transfer(fund.poster, workerPool);
             if (!ok) revert TransferFailed();
 
-            emit DisputeResolved(milestoneId, resolver, uint8(resolution), 0, posterRefund);
+            emit DisputeResolved(milestoneId, resolver, uint8(resolution), 0, workerPool);
         } else if (resolution == DisputeResolution.Split) {
-            // Proportional split — staker yield on worker's portion only
+            // Proportional split of worker pool
             if (workerPayoutBps > BPS_DENOMINATOR) revert InvalidDisputeResolution();
 
-            uint256 remaining = m.amount - treasuryFee;
-            uint256 workerGross = (remaining * workerPayoutBps) / BPS_DENOMINATOR;
-            uint256 stakerAmount = (workerGross * STAKER_BPS) / (WORKER_BPS + STAKER_BPS); // 9/90 of worker gross
-            uint256 workerShare = workerGross - stakerAmount;
-            uint256 posterShare = remaining - workerGross;
+            uint256 workerShare = (workerPool * workerPayoutBps) / BPS_DENOMINATOR;
+            uint256 posterShare = workerPool - workerShare;
 
             m.status = MilestoneStatus.Released;
-
-            if (stakerAmount > 0) {
-                bool stakeOk = IERC20(USDC).transfer(stakerYieldReceiver, stakerAmount);
-                if (!stakeOk) revert StakerYieldTransferFailed();
-                emit StakerYieldPaid(milestoneId, stakerYieldReceiver, stakerAmount);
-            }
 
             bool ok1 = IERC20(USDC).transfer(m.worker, workerShare);
             if (!ok1) revert TransferFailed();
@@ -889,8 +884,12 @@ contract AdvancedArcEscrow {
     // Admin Functions
     // ─────────────────────────────────────────────────────────────────────────
     
-    function setPlatformWallet(address _platformWallet) external onlyOwner {
-        platformWallet = _platformWallet;
+    function setTreasuryReceiver(address _treasuryReceiver) external onlyOwner {
+        treasuryReceiver = _treasuryReceiver;
+    }
+
+    function setStakerYieldReceiver(address _stakerYieldReceiver) external onlyOwner {
+        stakerYieldReceiver = _stakerYieldReceiver;
     }
 
     function setDisputeResolver(address _disputeResolver) external onlyOwner {
@@ -938,7 +937,7 @@ contract AdvancedArcEscrow {
     }
 
     function getPlatformFee(uint256 amount) external pure returns (uint256) {
-        return (amount * PLATFORM_FEE_BPS) / BPS_DENOMINATOR;
+        return (amount * TREASURY_BPS) / BPS_DENOMINATOR;
     }
 
     /// @notice Check if milestone can be auto-released.
