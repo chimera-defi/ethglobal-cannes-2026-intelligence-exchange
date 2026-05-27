@@ -212,4 +212,61 @@ contract IdeaEscrowTest is Test {
         (uint256 availFinal,) = escrow.getIdeaBalance(ideaId);
         assertEq(availFinal, IDEA_BUDGET - MILESTONE_AMT);
     }
+
+    /// @notice I-5: poster of ideaB cannot refund a milestone that belongs to ideaA.
+    function test_CrossIdea_CannotRefundOtherPostersMilestone() public {
+        address posterB = address(0xB0B2);
+        bytes32 ideaIdB = keccak256("idea-B");
+        bytes32 milestoneBId = keccak256("milestone-B-1");
+
+        // Fund ideaA from poster
+        _reserve(); // funds ideaId and reserves milestoneId1 for poster
+
+        // Fund ideaB from posterB
+        usdc.mint(posterB, IDEA_BUDGET);
+        vm.startPrank(posterB);
+        usdc.approve(address(escrow), type(uint256).max);
+        escrow.fundIdea(ideaIdB, address(usdc), IDEA_BUDGET);
+        escrow.reserveMilestone(ideaIdB, milestoneBId, MILESTONE_AMT);
+        vm.stopPrank();
+
+        // posterB attempts to refund milestoneId1 (which belongs to ideaA, not ideaB)
+        vm.prank(posterB);
+        vm.expectRevert(IdeaEscrow.Unauthorized.selector);
+        escrow.refundMilestone(ideaIdB, milestoneId1, posterB);
+    }
+
+    function test_withdrawAvailable_sendsUnreservedFunds() public {
+        _fund();
+        vm.prank(poster);
+        escrow.reserveMilestone(ideaId, milestoneId1, MILESTONE_AMT);
+
+        uint256 posterBefore = usdc.balanceOf(poster);
+        uint256 expectedWithdraw = IDEA_BUDGET - MILESTONE_AMT;
+
+        vm.prank(poster);
+        escrow.withdrawAvailable(ideaId);
+
+        assertEq(usdc.balanceOf(poster), posterBefore + expectedWithdraw);
+        (uint256 available,) = escrow.getIdeaBalance(ideaId);
+        assertEq(available, 0);
+    }
+
+    function test_withdrawAvailable_revert_nonPoster() public {
+        _fund();
+        vm.prank(worker);
+        vm.expectRevert(IdeaEscrow.Unauthorized.selector);
+        escrow.withdrawAvailable(ideaId);
+    }
+
+    function test_withdrawAvailable_revert_nothingAvailable() public {
+        _fund();
+        // Reserve everything
+        vm.prank(poster);
+        escrow.reserveMilestone(ideaId, milestoneId1, IDEA_BUDGET);
+
+        vm.prank(poster);
+        vm.expectRevert(abi.encodeWithSelector(IdeaEscrow.InsufficientBalance.selector, ideaId, 0, 0));
+        escrow.withdrawAvailable(ideaId);
+    }
 }

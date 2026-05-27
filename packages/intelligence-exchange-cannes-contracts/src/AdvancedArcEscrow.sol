@@ -478,6 +478,8 @@ contract AdvancedArcEscrow {
         if (m.status != MilestoneStatus.Submitted) {
             revert InvalidState(milestoneId, m.status, MilestoneStatus.Submitted);
         }
+        // I-3: prevent poster from self-reviewing their own idea
+        if (msg.sender == ideas[m.ideaId].poster) revert Unauthorized();
 
         m.reviewer = msg.sender;
         m.reviewStartedAt = block.timestamp;
