@@ -1,9 +1,9 @@
 import { randomUUID } from 'crypto';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import {
-  getCurvePriceUsdPerIxp,
-  quoteMintIxp,
-  splitSettlementIxp,
+  getCurvePriceUsdPerIntel,
+  quoteMintIntel,
+  splitSettlementIntel,
   type MintQuote,
   type PoolState,
 } from 'intelligence-exchange-cannes-tokenomics';
@@ -47,8 +47,8 @@ export function getTokenomicsConfig() {
     treasuryAccount: normalizeAccountAddress(process.env.TOKEN_TREASURY_ACCOUNT ?? 'treasury:protocol'),
     protocolFeeBps: Math.max(0, Math.min(10_000, Number.parseInt(process.env.TOKEN_PROTOCOL_FEE_BPS ?? '1000', 10) || 1000)),
     pool: {
-      basePriceUsdPerIxp: basePriceUsdPerIntel,
-      targetSupplyIxp: targetSupplyIntel,
+      basePriceUsdPerIntel: basePriceUsdPerIntel,
+      targetSupplyIntel: targetSupplyIntel,
       adjustmentPower: toNumber(process.env.TOKEN_ADJUSTMENT_POWER, 2),
       liquidityDepthUsd: toNumber(process.env.TOKEN_LIQUIDITY_DEPTH_USD, 50_000),
       slippageBps: toNumber(process.env.TOKEN_SLIPPAGE_BPS, 50),
@@ -56,41 +56,41 @@ export function getTokenomicsConfig() {
   };
 }
 
-async function getCurrentSupplyIxp() {
+async function getCurrentSupplyIntel() {
   const [row] = await db.select({
-    total: sql<string>`COALESCE(SUM(${tokenAccounts.ixpBalance} + ${tokenAccounts.ixpReserved}), 0)`,
+    total: sql<string>`COALESCE(SUM(${tokenAccounts.intelBalance} + ${tokenAccounts.intelReserved}), 0)`,
   }).from(tokenAccounts);
   return toNumber(row?.total, 0);
 }
 
 export async function getTokenPoolState(): Promise<PoolState> {
   const config = getTokenomicsConfig();
-  const currentSupplyIxp = await getCurrentSupplyIxp();
+  const currentSupplyIntel = await getCurrentSupplyIntel();
   return {
     ...config.pool,
-    currentSupplyIxp,
+    currentSupplyIntel,
   };
 }
 
 export async function quoteStableMint(stableAmountUsd: number) {
   const pool = await getTokenPoolState();
-  const quote = quoteMintIxp(stableAmountUsd, pool);
+  const quote = quoteMintIntel(stableAmountUsd, pool);
   return {
     pool: {
-      basePriceUsdPerIntel: pool.basePriceUsdPerIxp,
-      targetSupplyIntel: pool.targetSupplyIxp,
+      basePriceUsdPerIntel: pool.basePriceUsdPerIntel,
+      targetSupplyIntel: pool.targetSupplyIntel,
       adjustmentPower: pool.adjustmentPower,
       liquidityDepthUsd: pool.liquidityDepthUsd,
       slippageBps: pool.slippageBps,
-      currentSupplyIntel: pool.currentSupplyIxp,
-      spotPriceUsdPerIntel: getCurvePriceUsdPerIxp(pool),
+      currentSupplyIntel: pool.currentSupplyIntel,
+      spotPriceUsdPerIntel: getCurvePriceUsdPerIntel(pool),
     },
     quote: {
       stableAmountUsd: quote.stableAmountUsd,
-      effectivePriceUsdPerIntel: quote.effectivePriceUsdPerIxp,
-      mintedIntel: quote.mintedIxp,
-      nextPriceUsdPerIntel: quote.nextPriceUsdPerIxp,
-      nextSupplyIntel: quote.nextSupplyIxp,
+      effectivePriceUsdPerIntel: quote.effectivePriceUsdPerIntel,
+      mintedIntel: quote.mintedIntel,
+      nextPriceUsdPerIntel: quote.nextPriceUsdPerIntel,
+      nextSupplyIntel: quote.nextSupplyIntel,
     },
   };
 }
@@ -100,8 +100,8 @@ async function ensureTokenAccount(accountAddress: string) {
   await db.insert(tokenAccounts).values({
     accountAddress: normalized,
     stableDepositedUsd: '0',
-    ixpBalance: '0',
-    ixpReserved: '0',
+    intelBalance: '0',
+    intelReserved: '0',
     createdAt: new Date(),
     updatedAt: new Date(),
   }).onConflictDoNothing();
@@ -133,7 +133,7 @@ export async function mintAndReserveIdeaCredits(input: {
     await tx.update(tokenAccounts)
       .set({
         stableDepositedUsd: sql`${tokenAccounts.stableDepositedUsd} + ${stableAmountUsd}`,
-        ixpReserved: sql`${tokenAccounts.ixpReserved} + ${quote.mintedIntel}`,
+        intelReserved: sql`${tokenAccounts.intelReserved} + ${quote.mintedIntel}`,
         updatedAt: now,
       })
       .where(eq(tokenAccounts.accountAddress, posterId));
@@ -143,7 +143,7 @@ export async function mintAndReserveIdeaCredits(input: {
         entryId: randomUUID(),
         accountAddress: posterId,
         entryType: 'mint',
-        deltaIxp: quote.mintedIntel.toFixed(8),
+        deltaIntel: quote.mintedIntel.toFixed(8),
         deltaStableUsd: stableAmountUsd.toFixed(6),
         referenceType: 'idea',
         referenceId: input.ideaId,
@@ -157,7 +157,7 @@ export async function mintAndReserveIdeaCredits(input: {
         entryId: randomUUID(),
         accountAddress: posterId,
         entryType: 'reserve',
-        deltaIxp: (-quote.mintedIntel).toFixed(8),
+        deltaIntel: (-quote.mintedIntel).toFixed(8),
         deltaStableUsd: '0',
         referenceType: 'idea',
         referenceId: input.ideaId,
@@ -175,11 +175,11 @@ export async function mintAndReserveIdeaCredits(input: {
         ideaId: input.ideaId,
         posterId,
         stableFundedUsd: stableAmountUsd.toFixed(6),
-        avgMintPriceUsdPerIxp: quote.effectivePriceUsdPerIntel.toFixed(8),
-        ixpMinted: quote.mintedIntel.toFixed(8),
-        ixpReserved: quote.mintedIntel.toFixed(8),
-        ixpSpent: '0',
-        ixpProtocolFee: '0',
+        avgMintPriceUsdPerIntel: quote.effectivePriceUsdPerIntel.toFixed(8),
+        intelMinted: quote.mintedIntel.toFixed(8),
+        intelReserved: quote.mintedIntel.toFixed(8),
+        intelSpent: '0',
+        intelProtocolFee: '0',
         status: 'active',
         createdAt: now,
         updatedAt: now,
@@ -188,14 +188,14 @@ export async function mintAndReserveIdeaCredits(input: {
     }
 
     const totalStable = toNumber(existingReserve.stableFundedUsd, 0) + stableAmountUsd;
-    const totalMinted = toNumber(existingReserve.ixpMinted, 0) + quote.mintedIntel;
+    const totalMinted = toNumber(existingReserve.intelMinted, 0) + quote.mintedIntel;
     const avgMintPrice = totalMinted > 0 ? totalStable / totalMinted : quote.effectivePriceUsdPerIntel;
 
     await tx.update(ideaTokenReserves).set({
       stableFundedUsd: totalStable.toFixed(6),
-      avgMintPriceUsdPerIxp: round(avgMintPrice, 8).toFixed(8),
-      ixpMinted: totalMinted.toFixed(8),
-      ixpReserved: (toNumber(existingReserve.ixpReserved, 0) + quote.mintedIntel).toFixed(8),
+      avgMintPriceUsdPerIntel: round(avgMintPrice, 8).toFixed(8),
+      intelMinted: totalMinted.toFixed(8),
+      intelReserved: (toNumber(existingReserve.intelReserved, 0) + quote.mintedIntel).toFixed(8),
       status: 'active',
       updatedAt: now,
     }).where(eq(ideaTokenReserves.ideaId, input.ideaId));
@@ -229,19 +229,19 @@ export async function settleAcceptedJobCredits(input: {
     return null;
   }
 
-  const avgMintPriceUsdPerIxp = Math.max(0.00000001, toNumber(reserve.avgMintPriceUsdPerIxp, 1));
-  const remainingIxp = toNumber(reserve.ixpReserved, 0);
+  const avgMintPriceUsdPerIntel = Math.max(0.00000001, toNumber(reserve.avgMintPriceUsdPerIntel, 1));
+  const remainingIxp = toNumber(reserve.intelReserved, 0);
   if (remainingIxp <= 0) {
     throw httpError('No reserved INTEL remaining for this idea', 409, 'INTEL_RESERVE_EMPTY');
   }
 
-  const requestedGrossIxp = round(budgetUsd / avgMintPriceUsdPerIxp, 8);
-  if (remainingIxp + 0.000001 < requestedGrossIxp) {
+  const requestedGrossIntel = round(budgetUsd / avgMintPriceUsdPerIntel, 8);
+  if (remainingIxp + 0.000001 < requestedGrossIntel) {
     throw httpError('Reserved INTEL is insufficient for this job budget', 409, 'INTEL_RESERVE_INSUFFICIENT');
   }
 
-  const grossIxp = requestedGrossIxp;
-  const split = splitSettlementIxp(grossIxp, { protocolFeeBps: config.protocolFeeBps });
+  const grossIntel = requestedGrossIntel;
+  const split = splitSettlementIntel(grossIntel, { protocolFeeBps: config.protocolFeeBps });
 
   const workerId = await ensureTokenAccount(input.workerId);
   const treasuryAccount = await ensureTokenAccount(config.treasuryAccount);
@@ -251,32 +251,32 @@ export async function settleAcceptedJobCredits(input: {
   await db.transaction(async (tx) => {
     await tx.update(tokenAccounts)
       .set({
-        ixpReserved: sql`${tokenAccounts.ixpReserved} - ${split.grossIxp}`,
+        intelReserved: sql`${tokenAccounts.intelReserved} - ${split.grossIntel}`,
         updatedAt: now,
       })
       .where(eq(tokenAccounts.accountAddress, posterId));
 
     await tx.update(tokenAccounts)
       .set({
-        ixpBalance: sql`${tokenAccounts.ixpBalance} + ${split.workerPayoutIxp}`,
+        intelBalance: sql`${tokenAccounts.intelBalance} + ${split.workerPayoutIntel}`,
         updatedAt: now,
       })
       .where(eq(tokenAccounts.accountAddress, workerId));
 
     await tx.update(tokenAccounts)
       .set({
-        ixpBalance: sql`${tokenAccounts.ixpBalance} + ${split.protocolFeeIxp}`,
+        intelBalance: sql`${tokenAccounts.intelBalance} + ${split.protocolFeeIntel}`,
         updatedAt: now,
       })
       .where(eq(tokenAccounts.accountAddress, treasuryAccount));
 
-    const currentReserved = toNumber(reserve.ixpReserved, 0);
-    const nextReserved = round(Math.max(0, currentReserved - split.grossIxp), 8);
+    const currentReserved = toNumber(reserve.intelReserved, 0);
+    const nextReserved = round(Math.max(0, currentReserved - split.grossIntel), 8);
 
     await tx.update(ideaTokenReserves).set({
-      ixpReserved: nextReserved.toFixed(8),
-      ixpSpent: round(toNumber(reserve.ixpSpent, 0) + split.workerPayoutIxp, 8).toFixed(8),
-      ixpProtocolFee: round(toNumber(reserve.ixpProtocolFee, 0) + split.protocolFeeIxp, 8).toFixed(8),
+      intelReserved: nextReserved.toFixed(8),
+      intelSpent: round(toNumber(reserve.intelSpent, 0) + split.workerPayoutIntel, 8).toFixed(8),
+      intelProtocolFee: round(toNumber(reserve.intelProtocolFee, 0) + split.protocolFeeIntel, 8).toFixed(8),
       status: nextReserved <= 0 ? 'settled' : 'active',
       updatedAt: now,
     }).where(eq(ideaTokenReserves.ideaId, input.ideaId));
@@ -286,7 +286,7 @@ export async function settleAcceptedJobCredits(input: {
         entryId: randomUUID(),
         accountAddress: posterId,
         entryType: 'settlement_debit',
-        deltaIxp: (-split.grossIxp).toFixed(8),
+        deltaIntel: (-split.grossIntel).toFixed(8),
         deltaStableUsd: '0',
         referenceType: 'job',
         referenceId: input.jobId,
@@ -297,7 +297,7 @@ export async function settleAcceptedJobCredits(input: {
         entryId: randomUUID(),
         accountAddress: workerId,
         entryType: 'worker_payout',
-        deltaIxp: split.workerPayoutIxp.toFixed(8),
+        deltaIntel: split.workerPayoutIntel.toFixed(8),
         deltaStableUsd: '0',
         referenceType: 'job',
         referenceId: input.jobId,
@@ -308,7 +308,7 @@ export async function settleAcceptedJobCredits(input: {
         entryId: randomUUID(),
         accountAddress: treasuryAccount,
         entryType: 'protocol_fee',
-        deltaIxp: split.protocolFeeIxp.toFixed(8),
+        deltaIntel: split.protocolFeeIntel.toFixed(8),
         deltaStableUsd: '0',
         referenceType: 'job',
         referenceId: input.jobId,
@@ -320,11 +320,11 @@ export async function settleAcceptedJobCredits(input: {
 
   return {
     tokenSymbol: config.symbol,
-    grossIntel: split.grossIxp,
-    workerPayoutIntel: split.workerPayoutIxp,
-    protocolFeeIntel: split.protocolFeeIxp,
+    grossIntel: split.grossIntel,
+    workerPayoutIntel: split.workerPayoutIntel,
+    protocolFeeIntel: split.protocolFeeIntel,
     budgetUsd,
-    avgMintPriceUsdPerIntel: round(avgMintPriceUsdPerIxp, 8),
+    avgMintPriceUsdPerIntel: round(avgMintPriceUsdPerIntel, 8),
   };
 }
 
@@ -341,13 +341,13 @@ export async function getTokenAccountSnapshot(accountAddress: string) {
   return {
     accountAddress: normalized,
     stableDepositedUsd: toNumber(account?.stableDepositedUsd, 0),
-    intelBalance: toNumber(account?.ixpBalance, 0),
-    intelReserved: toNumber(account?.ixpReserved, 0),
+    intelBalance: toNumber(account?.intelBalance, 0),
+    intelReserved: toNumber(account?.intelReserved, 0),
     ledger: ledger.map((entry) => ({
       entryId: entry.entryId,
       accountAddress: entry.accountAddress,
       entryType: entry.entryType,
-      deltaIntel: toNumber(entry.deltaIxp, 0),
+      deltaIntel: toNumber(entry.deltaIntel, 0),
       deltaStableUsd: toNumber(entry.deltaStableUsd, 0),
       referenceType: entry.referenceType,
       referenceId: entry.referenceId,
@@ -364,11 +364,11 @@ export async function getIdeaReserveSnapshot(ideaId: string) {
     ideaId: reserve.ideaId,
     posterId: reserve.posterId,
     stableFundedUsd: toNumber(reserve.stableFundedUsd, 0),
-    avgMintPriceUsdPerIntel: toNumber(reserve.avgMintPriceUsdPerIxp, 0),
-    intelMinted: toNumber(reserve.ixpMinted, 0),
-    intelReserved: toNumber(reserve.ixpReserved, 0),
-    intelSpent: toNumber(reserve.ixpSpent, 0),
-    intelProtocolFee: toNumber(reserve.ixpProtocolFee, 0),
+    avgMintPriceUsdPerIntel: toNumber(reserve.avgMintPriceUsdPerIntel, 0),
+    intelMinted: toNumber(reserve.intelMinted, 0),
+    intelReserved: toNumber(reserve.intelReserved, 0),
+    intelSpent: toNumber(reserve.intelSpent, 0),
+    intelProtocolFee: toNumber(reserve.intelProtocolFee, 0),
     status: reserve.status,
     updatedAt: reserve.updatedAt,
   };
@@ -383,13 +383,13 @@ export async function getTokenomicsStatus() {
     protocolFeeBps: config.protocolFeeBps,
     treasuryAccount: config.treasuryAccount,
     pool: {
-      basePriceUsdPerIntel: pool.basePriceUsdPerIxp,
-      targetSupplyIntel: pool.targetSupplyIxp,
+      basePriceUsdPerIntel: pool.basePriceUsdPerIntel,
+      targetSupplyIntel: pool.targetSupplyIntel,
       adjustmentPower: pool.adjustmentPower,
       liquidityDepthUsd: pool.liquidityDepthUsd,
       slippageBps: pool.slippageBps,
-      currentSupplyIntel: pool.currentSupplyIxp,
-      spotPriceUsdPerIntel: getCurvePriceUsdPerIxp(pool),
+      currentSupplyIntel: pool.currentSupplyIntel,
+      spotPriceUsdPerIntel: getCurvePriceUsdPerIntel(pool),
     },
   };
 }

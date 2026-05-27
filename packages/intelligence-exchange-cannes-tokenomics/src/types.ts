@@ -1,21 +1,21 @@
 export type PoolPricingConfig = {
-  basePriceUsdPerIxp: number;
-  targetSupplyIxp: number;
+  basePriceUsdPerIntel: number;
+  targetSupplyIntel: number;
   adjustmentPower: number;
   liquidityDepthUsd: number;
   slippageBps: number;
 };
 
 export type PoolState = PoolPricingConfig & {
-  currentSupplyIxp: number;
+  currentSupplyIntel: number;
 };
 
 export type MintQuote = {
   stableAmountUsd: number;
-  effectivePriceUsdPerIxp: number;
-  mintedIxp: number;
-  nextPriceUsdPerIxp: number;
-  nextSupplyIxp: number;
+  effectivePriceUsdPerIntel: number;
+  mintedIntel: number;
+  nextPriceUsdPerIntel: number;
+  nextSupplyIntel: number;
 };
 
 export type FeePolicy = {
@@ -23,7 +23,7 @@ export type FeePolicy = {
 };
 
 export type SettlementSplit = {
-  grossIxp: number;
-  workerPayoutIxp: number;
-  protocolFeeIxp: number;
+  grossIntel: number;
+  workerPayoutIntel: number;
+  protocolFeeIntel: number;
 };
