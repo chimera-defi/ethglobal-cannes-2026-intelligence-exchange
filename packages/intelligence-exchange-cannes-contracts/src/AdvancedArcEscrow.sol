@@ -41,6 +41,7 @@ contract AdvancedArcEscrow {
     error MilestoneAlreadySettled(bytes32 milestoneId);
     error ArrayLengthMismatch();
     error ZeroAmount();
+    error ZeroAddress();
     error TransferFailed();
     error DisputeWindowActive();
     error DisputeWindowExpired();
@@ -244,6 +245,21 @@ contract AdvancedArcEscrow {
     uint256 public totalEscrowed;
 
     // ─────────────────────────────────────────────────────────────────────────
+    // Reentrancy Guard
+    // ─────────────────────────────────────────────────────────────────────────
+    
+    uint256 private _reentrancyStatus;
+    uint256 private constant _NOT_ENTERED = 1;
+    uint256 private constant _ENTERED = 2;
+
+    modifier nonReentrant() {
+        require(_reentrancyStatus != _ENTERED, "AdvancedArcEscrow: reentrant call");
+        _reentrancyStatus = _ENTERED;
+        _;
+        _reentrancyStatus = _NOT_ENTERED;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // Modifiers
     // ─────────────────────────────────────────────────────────────────────────
     
@@ -299,6 +315,7 @@ contract AdvancedArcEscrow {
         treasuryReceiver = _treasuryReceiver;
         disputeResolver = _disputeResolver;
         owner = msg.sender;
+        _reentrancyStatus = _NOT_ENTERED;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -526,7 +543,7 @@ contract AdvancedArcEscrow {
 
     /// @notice Release funds to worker after approval (handles vesting).
     /// @param milestoneId Milestone to release
-    function releaseMilestone(bytes32 milestoneId) external {
+    function releaseMilestone(bytes32 milestoneId) external nonReentrant {
         _releaseMilestone(milestoneId);
     }
 
@@ -589,7 +606,7 @@ contract AdvancedArcEscrow {
 
     /// @notice Auto-release after timeout if reviewer never responds.
     /// @param milestoneId Milestone to auto-release
-    function autoReleaseMilestone(bytes32 milestoneId) external {
+    function autoReleaseMilestone(bytes32 milestoneId) external nonReentrant {
         MilestoneFund storage m = milestones[milestoneId];
         
         // Can auto-release from UnderReview (reviewer timeout) or Approved (vesting complete)
@@ -689,7 +706,7 @@ contract AdvancedArcEscrow {
         bytes32 milestoneId,
         DisputeResolution resolution,
         uint256 workerPayoutBps
-    ) external onlyResolver {
+    ) external onlyResolver nonReentrant {
         _resolveDispute(milestoneId, resolution, workerPayoutBps, msg.sender);
     }
 
@@ -788,7 +805,7 @@ contract AdvancedArcEscrow {
     
     /// @notice Refund milestone to poster (before submission or after rejection).
     /// @param milestoneId Milestone to refund
-    function refundMilestone(bytes32 milestoneId) external {
+    function refundMilestone(bytes32 milestoneId) external nonReentrant {
         bytes32 ideaId = milestoneToIdea[milestoneId];
         MilestoneFund storage m = milestones[milestoneId];
         IdeaFund storage fund = ideas[ideaId];
@@ -921,6 +938,7 @@ contract AdvancedArcEscrow {
     }
 
     function setDisputeResolver(address _disputeResolver) external onlyOwner {
+        if (_disputeResolver == address(0)) revert ZeroAddress();
         disputeResolver = _disputeResolver;
         emit DisputeResolverSet(_disputeResolver);
     }
