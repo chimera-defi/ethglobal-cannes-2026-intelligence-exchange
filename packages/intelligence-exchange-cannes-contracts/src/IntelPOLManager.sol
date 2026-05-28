@@ -1,36 +1,28 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import {INonfungiblePositionManager, IWETH9} from "./interfaces/IUniswapV3.sol";
+
 /// @title IntelPOLManager
 /// @notice Protocol-Owned Liquidity treasury for Intelligence Exchange.
-///
-/// Phase 1 (current): Holds ETH and INTEL from mint proceeds.
-///           Owner (or timelock) can withdraw for manual liquidity operations.
-///
-/// Phase 2 (future):  deployToUniV3() is enabled via enablePhase2().
-///           Deploys INTEL/WETH concentrated liquidity in a Uniswap V3 pool.
-///           Stub is included so the interface is stable and callers can be
-///           integrated now; the body reverts until Phase2 is enabled by owner.
-///
-/// Ownable2Step — same pattern as the rest of the codebase.
+///         Deploys INTEL/WETH concentrated liquidity in a Uniswap V3 pool.
+///         Ownable2Step — same pattern as the rest of the codebase.
 contract IntelPOLManager {
     // ─── Errors ──────────────────────────────────────────────────────────
 
     error Unauthorized();
     error ZeroAddress();
-    error Phase2NotEnabled();
-    error Phase2NotImplemented(); // stub: real UniV3 integration pending
-    error ZeroAmount();
     error TransferFailed();
     error InsufficientBalance(uint256 available, uint256 requested);
+    error NoPosition();
 
     // ─── Events ───────────────────────────────────────────────────────────
 
     event EthReceived(address indexed sender, uint256 amount);
     event EthWithdrawn(address indexed to, uint256 amount);
     event IntelWithdrawn(address indexed to, uint256 amount);
-    event Phase2Enabled();
-    event UniV3Deployed(address indexed pool, uint256 intelAmount, uint256 ethAmount, int24 tickLower, int24 tickUpper);
+    event UniV3Deployed(address indexed pool, uint256 intelAmount, uint256 ethAmount, int24 tickLower, int24 tickUpper, uint256 tokenId, uint128 liquidity);
+    event FeesCollected(uint256 amount0, uint256 amount1);
     event OwnershipTransferStarted(address indexed previousOwner, address indexed newOwner);
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
@@ -42,8 +34,17 @@ contract IntelPOLManager {
     /// @notice INTEL token held by this contract
     address public immutable intel;
 
-    /// @notice Whether Uniswap V3 deployment is unlocked
-    bool public phase2Enabled;
+    /// @notice Uniswap V3 NonfungiblePositionManager address
+    address public immutable positionManager;
+
+    /// @notice WETH9 address
+    address public immutable weth;
+
+    /// @notice Uniswap V3 pool fee tier (0.3%)
+    uint24 public constant POOL_FEE = 3000;
+
+    /// @notice NFT token ID for the Uniswap V3 position
+    uint256 public positionTokenId;
 
     /// @notice Tracks total ETH received (informational — ETH balance is source of truth)
     uint256 public totalEthReceived;
@@ -70,12 +71,16 @@ contract IntelPOLManager {
 
     // ─── Constructor ──────────────────────────────────────────────────────
 
-    constructor(address _owner, address _intel) {
+    constructor(address _owner, address _intel, address _positionManager, address _weth) {
         if (_owner == address(0)) revert ZeroAddress();
         if (_intel == address(0)) revert ZeroAddress();
+        if (_positionManager == address(0)) revert ZeroAddress();
+        if (_weth == address(0)) revert ZeroAddress();
 
         owner              = _owner;
         intel              = _intel;
+        positionManager    = _positionManager;
+        weth               = _weth;
         _reentrancyStatus  = _NOT_ENTERED;
 
         emit OwnershipTransferred(address(0), _owner);
@@ -100,10 +105,9 @@ contract IntelPOLManager {
     /// @notice Withdraw INTEL tokens to `to` (manual liquidity deployment).
     function withdrawIntel(address to, uint256 amount) external onlyOwner {
         if (to == address(0)) revert ZeroAddress();
-        if (amount == 0)      revert ZeroAmount();
 
         uint256 bal = _intelBalance();
-        if (amount > bal) revert InsufficientBalance(bal, amount);
+        if (amount == 0 || amount > bal) revert InsufficientBalance(bal, amount);
 
         bool ok = _transferIntel(to, amount);
         if (!ok) revert TransferFailed();
@@ -111,23 +115,14 @@ contract IntelPOLManager {
         emit IntelWithdrawn(to, amount);
     }
 
-    // ─── Owner: Phase 2 unlock ────────────────────────────────────────────
-
-    /// @notice Enable on-chain Uniswap V3 liquidity deployment.
-    ///         One-way switch — cannot be disabled once enabled.
-    function enablePhase2() external onlyOwner {
-        phase2Enabled = true;
-        emit Phase2Enabled();
-    }
-
-    // ─── Uniswap V3 stub (Phase 2) ────────────────────────────────────────
+    // ─── Uniswap V3 integration ────────────────────────────────────────
 
     /// @notice Deploy INTEL + ETH as concentrated liquidity in a Uniswap V3 pool.
-    ///         Phase 1: reverts. Phase 2: keeper calls this each epoch.
+    ///         Mints new position or increases existing position liquidity.
     ///
     /// @param pool        Uniswap V3 INTEL/WETH pool address
-    /// @param intelAmount INTEL to deposit
-    /// @param ethAmount   ETH to deposit (must be <= balance)
+    /// @param intelAmount INTEL to deposit (must be <= intelBalance())
+    /// @param ethAmount   ETH to wrap+deposit (must be <= ethBalance())
     /// @param tickLower   Lower tick (±20% around spot is recommended)
     /// @param tickUpper   Upper tick
     function deployToUniV3(
@@ -137,32 +132,91 @@ contract IntelPOLManager {
         int24 tickLower,
         int24 tickUpper
     ) external onlyOwner nonReentrant {
-        if (!phase2Enabled) revert Phase2NotEnabled();
+        // 1. Validate inputs
         if (pool == address(0)) revert ZeroAddress();
+        if (intelAmount == 0 || ethAmount == 0) revert InsufficientBalance(0, 1);
+        if (intelAmount > _intelBalance()) revert InsufficientBalance(_intelBalance(), intelAmount);
+        if (ethAmount > address(this).balance) revert InsufficientBalance(address(this).balance, ethAmount);
 
-        uint256 ethBal   = address(this).balance;
-        uint256 intelBal = _intelBalance();
+        // 2. Wrap ETH to WETH
+        IWETH9(weth).deposit{value: ethAmount}();
 
-        if (ethAmount > ethBal)    revert InsufficientBalance(ethBal, ethAmount);
-        if (intelAmount > intelBal) revert InsufficientBalance(intelBal, intelAmount);
+        // 3. Sort token0/token1 the way Uniswap expects (ascending address order)
+        bool intelIsToken0 = intel < weth;
+        (address token0, address token1) = intelIsToken0
+            ? (intel, weth)
+            : (weth, intel);
+        (uint256 amount0, uint256 amount1) = intelIsToken0
+            ? (intelAmount, ethAmount)
+            : (ethAmount, intelAmount);
 
-        // Phase 2 implementation: call INonfungiblePositionManager.mint()
-        // with the pool's token0/token1 sorted correctly and WETH wrapping.
-        //
-        // Reference implementation:
-        //   IPositionManager.MintParams memory params = IPositionManager.MintParams({
-        //       token0: token0, token1: token1, fee: 3000,
-        //       tickLower: tickLower, tickUpper: tickUpper,
-        //       amount0Desired: ..., amount1Desired: ...,
-        //       amount0Min: 0, amount1Min: 0,
-        //       recipient: address(this), deadline: block.timestamp + 15 minutes
-        //   });
-        //   positionManager.mint{value: ethAmount}(params);
-        //   emit UniV3Deployed(pool, intelAmount, ethAmount, tickLower, tickUpper);
-        //
-        // Stub reverts until real implementation replaces this block.
-        // Prevents false UniV3Deployed events on-chain (audit finding P4-P5).
-        revert Phase2NotImplemented();
+        // 4. Approve position manager to spend both tokens
+        _approveToken(intel, positionManager, intelAmount);
+        _approveToken(weth, positionManager, ethAmount);
+
+        uint256 tokenId;
+        uint128 liquidity;
+        uint256 used0;
+        uint256 used1;
+
+        // 5. If no position exists yet, mint a new one; otherwise increase existing
+        if (positionTokenId == 0) {
+            INonfungiblePositionManager.MintParams memory params = INonfungiblePositionManager.MintParams({
+                token0: token0,
+                token1: token1,
+                fee: POOL_FEE,
+                tickLower: tickLower,
+                tickUpper: tickUpper,
+                amount0Desired: amount0,
+                amount1Desired: amount1,
+                amount0Min: 0,
+                amount1Min: 0,
+                recipient: address(this),
+                deadline: block.timestamp + 900
+            });
+            (tokenId, liquidity, used0, used1) = INonfungiblePositionManager(positionManager).mint(params);
+            positionTokenId = tokenId;
+        } else {
+            INonfungiblePositionManager.IncreaseLiquidityParams memory params = INonfungiblePositionManager.IncreaseLiquidityParams({
+                tokenId: positionTokenId,
+                amount0Desired: amount0,
+                amount1Desired: amount1,
+                amount0Min: 0,
+                amount1Min: 0,
+                deadline: block.timestamp + 900
+            });
+            (liquidity, used0, used1) = INonfungiblePositionManager(positionManager).increaseLiquidity(params);
+            tokenId = positionTokenId;
+        }
+
+        // 6. Refund unused WETH back to ETH (unwrap excess)
+        uint256 unusedWeth = intelIsToken0 ? (ethAmount - used1) : (ethAmount - used0);
+        if (unusedWeth > 0) {
+            IWETH9(weth).withdraw(unusedWeth);
+        }
+
+        // 7. Clear approvals (security hygiene)
+        _approveToken(intel, positionManager, 0);
+        _approveToken(weth, positionManager, 0);
+
+        emit UniV3Deployed(pool, intelAmount, ethAmount, tickLower, tickUpper, tokenId, liquidity);
+    }
+
+    /// @notice Collect accumulated trading fees from the Uniswap V3 position.
+    /// @return amount0 Amount of token0 collected
+    /// @return amount1 Amount of token1 collected
+    function collectFees() external onlyOwner returns (uint256 amount0, uint256 amount1) {
+        if (positionTokenId == 0) revert NoPosition();
+
+        INonfungiblePositionManager.CollectParams memory params = INonfungiblePositionManager.CollectParams({
+            tokenId: positionTokenId,
+            recipient: address(this),
+            amount0Max: type(uint128).max,
+            amount1Max: type(uint128).max
+        });
+
+        (amount0, amount1) = INonfungiblePositionManager(positionManager).collect(params);
+        emit FeesCollected(amount0, amount1);
     }
 
     // ─── Views ────────────────────────────────────────────────────────────
@@ -208,6 +262,11 @@ contract IntelPOLManager {
             abi.encodeWithSignature("transfer(address,uint256)", to, amount)
         );
         return ok && (data.length == 0 || abi.decode(data, (bool)));
+    }
+
+    function _approveToken(address token, address spender, uint256 amount) internal {
+        (bool ok,) = token.call(abi.encodeWithSignature('approve(address,uint256)', spender, amount));
+        if (!ok) revert TransferFailed();
     }
 
     // ─── Receive ETH ─────────────────────────────────────────────────────

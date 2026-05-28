@@ -598,5 +598,85 @@ contract IntelMintControllerTest is Test {
         controller.setEpochMintCap(0);
     }
 
+    // ─── TWAP pull tests ─────────────────────────────────────────────────────
+
+    /// @dev pullTWAP updates twap from Uniswap V3 pool.
+    function test_pullTWAP_updates_twap() public {
+        MockUniswapV3Pool mockPool = new MockUniswapV3Pool();
+        // Set tick cumulatives for 0 tick (price = 1e18, which is above floor)
+        // For 0 tick over any period, price should be 1e18 (scaled)
+        mockPool.setTickCumulatives(0, 0);
+
+        controller.pullTWAP(address(mockPool), 1800, true);
+        // For tick=0, price should be 1e18, not floor price
+        assertEq(controller.twap(), 1e18);
+    }
+
+    /// @dev pullTWAP with positive tick increases price above floor.
+    function test_pullTWAP_positive_tick() public {
+        MockUniswapV3Pool mockPool = new MockUniswapV3Pool();
+        // Set tick cumulatives for ~tick=1000 over 1800 seconds
+        // tick = (tickCumulative1 - tickCumulative0) / twapPeriod
+        // 1000 = (tickCumulative1 - 0) / 1800
+        // tickCumulative1 = 1000 * 1800 = 1_800_000
+        mockPool.setTickCumulatives(0, 1_800_000);
+
+        uint256 floorBefore = controller.floorPrice();
+        controller.pullTWAP(address(mockPool), 1800, true);
+        assertGt(controller.twap(), floorBefore);
+    }
+
+    /// @dev pullTWAP enforces floor price.
+    function test_pullTWAP_enforces_floor() public {
+        MockUniswapV3Pool mockPool = new MockUniswapV3Pool();
+        // Set tick cumulatives for very negative tick (price below floor)
+        // tick = -100000 over 1800 seconds (very negative to ensure price < floor)
+        mockPool.setTickCumulatives(0, -180_000_000);
+
+        uint256 floorPrice = controller.floorPrice();
+        controller.pullTWAP(address(mockPool), 1800, true);
+        assertEq(controller.twap(), floorPrice);
+    }
+
+    /// @dev pullTWAP reverts with zero pool address.
+    function test_pullTWAP_reverts_zero_pool() public {
+        vm.expectRevert(IntelMintController.ZeroAddress.selector);
+        controller.pullTWAP(address(0), 1800, true);
+    }
+
+    /// @dev pullTWAP reverts with short period (< 60 seconds).
+    function test_pullTWAP_reverts_short_period() public {
+        MockUniswapV3Pool mockPool = new MockUniswapV3Pool();
+        mockPool.setTickCumulatives(0, 0);
+
+        vm.expectRevert(IntelMintController.InvalidParam.selector);
+        controller.pullTWAP(address(mockPool), 30, true);
+    }
+
     receive() external payable {}
+}
+
+/// @dev Mock Uniswap V3 Pool for TWAP testing
+contract MockUniswapV3Pool {
+    int56 public tickCumulative0;  // secondsAgo ago
+    int56 public tickCumulative1;  // now
+
+    function setTickCumulatives(int56 _t0, int56 _t1) external {
+        tickCumulative0 = _t0;
+        tickCumulative1 = _t1;
+    }
+
+    function observe(uint32[] calldata secondsAgos)
+        external view
+        returns (int56[] memory tickCumulatives, uint160[] memory secondsPerLiquidityCumulativeX128s)
+    {
+        tickCumulatives = new int56[](2);
+        tickCumulatives[0] = tickCumulative0;
+        tickCumulatives[1] = tickCumulative1;
+        secondsPerLiquidityCumulativeX128s = new uint160[](2);
+    }
+
+    function slot0() external pure returns (uint160,int24,uint16,uint16,uint16,uint8,bool) {
+        return (0,0,0,0,0,0,true);
+    }
 }

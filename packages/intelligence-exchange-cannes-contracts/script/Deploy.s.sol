@@ -39,6 +39,14 @@ contract Deploy is Script {
     // Arc Testnet USDC (also gas token)
     address public constant ARC_TESTNET_USDC = 0x3600000000000000000000000000000000000000;
 
+    // Uniswap V3 NonfungiblePositionManager
+    address public constant POSITION_MANAGER_MAINNET = 0xC36442b4a4522E871399CD717aBDD847Ab11FE88;
+    address public constant POSITION_MANAGER_SEPOLIA = 0x1238536071E1c677A632429e3655c799b22cDA52;
+
+    // WETH9
+    address public constant WETH9_MAINNET = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+    address public constant WETH9_SEPOLIA = 0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14;
+
     // IntelToken defaults
     string  public constant INTEL_NAME          = "Intelligence Exchange Token";
     string  public constant INTEL_SYMBOL        = "INTEL";
@@ -62,14 +70,14 @@ contract Deploy is Script {
 
     // ── Token distribution (from 10M initial mint) ──────────────────────
     // Total: 10M = 2M + 2M + 2M + 2M + 1M + 1M
-    uint256 public constant DIST_TEAM        = 2_000_000e18; // Team — 4yr/1yr cliff vesting
-    uint256 public constant DIST_TREASURY    = 2_000_000e18; // Treasury — held by timelock
-    uint256 public constant DIST_POL         = 2_000_000e18; // POL bootstrap — held by POLManager
+    uint256 public constant DIST_TEAM        = 2_000_000e18; // Team - 4yr/1yr cliff vesting
+    uint256 public constant DIST_TREASURY    = 2_000_000e18; // Treasury - held by timelock
+    uint256 public constant DIST_POL         = 2_000_000e18; // POL bootstrap - held by POLManager
     uint256 public constant DIST_STAKING     = 2_000_000e18; // Staking rewards reserve
     uint256 public constant DIST_GRANTS      = 1_000_000e18; // Ecosystem grants multisig
     uint256 public constant DIST_AIRDROP     = 1_000_000e18; // Early adopter / airdrop
 
-    // Vesting schedule — 4 years total, 1 year cliff
+    // Vesting schedule - 4 years total, 1 year cliff
     uint256 public constant VEST_CLIFF_DELAY = 365 days;
     uint256 public constant VEST_DURATION    = 3 * 365 days; // 3yr linear after cliff
 
@@ -134,14 +142,14 @@ contract Deploy is Script {
             result.teamWallet = a;
         } catch {
             result.teamWallet = result.deployer;
-            console2.log("TEAM_WALLET not set — using deployer as team wallet");
+            console2.log("TEAM_WALLET not set - using deployer as team wallet");
         }
 
         try vm.envAddress("GRANTS_MULTISIG") returns (address a) {
             result.grantsMultisig = a;
         } catch {
             result.grantsMultisig = result.deployer;
-            console2.log("GRANTS_MULTISIG not set — using deployer as grants multisig");
+            console2.log("GRANTS_MULTISIG not set - using deployer as grants multisig");
         }
 
         uint256 timelockDelay = DEFAULT_TIMELOCK_DELAY;
@@ -224,9 +232,24 @@ contract Deploy is Script {
         console2.log("IntelTimelockController:", address(result.timelockController));
 
         // ── 8. IntelPOLManager ───────────────────────────────────────────
+        // Resolve Uniswap V3 addresses per chain
+        address positionManager = POSITION_MANAGER_MAINNET;
+        address weth9 = WETH9_MAINNET;
+        if (chainId == 11155111) {
+            positionManager = POSITION_MANAGER_SEPOLIA;
+            weth9 = WETH9_SEPOLIA;
+        }
+        // For local dev (chainId 31337 / anvil), deployer acts as placeholder
+        if (chainId == 31337 || chainId == 5042002) {
+            positionManager = result.deployer;
+            weth9 = result.deployer;
+        }
+
         result.polManager = new IntelPOLManager(
             result.deployer,   // owner; rotate to timelock post-deploy
-            address(result.intelToken)
+            address(result.intelToken),
+            positionManager,
+            weth9
         );
         console2.log("IntelPOLManager:", address(result.polManager));
 
@@ -235,7 +258,7 @@ contract Deploy is Script {
         result.mintController = new IntelMintController(
             address(result.intelToken),
             address(result.staking),
-            address(result.polManager),  // POL → IntelPOLManager
+            address(result.polManager),  // POL to IntelPOLManager
             result.platformWallet,       // treasury
             MINT_FLOOR_PRICE,
             MINT_PREMIUM_BPS,
@@ -266,7 +289,7 @@ contract Deploy is Script {
 
         // IntelToken: grant mint rights to IntelMintController.
         result.intelToken.setMinter(address(result.mintController));
-        console2.log("IntelToken.minter → IntelMintController");
+        console2.log("IntelToken.minter to IntelMintController");
 
         // IntelStaking: whitelist IntelMintController as operator.
         result.staking.setOperator(address(result.mintController), true);
@@ -284,31 +307,31 @@ contract Deploy is Script {
         // ── 13. Token distribution ───────────────────────────────────────
         console2.log("\n--- Token distribution (from 10M initial supply) ---");
 
-        // 2M → IntelVesting (team)
+        // 2M to IntelVesting (team)
         result.intelToken.transfer(address(result.teamVesting), DIST_TEAM);
-        console2.log("2M INTEL → IntelVesting (team)");
+        console2.log("2M INTEL to IntelVesting (team)");
 
-        // 2M → IntelTimelockController (treasury reserve)
+        // 2M to IntelTimelockController (treasury reserve)
         result.intelToken.transfer(address(result.timelockController), DIST_TREASURY);
-        console2.log("2M INTEL → IntelTimelockController (treasury reserve)");
+        console2.log("2M INTEL to IntelTimelockController (treasury reserve)");
 
-        // 2M → IntelPOLManager (POL bootstrap)
+        // 2M to IntelPOLManager (POL bootstrap)
         result.intelToken.transfer(address(result.polManager), DIST_POL);
-        console2.log("2M INTEL → IntelPOLManager (POL bootstrap)");
+        console2.log("2M INTEL to IntelPOLManager (POL bootstrap)");
 
-        // 2M → IntelStaking as INTEL yield deposit
+        // 2M to IntelStaking as INTEL yield deposit
         //   Approve first, then depositYield. This seeds the yield reserve.
         result.intelToken.approve(address(result.staking), DIST_STAKING);
         result.staking.depositYield(DIST_STAKING);
-        console2.log("2M INTEL → IntelStaking.depositYield (staking rewards reserve)");
+        console2.log("2M INTEL to IntelStaking.depositYield (staking rewards reserve)");
 
-        // 1M → Grants multisig
+        // 1M to Grants multisig
         result.intelToken.transfer(result.grantsMultisig, DIST_GRANTS);
-        console2.log("1M INTEL → Grants multisig:", result.grantsMultisig);
+        console2.log("1M INTEL to Grants multisig:", result.grantsMultisig);
 
-        // 1M → Deployer (early adopter / airdrop reserve)
-        //   Already held by deployer — no transfer needed
-        console2.log("1M INTEL → Deployer (airdrop reserve, already held)");
+        // 1M to Deployer (early adopter / airdrop reserve)
+        //   Already held by deployer - no transfer needed
+        console2.log("1M INTEL to Deployer (airdrop reserve, already held)");
 
         vm.stopBroadcast();
 
