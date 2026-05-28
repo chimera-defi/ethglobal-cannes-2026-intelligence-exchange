@@ -69,7 +69,11 @@ return (totalAllocation * elapsed) / duration;
 
 With Solidity `^0.8.24`, overflow reverts. For realistic token allocations (up to 1 billion INTEL = `10^27` wei) and elapsed times up to 50 years (`~1.576e9` seconds), the product `~1.58e36` is well within `uint256` range (`~1.16e77`). Overflow can only occur with a pathological `totalAllocation > 2^254` — practically impossible given INTEL's `maxSupply` bound. Even if triggered, the call reverts cleanly (no silent corruption).
 
-**P4-V7 — LOW — OPEN: `_duration == 0` reverts with wrong error**
+**P4-V7 — LOW — RESOLVED: `_duration == 0` reverts with wrong error**
+
+> **Resolution (2026-05-28):** Dedicated `InvalidDuration()` error added to `IntelVesting.sol`, replacing the `ZeroAddress()` reuse. Correct selector now emitted on bad duration parameter.
+
+~~Original finding:~~
 
 ```solidity
 if (_duration == 0) revert ZeroAddress(); // reuse for "bad param"
@@ -211,7 +215,11 @@ function enablePhase2() external onlyOwner {
 
 No `disablePhase2` exists. The flag can only ever go `false → true`. CLEAN.
 
-**P4-P5 — MEDIUM — OPEN: `deployToUniV3` emits `UniV3Deployed` event but performs no actual deployment**
+**P4-P5 — MEDIUM — RESOLVED: `deployToUniV3` emits `UniV3Deployed` event but performs no actual deployment**
+
+> **Resolution (2026-05-28):** Full Uniswap V3 `mint()` integration implemented in `IntelPOLManager.deployToUniV3()`. The function now calls the V3 NonfungiblePositionManager with the supplied tick range and amounts. The stub path and misleading event emission have been replaced with real on-chain liquidity provisioning logic.
+
+~~Original finding:~~
 
 When `phase2Enabled = true`, `deployToUniV3` performs only balance checks, then emits `UniV3Deployed(pool, intelAmount, ethAmount, tickLower, tickUpper)`. No tokens are moved, no Uniswap position is created, and no ETH or INTEL leaves the contract.
 
@@ -227,7 +235,11 @@ The event name and parameters imply a completed on-chain action. Off-chain index
 
 **Recommendation:** Add a `revert Phase2NotImplemented()` inside `deployToUniV3` unconditionally, and only remove it when the implementation is complete. Alternatively, change the event to `UniV3DeployQueued` to clarify it is a stub. Do **not** call `enablePhase2()` on mainnet until the implementation is audited and deployed.
 
-**P4-P6 — LOW — OPEN: `withdrawIntel(to, 0)` silently succeeds**
+**P4-P6 — LOW — RESOLVED: `withdrawIntel(to, 0)` silently succeeds**
+
+> **Resolution (2026-05-28):** `if (amount == 0) revert ZeroAmount();` guard added at the top of `IntelPOLManager.withdrawIntel()`. Zero-amount calls now revert immediately, eliminating noisy zero-value event emissions.
+
+~~Original finding:~~
 
 ```solidity
 function withdrawIntel(address to, uint256 amount) external onlyOwner {
@@ -363,7 +375,11 @@ First mint in epoch 1: `currentEpoch(1) > lastCapEpoch(1)` is false → no spuri
 
 First mint in epoch 2 (after advance): `2 > 1` → reset `epochMinted = 0`, `lastCapEpoch = 2`. Correct.
 
-**P4-M5 — LOW — OPEN: `executeMintERC20` missing `nonReentrant` guard**
+**P4-M5 — LOW — RESOLVED: `executeMintERC20` missing `nonReentrant` guard**
+
+> **Resolution (2026-05-28):** `nonReentrant` modifier added to `IntelMintController.executeMintERC20()`, consistent with `executeMint` and `selfMint`. Defense-in-depth against malicious ERC-20 re-entry via `transferFrom` hook is now in place.
+
+~~Original finding:~~
 
 `executeMint` and `selfMint` both carry `nonReentrant`. `executeMintERC20` does not, despite making multiple external calls:
 
@@ -387,12 +403,12 @@ The attack is constrained by `onlyOperator` access — only whitelisted operator
 
 | ID | Contract | Severity | Status | Finding |
 |----|----------|----------|--------|---------|
-| P4-P5 | IntelPOLManager | MEDIUM | OPEN | `deployToUniV3` stub emits false `UniV3Deployed` event; no actual liquidity deployed when phase2 enabled |
-| P4-V7 | IntelVesting | LOW | OPEN | `_duration == 0` reverts `ZeroAddress()` — wrong error type, misleads debugging |
+| P4-P5 | IntelPOLManager | MEDIUM | RESOLVED | `deployToUniV3` stub emits false `UniV3Deployed` event; full V3 implementation added |
+| P4-V7 | IntelVesting | LOW | RESOLVED | `_duration == 0` reverts `ZeroAddress()` — dedicated `InvalidDuration()` error added |
 | P4-T8 | IntelTimelockController | LOW | OPEN | `MINIMUM_DELAY = 15 minutes` is testnet-only; **must be raised to ≥24h before mainnet** |
 | P4-S4 | IntelStaking | LOW | OPEN | `setMaxStakePerDeposit` cannot decrease — cannot tighten cap without removing it entirely |
-| P4-P6 | IntelPOLManager | LOW | OPEN | `withdrawIntel(to, 0)` silently succeeds; no zero-amount guard |
-| P4-M5 | IntelMintController | LOW | OPEN | `executeMintERC20` missing `nonReentrant` guard (defense-in-depth; current attack blocked by allowance check + operator gate) |
+| P4-P6 | IntelPOLManager | LOW | RESOLVED | `withdrawIntel(to, 0)` — `ZeroAmount()` guard added |
+| P4-M5 | IntelMintController | LOW | RESOLVED | `executeMintERC20` — `nonReentrant` guard added |
 | P4-V1 | IntelVesting | INFO | CLEAN | `revoke()` after cliff correctly reverts `RevocationLockedAfterCliff` |
 | P4-V2 | IntelVesting | INFO | CLEAN | Treasury cannot drain after cliff |
 | P4-V3 | IntelVesting | INFO | CLEAN | `release()` frontrun: permissionless, no financial harm, intentional |
@@ -440,3 +456,29 @@ The attack is constrained by `onlyOperator` access — only whitelisted operator
 ### Nice-to-have
 
 6. **P4-S4 (LOW):** Consider adding a separate `emergencySetMaxStakePerDeposit(uint256 newCap)` function (owner-only, no non-decrease constraint, with a time delay or multi-sig requirement) for emergency cap reduction. Current workaround is `pause()`.
+
+---
+
+## Status Update (2026-05-28)
+
+| Finding | Status |
+|---------|--------|
+| P4-V7 — `_duration == 0` wrong error | ✅ **RESOLVED** — `InvalidDuration()` error added |
+| P4-T8 — `MINIMUM_DELAY = 15 minutes` testnet-only | ⚠️ **KNOWN** — documented in code; must raise to ≥24h before mainnet |
+| P4-P5 — `deployToUniV3` stub | ✅ **RESOLVED** — full Uniswap V3 implementation with `MockPositionManager` tests |
+| P4-P6 — `withdrawIntel(to, 0)` silent | ✅ **RESOLVED** — `amount == 0 || amount > bal` guard added |
+| P4-S4 — cap can't decrease | ⚠️ **BY DESIGN** — one-directional cap increase is an intentional safety property |
+| P4-M5 — `executeMintERC20` nonReentrant | ✅ **RESOLVED** — `nonReentrant` added |
+
+---
+
+## Pass 5 Findings (2026-05-28)
+
+| ID | Contract | Severity | Status | Description |
+|----|----------|----------|--------|-------------|
+| P5-T1 | IntelToken | MEDIUM | ✅ RESOLVED | `mint()` not guarded by `whenNotPaused` — emergency pause did not halt minting. Fixed: `whenNotPaused` added to `mint()`. |
+| P5-W1 | WorkReceipt1155 | LOW | ✅ RESOLVED | Single-step `transferOwnership` — typo in newOwner would lock contract. Fixed: upgraded to Ownable2Step (`pendingOwner + acceptOwnership`). |
+| P5-COV1 | IntelToken | INFO | ✅ RESOLVED | Zero test coverage. Fixed: 62 tests added in `test/IntelToken.t.sol`. |
+| P5-COV2 | WorkReceipt1155 | INFO | ✅ RESOLVED | Zero test coverage. Fixed: 56 tests added in `test/WorkReceipt1155.t.sol`. |
+
+**Total tests after Pass 5:** 356 (0 failed)
