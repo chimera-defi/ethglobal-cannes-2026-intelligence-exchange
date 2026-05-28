@@ -10,11 +10,12 @@ import { Badge } from '@/components/ui/badge';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { intelMintControllerAbi } from '../lib/intelMintControllerAbi';
 import { intelStakingAbi } from '../lib/intelStakingAbi';
+import { isArcEnabled } from '../config';
 
 const INTEL_MINT_CONTROLLER_ADDRESS = (import.meta.env.VITE_INTEL_MINT_CONTROLLER_ADDRESS ?? '') as Address;
 const INTEL_TOKEN_ADDRESS = (import.meta.env.VITE_INTEL_TOKEN_ADDRESS ?? '') as Address;
 const INTEL_STAKING_ADDRESS = (import.meta.env.VITE_INTEL_STAKING_ADDRESS ?? '') as Address;
-const CONTRACT_CHAIN_ID = Number(import.meta.env.VITE_ARC_CHAIN_ID ?? '5042002');
+const CONTRACT_CHAIN_ID = isArcEnabled() ? Number(import.meta.env.VITE_ARC_CHAIN_ID ?? '5042002') : 0;
 const INTEL_DECIMALS = 18;
 
 function fmtEth(raw: bigint | undefined, dp = 6): string {

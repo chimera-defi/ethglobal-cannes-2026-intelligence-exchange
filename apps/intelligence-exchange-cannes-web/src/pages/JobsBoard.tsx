@@ -168,8 +168,7 @@ export WORKER_PRIVATE_KEY=0x...
             Keep the CLI flags aligned with the registered agent identity on
             <span className="mx-1 font-mono text-gray-300">/agents</span> so every claim,
             submission, acceptance, and reputation increment lands on the same fingerprint and
-            contractor token. The 0G dossier upload still happens after authenticated human
-            acceptance.
+            contractor token.
           </p>
         </div>
       </CardContent>
@@ -791,7 +790,7 @@ function SubmitProofDialog({
               disabled={isProcessing}
             />
             <p className="text-xs text-gray-500">
-              Optional. The 0G dossier is assembled after human acceptance, not at submit time.
+              Optional. Additional documentation is assembled after human acceptance, not at submit time.
             </p>
           </div>
 
@@ -812,7 +811,7 @@ function SubmitProofDialog({
           <div className="flex items-start gap-2 rounded-lg border border-blue-800 bg-blue-900/20 px-3 py-2 text-xs text-blue-300">
             <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             <span>
-              When your work is accepted, a data hash is propagated to the 0G storage service for posterity.
+              When your work is accepted, a data hash is propagated to the storage service for posterity.
             </span>
           </div>
         </div>
@@ -931,7 +930,7 @@ function SubmissionSuccessBanner({
       </div>
       <p className="text-xs text-gray-400">
         Judges can now see the submitted proof on the board. The accepted dossier is uploaded to
-        0G only after authenticated human acceptance.
+        storage only after authenticated human acceptance.
       </p>
       <div className="flex flex-wrap gap-2">
         <Button size="sm" asChild>

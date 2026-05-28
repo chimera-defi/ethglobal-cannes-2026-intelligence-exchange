@@ -35,6 +35,7 @@ import {
 } from '../api';
 import { useSession } from '../hooks/useSession';
 import { makeDemoAddress, makeDemoTxHash, makeDemoWorldProof } from '../lib/demo';
+import { isArcEnabled } from '../config';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -68,7 +69,7 @@ interface IdeaForm {
 type RetryStep = 'fund' | 'plan';
 type WalletFundingStatus = 'idle' | 'switching' | 'awaiting-signature' | 'confirming' | 'syncing';
 
-const DEFAULT_ARC_CHAIN_ID = 5042002;
+const DEFAULT_ARC_CHAIN_ID = isArcEnabled() ? 5042002 : 0;
 const USDC_DECIMALS = 6;
 
 function formatUsdcAmount(amount: number) {
@@ -166,8 +167,8 @@ export function IdeaSubmission() {
     useSession();
   const { chainId } = useAccount();
   // Pin to Arc chain so waitForTransactionReceipt polls the right RPC even
-  // if the wallet is mid-switch when the hook re-renders.
-  const publicClient = usePublicClient({ chainId: DEFAULT_ARC_CHAIN_ID });
+  // if the wallet is mid-switch when the hook re-renders. Only when Arc is enabled.
+  const publicClient = usePublicClient({ chainId: isArcEnabled() ? DEFAULT_ARC_CHAIN_ID : undefined });
   const { switchChainAsync } = useSwitchChain();
   const { writeContractAsync } = useWriteContract();
 
@@ -208,10 +209,10 @@ export function IdeaSubmission() {
   );
   const demoPosterAvailable = integrations?.world.strict === false;
   const demoPosterAddress = makeDemoAddress('demo-poster:web');
-  const arcChainId = integrations?.arc.chainId ?? DEFAULT_ARC_CHAIN_ID;
-  const escrowContractAddress = integrations?.arc.escrowContractAddress ?? null;
-  const usdcAddress = integrations?.arc.usdcAddress ?? null;
-  const walletFundingAvailable = !demoPosterMode && Boolean(escrowContractAddress && usdcAddress);
+  const arcChainId = isArcEnabled() ? (integrations?.arc.chainId ?? DEFAULT_ARC_CHAIN_ID) : 0;
+  const escrowContractAddress = isArcEnabled() ? (integrations?.arc.escrowContractAddress ?? null) : null;
+  const usdcAddress = isArcEnabled() ? (integrations?.arc.usdcAddress ?? null) : null;
+  const walletFundingAvailable = isArcEnabled() && !demoPosterMode && Boolean(escrowContractAddress && usdcAddress);
   const walletFundingStatusMessage = {
     switching: `Switching your wallet to Arc chain ${arcChainId}.`,
     'awaiting-signature': 'Approve the USDC transfer in your wallet.',
@@ -401,7 +402,7 @@ export function IdeaSubmission() {
     setWalletFundingStatus(chainId === arcChainId ? 'awaiting-signature' : 'switching');
 
     try {
-      if (chainId !== arcChainId) {
+      if (isArcEnabled() && chainId !== arcChainId) {
         if (!switchChainAsync) {
           throw new Error(`Switch your wallet to Arc chain ${arcChainId} before funding the escrow.`);
         }
@@ -896,7 +897,7 @@ export function IdeaSubmission() {
                   <span className="text-gray-400">Budget</span>
                   <span className="text-white font-bold">${form.budgetUsdMax} USDC</span>
                 </div>
-                {integrations?.arc.escrowContractAddress && (
+                {isArcEnabled() && integrations?.arc.escrowContractAddress && (
                   <div className="flex justify-between">
                     <span className="text-gray-400">Escrow Contract</span>
                     <span className="text-white font-mono text-xs break-all ml-4">
@@ -904,7 +905,7 @@ export function IdeaSubmission() {
                     </span>
                   </div>
                 )}
-                {integrations?.arc.usdcAddress && (
+                {isArcEnabled() && integrations?.arc.usdcAddress && (
                   <div className="flex justify-between">
                     <span className="text-gray-400">USDC Contract</span>
                     <span className="text-white font-mono text-xs break-all ml-4">
@@ -912,12 +913,14 @@ export function IdeaSubmission() {
                     </span>
                   </div>
                 )}
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Arc Chain ID</span>
-                  <span className="text-white font-mono">
-                    {arcChainId}
-                  </span>
-                </div>
+                {isArcEnabled() && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Arc Chain ID</span>
+                    <span className="text-white font-mono">
+                      {arcChainId}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {!demoPosterMode && (
