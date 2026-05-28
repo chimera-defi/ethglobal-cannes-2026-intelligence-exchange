@@ -9,13 +9,12 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { intelTokenAbi, intelStakingAbi } from '../lib/intelStakingAbi';
-import { isArcEnabled } from '../config';
 
 const INTEL_TOKEN_ADDRESS = (import.meta.env.VITE_INTEL_TOKEN_ADDRESS ?? '') as Address;
 const INTEL_STAKING_ADDRESS = (import.meta.env.VITE_INTEL_STAKING_ADDRESS ?? '') as Address;
 const INTEL_DECIMALS = 18;
 
-const CONTRACT_CHAIN_ID = isArcEnabled() ? Number(import.meta.env.VITE_ARC_CHAIN_ID ?? '5042002') : 0;
+const CONTRACT_CHAIN_ID = Number(import.meta.env.VITE_ARC_CHAIN_ID ?? '5042002');
 
 function fmt(raw: bigint | undefined, decimals = 4): string {
   if (raw === undefined) return '—';
@@ -50,8 +49,6 @@ export function StakingPage() {
       { address: INTEL_STAKING_ADDRESS, abi: intelStakingAbi, functionName: 'currentEpoch' },
       { address: INTEL_STAKING_ADDRESS, abi: intelStakingAbi, functionName: 'epochLength' },
       { address: INTEL_STAKING_ADDRESS, abi: intelStakingAbi, functionName: 'cooldown' },
-      { address: INTEL_STAKING_ADDRESS, abi: intelStakingAbi, functionName: 'globalCapRemaining' },
-      { address: INTEL_STAKING_ADDRESS, abi: intelStakingAbi, functionName: 'epochStartTime' },
     ],
     query: { enabled: contractsDeployed },
   });
@@ -63,7 +60,6 @@ export function StakingPage() {
       { address: INTEL_STAKING_ADDRESS, abi: intelStakingAbi, functionName: 'pendingYield', args: [address] },
       { address: INTEL_STAKING_ADDRESS, abi: intelStakingAbi, functionName: 'mintAllowance', args: [address] },
       { address: INTEL_STAKING_ADDRESS, abi: intelStakingAbi, functionName: 'stakers', args: [address] },
-      { address: INTEL_STAKING_ADDRESS, abi: intelStakingAbi, functionName: 'pendingEthYield', args: [address] },
     ] : [],
     query: { enabled: contractsDeployed && Boolean(address), refetchInterval: 15_000 },
   });
@@ -72,15 +68,12 @@ export function StakingPage() {
   const currentEpoch = globalData?.[1]?.result as bigint | undefined;
   const epochLength = globalData?.[2]?.result as bigint | undefined;
   const cooldownSeconds = globalData?.[3]?.result as bigint | undefined;
-  const globalCapRemaining = globalData?.[4]?.result as bigint | undefined;
-  const epochStartTime = globalData?.[5]?.result as bigint | undefined;
 
   const intelBalance = walletData?.[0]?.result as bigint | undefined;
   const allowance = walletData?.[1]?.result as bigint | undefined;
   const pendingYield = walletData?.[2]?.result as bigint | undefined;
   const mintAllowance = walletData?.[3]?.result as bigint | undefined;
-  const stakerInfo = walletData?.[4]?.result as readonly [bigint, bigint, bigint, bigint, bigint, bigint, bigint, bigint, bigint, bigint] | undefined;
-  const pendingEthYield = walletData?.[5]?.result as bigint | undefined;
+  const stakerInfo = walletData?.[4]?.result as readonly [bigint, bigint, bigint, bigint, bigint, bigint, bigint] | undefined;
 
   const stakedAmount = stakerInfo?.[0];
   const pendingUnstake = stakerInfo?.[2];
@@ -147,12 +140,6 @@ export function StakingPage() {
     );
   }
 
-  async function handleClaimEthYield() {
-    await withTx('Claiming ETH yield', () =>
-      writeContractAsync({ address: INTEL_STAKING_ADDRESS, abi: intelStakingAbi, functionName: 'claimEthYield' })
-    );
-  }
-
   // ─── Render ──────────────────────────────────────────────────────────────
 
   if (!contractsDeployed) {
@@ -201,7 +188,6 @@ export function StakingPage() {
           </Alert>
         )}
 
-        {/* @ts-ignore - TypeScript error: Type '0n | Element | undefined' not assignable to ReactNode - needs investigation */}
         {txStatus && (
           <Alert className={txStatus.type === 'error' ? 'border-red-700 bg-red-900/20' : txStatus.type === 'success' ? 'border-green-700 bg-green-900/20' : 'border-blue-700 bg-blue-900/20'}>
             <AlertDescription className={txStatus.type === 'error' ? 'text-red-300' : txStatus.type === 'success' ? 'text-green-300' : 'text-blue-300'}>
@@ -211,14 +197,12 @@ export function StakingPage() {
         )}
 
         {/* Global stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { label: 'Total Staked', value: fmt(totalStaked) + ' INTEL' },
             { label: 'Current Epoch', value: currentEpoch?.toString() ?? '—' },
             { label: 'Epoch Length', value: epochLength ? secondsToDuration(epochLength) : '—' },
             { label: 'Unstake Cooldown', value: cooldownSeconds ? secondsToDuration(cooldownSeconds) : '—' },
-            { label: 'Global Cap Left', value: fmt(globalCapRemaining) + ' INTEL' },
-            { label: 'Epoch Ends', value: epochStartTime && epochLength ? secondsToDuration((epochStartTime + epochLength) - BigInt(Math.floor(Date.now() / 1000))) : '—' },
           ].map(({ label, value }) => (
             <div key={label} className="rounded-md border border-slate-800 bg-[#0D1625] p-3">
               <p className="text-xs text-slate-500">{label}</p>
@@ -227,18 +211,6 @@ export function StakingPage() {
           ))}
         </div>
 
-        {/* Epoch progress bar */}
-        {epochStartTime && epochLength && (
-          <div className="space-y-1">
-            <div className="h-1 bg-slate-800 rounded-full w-full">
-              <div 
-                style={{ width: `${Math.min(100, Math.max(0, Number((BigInt(Math.floor(Date.now() / 1000)) - epochStartTime) * 100n / epochLength)))}%` }}
-                className="h-1 bg-blue-500 rounded-full"
-              />
-            </div>
-          </div>
-        )}
-
         {isConnected && address && (
           <>
             {/* Wallet summary */}
@@ -246,7 +218,7 @@ export function StakingPage() {
               <CardHeader className="pb-3">
                 <CardTitle className="text-base text-white">Your Position</CardTitle>
               </CardHeader>
-              <CardContent className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+              <CardContent className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div>
                   <p className="text-xs text-slate-500">INTEL Balance</p>
                   <p className="text-sm font-mono font-semibold text-white">{fmt(intelBalance)}</p>
@@ -256,24 +228,12 @@ export function StakingPage() {
                   <p className="text-sm font-mono font-semibold text-blue-300">{fmt(stakedAmount)}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500">Pending Yield (INTEL)</p>
+                  <p className="text-xs text-slate-500">Pending Yield</p>
                   <p className="text-sm font-mono font-semibold text-green-300">{fmt(pendingYield)}</p>
                   {pendingYield !== undefined && pendingYield > 0n && (
                     <Button size="sm" variant="ghost" className="mt-1 h-6 px-2 text-xs text-green-400 hover:text-green-300"
                       disabled={loading !== null} onClick={() => void handleClaimYield()}>
                       {loading === 'Claiming yield' ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Claim'}
-                    </Button>
-                  )}
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500">Pending ETH Yield</p>
-                  <p className="text-sm font-mono font-semibold text-emerald-300">
-                    {pendingEthYield !== undefined ? formatUnits(pendingEthYield, 18) + ' ETH' : '—'}
-                  </p>
-                  {pendingEthYield !== undefined && pendingEthYield > 0n && (
-                    <Button size="sm" variant="ghost" className="mt-1 h-6 px-2 text-xs text-emerald-400 hover:text-emerald-300"
-                      disabled={loading !== null} onClick={() => void handleClaimEthYield()}>
-                      {loading === 'Claiming ETH yield' ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Claim ETH'}
                     </Button>
                   )}
                 </div>
@@ -405,7 +365,6 @@ export function StakingPage() {
             <p>• Every accepted job on the marketplace routes <strong className="text-slate-400">9% of the settlement</strong> to the staker yield pool.</p>
             <p>• Yield is distributed pro-rata based on staked share at deposit time — late stakers cannot claim retroactive yield.</p>
             <p>• Unstaking requires a {cooldownSeconds ? secondsToDuration(cooldownSeconds) : '3-day'} cooldown to prevent mercenary capital.</p>
-            <p>• <strong className="text-slate-400">ETH yield</strong> is deposited by IntelMintController from mint proceeds (45% of each ETH mint routed here). Claim it separately as native ETH.</p>
           </CardContent>
         </Card>
       </div>
