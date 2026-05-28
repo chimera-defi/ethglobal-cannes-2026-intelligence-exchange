@@ -444,5 +444,159 @@ contract IntelMintControllerTest is Test {
         controller.sweepETH(alice);
     }
 
+    // ─── Minting pause tests ──────────────────────────────────────────────────
+
+    /// @dev selfMint reverts when mintPaused is true.
+    function test_selfMint_reverts_when_minting_paused() public {
+        _mintAndStakeAlice(10_000e18);
+
+        uint256 mintAmount = staking.mintAllowance(alice) / 2;
+        uint256 maxPrice   = controller.mintPrice();
+        uint256 cost       = controller.quoteMint(mintAmount);
+
+        controller.pauseMinting();
+        assertTrue(controller.mintPaused(), "should be paused");
+
+        vm.deal(alice, cost + 1 ether);
+        vm.prank(alice);
+        vm.expectRevert(IntelMintController.MintingPaused.selector);
+        controller.selfMint{value: cost}(mintAmount, maxPrice);
+    }
+
+    /// @dev executeMint reverts when mintPaused is true.
+    function test_executeMint_reverts_when_minting_paused() public {
+        _mintAndStakeAlice(100e18);
+
+        uint256 allowance = staking.mintAllowance(alice);
+        uint256 mintAmt   = allowance / 2;
+        uint256 price     = controller.mintPrice();
+        uint256 cost      = (price * mintAmt) / 1e18;
+
+        controller.pauseMinting();
+
+        vm.deal(operator, cost + 1 ether);
+        vm.prank(operator);
+        vm.expectRevert(IntelMintController.MintingPaused.selector);
+        controller.executeMint{value: cost}(alice, mintAmt, price);
+    }
+
+    /// @dev After unpauseMinting, selfMint succeeds again.
+    function test_unpauseMinting_re_enables_mint() public {
+        _mintAndStakeAlice(10_000e18);
+
+        uint256 mintAmount = staking.mintAllowance(alice) / 2;
+        uint256 maxPrice   = controller.mintPrice();
+        uint256 cost       = controller.quoteMint(mintAmount);
+
+        controller.pauseMinting();
+        controller.unpauseMinting();
+        assertFalse(controller.mintPaused(), "should be unpaused");
+
+        vm.deal(alice, cost + 1 ether);
+        vm.prank(alice);
+        controller.selfMint{value: cost}(mintAmount, maxPrice);
+        assertGt(intel.balanceOf(alice), 0, "mint should succeed after unpause");
+    }
+
+    /// @dev Only owner can call pauseMinting.
+    function test_pauseMinting_only_owner() public {
+        vm.prank(alice);
+        vm.expectRevert(IntelMintController.Unauthorized.selector);
+        controller.pauseMinting();
+    }
+
+    // ─── Epoch mint cap tests ─────────────────────────────────────────────────
+
+    /// @dev Minting up to the epoch cap works; minting past it reverts.
+    function test_epoch_mint_cap_enforced() public {
+        // alice's staking allowance with 100e18 staked is ~1e10 (sqrt formula).
+        // We set the epoch cap just above half allowance so we can test cap enforcement.
+        _mintAndStakeAlice(100e18);
+        uint256 allowance = staking.mintAllowance(alice);
+        assertGt(allowance, 0, "alice needs allowance");
+
+        // Set cap to 60% of allowance (so two 40%-of-allowance mints would exceed it)
+        uint256 capAmount = (allowance * 60) / 100;
+        controller.setEpochMintCap(0);          // disable first (cap was 500_000e18)
+        controller.setEpochMintCap(capAmount);  // set to 60% of allowance
+
+        uint256 price = controller.mintPrice();
+        // First mint: 40% of allowance — within cap
+        uint256 firstMint = (allowance * 40) / 100;
+        uint256 cost1 = (price * firstMint) / 1e18 + 1;
+        vm.deal(operator, 100 ether);
+        vm.prank(operator);
+        controller.executeMint{value: cost1}(alice, firstMint, price);
+        assertEq(controller.epochMinted(), firstMint, "epochMinted should equal firstMint");
+
+        // Second mint: another 40% of allowance — would push total past cap
+        uint256 secondMint = (allowance * 40) / 100;
+        uint256 cost2 = (price * secondMint) / 1e18 + 1;
+        uint256 remaining = capAmount - firstMint;
+        vm.prank(operator);
+        vm.expectRevert(
+            abi.encodeWithSelector(IntelMintController.EpochMintCapExceeded.selector, secondMint, remaining)
+        );
+        controller.executeMint{value: cost2}(alice, secondMint, price);
+    }
+
+    /// @dev epochMinted resets when the staking epoch advances.
+    function test_epoch_mint_cap_resets_on_new_epoch() public {
+        _mintAndStakeAlice(100e18);
+        uint256 allowance = staking.mintAllowance(alice);
+
+        // Set cap to 90% of allowance so we can mint 80% twice after reset
+        uint256 capAmount = (allowance * 90) / 100;
+        controller.setEpochMintCap(0);
+        controller.setEpochMintCap(capAmount);
+
+        uint256 price = controller.mintPrice();
+        uint256 mintAmt = (allowance * 80) / 100;
+        uint256 cost = (price * mintAmt) / 1e18 + 1;
+
+        vm.deal(operator, 100 ether);
+        // Mint 80% of allowance in epoch 1
+        vm.prank(operator);
+        controller.executeMint{value: cost}(alice, mintAmt, price);
+        assertEq(controller.epochMinted(), mintAmt, "epochMinted should equal mintAmt");
+
+        // Advance staking epoch
+        vm.warp(block.timestamp + 7 days + 1);
+        staking.advanceEpoch();
+
+        // Mint 80% again — allowance resets with new epoch in staking
+        // so alice has full allowance again
+        vm.prank(operator);
+        controller.executeMint{value: cost}(alice, mintAmt, price);
+        assertEq(controller.epochMinted(), mintAmt, "epochMinted should reset for new epoch");
+    }
+
+    /// @dev setEpochMintCap cannot decrease the cap.
+    function test_setEpochMintCap_cannot_decrease() public {
+        // Default cap is 500_000e18; try to set lower
+        vm.expectRevert("CannotDecreaseCap");
+        controller.setEpochMintCap(100_000e18);
+    }
+
+    /// @dev setEpochMintCap(0) disables the cap.
+    function test_setEpochMintCap_zero_disables_cap() public {
+        controller.setEpochMintCap(0);
+        assertEq(controller.epochMintCap(), 0, "cap should be disabled");
+    }
+
+    /// @dev setEpochMintCap can be increased.
+    function test_setEpochMintCap_can_increase() public {
+        uint256 prev = controller.epochMintCap();
+        controller.setEpochMintCap(prev + 1_000_000e18);
+        assertEq(controller.epochMintCap(), prev + 1_000_000e18);
+    }
+
+    /// @dev Only owner can call setEpochMintCap.
+    function test_setEpochMintCap_only_owner() public {
+        vm.prank(alice);
+        vm.expectRevert(IntelMintController.Unauthorized.selector);
+        controller.setEpochMintCap(0);
+    }
+
     receive() external payable {}
 }

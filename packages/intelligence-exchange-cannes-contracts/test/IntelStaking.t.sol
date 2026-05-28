@@ -549,4 +549,169 @@ contract IntelStakingTest is Test {
         uint256 pending = staking.pendingEthYield(alice);
         assertApproxEqAbs(pending, 1 ether, 1 ether / 1000, "M-1 fix: alice earns yield on remaining 50 tokens immediately");
     }
+
+    // ─── Circuit breaker tests ────────────────────────────────────────────────
+
+    /// @dev stake() must revert when contract is paused.
+    function test_stake_reverts_when_paused() public {
+        staking.pause();
+
+        vm.prank(alice);
+        vm.expectRevert(IntelStaking.ContractPaused.selector);
+        staking.stake(100e18);
+    }
+
+    /// @dev requestUnstake() must revert when contract is paused.
+    function test_requestUnstake_reverts_when_paused() public {
+        // Stake first while not paused
+        vm.prank(alice);
+        staking.stake(50e18);
+
+        staking.pause();
+
+        vm.prank(alice);
+        vm.expectRevert(IntelStaking.ContractPaused.selector);
+        staking.requestUnstake(50e18);
+    }
+
+    /// @dev unstake() must revert when contract is paused.
+    function test_unstake_reverts_when_paused() public {
+        vm.prank(alice);
+        staking.stake(50e18);
+        vm.prank(alice);
+        staking.requestUnstake(50e18);
+        vm.warp(block.timestamp + COOL + 1);
+
+        staking.pause();
+
+        vm.prank(alice);
+        vm.expectRevert(IntelStaking.ContractPaused.selector);
+        staking.unstake();
+    }
+
+    /// @dev claimYield() must revert when contract is paused.
+    function test_claimYield_reverts_when_paused() public {
+        vm.prank(alice);
+        staking.stake(100e18);
+
+        intel.mint(owner, 10e18);
+        intel.approve(address(staking), 10e18);
+        staking.depositYield(10e18);
+
+        staking.pause();
+
+        vm.prank(alice);
+        vm.expectRevert(IntelStaking.ContractPaused.selector);
+        staking.claimYield();
+    }
+
+    /// @dev claimEthYield() must revert when contract is paused.
+    function test_claimEthYield_reverts_when_paused() public {
+        vm.prank(alice);
+        staking.stake(100e18);
+
+        vm.deal(address(this), 1 ether);
+        staking.depositEthYield{value: 1 ether}();
+
+        staking.pause();
+
+        vm.prank(alice);
+        vm.expectRevert(IntelStaking.ContractPaused.selector);
+        staking.claimEthYield();
+    }
+
+    /// @dev Owner can pause and unpause; after unpause, stake works again.
+    function test_pause_unpause_by_owner() public {
+        staking.pause();
+        assertTrue(staking.paused(), "should be paused");
+
+        vm.prank(alice);
+        vm.expectRevert(IntelStaking.ContractPaused.selector);
+        staking.stake(100e18);
+
+        staking.unpause();
+        assertFalse(staking.paused(), "should be unpaused");
+
+        vm.prank(alice);
+        staking.stake(100e18); // must succeed
+        assertEq(staking.totalStaked(), 100e18);
+    }
+
+    /// @dev Non-owner cannot pause.
+    function test_pause_only_owner() public {
+        vm.prank(alice);
+        vm.expectRevert(IntelStaking.Unauthorized.selector);
+        staking.pause();
+    }
+
+    // ─── Deposit cap tests ────────────────────────────────────────────────────
+
+    /// @dev stake() reverts when the amount exceeds maxStakePerDeposit.
+    function test_stake_reverts_when_exceeds_deposit_cap() public {
+        // maxStakePerDeposit is 100_000e18 by default; try to stake more
+        intel.mint(alice, 100_001e18);
+        vm.prank(alice);
+        intel.approve(address(staking), type(uint256).max);
+
+        vm.prank(alice);
+        vm.expectRevert(
+            abi.encodeWithSelector(IntelStaking.DepositTooLarge.selector, 100_001e18, 100_000e18)
+        );
+        staking.stake(100_001e18);
+    }
+
+    /// @dev stake() succeeds when amount equals the cap exactly.
+    function test_stake_at_deposit_cap_succeeds() public {
+        intel.mint(alice, 100_000e18);
+        vm.prank(alice);
+        intel.approve(address(staking), type(uint256).max);
+
+        vm.prank(alice);
+        staking.stake(100_000e18); // exactly at cap — must pass
+        assertEq(staking.totalStaked(), 100_000e18);
+    }
+
+    /// @dev setMaxStakePerDeposit cannot decrease the cap below current value.
+    function test_setMaxStakePerDeposit_cannot_decrease() public {
+        // Cap is 100_000e18 at construction; try to set it lower
+        vm.expectRevert("CannotDecreaseCap");
+        staking.setMaxStakePerDeposit(50_000e18);
+    }
+
+    /// @dev setMaxStakePerDeposit can increase the cap.
+    function test_setMaxStakePerDeposit_can_increase() public {
+        uint256 old = staking.maxStakePerDeposit(); // 100_000e18
+        staking.setMaxStakePerDeposit(200_000e18);
+        assertEq(staking.maxStakePerDeposit(), 200_000e18);
+
+        // Event: MaxStakePerDepositChanged(old, 200_000e18)
+        // Verify the new cap is enforced
+        intel.mint(alice, 150_000e18);
+        vm.prank(alice);
+        intel.approve(address(staking), type(uint256).max);
+        vm.prank(alice);
+        staking.stake(150_000e18); // should succeed with raised cap
+        assertEq(staking.totalStaked(), 150_000e18);
+    }
+
+    /// @dev setMaxStakePerDeposit(0) removes the cap entirely.
+    function test_setMaxStakePerDeposit_zero_removes_cap() public {
+        staking.setMaxStakePerDeposit(0);
+        assertEq(staking.maxStakePerDeposit(), 0);
+
+        // Now any amount is allowed (bounded only by token supply)
+        intel.mint(alice, 500_000e18);
+        vm.prank(alice);
+        intel.approve(address(staking), type(uint256).max);
+        vm.prank(alice);
+        staking.stake(500_000e18);
+        assertEq(staking.totalStaked(), 500_000e18);
+    }
+
+    /// @dev Only owner can call setMaxStakePerDeposit.
+    function test_setMaxStakePerDeposit_only_owner() public {
+        vm.prank(alice);
+        vm.expectRevert(IntelStaking.Unauthorized.selector);
+        staking.setMaxStakePerDeposit(200_000e18);
+    }
 }
