@@ -36,7 +36,6 @@ contract AdvancedArcEscrow {
     error IdeaNotFunded(bytes32 ideaId);
     error InsufficientBalance(bytes32 ideaId, uint256 required, uint256 available);
     error MilestoneAlreadyExists(bytes32 milestoneId);
-    error MilestoneNotFound(bytes32 milestoneId);
     error MilestoneAlreadySettled(bytes32 milestoneId);
     error ArrayLengthMismatch();
     error ZeroAmount();
@@ -51,9 +50,6 @@ contract AdvancedArcEscrow {
     error InvalidVestingSchedule();
     error VestingPeriodTooShort();
     error VestingAlreadyCompleted();
-    error InvalidReviewer();
-    error AttestationInvalid();
-    error PlatformFeeTransferFailed();
     error StakerYieldTransferFailed();
 
     // ─────────────────────────────────────────────────────────────────────────
