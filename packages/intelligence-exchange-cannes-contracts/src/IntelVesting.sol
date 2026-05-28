@@ -16,7 +16,6 @@ contract IntelVesting {
     error Unauthorized();
     error ZeroAddress();
     error InvalidDuration(); // duration must be > 0
-    error CliffNotReached();
     error AlreadyRevoked();
     error RevocationLockedAfterCliff();
     error NothingToRelease();

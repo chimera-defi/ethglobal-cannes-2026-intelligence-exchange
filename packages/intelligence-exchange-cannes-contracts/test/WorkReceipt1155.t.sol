@@ -185,10 +185,14 @@ contract WorkReceipt1155Test is Test {
         receipt.safeBatchTransferFrom(alice, bob, ids, amounts, "");
     }
 
-    function test_setApprovalForAll_reverts() public {
+    function test_setApprovalForAll_emitsEvent_noOp() public {
         vm.prank(alice);
-        vm.expectRevert(WorkReceipt1155.Soulbound.selector);
+        vm.expectEmit(true, true, false, true);
+        emit WorkReceipt1155.ApprovalForAll(alice, bob, true);
         receipt.setApprovalForAll(bob, true);
+        
+        // Verify approval is not actually set (still returns false)
+        assertFalse(receipt.isApprovedForAll(alice, bob));
     }
 
     function test_isApprovedForAll_alwaysFalse() public view {
