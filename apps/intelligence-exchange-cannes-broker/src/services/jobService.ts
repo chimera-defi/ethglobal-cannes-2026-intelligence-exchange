@@ -10,7 +10,7 @@ import {
 } from 'intelligence-exchange-cannes-shared';
 import { randomUUID } from 'crypto';
 import { httpError } from './errors';
-import { issueAcceptedSubmissionAttestation } from './chainService';
+import { issueAcceptedSubmissionAttestation, mintWorkReceipt } from './chainService';
 import { logJobEvent } from './jobEvents';
 import { settleAcceptedJobCredits } from './tokenomicsService';
 
@@ -309,6 +309,14 @@ export async function acceptJob(jobId: string, reviewerId: string) {
     reviewerAddress: reviewerId,
     payoutReleased: Boolean(settlement),
   });
+
+  // Fire-and-forget on-chain WorkReceipt minting (must not block acceptance flow)
+  mintWorkReceipt(
+    job.activeClaimWorkerId ?? sub.workerId,
+    job.ideaId,
+    sub.agentFingerprint,
+    score,
+  ).catch((err) => console.error('[job:accept] Failed to mint WorkReceipt:', err));
 
   return { accepted: true, attestation, settlement };
 }
