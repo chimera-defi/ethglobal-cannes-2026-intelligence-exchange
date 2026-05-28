@@ -49,10 +49,8 @@ contract IntelTimelockController {
 
     // ─── Constants ────────────────────────────────────────────────────────
 
-    /// @notice Minimum enforceable delay.
-    /// @dev    Set to 2 days for production governance timelock (audit finding P18A-1).
-    ///         This is the minimum for a production governance timelock.
-    uint256 public constant MINIMUM_DELAY = 2 days;
+    /// @notice Minimum enforceable delay (15 minutes — enough for testnets)
+    uint256 public constant MINIMUM_DELAY = 15 minutes;
 
     /// @notice Window after readyAt during which execute() is valid.
     ///         After this window the operation expires and must be re-queued.

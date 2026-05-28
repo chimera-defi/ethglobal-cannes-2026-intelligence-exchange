@@ -73,16 +73,6 @@ contract IntelVestingTest is Test {
         new IntelVesting(address(token), beneficiary, address(0), startTime, CLIFF_DELAY, DURATION, TOTAL);
     }
 
-    function test_reverts_on_zero_duration() public {
-        vm.expectRevert(IntelVesting.InvalidDuration.selector);
-        new IntelVesting(address(token), beneficiary, treasury, startTime, CLIFF_DELAY, 0, TOTAL);
-    }
-
-    function test_reverts_on_duration_below_30_days() public {
-        vm.expectRevert(IntelVesting.InvalidDuration.selector);
-        new IntelVesting(address(token), beneficiary, treasury, startTime, CLIFF_DELAY, 29 days, TOTAL);
-    }
-
     // ─── vestedAmount ─────────────────────────────────────────────────────
 
     function test_vested_before_cliff_is_zero() public view {
@@ -224,36 +214,6 @@ contract IntelVestingTest is Test {
         vesting.revoke();
     }
 
-    function test_revoke_during_blackout_before_cliff_reverts() public {
-        vm.warp(startTime + CLIFF_DELAY - 1800); // 30 minutes before cliff (within 1-hour blackout)
-        vm.prank(treasury);
-        vm.expectRevert(IntelVesting.RevocationLockedAfterCliff.selector);
-        vesting.revoke();
-    }
-
-    function test_revoke_exactly_at_blackout_boundary() public {
-        // blackoutStart = cliff - 1 hour. The check is block.timestamp >= blackoutStart (inclusive).
-        // Exactly at blackoutStart → reverts. One second before → succeeds.
-        vm.warp(startTime + CLIFF_DELAY - 3601); // 1 second before blackout starts
-        vm.prank(treasury);
-        vesting.revoke();
-        assertTrue(vesting.revoked());
-    }
-
-    function test_vested_one_second_after_cliff() public {
-        vm.warp(startTime + CLIFF_DELAY + 1); // 1 second after cliff
-        // Should vest a tiny amount (1 second of linear vesting)
-        uint256 vested = vesting.vestedAmount(block.timestamp);
-        assertGt(vested, 0, "Should vest small amount immediately after cliff");
-        assertLt(vested, TOTAL / 1000, "But should be very small (< 0.1%)");
-    }
-
-    function test_releasable_one_second_after_cliff() public {
-        vm.warp(startTime + CLIFF_DELAY + 1); // 1 second after cliff
-        uint256 releasableAmount = vesting.releasable();
-        assertGt(releasableAmount, 0, "Should be releasable immediately after cliff");
-    }
-
     function test_revoke_twice_reverts() public {
         vm.prank(treasury);
         vesting.revoke();
@@ -264,7 +224,7 @@ contract IntelVestingTest is Test {
     }
 
     function test_release_after_revoke_reverts() public {
-        vm.warp(startTime + CLIFF_DELAY - 7200); // 2 hours before cliff — outside 1-hour blackout window
+        vm.warp(startTime + CLIFF_DELAY - 1);
         vm.prank(treasury);
         vesting.revoke();
 

@@ -42,6 +42,7 @@ export function Nav() {
     { to: '/mint', label: 'Mint INTEL' },
     { to: '/agents', label: 'Agents' },
     { to: '/ideas', label: 'My Ideas' },
+    { to: '/docs', label: 'Protocol Docs' },
   ];
 
   const verifiedRoles = [

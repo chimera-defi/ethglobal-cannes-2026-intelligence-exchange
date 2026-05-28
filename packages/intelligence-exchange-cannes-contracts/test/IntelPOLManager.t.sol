@@ -4,13 +4,10 @@ pragma solidity ^0.8.24;
 import {Test, console2} from "forge-std/Test.sol";
 import {IntelPOLManager} from "../src/IntelPOLManager.sol";
 import {IntelToken} from "../src/IntelToken.sol";
-import {INonfungiblePositionManager} from "../src/interfaces/IUniswapV3.sol";
 
 contract IntelPOLManagerTest is Test {
     IntelToken token;
     IntelPOLManager pol;
-    MockWETH9 mockWeth;
-    MockPositionManager mockPositionManager;
 
     address owner = makeAddr("owner");
     address alice = makeAddr("alice");
@@ -26,10 +23,7 @@ contract IntelPOLManagerTest is Test {
             100_000_000e18
         );
 
-        mockWeth = new MockWETH9();
-        mockPositionManager = new MockPositionManager();
-
-        pol = new IntelPOLManager(owner, address(token), address(mockPositionManager), address(mockWeth));
+        pol = new IntelPOLManager(owner, address(token));
 
         // Seed POL with INTEL
         token.transfer(address(pol), INTEL_SEED);
@@ -43,30 +37,18 @@ contract IntelPOLManagerTest is Test {
     function test_constructor_params() public view {
         assertEq(pol.owner(), owner);
         assertEq(pol.intel(), address(token));
-        assertEq(pol.positionManager(), address(mockPositionManager));
-        assertEq(pol.weth(), address(mockWeth));
-        assertEq(pol.positionTokenId(), 0);
+        assertFalse(pol.phase2Enabled());
         assertEq(pol.pendingOwner(), address(0));
     }
 
     function test_constructor_revert_zero_owner() public {
         vm.expectRevert(IntelPOLManager.ZeroAddress.selector);
-        new IntelPOLManager(address(0), address(token), address(mockPositionManager), address(mockWeth));
+        new IntelPOLManager(address(0), address(token));
     }
 
     function test_constructor_revert_zero_intel() public {
         vm.expectRevert(IntelPOLManager.ZeroAddress.selector);
-        new IntelPOLManager(owner, address(0), address(mockPositionManager), address(mockWeth));
-    }
-
-    function test_constructor_revert_zero_positionManager() public {
-        vm.expectRevert(IntelPOLManager.ZeroAddress.selector);
-        new IntelPOLManager(owner, address(token), address(0), address(mockWeth));
-    }
-
-    function test_constructor_revert_zero_weth() public {
-        vm.expectRevert(IntelPOLManager.ZeroAddress.selector);
-        new IntelPOLManager(owner, address(token), address(mockPositionManager), address(0));
+        new IntelPOLManager(owner, address(0));
     }
 
     // ─── receive ETH ──────────────────────────────────────────────────────
@@ -174,48 +156,53 @@ contract IntelPOLManagerTest is Test {
         pol.withdrawIntel(address(0), 1_000e18);
     }
 
-    function test_withdrawIntel_reverts_zero_amount() public {
+    // ─── enablePhase2 ────────────────────────────────────────────────────
+
+    function test_enablePhase2_by_owner() public {
+        assertFalse(pol.phase2Enabled());
         vm.prank(owner);
-        vm.expectRevert(
-            abi.encodeWithSelector(IntelPOLManager.InsufficientBalance.selector, INTEL_SEED, 0)
-        );
-        pol.withdrawIntel(alice, 0);
+        pol.enablePhase2();
+        assertTrue(pol.phase2Enabled());
     }
 
-    // ─── deployToUniV3 ────────────────────────────────────────────────────
+    function test_enablePhase2_emits_event() public {
+        vm.expectEmit(false, false, false, false);
+        emit IntelPOLManager.Phase2Enabled();
+        vm.prank(owner);
+        pol.enablePhase2();
+    }
 
-    function test_deployToUniV3_mints_new_position() public {
+    function test_enablePhase2_reverts_not_owner() public {
+        vm.prank(alice);
+        vm.expectRevert(IntelPOLManager.Unauthorized.selector);
+        pol.enablePhase2();
+    }
+
+    // ─── deployToUniV3 (Phase 2 stub) ────────────────────────────────────
+
+    function test_deployToUniV3_reverts_phase2_not_enabled() public {
         address fakePool = makeAddr("pool");
         vm.prank(owner);
+        vm.expectRevert(IntelPOLManager.Phase2NotEnabled.selector);
         pol.deployToUniV3(fakePool, 1_000e18, 1 ether, -60, 60);
-        assertGt(pol.positionTokenId(), 0);
     }
 
-    function test_deployToUniV3_increases_existing_position() public {
+    function test_deployToUniV3_after_enable_emits_event() public {
+        vm.prank(owner);
+        pol.enablePhase2();
+
         address fakePool = makeAddr("pool");
+        // Must succeed (stub) and emit event
+        vm.expectEmit(true, false, false, true);
+        emit IntelPOLManager.UniV3Deployed(fakePool, 1_000e18, 1 ether, -60, 60);
         vm.prank(owner);
         pol.deployToUniV3(fakePool, 1_000e18, 1 ether, -60, 60);
-        uint256 firstTokenId = pol.positionTokenId();
-
-        vm.prank(owner);
-        pol.deployToUniV3(fakePool, 500e18, 0.5 ether, -60, 60);
-        assertEq(pol.positionTokenId(), firstTokenId);
-    }
-
-    function test_deployToUniV3_wraps_eth_to_weth() public {
-        address fakePool = makeAddr("pool");
-        vm.prank(owner);
-        pol.deployToUniV3(fakePool, 1_000e18, 1 ether, -60, 60);
-        assertGt(mockWeth.balanceOf(address(pol)), 0);
-    }
-
-    function test_deployToUniV3_reverts_zero_pool() public {
-        vm.prank(owner);
-        vm.expectRevert(IntelPOLManager.ZeroAddress.selector);
-        pol.deployToUniV3(address(0), 1_000e18, 1 ether, -60, 60);
     }
 
     function test_deployToUniV3_reverts_insufficient_eth() public {
+        vm.prank(owner);
+        pol.enablePhase2();
+
         address fakePool = makeAddr("pool");
         vm.prank(owner);
         vm.expectRevert(
@@ -225,6 +212,9 @@ contract IntelPOLManagerTest is Test {
     }
 
     function test_deployToUniV3_reverts_insufficient_intel() public {
+        vm.prank(owner);
+        pol.enablePhase2();
+
         address fakePool = makeAddr("pool");
         uint256 tooMuch = INTEL_SEED + 1;
         vm.prank(owner);
@@ -234,40 +224,23 @@ contract IntelPOLManagerTest is Test {
         pol.deployToUniV3(fakePool, tooMuch, 1 ether, -60, 60);
     }
 
+    function test_deployToUniV3_reverts_zero_pool() public {
+        vm.prank(owner);
+        pol.enablePhase2();
+
+        vm.prank(owner);
+        vm.expectRevert(IntelPOLManager.ZeroAddress.selector);
+        pol.deployToUniV3(address(0), 1_000e18, 1 ether, -60, 60);
+    }
+
     function test_deployToUniV3_reverts_not_owner() public {
+        vm.prank(owner);
+        pol.enablePhase2();
+
         address fakePool = makeAddr("pool");
         vm.prank(alice);
         vm.expectRevert(IntelPOLManager.Unauthorized.selector);
         pol.deployToUniV3(fakePool, 1_000e18, 1 ether, -60, 60);
-    }
-
-    // ─── collectFees ──────────────────────────────────────────────────────
-
-    function test_collectFees_by_owner() public {
-        address fakePool = makeAddr("pool");
-        vm.prank(owner);
-        pol.deployToUniV3(fakePool, 1_000e18, 1 ether, -60, 60);
-
-        vm.prank(owner);
-        (uint256 amount0, uint256 amount1) = pol.collectFees();
-        assertGt(amount0, 0);
-        assertGt(amount1, 0);
-    }
-
-    function test_collectFees_reverts_no_position() public {
-        vm.prank(owner);
-        vm.expectRevert(IntelPOLManager.NoPosition.selector);
-        pol.collectFees();
-    }
-
-    function test_collectFees_reverts_not_owner() public {
-        address fakePool = makeAddr("pool");
-        vm.prank(owner);
-        pol.deployToUniV3(fakePool, 1_000e18, 1 ether, -60, 60);
-
-        vm.prank(alice);
-        vm.expectRevert(IntelPOLManager.Unauthorized.selector);
-        pol.collectFees();
     }
 
     // ─── Ownable2Step ─────────────────────────────────────────────────────
@@ -325,86 +298,6 @@ contract IntelPOLManagerTest is Test {
         // withdrawEth throws TransferFailed — proving the guard works end-to-end.
         vm.expectRevert(IntelPOLManager.TransferFailed.selector);
         mal.attack();
-    }
-}
-
-/// @dev Mock WETH9 contract for testing
-contract MockWETH9 {
-    mapping(address => uint256) public balanceOf;
-    mapping(address => mapping(address => uint256)) public allowance;
-
-    function deposit() external payable {
-        balanceOf[msg.sender] += msg.value;
-    }
-
-    function withdraw(uint256 wad) external {
-        require(balanceOf[msg.sender] >= wad);
-        balanceOf[msg.sender] -= wad;
-        (bool ok,) = msg.sender.call{value: wad}("");
-        require(ok);
-    }
-
-    function transfer(address dst, uint256 wad) external returns (bool) {
-        balanceOf[msg.sender] -= wad;
-        balanceOf[dst] += wad;
-        return true;
-    }
-
-    function approve(address guy, uint256 wad) external returns (bool) {
-        allowance[msg.sender][guy] = wad;
-        return true;
-    }
-
-    receive() external payable {
-        balanceOf[msg.sender] += msg.value;
-    }
-}
-
-/// @dev Mock Uniswap V3 Position Manager for testing
-contract MockPositionManager {
-    uint256 public nextTokenId = 1;
-    uint256 public lastTokenId;
-
-    function mint(INonfungiblePositionManager.MintParams calldata p)
-        external payable
-        returns (uint256 tokenId, uint128 liquidity, uint256 amount0, uint256 amount1)
-    {
-        tokenId = nextTokenId++;
-        lastTokenId = tokenId;
-        liquidity = 1e18;
-        amount0 = p.amount0Desired;
-        amount1 = p.amount1Desired;
-    }
-
-    function increaseLiquidity(INonfungiblePositionManager.IncreaseLiquidityParams calldata p)
-        external payable
-        returns (uint128 liquidity, uint256 amount0, uint256 amount1)
-    {
-        liquidity = 1e17;
-        amount0 = p.amount0Desired;
-        amount1 = p.amount1Desired;
-    }
-
-    function collect(INonfungiblePositionManager.CollectParams calldata p)
-        external payable
-        returns (uint256 amount0, uint256 amount1)
-    {
-        amount0 = 1e18;
-        amount1 = 1e18;
-    }
-
-    function WETH9() external view returns (address) {
-        return address(0);
-    }
-
-    function factory() external view returns (address) {
-        return address(0);
-    }
-
-    function positions(uint256) external pure returns (
-        uint96,address,address,address,uint24,int24,int24,uint128,uint256,uint256,uint128,uint128
-    ) {
-        return (0,address(0),address(0),address(0),0,0,0,1e18,0,0,0,0);
     }
 }
 
