@@ -30,10 +30,7 @@ contract IntelMintController {
     error ZeroAmount();
     error PriceTooLow(uint256 paid, uint256 required);
     error AllowanceInsufficient(address wallet, uint256 requested, uint256 remaining);
-    error MaxSupplyExceeded();
     error SlippageExceeded(uint256 price, uint256 maxPrice);
-    error InvalidUtilization();
-    error InvalidSplit();
 
     // ─── Events ───────────────────────────────────────────────────────────────
 
@@ -198,6 +195,45 @@ contract IntelMintController {
         );
     }
 
+    /// @notice Self-mint: any holder of sufficient staking allowance can mint for themselves.
+    ///         This is the user-facing entry point (no operator whitelist required).
+    ///         Payment in ETH (msg.value). Excess refunded.
+    ///
+    /// @param intelAmount  Amount of INTEL to mint (in wei / 1e18 units).
+    /// @param maxPrice     Slippage guard — reverts if mintPrice() > maxPrice.
+    function selfMint(uint256 intelAmount, uint256 maxPrice) external payable {
+        if (intelAmount == 0) revert ZeroAmount();
+
+        uint256 price = mintPrice();
+        if (price > maxPrice) revert SlippageExceeded(price, maxPrice);
+
+        uint256 required = (price * intelAmount) / 1e18;
+        if (msg.value < required) revert PriceTooLow(msg.value, required);
+
+        // Require caller to have earned the allowance via staking
+        uint256 allowanceLeft = staking.mintAllowance(msg.sender);
+        if (intelAmount > allowanceLeft) {
+            revert AllowanceInsufficient(msg.sender, intelAmount, allowanceLeft);
+        }
+        staking.consumeAllowance(msg.sender, intelAmount);
+
+        intel.mint(msg.sender, intelAmount);
+
+        uint256 proceeds = required;
+        uint256 polShare      = (proceeds * POL_BPS) / BPS;
+        uint256 stakerShare   = (proceeds * STAKER_BPS) / BPS;
+        uint256 treasuryShare = proceeds - polShare - stakerShare;
+
+        _sendEth(polAddress, polShare);
+        _sendEth(treasuryAddress, treasuryShare);
+        staking.depositEthYield{value: stakerShare}();
+
+        uint256 excess = msg.value - required;
+        if (excess > 0) _sendEth(msg.sender, excess);
+
+        emit MintExecuted(msg.sender, intelAmount, proceeds, polShare, stakerShare, treasuryShare, staking.epoch());
+    }
+
     /// @notice Alternative: operator mints with INTEL payment (proceeds in INTEL).
     ///         Proceeds routed in INTEL: 50% POL, 45% staking yield, 5% treasury.
     ///
@@ -320,6 +356,15 @@ contract IntelMintController {
         if (newOwner == address(0)) revert ZeroAddress();
         emit OwnershipTransferred(owner, newOwner);
         owner = newOwner;
+    }
+
+    /// @notice Recover ETH accidentally sent to this contract.
+    /// @dev Only recovers ETH not processed through executeMint (excess is refunded there).
+    function sweepETH(address to) external onlyOwner {
+        if (to == address(0)) revert ZeroAddress();
+        uint256 bal = address(this).balance;
+        if (bal == 0) revert ZeroAmount();
+        _sendEth(to, bal);
     }
 
     // ─── Internal helpers ─────────────────────────────────────────────────────

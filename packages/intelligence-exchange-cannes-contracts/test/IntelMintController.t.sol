@@ -357,4 +357,84 @@ contract IntelMintControllerTest is Test {
         vm.expectRevert(IntelMintController.ZeroAddress.selector);
         controller.transferOwnership(address(0));
     }
+
+    // ─── selfMint ─────────────────────────────────────────────────────────────
+
+    /// @dev selfMint: any staker with allowance can mint for themselves (no operator whitelist).
+    function test_selfMint_success() public {
+        _mintAndStakeAlice(10_000e18);
+
+        // Resolve allowance + price before any prank/expectRevert (Forge gotcha: inline external
+        // calls in argument position consume the prank context before the real call fires)
+        uint256 mintAmount = staking.mintAllowance(alice) / 2;
+        assertGt(mintAmount, 0, "alice needs non-zero allowance");
+        uint256 maxPrice = controller.mintPrice();
+        uint256 cost = controller.quoteMint(mintAmount);
+
+        uint256 aliceIntelBefore = intel.balanceOf(alice);
+        uint256 stakingEthBefore = address(staking).balance;
+
+        vm.prank(alice);
+        controller.selfMint{value: cost}(mintAmount, maxPrice);
+
+        assertEq(intel.balanceOf(alice) - aliceIntelBefore, mintAmount, "selfMint: wrong INTEL minted");
+        assertGt(address(staking).balance - stakingEthBefore, 0, "selfMint: staker ETH yield not deposited");
+    }
+
+    /// @dev selfMint reverts when caller has no staking allowance (not staked).
+    function test_selfMint_reverts_no_allowance() public {
+        // Resolve price before prank so inline arg eval doesn't consume the prank
+        uint256 maxPrice = controller.mintPrice();
+        uint256 mintAmount = 1e9; // tiny — less than any possible allowance for 0-stake
+        uint256 cost = controller.quoteMint(mintAmount) + 1; // +1 to avoid 0-cost edge case
+
+        // Alice has not staked — allowance = 0 → must revert
+        vm.deal(alice, 1 ether);
+        vm.prank(alice);
+        vm.expectRevert(); // AllowanceInsufficient
+        controller.selfMint{value: cost}(mintAmount, maxPrice);
+    }
+
+    /// @dev selfMint excess ETH is refunded to the caller.
+    function test_selfMint_refunds_excess() public {
+        _mintAndStakeAlice(10_000e18);
+
+        uint256 mintAmount = staking.mintAllowance(alice) / 2;
+        uint256 maxPrice = controller.mintPrice();
+        uint256 cost = controller.quoteMint(mintAmount);
+        uint256 overpay = cost + 0.5 ether;
+
+        uint256 ethBefore = alice.balance;
+
+        vm.prank(alice);
+        controller.selfMint{value: overpay}(mintAmount, maxPrice);
+
+        uint256 ethSpent = ethBefore - alice.balance;
+        assertApproxEqAbs(ethSpent, cost, 1e9, "selfMint: excess not refunded");
+    }
+
+    // ─── sweepETH ─────────────────────────────────────────────────────────────
+
+    /// @dev sweepETH recovers ETH directly sent to the controller.
+    function test_sweepETH_recovers_trapped_eth() public {
+        // Directly send ETH to controller (simulating accidental send)
+        vm.deal(address(controller), 1 ether);
+        assertEq(address(controller).balance, 1 ether);
+
+        uint256 ownerEthBefore = address(this).balance;
+        controller.sweepETH(address(this));
+
+        assertEq(address(controller).balance, 0, "sweepETH: ETH not swept");
+        assertEq(address(this).balance - ownerEthBefore, 1 ether, "sweepETH: owner not paid");
+    }
+
+    /// @dev sweepETH reverts for non-owner.
+    function test_sweepETH_unauthorized() public {
+        vm.deal(address(controller), 1 ether);
+        vm.prank(alice);
+        vm.expectRevert(IntelMintController.Unauthorized.selector);
+        controller.sweepETH(alice);
+    }
+
+    receive() external payable {}
 }

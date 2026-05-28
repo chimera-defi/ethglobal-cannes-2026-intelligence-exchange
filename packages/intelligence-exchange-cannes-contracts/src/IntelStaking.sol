@@ -60,7 +60,8 @@ contract IntelStaking {
     struct EpochSnapshot {
         uint256 totalStaked;        // Total staked at epoch start
         uint256 globalCapRemaining; // Mint cap remaining at epoch start
-        uint256 yieldPerShare;      // Cumulative yield-per-share at epoch end
+        uint256 yieldPerShare;      // Cumulative INTEL yield-per-share at epoch end
+        uint256 ethYieldPerShare;   // Cumulative ETH yield-per-share at epoch end
         uint256 startTime;
     }
 
@@ -97,6 +98,19 @@ contract IntelStaking {
 
     uint256 private constant PRECISION = 1e36;
 
+    // ─── Reentrancy guard ─────────────────────────────────────────────────────
+
+    uint256 private _reentrancyStatus;
+    uint256 private constant _NOT_ENTERED = 1;
+    uint256 private constant _ENTERED = 2;
+
+    modifier nonReentrant() {
+        require(_reentrancyStatus != _ENTERED, "IntelStaking: reentrant call");
+        _reentrancyStatus = _ENTERED;
+        _;
+        _reentrancyStatus = _NOT_ENTERED;
+    }
+
     // ─── Modifiers ────────────────────────────────────────────────────────────
 
     modifier onlyOwner() {
@@ -130,12 +144,13 @@ contract IntelStaking {
         currentEpoch = 1;
         epochStartTime = block.timestamp;
         globalCapRemaining = _globalEpochCap;
+        _reentrancyStatus = _NOT_ENTERED;
     }
 
     // ─── Staking ──────────────────────────────────────────────────────────────
 
     /// @notice Stake INTEL tokens. Tokens are transferred from caller.
-    function stake(uint256 amount) external {
+    function stake(uint256 amount) external nonReentrant {
         if (amount == 0) revert ZeroAmount();
 
         _advanceEpochIfNeeded();
@@ -161,7 +176,7 @@ contract IntelStaking {
     }
 
     /// @notice Request unstake. Begins cooldown; tokens remain locked until cooldown expires.
-    function requestUnstake(uint256 amount) external {
+    function requestUnstake(uint256 amount) external nonReentrant {
         if (amount == 0) revert ZeroAmount();
 
         _advanceEpochIfNeeded();
@@ -181,7 +196,7 @@ contract IntelStaking {
     }
 
     /// @notice Withdraw tokens after cooldown expires.
-    function unstake() external {
+    function unstake() external nonReentrant {
         StakerInfo storage s = stakers[msg.sender];
         if (s.pendingUnstake == 0) revert NoPendingUnstake();
         if (block.timestamp < s.unstakeAvailableAt) {
@@ -219,7 +234,7 @@ contract IntelStaking {
     }
 
     /// @notice Claim accrued INTEL yield.
-    function claimYield() external returns (uint256 claimed) {
+    function claimYield() external nonReentrant returns (uint256 claimed) {
         _advanceEpochIfNeeded();
         claimed = _settleYield(msg.sender);
         if (claimed == 0) revert NothingToClaim();
@@ -230,16 +245,12 @@ contract IntelStaking {
     ///         ETH is distributed pro-rata to current stakers via the accEthYieldPerShare model.
     function depositEthYield() external payable {
         if (msg.value == 0) revert ZeroAmount();
-        if (totalStaked > 0) {
-            accEthYieldPerShare += (msg.value * PRECISION) / totalStaked;
-        } else {
-            pendingEthYieldPool += msg.value;
-        }
+        _handleEthYieldDeposit(msg.value);
         emit EthYieldDeposited(msg.sender, msg.value, currentEpoch);
     }
 
     /// @notice Claim accrued ETH yield.
-    function claimEthYield() external returns (uint256 claimed) {
+    function claimEthYield() external nonReentrant returns (uint256 claimed) {
         _advanceEpochIfNeeded();
         claimed = _settleEthYield(msg.sender);
         if (claimed == 0) revert NothingToClaim();
@@ -307,6 +318,10 @@ contract IntelStaking {
         emit OperatorSet(op, approved);
     }
 
+    /// @notice Update staking parameters.
+    /// @dev WARNING: calling mid-epoch resets globalCapRemaining to the full new cap,
+    ///      discarding how much allowance has already been consumed this epoch.
+    ///      Best practice: call only at epoch boundaries (right after advanceEpoch()).
     function setParams(
         uint256 _epochLength,
         uint256 _cooldown,
@@ -319,8 +334,7 @@ contract IntelStaking {
         k = _k;
         walletCap = _walletCap;
         globalEpochCap = _globalEpochCap;
-        // Update the remaining cap for the current epoch to match new global cap
-        globalCapRemaining = _globalEpochCap;
+        globalCapRemaining = _globalEpochCap; // resets epoch cap — see NatDoc warning
         emit ParamsUpdated(_epochLength, _cooldown, _k, _walletCap, _globalEpochCap);
     }
 
@@ -405,6 +419,7 @@ contract IntelStaking {
             totalStaked: totalStaked,
             globalCapRemaining: globalCapRemaining,
             yieldPerShare: accYieldPerShare,
+            ethYieldPerShare: accEthYieldPerShare,
             startTime: epochStartTime
         });
 
@@ -419,12 +434,17 @@ contract IntelStaking {
     ///         Primary path is depositEthYield(); receive() handles any bare ETH sends.
     receive() external payable {
         if (msg.value > 0) {
-            if (totalStaked > 0) {
-                accEthYieldPerShare += (msg.value * PRECISION) / totalStaked;
-            } else {
-                pendingEthYieldPool += msg.value;
-            }
+            _handleEthYieldDeposit(msg.value);
             emit EthYieldDeposited(msg.sender, msg.value, currentEpoch);
+        }
+    }
+
+    /// @dev Shared ETH yield deposit logic — updates accEthYieldPerShare or buffers to pool.
+    function _handleEthYieldDeposit(uint256 amount) internal {
+        if (totalStaked > 0) {
+            accEthYieldPerShare += (amount * PRECISION) / totalStaked;
+        } else {
+            pendingEthYieldPool += amount;
         }
     }
 
