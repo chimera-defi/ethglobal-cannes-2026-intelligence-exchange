@@ -9,12 +9,13 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { intelTokenAbi, intelStakingAbi } from '../lib/intelStakingAbi';
+import { isArcEnabled } from '../config';
 
 const INTEL_TOKEN_ADDRESS = (import.meta.env.VITE_INTEL_TOKEN_ADDRESS ?? '') as Address;
 const INTEL_STAKING_ADDRESS = (import.meta.env.VITE_INTEL_STAKING_ADDRESS ?? '') as Address;
 const INTEL_DECIMALS = 18;
 
-const CONTRACT_CHAIN_ID = Number(import.meta.env.VITE_ARC_CHAIN_ID ?? '5042002');
+const CONTRACT_CHAIN_ID = isArcEnabled() ? Number(import.meta.env.VITE_ARC_CHAIN_ID ?? '5042002') : 0;
 
 function fmt(raw: bigint | undefined, decimals = 4): string {
   if (raw === undefined) return '—';

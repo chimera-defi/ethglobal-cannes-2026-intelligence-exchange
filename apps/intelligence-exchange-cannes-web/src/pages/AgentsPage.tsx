@@ -28,6 +28,7 @@ import {
   syncWorldchainRole,
   verifyWorldRole,
 } from '../api';
+import { isArcEnabled } from '../config';
 import {
   DEFAULT_AGENT_PROFILE,
   matchesAgentProfile,
@@ -705,14 +706,18 @@ IdentityGate: ${worldchainRoleSynced ? 'synced on Worldchain' : 'not synced yet'
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-3">
-              <div className="rounded-xl border border-slate-800 bg-slate-900/40 backdrop-blur-sm p-4">
-                <p className="text-sm font-semibold text-white">AdvancedArcEscrow</p>
-                <p className="mt-1 text-xs text-gray-500">{shortHex(integrations?.arc.escrowContractAddress, 14, 10)}</p>
-              </div>
-              <div className="rounded-xl border border-slate-800 bg-slate-900/40 backdrop-blur-sm p-4">
-                <p className="text-sm font-semibold text-white">USDC (Native Gas)</p>
-                <p className="mt-1 text-xs text-gray-500">{shortHex(integrations?.arc.usdcAddress, 14, 10)}</p>
-              </div>
+              {isArcEnabled() && (
+                <>
+                  <div className="rounded-xl border border-slate-800 bg-slate-900/40 backdrop-blur-sm p-4">
+                    <p className="text-sm font-semibold text-white">AdvancedArcEscrow</p>
+                    <p className="mt-1 text-xs text-gray-500">{shortHex(integrations?.arc.escrowContractAddress, 14, 10)}</p>
+                  </div>
+                  <div className="rounded-xl border border-slate-800 bg-slate-900/40 backdrop-blur-sm p-4">
+                    <p className="text-sm font-semibold text-white">USDC (Native Gas)</p>
+                    <p className="mt-1 text-xs text-gray-500">{shortHex(integrations?.arc.usdcAddress, 14, 10)}</p>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
 

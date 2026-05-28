@@ -10,10 +10,11 @@ import { connectorsForWallets } from '@rainbow-me/rainbowkit';
 import { metaMaskWallet, rainbowWallet, walletConnectWallet } from '@rainbow-me/rainbowkit/wallets';
 import '@rainbow-me/rainbowkit/styles.css';
 import { Nav } from './components/Nav';
+import { isArcEnabled } from './config';
 import './index.css';
 
-// Arc testnet (ETHGlobal Cannes 2026)
-const arcTestnet = defineChain({
+// Arc testnet (ETHGlobal Cannes 2026) — only included when ENABLE_ARC=true
+const arcTestnet = isArcEnabled() ? defineChain({
   id: Number(import.meta.env.VITE_ARC_CHAIN_ID ?? '5042002'),
   name: 'Arc Testnet',
   nativeCurrency: { decimals: 18, name: 'ETH', symbol: 'ETH' },
@@ -21,7 +22,7 @@ const arcTestnet = defineChain({
     default: { http: [import.meta.env.VITE_ARC_RPC_URL ?? 'https://rpc.testnet.arc.network'] },
   },
   testnet: true,
-});
+}) : null;
 
 const worldChain = defineChain({
   id: Number(import.meta.env.VITE_WORLDCHAIN_CHAIN_ID ?? '4801'),
@@ -63,10 +64,12 @@ const connectors = projectId
     ];
 
 const wagmiConfig = createConfig({
-  chains: [arcTestnet, worldChain],
+  chains: isArcEnabled() && arcTestnet ? [arcTestnet, worldChain] : [worldChain],
   connectors,
-  transports: {
+  transports: isArcEnabled() && arcTestnet ? {
     [arcTestnet.id]: http(import.meta.env.VITE_ARC_RPC_URL ?? 'https://rpc.testnet.arc.network'),
+    [worldChain.id]: http(import.meta.env.VITE_WORLDCHAIN_RPC_URL ?? 'https://worldchain-sepolia.g.alchemy.com/public'),
+  } : {
     [worldChain.id]: http(import.meta.env.VITE_WORLDCHAIN_RPC_URL ?? 'https://worldchain-sepolia.g.alchemy.com/public'),
   },
 });
