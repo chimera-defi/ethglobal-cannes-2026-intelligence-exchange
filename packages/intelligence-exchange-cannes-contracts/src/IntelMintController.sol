@@ -288,7 +288,7 @@ contract IntelMintController {
     /// @param  pool        IUniswapV3Pool address (INTEL/WETH 0.3% pool)
     /// @param  twapPeriod  Observation window in seconds (recommended: 1800 = 30 min)
     /// @param  intelIsToken0  True if INTEL address < WETH address on this pool
-    function pullTWAP(address pool, uint32 twapPeriod, bool intelIsToken0) external {
+    function pullTWAP(address pool, uint32 twapPeriod, bool intelIsToken0) external onlyOperator {
         if (pool == address(0)) revert ZeroAddress();
         if (twapPeriod < 60) revert InvalidParam();
 
