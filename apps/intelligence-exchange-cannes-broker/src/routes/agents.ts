@@ -5,7 +5,7 @@ import {
   AgentAuthorizationCreateRequestSchema,
   AgentAuthorizationSyncRequestSchema,
 } from 'intelligence-exchange-cannes-shared';
-import { getSessionAccountAddress, requireWorldRole } from '../services/accessService';
+import { getSessionAccountAddress, requireWorldRoleIfStrict } from '../services/accessService';
 import { createOrUpdateAgentAuthorization, listAgentAuthorizations, syncAgentRegistration } from '../services/authorizationService';
 import { httpError } from '../services/errors';
 import { syncIdentityGateRole } from '../services/worldchainService';
@@ -23,7 +23,7 @@ agentsRouter.post('/authorizations', zValidator('json', AgentAuthorizationCreate
   if (!accountAddress) throw httpError('Authenticated session required', 401, 'AUTH_REQUIRED');
 
   const req = c.req.valid('json');
-  await requireWorldRole(accountAddress, req.role);
+  await requireWorldRoleIfStrict(accountAddress, req.role);
   const authorization = await createOrUpdateAgentAuthorization(accountAddress, req);
   return c.json({ authorization }, 201);
 });
@@ -44,7 +44,7 @@ agentsRouter.post('/worldchain/sync-role', zValidator('json', z.object({
   if (!accountAddress) throw httpError('Authenticated session required', 401, 'AUTH_REQUIRED');
 
   const { role } = c.req.valid('json');
-  await requireWorldRole(accountAddress, role);
+  await requireWorldRoleIfStrict(accountAddress, role);
   const sync = await syncIdentityGateRole(accountAddress, role);
   return c.json({ sync });
 });
