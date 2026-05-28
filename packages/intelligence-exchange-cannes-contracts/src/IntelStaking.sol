@@ -266,8 +266,9 @@ contract IntelStaking {
 
     /// @notice Deposit yield into the pool. Called by MintController and settlement contracts.
     /// @dev    Caller must have approved this contract to transfer `amount` of INTEL.
+    /// @custom:access operator only
     /// @param  amount INTEL yield amount to deposit (in wei).
-    function depositYield(uint256 amount) external {
+    function depositYield(uint256 amount) external onlyOperator {
         if (amount == 0) revert ZeroAmount();
         bool yieldOk = intel.transferFrom(msg.sender, address(this), amount);
         require(yieldOk, "IntelStaking: depositYield transferFrom failed");
@@ -295,7 +296,8 @@ contract IntelStaking {
 
     /// @notice Deposit ETH yield into the pool. Called by IntelMintController (ETH mint path).
     ///         ETH is distributed pro-rata to current stakers via the accEthYieldPerShare model.
-    function depositEthYield() external payable {
+    /// @custom:access operator only
+    function depositEthYield() external payable onlyOperator {
         if (msg.value == 0) revert ZeroAmount();
         _handleEthYieldDeposit(msg.value);
         emit EthYieldDeposited(msg.sender, msg.value, currentEpoch);
