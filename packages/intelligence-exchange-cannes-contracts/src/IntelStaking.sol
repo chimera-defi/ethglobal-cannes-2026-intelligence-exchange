@@ -37,6 +37,8 @@ contract IntelStaking {
     event Unstaked(address indexed staker, uint256 amount);
     event YieldDeposited(address indexed depositor, uint256 amount, uint256 epoch);
     event YieldClaimed(address indexed staker, uint256 amount, uint256 epoch);
+    event EthYieldDeposited(address indexed depositor, uint256 amount, uint256 epoch);
+    event EthYieldClaimed(address indexed staker, uint256 amount, uint256 epoch);
     event EpochAdvanced(uint256 indexed epoch, uint256 globalCapRemaining, uint256 totalStaked);
     event OperatorSet(address indexed operator, bool approved);
     event OwnershipTransferred(address indexed previous, address indexed next);
@@ -49,7 +51,8 @@ contract IntelStaking {
         uint256 stakedAt;           // Timestamp of last stake (for cooldown-free check)
         uint256 pendingUnstake;     // Amount queued for unstake
         uint256 unstakeAvailableAt; // When pending unstake can be withdrawn
-        uint256 yieldDebt;          // Tracks claimed portion of yield (share model)
+        uint256 yieldDebt;          // Tracks claimed portion of INTEL yield (share model)
+        uint256 ethYieldDebt;       // Tracks claimed portion of ETH yield (share model)
         uint256 epochAllowanceUsed; // Allowance consumed in current epoch
         uint256 lastEpoch;          // Epoch at which epochAllowanceUsed was reset
     }
@@ -78,9 +81,13 @@ contract IntelStaking {
 
     uint256 public totalStaked;
 
-    // Yield accounting (standard reward-per-share model)
-    uint256 public accYieldPerShare;  // accumulated yield per 1e18 of stake, scaled by 1e36
-    uint256 public pendingYieldPool;  // undistributed yield waiting for epoch snapshot
+    // INTEL yield accounting (standard reward-per-share model)
+    uint256 public accYieldPerShare;    // accumulated INTEL yield per 1e18 of stake, scaled by 1e36
+    uint256 public pendingYieldPool;    // undistributed INTEL yield waiting for epoch snapshot
+
+    // ETH yield accounting (parallel accumulator for ETH routed from MintController)
+    uint256 public accEthYieldPerShare; // accumulated ETH yield per 1e18 of stake, scaled by 1e36
+    uint256 public pendingEthYieldPool; // undistributed ETH yield buffered until first staker joins
 
     mapping(address => StakerInfo) public stakers;
     mapping(uint256 => EpochSnapshot) public epochSnapshots;
@@ -133,16 +140,18 @@ contract IntelStaking {
 
         _advanceEpochIfNeeded();
         _settleYield(msg.sender);
+        _settleEthYield(msg.sender);
 
         StakerInfo storage s = stakers[msg.sender];
         s.staked += amount;
         s.stakedAt = block.timestamp;
         totalStaked += amount;
 
-        // Sync yieldDebt to the current accumulator AFTER updating staked.
+        // Sync yield debts to the current accumulators AFTER updating staked.
         // This prevents a new (or returning) staker from claiming yield that
         // accumulated before their stake was added.
-        s.yieldDebt = (s.staked * accYieldPerShare) / PRECISION;
+        s.yieldDebt    = (s.staked * accYieldPerShare)    / PRECISION;
+        s.ethYieldDebt = (s.staked * accEthYieldPerShare) / PRECISION;
 
         // Pull tokens; IntelToken always returns true or reverts — check anyway for safety
         bool stakeOk = intel.transferFrom(msg.sender, address(this), amount);
@@ -157,6 +166,7 @@ contract IntelStaking {
 
         _advanceEpochIfNeeded();
         _settleYield(msg.sender);
+        _settleEthYield(msg.sender);
 
         StakerInfo storage s = stakers[msg.sender];
         // staked must cover new request + existing pending
@@ -208,12 +218,41 @@ contract IntelStaking {
         emit YieldDeposited(msg.sender, amount, currentEpoch);
     }
 
-    /// @notice Claim accrued yield.
+    /// @notice Claim accrued INTEL yield.
     function claimYield() external returns (uint256 claimed) {
         _advanceEpochIfNeeded();
         claimed = _settleYield(msg.sender);
         if (claimed == 0) revert NothingToClaim();
         emit YieldClaimed(msg.sender, claimed, currentEpoch);
+    }
+
+    /// @notice Deposit ETH yield into the pool. Called by IntelMintController (ETH mint path).
+    ///         ETH is distributed pro-rata to current stakers via the accEthYieldPerShare model.
+    function depositEthYield() external payable {
+        if (msg.value == 0) revert ZeroAmount();
+        if (totalStaked > 0) {
+            accEthYieldPerShare += (msg.value * PRECISION) / totalStaked;
+        } else {
+            pendingEthYieldPool += msg.value;
+        }
+        emit EthYieldDeposited(msg.sender, msg.value, currentEpoch);
+    }
+
+    /// @notice Claim accrued ETH yield.
+    function claimEthYield() external returns (uint256 claimed) {
+        _advanceEpochIfNeeded();
+        claimed = _settleEthYield(msg.sender);
+        if (claimed == 0) revert NothingToClaim();
+        emit EthYieldClaimed(msg.sender, claimed, currentEpoch);
+    }
+
+    /// @notice Pending ETH yield claimable by a staker right now (view-only).
+    function pendingEthYield(address wallet) external view returns (uint256) {
+        StakerInfo storage s = stakers[wallet];
+        if (s.staked == 0) return 0;
+        uint256 accumulated = (s.staked * accEthYieldPerShare) / PRECISION;
+        if (accumulated <= s.ethYieldDebt) return 0;
+        return accumulated - s.ethYieldDebt;
     }
 
     // ─── Epoch & Allowance ────────────────────────────────────────────────────
@@ -351,10 +390,15 @@ contract IntelStaking {
     }
 
     function _advanceEpoch() internal {
-        // Flush pending yield pool into accYieldPerShare
+        // Flush pending INTEL yield pool into accYieldPerShare
         if (pendingYieldPool > 0 && totalStaked > 0) {
             accYieldPerShare += (pendingYieldPool * PRECISION) / totalStaked;
             pendingYieldPool = 0;
+        }
+        // Flush pending ETH yield pool into accEthYieldPerShare
+        if (pendingEthYieldPool > 0 && totalStaked > 0) {
+            accEthYieldPerShare += (pendingEthYieldPool * PRECISION) / totalStaked;
+            pendingEthYieldPool = 0;
         }
 
         epochSnapshots[currentEpoch] = EpochSnapshot({
@@ -371,10 +415,31 @@ contract IntelStaking {
         emit EpochAdvanced(currentEpoch, globalCapRemaining, totalStaked);
     }
 
-    /// @notice Accept ETH yield routed from MintController (50/45/5 split).
-    ///         In a production system this would be swapped to INTEL via a DEX hook.
-    ///         Here we accept ETH directly so the routing split accounting is correct.
-    receive() external payable {}
+    /// @notice Accept ETH via receive() — treated as ETH yield deposit.
+    ///         Primary path is depositEthYield(); receive() handles any bare ETH sends.
+    receive() external payable {
+        if (msg.value > 0) {
+            if (totalStaked > 0) {
+                accEthYieldPerShare += (msg.value * PRECISION) / totalStaked;
+            } else {
+                pendingEthYieldPool += msg.value;
+            }
+            emit EthYieldDeposited(msg.sender, msg.value, currentEpoch);
+        }
+    }
+
+    /// @dev Settle and transfer pending ETH yield for a staker. Returns amount transferred.
+    function _settleEthYield(address wallet) internal returns (uint256 claimed) {
+        StakerInfo storage s = stakers[wallet];
+        if (s.staked == 0) return 0;
+        uint256 accumulated = (s.staked * accEthYieldPerShare) / PRECISION;
+        if (accumulated > s.ethYieldDebt) {
+            claimed = accumulated - s.ethYieldDebt;
+            s.ethYieldDebt = accumulated;
+            (bool ok,) = wallet.call{value: claimed}("");
+            require(ok, "IntelStaking: ETH yield transfer failed");
+        }
+    }
 
     /// @dev Integer square root (Babylonian method). Input and output in same units.
     function _sqrt(uint256 x) internal pure returns (uint256 y) {

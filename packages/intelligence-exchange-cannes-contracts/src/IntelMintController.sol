@@ -176,14 +176,10 @@ contract IntelMintController {
         _sendEth(polAddress, polShare);
         _sendEth(treasuryAddress, treasuryShare);
 
-        // Staker share: deposit into IntelStaking yield pool
-        // We convert ETH to INTEL equivalent isn't feasible without a swap;
-        // instead, forward ETH to a dedicated yield-buffer address for off-chain conversion,
-        // OR if staker yield is paid in ETH, send directly. Here we forward to staking contract
-        // as ETH (staking contract must handle it), keeping architecture simple.
-        // In a full implementation this would trigger a swap → INTEL → depositYield().
-        // For this spec slice, we send ETH to the staking contract's designated receiver.
-        _sendEth(address(staking), stakerShare);
+        // Staker share: deposit ETH into IntelStaking's ETH yield accumulator.
+        // Stakers claim this via claimEthYield(). In a full production build a
+        // keeper would swap ETH → INTEL and call depositYield() instead.
+        staking.depositEthYield{value: stakerShare}();
 
         // Refund excess ETH
         uint256 excess = msg.value - required;
@@ -246,8 +242,9 @@ contract IntelMintController {
 
         _transfer(paymentToken, polAddress, polShare);
         _transfer(paymentToken, treasuryAddress, treasuryShare);
-        // Staker share goes to staking contract
-        _transfer(paymentToken, address(staking), stakerShare);
+        // Staker share routes to POL in the ERC-20 path (Phase 2: POL keeper swaps
+        // payment token → INTEL and calls staking.depositYield() each epoch).
+        _transfer(paymentToken, polAddress, stakerShare);
 
         emit MintExecuted(
             to,

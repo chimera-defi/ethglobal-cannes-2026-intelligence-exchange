@@ -332,8 +332,8 @@ contract AdvancedArcEscrowTest is Test {
         
         uint256 posterBalanceAfter = IERC20(USDC).balanceOf(poster);
         
-        // Poster gets direct refund minus protocol fees (staker 9% + treasury 10%) = 81%
-        assertEq(posterBalanceAfter - posterBalanceBefore, 810e6);
+        // PosterWins = full refund (no protocol fees on failed work — poster should not subsidise platform)
+        assertEq(posterBalanceAfter - posterBalanceBefore, 1000e6);
     }
 
     function test_Dispute_ResolveSplit() public {

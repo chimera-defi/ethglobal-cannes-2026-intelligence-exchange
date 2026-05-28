@@ -20,7 +20,7 @@
 
 All contracts have passing test suites. Mainnet-fork liquidity smoke test runs against the INTEL/USDC pair.
 
-**Contract layer status:** `IdeaEscrow.sol` implements the 81/9/10 split (commit `2685173`) with `stakerYieldReceiver` and `treasuryReceiver` constructor params — fixed during hackathon build. `AdvancedArcEscrow.sol` routes 90% worker / 10% treasury — missing the 9% staker yield extraction. The `AdvancedArcEscrow.sol` gap is tracked and is in the funded roadmap. The off-chain broker ledger implements the full 81/9/10 split and has been verified end-to-end.
+**Contract layer status:** All contracts implement the 81/9/10 split. `IdeaEscrow.sol` fixed in commit `2685173`. `AdvancedArcEscrow.sol` implements 81% worker / 9% staker / 10% treasury on WorkerWins/Split disputes; PosterWins disputes now return 100% to poster (no fees on failed work — fixed current session). `IntelStaking.sol` now tracks ETH yield from `IntelMintController` via a dedicated `accEthYieldPerShare` accumulator — stakers call `claimEthYield()` to withdraw. The off-chain broker ledger implements the full 81/9/10 split and has been verified end-to-end.
 
 ### Application layer
 

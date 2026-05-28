@@ -57,7 +57,7 @@ contract IntelStakingTest is Test {
         staking.stake(100e18);
 
         assertEq(staking.totalStaked(), 100e18);
-        (uint256 staked,,,,,, ) = staking.stakers(alice);
+        (uint256 staked,,,,,,, ) = staking.stakers(alice);
         assertEq(staked, 100e18);
         assertEq(intel.balanceOf(address(staking)), 100e18);
     }
@@ -411,5 +411,98 @@ contract IntelStakingTest is Test {
     function test_transferOwnership_to_zero_reverts() public {
         vm.expectRevert(IntelStaking.ZeroAddress.selector);
         staking.transferOwnership(address(0));
+    }
+
+    // ─── ETH yield ────────────────────────────────────────────────────────────
+
+    /// @dev Basic ETH yield deposit and claim.
+    function test_ethYield_deposit_and_claim() public {
+        vm.prank(alice);
+        staking.stake(100e18);
+
+        // Deposit 1 ETH as yield (simulating MintController)
+        vm.deal(address(this), 1 ether);
+        staking.depositEthYield{value: 1 ether}();
+
+        assertEq(staking.pendingEthYield(alice), 1 ether, "Alice should see 1 ETH pending");
+
+        uint256 aliceEthBefore = alice.balance;
+        vm.prank(alice);
+        uint256 claimed = staking.claimEthYield();
+
+        assertEq(claimed, 1 ether, "claimEthYield returned wrong amount");
+        assertEq(alice.balance - aliceEthBefore, 1 ether, "Alice ETH balance wrong after claim");
+        assertEq(staking.pendingEthYield(alice), 0, "No ETH pending after claim");
+    }
+
+    /// @dev Two stakers split ETH yield proportionally.
+    function test_ethYield_proportional_split() public {
+        // Alice stakes 200, Bob stakes 100 → 2:1 split
+        vm.prank(alice);
+        staking.stake(200e18);
+        vm.prank(bob);
+        staking.stake(100e18);
+
+        vm.deal(address(this), 3 ether);
+        staking.depositEthYield{value: 3 ether}();
+
+        // 2 ETH to Alice, 1 ETH to Bob
+        assertApproxEqAbs(staking.pendingEthYield(alice), 2 ether, 1, "Alice ETH yield wrong");
+        assertApproxEqAbs(staking.pendingEthYield(bob), 1 ether, 1, "Bob ETH yield wrong");
+    }
+
+    /// @dev ETH yield buffered when no stakers, then released on epoch advance.
+    function test_ethYield_buffered_before_first_staker() public {
+        // Deposit with no stakers
+        vm.deal(address(this), 1 ether);
+        staking.depositEthYield{value: 1 ether}();
+        assertEq(staking.pendingEthYieldPool(), 1 ether, "ETH should be buffered");
+
+        // Alice stakes, advance epoch to flush buffer
+        vm.prank(alice);
+        staking.stake(100e18);
+        vm.warp(block.timestamp + EPOCH + 1);
+        staking.advanceEpoch(); // flushes pendingEthYieldPool
+
+        assertGt(staking.pendingEthYield(alice), 0, "Alice should see buffered ETH yield after epoch flush");
+    }
+
+    /// @dev New staker cannot claim ETH yield that accumulated before their stake.
+    function test_ethYield_new_staker_cannot_claim_past_yield() public {
+        // Alice stakes and yield is deposited for her
+        vm.prank(alice);
+        staking.stake(100e18);
+
+        vm.deal(address(this), 1 ether);
+        staking.depositEthYield{value: 1 ether}();
+        assertEq(staking.pendingEthYield(alice), 1 ether);
+
+        // Bob stakes AFTER the yield deposit — must not claim Alice's yield
+        vm.prank(bob);
+        staking.stake(100e18);
+        assertEq(staking.pendingEthYield(bob), 0, "Bob must not capture pre-stake ETH yield");
+    }
+
+    /// @dev claimEthYield reverts with NothingToClaim when no ETH yield pending.
+    function test_ethYield_claimEthYield_reverts_if_nothing() public {
+        vm.prank(alice);
+        staking.stake(100e18);
+
+        vm.prank(alice);
+        vm.expectRevert(IntelStaking.NothingToClaim.selector);
+        staking.claimEthYield();
+    }
+
+    /// @dev receive() forwards ETH to the yield accumulator.
+    function test_ethYield_via_receive_fallback() public {
+        vm.prank(alice);
+        staking.stake(100e18);
+
+        // Send ETH directly via low-level call (triggers receive())
+        vm.deal(address(this), 0.5 ether);
+        (bool ok,) = address(staking).call{value: 0.5 ether}("");
+        assertTrue(ok, "receive() should accept ETH");
+
+        assertApproxEqAbs(staking.pendingEthYield(alice), 0.5 ether, 1, "ETH via receive() should be claimable");
     }
 }
