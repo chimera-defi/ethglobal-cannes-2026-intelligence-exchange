@@ -706,60 +706,63 @@ contract AdvancedArcEscrow {
         d.resolved = true;
         d.resolver = resolver;
 
-        uint256 stakerAmount = (m.amount * STAKER_BPS) / BPS_DENOMINATOR;      // 9%
-        uint256 treasuryAmount = (m.amount * TREASURY_BPS) / BPS_DENOMINATOR;  // 10%
-        uint256 workerPool = m.amount - stakerAmount - treasuryAmount;          // ~81% (remainder, no dust)
-
         // Update escrowed tracker
         totalEscrowed -= m.amount;
 
-        // Transfer staker yield on all resolutions
-        if (stakerAmount > 0) {
-            bool stakeOk = IERC20(USDC).transfer(stakerYieldReceiver, stakerAmount);
-            if (!stakeOk) revert StakerYieldTransferFailed();
-            emit StakerYieldPaid(m.ideaId, milestoneId, stakerYieldReceiver, stakerAmount);
-        }
-
-        // Transfer treasury on all resolutions
-        if (treasuryAmount > 0) {
-            bool treasuryOk = IERC20(USDC).transfer(treasuryReceiver, treasuryAmount);
-            if (!treasuryOk) revert TransferFailed();
-            emit TreasuryPaid(m.ideaId, milestoneId, treasuryReceiver, treasuryAmount);
-        }
-
-        if (resolution == DisputeResolution.WorkerWins) {
-            // Full payout to worker from worker pool
-            m.status = MilestoneStatus.Released;
-
-            bool ok = IERC20(USDC).transfer(m.worker, workerPool);
-            if (!ok) revert TransferFailed();
-
-            emit DisputeResolved(milestoneId, resolver, uint8(resolution), workerPool, 0);
-        } else if (resolution == DisputeResolution.PosterWins) {
-            // Full refund to poster from worker pool
+        if (resolution == DisputeResolution.PosterWins) {
+            // Full refund to poster — no platform fees on a successful dispute by poster.
+            // Taking fees here would mean the protocol profits from wrongly-funded work,
+            // which misaligns incentives. Fees only apply when work is delivered (WorkerWins/Split).
             m.status = MilestoneStatus.Refunded;
 
-            bool ok = IERC20(USDC).transfer(fund.poster, workerPool);
+            bool ok = IERC20(USDC).transfer(fund.poster, m.amount);
             if (!ok) revert TransferFailed();
 
-            emit DisputeResolved(milestoneId, resolver, uint8(resolution), 0, workerPool);
-        } else if (resolution == DisputeResolution.Split) {
-            // Proportional split of worker pool
-            if (workerPayoutBps > BPS_DENOMINATOR) revert InvalidDisputeResolution();
+            emit DisputeResolved(milestoneId, resolver, uint8(resolution), 0, m.amount);
+        } else {
+            // WorkerWins or Split: apply 81/9/10 fee split on delivered work
+            uint256 stakerAmount  = (m.amount * STAKER_BPS)   / BPS_DENOMINATOR; // 9%
+            uint256 treasuryAmount= (m.amount * TREASURY_BPS) / BPS_DENOMINATOR; // 10%
+            uint256 workerPool    = m.amount - stakerAmount - treasuryAmount;     // ~81%
 
-            uint256 workerShare = (workerPool * workerPayoutBps) / BPS_DENOMINATOR;
-            uint256 posterShare = workerPool - workerShare;
+            // Transfer staker yield
+            if (stakerAmount > 0) {
+                bool stakeOk = IERC20(USDC).transfer(stakerYieldReceiver, stakerAmount);
+                if (!stakeOk) revert StakerYieldTransferFailed();
+                emit StakerYieldPaid(m.ideaId, milestoneId, stakerYieldReceiver, stakerAmount);
+            }
+            // Transfer treasury fee
+            if (treasuryAmount > 0) {
+                bool treasuryOk = IERC20(USDC).transfer(treasuryReceiver, treasuryAmount);
+                if (!treasuryOk) revert TransferFailed();
+                emit TreasuryPaid(m.ideaId, milestoneId, treasuryReceiver, treasuryAmount);
+            }
 
-            m.status = MilestoneStatus.Released;
+            if (resolution == DisputeResolution.WorkerWins) {
+                m.status = MilestoneStatus.Released;
 
-            bool ok1 = IERC20(USDC).transfer(m.worker, workerShare);
-            if (!ok1) revert TransferFailed();
+                bool ok = IERC20(USDC).transfer(m.worker, workerPool);
+                if (!ok) revert TransferFailed();
 
-            bool ok2 = IERC20(USDC).transfer(fund.poster, posterShare);
-            if (!ok2) revert TransferFailed();
+                emit DisputeResolved(milestoneId, resolver, uint8(resolution), workerPool, 0);
+            } else if (resolution == DisputeResolution.Split) {
+                // Proportional split of worker pool
+                if (workerPayoutBps > BPS_DENOMINATOR) revert InvalidDisputeResolution();
 
-            emit DisputeResolved(milestoneId, resolver, uint8(resolution), workerShare, posterShare);
-        }
+                uint256 workerShare = (workerPool * workerPayoutBps) / BPS_DENOMINATOR;
+                uint256 posterShare = workerPool - workerShare;
+
+                m.status = MilestoneStatus.Released;
+
+                bool ok1 = IERC20(USDC).transfer(m.worker, workerShare);
+                if (!ok1) revert TransferFailed();
+
+                bool ok2 = IERC20(USDC).transfer(fund.poster, posterShare);
+                if (!ok2) revert TransferFailed();
+
+                emit DisputeResolved(milestoneId, resolver, uint8(resolution), workerShare, posterShare);
+            }
+        } // else: WorkerWins or Split
     }
 
     /// @notice Auto-resolve dispute after timeout (splits 50/50).
