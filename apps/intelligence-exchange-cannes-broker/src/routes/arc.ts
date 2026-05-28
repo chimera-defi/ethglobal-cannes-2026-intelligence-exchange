@@ -14,6 +14,7 @@ import { jobs, ideas, milestones, escrowReleases } from '../db/schema';
 import { requireSessionAccountAddress, requireWorldRole } from '../services/accessService';
 import { httpError } from '../services/errors';
 import { randomUUID, createHmac, timingSafeEqual } from 'crypto';
+import { isArcEnabled } from '../services/sponsorConfig';
 import {
   getArcIntegrationStatus,
   getEscrowConfig,
@@ -42,6 +43,14 @@ import {
   DisputeResolution,
 } from '../services/arcEscrowService';
 export const arcRouter = new Hono();
+
+// Guard: all Arc routes return 501 unless ENABLE_ARC=true
+arcRouter.use('*', async (c, next) => {
+  if (!isArcEnabled()) {
+    return c.json({ error: 'Arc integration not enabled. Set ENABLE_ARC=true to activate.' }, 501);
+  }
+  return next();
+});
 
 function toBytes32Id(value: string): `0x${string}` {
   return `0x${Buffer.from(value).toString('hex').padStart(64, '0')}`;
