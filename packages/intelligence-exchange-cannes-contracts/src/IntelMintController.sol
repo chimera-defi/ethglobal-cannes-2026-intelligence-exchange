@@ -221,7 +221,7 @@ contract IntelMintController {
 
     /// @notice Alternative: operator mints with ERC-20 payment token.
     ///         Proceeds routed in paymentToken.
-    ///         Staker share goes to POL in Phase 1; keeper swaps → INTEL → depositYield() in Phase 2.
+    ///         Staker share goes to POL address for later swap to INTEL and depositYield().
     /// @custom:access operator or owner
     /// @param to            Recipient.
     /// @param intelAmount   INTEL to mint (1e18 units).
@@ -264,7 +264,7 @@ contract IntelMintController {
 
         _transfer(paymentToken, polAddress, polShare);
         _transfer(paymentToken, treasuryAddress, treasuryShare);
-        // Phase 1: staker share → POL (keeper swaps each epoch in Phase 2)
+        // Staker share → POL address for later swap to INTEL and depositYield()
         _transfer(paymentToken, polAddress, stakerShare);
 
         emit MintExecuted(to, intelAmount, required, polShare, stakerShare, treasuryShare, staking.epoch());
