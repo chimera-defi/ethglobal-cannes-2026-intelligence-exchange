@@ -129,8 +129,9 @@ contract WorkReceipt1155 {
     }
 
     /// @dev Approval is a no-op since transfers are blocked, but kept for interface compliance.
-    function setApprovalForAll(address /*operator*/, bool /*approved*/) external pure {
-        revert Soulbound();
+    ///      Emits event for wallet compatibility without actually setting approval.
+    function setApprovalForAll(address operator, bool approved) external {
+        emit ApprovalForAll(msg.sender, operator, approved);
     }
 
     function isApprovedForAll(address /*account*/, address /*operator*/) external pure returns (bool) {

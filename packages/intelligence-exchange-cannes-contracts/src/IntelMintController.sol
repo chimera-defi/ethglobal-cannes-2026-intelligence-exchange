@@ -274,6 +274,7 @@ contract IntelMintController {
 
     /// @notice Update TWAP. Called by operator after each oracle observation.
     ///         Bootstrap method for before pool exists.
+    ///         Manual fallback override — use pullTWAP() for automated oracle updates.
     /// @custom:access operator or owner
     /// @param  newTWAP New TWAP value in payment units per 1e18 INTEL (must be > 0).
     function updateTWAP(uint256 newTWAP) external onlyOperator {
@@ -284,7 +285,7 @@ contract IntelMintController {
     }
 
     /// @notice Pull TWAP from a Uniswap V3 pool and update the stored twap.
-    ///         Permissionless — anyone can call this to keep the oracle fresh.
+    ///         Operator-gated — automated oracle update from Uniswap V3 pool.
     /// @param  pool        IUniswapV3Pool address (INTEL/WETH 0.3% pool)
     /// @param  twapPeriod  Observation window in seconds (recommended: 1800 = 30 min)
     /// @param  intelIsToken0  True if INTEL address < WETH address on this pool
