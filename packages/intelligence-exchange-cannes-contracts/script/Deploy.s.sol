@@ -185,6 +185,25 @@ contract Deploy is Script {
         );
         console2.log("WorkReceipt1155 deployed at:", address(result.workReceipt));
 
+        // ── 9. Post-deployment wiring ────────────────────────────────────────
+        //
+        // IntelToken: grant mint rights to IntelMintController.
+        //   mint() is now onlyMinter (separate from owner), so owner retains
+        //   pause power independently of who can mint.
+        result.intelToken.setMinter(address(result.mintController));
+        console2.log("IntelToken.minter set to IntelMintController:", address(result.mintController));
+
+        // IntelStaking: whitelist IntelMintController as operator so it can
+        //   call consumeAllowance() when users mint.
+        result.staking.setOperator(address(result.mintController), true);
+        console2.log("IntelStaking operator: IntelMintController whitelisted");
+
+        // IntelMintController: whitelist deployer as an initial bootstrap operator
+        //   so the deployer can call executeMint() during launch.
+        //   Remove or rotate this after a keeper address is established.
+        result.mintController.setOperator(result.deployer, true);
+        console2.log("IntelMintController operator: deployer bootstrap-whitelisted");
+
         vm.stopBroadcast();
 
         // Log deployment summary

@@ -19,9 +19,10 @@ import {IntelStaking} from "./IntelStaking.sol";
 ///    5% → treasury
 ///
 /// Access:
-///   - executeMint: only whitelisted operators
+///   - executeMint: only whitelisted operators (B2B / programmatic)
+///   - selfMint:    any wallet with sufficient staking allowance (end-user)
 ///   - price updates: only operators or owner
-///   - config: only owner
+///   - config: only owner (Ownable2Step — two-step transfer prevents key loss)
 contract IntelMintController {
     // ─── Errors ──────────────────────────────────────────────────────────────
 
@@ -48,6 +49,7 @@ contract IntelMintController {
     event FloorPriceSet(uint256 floorPrice);
     event PremiumSet(uint256 premiumBps);
     event OperatorSet(address indexed op, bool approved);
+    event OwnershipTransferStarted(address indexed previous, address indexed next);
     event OwnershipTransferred(address indexed previous, address indexed next);
     event RoutingAddressesUpdated(address pol, address treasury);
 
@@ -57,29 +59,42 @@ contract IntelMintController {
     IntelStaking public immutable staking;
 
     address public owner;
+    address public pendingOwner;       // Ownable2Step — nominee must call acceptOwnership()
     mapping(address => bool) public operators;
 
     // Routing addresses (receive ETH/USDC/INTEL depending on payment token)
-    address public polAddress;      // POL: 50% of mint proceeds
-    address public treasuryAddress; // Treasury: 5% of mint proceeds
+    address public polAddress;         // POL: 50% of mint proceeds
+    address public treasuryAddress;    // Treasury: 5% of mint proceeds
 
     // Price parameters (all in payment token units — treated as ETH wei for simplicity)
-    uint256 public twap;            // TWAP price of INTEL in payment token units (per 1e18 INTEL)
+    uint256 public twap;               // TWAP price of INTEL in payment token units (per 1e18 INTEL)
     uint256 public twapUpdatedAt;
-    uint256 public floorPrice;      // Minimum price regardless of TWAP
-    uint256 public premiumBps;      // Premium in BPS above TWAP (e.g. 500 = 5%)
+    uint256 public floorPrice;         // Minimum price regardless of TWAP
+    uint256 public premiumBps;         // Premium in BPS above TWAP (e.g. 500 = 5%)
 
     // Utilization: set by operator after each epoch settlement
     // multiplierBps: 10000 = 1x, 15000 = 1.5x, etc.
-    uint256 public utilizationMultiplierBps; // default 10000 (1x)
+    uint256 public utilizationMultiplierBps;
     uint256 public pendingTaskVolume;
     uint256 public settledCapacity;
 
-    uint256 public constant BPS = 10_000;
-    // Routing splits in BPS (must sum to BPS)
-    uint256 public constant POL_BPS     = 5_000; // 50%
-    uint256 public constant STAKER_BPS  = 4_500; // 45%
-    uint256 public constant TREASURY_BPS =  500; // 5%
+    uint256 public constant BPS          = 10_000;
+    uint256 public constant POL_BPS      = 5_000; // 50%
+    uint256 public constant STAKER_BPS   = 4_500; // 45%
+    uint256 public constant TREASURY_BPS =   500; // 5%
+
+    // ─── Reentrancy guard ─────────────────────────────────────────────────────
+
+    uint256 private _reentrancyStatus;
+    uint256 private constant _NOT_ENTERED = 1;
+    uint256 private constant _ENTERED     = 2;
+
+    modifier nonReentrant() {
+        require(_reentrancyStatus != _ENTERED, "IntelMintController: reentrant call");
+        _reentrancyStatus = _ENTERED;
+        _;
+        _reentrancyStatus = _NOT_ENTERED;
+    }
 
     // ─── Modifiers ────────────────────────────────────────────────────────────
 
@@ -137,124 +152,43 @@ contract IntelMintController {
         cost = (mintPrice() * intelAmount) / 1e18;
     }
 
-    // ─── Mint ─────────────────────────────────────────────────────────────────
+    // ─── Mint (ETH path) ──────────────────────────────────────────────────────
 
-    /// @notice Execute a mint on behalf of `to`. Caller must be a whitelisted operator.
-    ///         Payment is denominated in ETH (msg.value). Excess is refunded.
-    ///
-    /// @param to           Recipient of minted INTEL.
-    /// @param intelAmount  Amount of INTEL to mint (in wei / 1e18 units).
-    /// @param maxPrice     Caller's slippage guard — reverts if mintPrice() > maxPrice.
-    function executeMint(address to, uint256 intelAmount, uint256 maxPrice) external payable onlyOperator {
-        if (to == address(0)) revert ZeroAddress();
-        if (intelAmount == 0) revert ZeroAmount();
-
-        uint256 price = mintPrice();
-        if (price > maxPrice) revert SlippageExceeded(price, maxPrice);
-
-        uint256 required = (price * intelAmount) / 1e18;
-        if (msg.value < required) revert PriceTooLow(msg.value, required);
-
-        // Check and consume staking allowance
-        uint256 allowanceLeft = staking.mintAllowance(to);
-        if (intelAmount > allowanceLeft) {
-            revert AllowanceInsufficient(to, intelAmount, allowanceLeft);
-        }
-        staking.consumeAllowance(to, intelAmount);
-
-        // Mint INTEL to recipient
-        intel.mint(to, intelAmount);
-
-        // Route proceeds (use required, refund excess)
-        uint256 proceeds = required;
-        uint256 polShare      = (proceeds * POL_BPS) / BPS;
-        uint256 stakerShare   = (proceeds * STAKER_BPS) / BPS;
-        uint256 treasuryShare = proceeds - polShare - stakerShare; // remainder = 5%
-
-        _sendEth(polAddress, polShare);
-        _sendEth(treasuryAddress, treasuryShare);
-
-        // Staker share: deposit ETH into IntelStaking's ETH yield accumulator.
-        // Stakers claim this via claimEthYield(). In a full production build a
-        // keeper would swap ETH → INTEL and call depositYield() instead.
-        staking.depositEthYield{value: stakerShare}();
-
-        // Refund excess ETH
-        uint256 excess = msg.value - required;
-        if (excess > 0) {
-            _sendEth(msg.sender, excess);
-        }
-
-        emit MintExecuted(
-            to,
-            intelAmount,
-            proceeds,
-            polShare,
-            stakerShare,
-            treasuryShare,
-            staking.epoch()
-        );
-    }
-
-    // ─── Reentrancy guard ─────────────────────────────────────────────────────
-
-    uint256 private _reentrancyStatus;
-    uint256 private constant _NOT_ENTERED = 1;
-    uint256 private constant _ENTERED = 2;
-
-    modifier nonReentrant() {
-        require(_reentrancyStatus != _ENTERED, "IntelMintController: reentrant call");
-        _reentrancyStatus = _ENTERED;
-        _;
-        _reentrancyStatus = _NOT_ENTERED;
-    }
-
-    /// @notice Self-mint: any holder of sufficient staking allowance can mint for themselves.
-    ///         This is the user-facing entry point (no operator whitelist required).
+    /// @notice Operator-gated mint on behalf of `to`.
     ///         Payment in ETH (msg.value). Excess refunded.
     ///
-    /// @param intelAmount  Amount of INTEL to mint (in wei / 1e18 units).
+    /// @param to           Recipient of minted INTEL (must hold staking allowance).
+    /// @param intelAmount  Amount of INTEL to mint (1e18 units).
     /// @param maxPrice     Slippage guard — reverts if mintPrice() > maxPrice.
-    function selfMint(uint256 intelAmount, uint256 maxPrice) external payable nonReentrant {
+    function executeMint(address to, uint256 intelAmount, uint256 maxPrice)
+        external payable onlyOperator nonReentrant
+    {
+        if (to == address(0)) revert ZeroAddress();
         if (intelAmount == 0) revert ZeroAmount();
-
-        uint256 price = mintPrice();
-        if (price > maxPrice) revert SlippageExceeded(price, maxPrice);
-
-        uint256 required = (price * intelAmount) / 1e18;
-        if (msg.value < required) revert PriceTooLow(msg.value, required);
-
-        // Require caller to have earned the allowance via staking
-        uint256 allowanceLeft = staking.mintAllowance(msg.sender);
-        if (intelAmount > allowanceLeft) {
-            revert AllowanceInsufficient(msg.sender, intelAmount, allowanceLeft);
-        }
-        staking.consumeAllowance(msg.sender, intelAmount);
-
-        intel.mint(msg.sender, intelAmount);
-
-        uint256 proceeds = required;
-        uint256 polShare      = (proceeds * POL_BPS) / BPS;
-        uint256 stakerShare   = (proceeds * STAKER_BPS) / BPS;
-        uint256 treasuryShare = proceeds - polShare - stakerShare;
-
-        _sendEth(polAddress, polShare);
-        _sendEth(treasuryAddress, treasuryShare);
-        staking.depositEthYield{value: stakerShare}();
-
-        uint256 excess = msg.value - required;
-        if (excess > 0) _sendEth(msg.sender, excess);
-
-        emit MintExecuted(msg.sender, intelAmount, proceeds, polShare, stakerShare, treasuryShare, staking.epoch());
+        _doMint(to, intelAmount, maxPrice);
     }
 
-    /// @notice Alternative: operator mints with INTEL payment (proceeds in INTEL).
-    ///         Proceeds routed in INTEL: 50% POL, 45% staking yield, 5% treasury.
+    /// @notice Self-mint: any wallet with sufficient staking allowance.
+    ///         No operator whitelist required. Payment in ETH. Excess refunded.
     ///
-    /// @param to           Recipient.
-    /// @param intelAmount  INTEL to mint.
-    /// @param paymentToken ERC-20 payment token. Payment pulled from `to` via transferFrom.
-    /// @param paymentAmount Exact payment amount in paymentToken units. Must equal quoteMint.
+    /// @param intelAmount  Amount of INTEL to mint (1e18 units).
+    /// @param maxPrice     Slippage guard — reverts if mintPrice() > maxPrice.
+    function selfMint(uint256 intelAmount, uint256 maxPrice)
+        external payable nonReentrant
+    {
+        if (intelAmount == 0) revert ZeroAmount();
+        _doMint(msg.sender, intelAmount, maxPrice);
+    }
+
+    /// @notice Alternative: operator mints with ERC-20 payment token.
+    ///         Proceeds routed in paymentToken.
+    ///         Staker share goes to POL in Phase 1; keeper swaps → INTEL → depositYield() in Phase 2.
+    ///
+    /// @param to            Recipient.
+    /// @param intelAmount   INTEL to mint (1e18 units).
+    /// @param paymentToken  ERC-20 used for payment. Pulled from `to` via transferFrom.
+    /// @param paymentAmount Exact amount in paymentToken units (must be >= quoteMint).
+    /// @param maxPrice      Slippage guard.
     function executeMintERC20(
         address to,
         uint256 intelAmount,
@@ -272,44 +206,31 @@ contract IntelMintController {
         uint256 required = (price * intelAmount) / 1e18;
         if (paymentAmount < required) revert PriceTooLow(paymentAmount, required);
 
-        // Check and consume staking allowance
         uint256 allowanceLeft = staking.mintAllowance(to);
         if (intelAmount > allowanceLeft) {
             revert AllowanceInsufficient(to, intelAmount, allowanceLeft);
         }
         staking.consumeAllowance(to, intelAmount);
 
-        // Pull payment from `to`
         _transferFrom(paymentToken, to, address(this), required);
-
-        // Mint INTEL to recipient
         intel.mint(to, intelAmount);
 
-        // Route proceeds in paymentToken
-        uint256 polShare      = (required * POL_BPS) / BPS;
-        uint256 stakerShare   = (required * STAKER_BPS) / BPS;
+        uint256 polShare      = (required * POL_BPS)      / BPS;
+        uint256 stakerShare   = (required * STAKER_BPS)   / BPS;
         uint256 treasuryShare = required - polShare - stakerShare;
 
         _transfer(paymentToken, polAddress, polShare);
         _transfer(paymentToken, treasuryAddress, treasuryShare);
-        // Staker share routes to POL in the ERC-20 path (Phase 2: POL keeper swaps
-        // payment token → INTEL and calls staking.depositYield() each epoch).
+        // Phase 1: staker share → POL (keeper swaps each epoch in Phase 2)
         _transfer(paymentToken, polAddress, stakerShare);
 
-        emit MintExecuted(
-            to,
-            intelAmount,
-            required,
-            polShare,
-            stakerShare,
-            treasuryShare,
-            staking.epoch()
-        );
+        emit MintExecuted(to, intelAmount, required, polShare, stakerShare, treasuryShare, staking.epoch());
     }
 
     // ─── Oracle / Operator Updates ────────────────────────────────────────────
 
     /// @notice Update TWAP. Called by operator after each oracle observation.
+    ///         Phase 2: replace with Chainlink / Uniswap V3 TWAP pull.
     function updateTWAP(uint256 newTWAP) external onlyOperator {
         if (newTWAP == 0) revert ZeroAmount();
         twap = newTWAP;
@@ -318,21 +239,18 @@ contract IntelMintController {
     }
 
     /// @notice Update utilization metrics and recalculate multiplier.
-    /// @param _pendingVolume  Pending task count or budget volume (raw units).
-    /// @param _settledCapacity Settled task capacity this epoch (same units).
     ///
     /// utilizationMultiplierBps = pendingVolume * BPS / settledCapacity
-    /// Clamped to [BPS, 3*BPS] i.e. [1x, 3x] to prevent runaway pricing.
+    /// Clamped to [1x, 3x] to prevent runaway pricing.
     function updateUtilization(uint256 _pendingVolume, uint256 _settledCapacity) external onlyOperator {
         pendingTaskVolume = _pendingVolume;
         settledCapacity = _settledCapacity;
 
         uint256 multiplier;
         if (_settledCapacity == 0 || _pendingVolume == 0) {
-            multiplier = BPS; // 1x when no data
+            multiplier = BPS;
         } else {
             multiplier = (_pendingVolume * BPS) / _settledCapacity;
-            // Clamp between 1x and 3x
             if (multiplier < BPS) multiplier = BPS;
             if (multiplier > 3 * BPS) multiplier = 3 * BPS;
         }
@@ -366,14 +284,25 @@ contract IntelMintController {
         emit RoutingAddressesUpdated(_pol, _treasury);
     }
 
+    // ─── Ownable2Step ─────────────────────────────────────────────────────────
+
+    /// @notice Begin ownership transfer. Nominee must call acceptOwnership().
+    ///         Two-step prevents irrecoverable ownership loss from a typo.
     function transferOwnership(address newOwner) external onlyOwner {
         if (newOwner == address(0)) revert ZeroAddress();
-        emit OwnershipTransferred(owner, newOwner);
-        owner = newOwner;
+        pendingOwner = newOwner;
+        emit OwnershipTransferStarted(owner, newOwner);
+    }
+
+    /// @notice Nominee accepts ownership to complete the two-step transfer.
+    function acceptOwnership() external {
+        if (msg.sender != pendingOwner) revert Unauthorized();
+        emit OwnershipTransferred(owner, msg.sender);
+        owner = msg.sender;
+        pendingOwner = address(0);
     }
 
     /// @notice Recover ETH accidentally sent to this contract.
-    /// @dev Only recovers ETH not processed through executeMint (excess is refunded there).
     function sweepETH(address to) external onlyOwner {
         if (to == address(0)) revert ZeroAddress();
         uint256 bal = address(this).balance;
@@ -382,6 +311,38 @@ contract IntelMintController {
     }
 
     // ─── Internal helpers ─────────────────────────────────────────────────────
+
+    /// @dev Shared ETH-path mint logic used by both executeMint and selfMint.
+    ///      Caller is responsible for the zero-checks on `to` and `intelAmount`
+    ///      and for any access-control modifiers.
+    function _doMint(address to, uint256 intelAmount, uint256 maxPrice) internal {
+        uint256 price = mintPrice();
+        if (price > maxPrice) revert SlippageExceeded(price, maxPrice);
+
+        uint256 required = (price * intelAmount) / 1e18;
+        if (msg.value < required) revert PriceTooLow(msg.value, required);
+
+        uint256 allowanceLeft = staking.mintAllowance(to);
+        if (intelAmount > allowanceLeft) {
+            revert AllowanceInsufficient(to, intelAmount, allowanceLeft);
+        }
+        staking.consumeAllowance(to, intelAmount);
+
+        intel.mint(to, intelAmount);
+
+        uint256 polShare      = (required * POL_BPS)      / BPS;
+        uint256 stakerShare   = (required * STAKER_BPS)   / BPS;
+        uint256 treasuryShare = required - polShare - stakerShare;
+
+        _sendEth(polAddress, polShare);
+        _sendEth(treasuryAddress, treasuryShare);
+        staking.depositEthYield{value: stakerShare}();
+
+        uint256 excess = msg.value - required;
+        if (excess > 0) _sendEth(msg.sender, excess);
+
+        emit MintExecuted(to, intelAmount, required, polShare, stakerShare, treasuryShare, staking.epoch());
+    }
 
     function _sendEth(address to, uint256 amount) internal {
         if (amount == 0) return;

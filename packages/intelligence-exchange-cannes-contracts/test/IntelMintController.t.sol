@@ -48,12 +48,12 @@ contract IntelMintControllerTest is Test {
         // Wire up: staking allows controller to consumeAllowance
         staking.setOperator(address(controller), true);
 
-        // intel allows controller to mint
-        intel.transferOwnership(address(controller));
+        // Grant IntelMintController the minter role (not full ownership).
+        // This is the correct production wiring: owner retains pause key,
+        // minter can mint. Use setMinter() not transferOwnership().
+        intel.setMinter(address(controller));
 
         // Fund alice for staking
-        // Need to give intel to alice so she can stake
-        // But controller owns the token now — we deal with it in test
         vm.deal(alice, 100 ether);
 
         // Grant controller operator for external calls in some tests
@@ -80,13 +80,8 @@ contract IntelMintControllerTest is Test {
     }
 
     function _mintAndStakeAlice(uint256 stakeAmount) internal {
-        // Give ownership of intel back to this test contract temporarily
-        // We stored it to controller in setUp; instead, let's use a proxy approach
-        // Pre-allocate in setUp by minting before ownership transfer
-        // The cleanest fix is to mint alice's tokens BEFORE transferOwnership in setUp.
-        // Since setUp already ran, we use vm.prank(address(controller)) + call mint via
-        // an internal test helper that calls intel.mint directly as controller.
-        // IntelToken.mint is owner-only. We prank as controller.
+        // Mint as minter (IntelMintController has the minter role, not ownership).
+        // IntelToken.mint is onlyMinter; controller is the minter.
         vm.prank(address(controller));
         intel.mint(alice, stakeAmount);
 
@@ -348,9 +343,22 @@ contract IntelMintControllerTest is Test {
         controller.setRoutingAddresses(address(0), treasury);
     }
 
-    function test_transferOwnership() public {
+    // Ownable2Step: transferOwnership starts the process, acceptOwnership completes it.
+    function test_transferOwnership_two_step() public {
         controller.transferOwnership(alice);
-        assertEq(controller.owner(), alice);
+        assertEq(controller.owner(), address(this), "owner unchanged until accept");
+        assertEq(controller.pendingOwner(), alice, "alice is pending owner");
+
+        vm.prank(alice);
+        controller.acceptOwnership();
+        assertEq(controller.owner(), alice, "alice is now owner");
+        assertEq(controller.pendingOwner(), address(0), "pending cleared");
+    }
+
+    function test_transferOwnership_only_nominee_can_accept() public {
+        controller.transferOwnership(alice);
+        vm.expectRevert(IntelMintController.Unauthorized.selector);
+        controller.acceptOwnership(); // called by owner (this), not alice
     }
 
     function test_transferOwnership_zero_reverts() public {

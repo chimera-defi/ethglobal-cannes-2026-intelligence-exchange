@@ -41,6 +41,7 @@ contract IntelStaking {
     event EthYieldClaimed(address indexed staker, uint256 amount, uint256 epoch);
     event EpochAdvanced(uint256 indexed epoch, uint256 globalCapRemaining, uint256 totalStaked);
     event OperatorSet(address indexed operator, bool approved);
+    event OwnershipTransferStarted(address indexed previous, address indexed next);
     event OwnershipTransferred(address indexed previous, address indexed next);
     event ParamsUpdated(uint256 epochLength, uint256 cooldown, uint256 k, uint256 walletCap, uint256 globalEpochCap);
 
@@ -68,6 +69,7 @@ contract IntelStaking {
     IntelToken public immutable intel;
 
     address public owner;
+    address public pendingOwner;     // Ownable2Step — nominee must call acceptOwnership()
     mapping(address => bool) public operators;
 
     // Configurable parameters
@@ -345,10 +347,20 @@ contract IntelStaking {
         emit ParamsUpdated(_epochLength, _cooldown, _k, _walletCap, _globalEpochCap);
     }
 
+    /// @notice Begin ownership transfer. Nominee must call acceptOwnership().
+    ///         Two-step prevents irrecoverable ownership loss from a typo.
     function transferOwnership(address newOwner) external onlyOwner {
         if (newOwner == address(0)) revert ZeroAddress();
-        emit OwnershipTransferred(owner, newOwner);
-        owner = newOwner;
+        pendingOwner = newOwner;
+        emit OwnershipTransferStarted(owner, newOwner);
+    }
+
+    /// @notice Nominee accepts ownership to complete the two-step transfer.
+    function acceptOwnership() external {
+        if (msg.sender != pendingOwner) revert Unauthorized();
+        emit OwnershipTransferred(owner, msg.sender);
+        owner = msg.sender;
+        pendingOwner = address(0);
     }
 
     // ─── Internal ─────────────────────────────────────────────────────────────
