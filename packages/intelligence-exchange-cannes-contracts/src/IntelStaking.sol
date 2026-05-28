@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+/// @custom:security-contact security@iex.cannes
+
 import {IntelToken} from "./IntelToken.sol";
 
 /// @title IntelStaking
@@ -29,6 +31,8 @@ contract IntelStaking {
     error NothingToClaim();
     error EpochNotAdvanceable();
     error AllowanceExceeded(uint256 requested, uint256 remaining);
+    error ContractPaused();
+    error DepositTooLarge(uint256 amount, uint256 cap);
 
     // ─── Events ───────────────────────────────────────────────────────────────
 
@@ -44,6 +48,9 @@ contract IntelStaking {
     event OwnershipTransferStarted(address indexed previous, address indexed next);
     event OwnershipTransferred(address indexed previous, address indexed next);
     event ParamsUpdated(uint256 epochLength, uint256 cooldown, uint256 k, uint256 walletCap, uint256 globalEpochCap);
+    event Paused(address indexed by);
+    event Unpaused(address indexed by);
+    event MaxStakePerDepositChanged(uint256 oldCap, uint256 newCap);
 
     // ─── Storage ──────────────────────────────────────────────────────────────
 
@@ -100,6 +107,16 @@ contract IntelStaking {
 
     uint256 private constant PRECISION = 1e36;
 
+    // ─── Circuit breaker + deposit cap (appended to storage layout) ──────────
+
+    /// @notice Whether staking operations are paused. Set by owner in emergencies.
+    bool public paused;
+
+    /// @notice Maximum INTEL per single stake() call. 0 = no cap.
+    /// @dev Initialised to 100_000e18 (100k INTEL) as a conservative bootstrap value.
+    ///      Can only be increased (or set to 0 to remove) by owner.
+    uint256 public maxStakePerDeposit;
+
     // ─── Reentrancy guard ─────────────────────────────────────────────────────
 
     uint256 private _reentrancyStatus;
@@ -125,8 +142,20 @@ contract IntelStaking {
         _;
     }
 
+    modifier whenNotPaused() {
+        if (paused) revert ContractPaused();
+        _;
+    }
+
     // ─── Constructor ──────────────────────────────────────────────────────────
 
+    /// @notice Deploy IntelStaking.
+    /// @param _intel          Address of the INTEL ERC-20 token.
+    /// @param _epochLength    Epoch length in seconds (0 → 7 days default).
+    /// @param _cooldown       Unstake cooldown in seconds (0 → 3 days default).
+    /// @param _k              Sqrt coefficient scaled by 1e18 (0 → 1e18 default).
+    /// @param _walletCap      Max mint allowance per wallet per epoch (in INTEL wei).
+    /// @param _globalEpochCap Max global mint allowance per epoch (in INTEL wei).
     constructor(
         address _intel,
         uint256 _epochLength,
@@ -147,13 +176,21 @@ contract IntelStaking {
         epochStartTime = block.timestamp;
         globalCapRemaining = _globalEpochCap;
         _reentrancyStatus = _NOT_ENTERED;
+        // Conservative bootstrap cap — prevents single large deposits during launch.
+        // Owner can raise this at any time via setMaxStakePerDeposit().
+        maxStakePerDeposit = 100_000e18;
     }
 
     // ─── Staking ──────────────────────────────────────────────────────────────
 
     /// @notice Stake INTEL tokens. Tokens are transferred from caller.
-    function stake(uint256 amount) external nonReentrant {
+    /// @dev    Reverts if contract is paused or the deposit exceeds maxStakePerDeposit.
+    /// @param  amount INTEL amount to stake (in wei, 18 decimals).
+    function stake(uint256 amount) external nonReentrant whenNotPaused {
         if (amount == 0) revert ZeroAmount();
+        if (maxStakePerDeposit > 0 && amount > maxStakePerDeposit) {
+            revert DepositTooLarge(amount, maxStakePerDeposit);
+        }
 
         _advanceEpochIfNeeded();
         _settleYield(msg.sender);
@@ -178,7 +215,9 @@ contract IntelStaking {
     }
 
     /// @notice Request unstake. Begins cooldown; tokens remain locked until cooldown expires.
-    function requestUnstake(uint256 amount) external nonReentrant {
+    /// @dev    Reverts if contract is paused.
+    /// @param  amount INTEL amount to queue for unstake.
+    function requestUnstake(uint256 amount) external nonReentrant whenNotPaused {
         if (amount == 0) revert ZeroAmount();
 
         _advanceEpochIfNeeded();
@@ -205,7 +244,8 @@ contract IntelStaking {
     }
 
     /// @notice Withdraw tokens after cooldown expires.
-    function unstake() external nonReentrant {
+    /// @dev    Reverts if contract is paused, no pending unstake exists, or cooldown is active.
+    function unstake() external nonReentrant whenNotPaused {
         StakerInfo storage s = stakers[msg.sender];
         if (s.pendingUnstake == 0) revert NoPendingUnstake();
         if (block.timestamp < s.unstakeAvailableAt) {
@@ -225,7 +265,8 @@ contract IntelStaking {
     // ─── Yield ────────────────────────────────────────────────────────────────
 
     /// @notice Deposit yield into the pool. Called by MintController and settlement contracts.
-    /// @dev Caller must have approved this contract to transfer `amount` of INTEL.
+    /// @dev    Caller must have approved this contract to transfer `amount` of INTEL.
+    /// @param  amount INTEL yield amount to deposit (in wei).
     function depositYield(uint256 amount) external {
         if (amount == 0) revert ZeroAmount();
         bool yieldOk = intel.transferFrom(msg.sender, address(this), amount);
@@ -243,7 +284,9 @@ contract IntelStaking {
     }
 
     /// @notice Claim accrued INTEL yield.
-    function claimYield() external nonReentrant returns (uint256 claimed) {
+    /// @dev    Reverts if contract is paused or there is nothing to claim.
+    /// @return claimed INTEL amount transferred to caller.
+    function claimYield() external nonReentrant whenNotPaused returns (uint256 claimed) {
         _advanceEpochIfNeeded();
         claimed = _settleYield(msg.sender);
         if (claimed == 0) revert NothingToClaim();
@@ -259,7 +302,9 @@ contract IntelStaking {
     }
 
     /// @notice Claim accrued ETH yield.
-    function claimEthYield() external nonReentrant returns (uint256 claimed) {
+    /// @dev    Reverts if contract is paused or there is nothing to claim.
+    /// @return claimed ETH amount (in wei) transferred to caller.
+    function claimEthYield() external nonReentrant whenNotPaused returns (uint256 claimed) {
         _advanceEpochIfNeeded();
         claimed = _settleEthYield(msg.sender);
         if (claimed == 0) revert NothingToClaim();
@@ -267,6 +312,8 @@ contract IntelStaking {
     }
 
     /// @notice Pending ETH yield claimable by a staker right now (view-only).
+    /// @param  wallet Address to query.
+    /// @return Claimable ETH yield in wei.
     function pendingEthYield(address wallet) external view returns (uint256) {
         StakerInfo storage s = stakers[wallet];
         if (s.staked == 0) return 0;
@@ -278,17 +325,21 @@ contract IntelStaking {
     // ─── Epoch & Allowance ────────────────────────────────────────────────────
 
     /// @notice Advance epoch if enough time has passed.
+    /// @dev    Reverts with EpochNotAdvanceable if epochLength has not elapsed.
     function advanceEpoch() external {
         if (!_canAdvanceEpoch()) revert EpochNotAdvanceable();
         _advanceEpoch();
     }
 
     /// @notice Returns the caller's mint allowance for the current epoch.
+    /// @param  wallet Address to query.
+    /// @return Remaining mint allowance for the epoch (in INTEL wei).
     function mintAllowance(address wallet) external view returns (uint256) {
         return _mintAllowance(wallet);
     }
 
     /// @notice Called by MintController to consume allowance when minting.
+    /// @custom:access operator or owner
     /// @param wallet  Address whose allowance is consumed.
     /// @param amount  Amount to consume.
     function consumeAllowance(address wallet, uint256 amount) external onlyOperator {
@@ -306,6 +357,8 @@ contract IntelStaking {
     // ─── View ─────────────────────────────────────────────────────────────────
 
     /// @notice Pending yield claimable by a staker right now (view-only).
+    /// @param  wallet Address to query.
+    /// @return Claimable INTEL yield in wei.
     function pendingYield(address wallet) external view returns (uint256) {
         StakerInfo storage s = stakers[wallet];
         if (s.staked == 0) return 0;
@@ -315,12 +368,17 @@ contract IntelStaking {
     }
 
     /// @notice Current epoch number.
+    /// @return Current epoch counter starting at 1.
     function epoch() external view returns (uint256) {
         return currentEpoch;
     }
 
     // ─── Admin ────────────────────────────────────────────────────────────────
 
+    /// @notice Approve or revoke an operator address.
+    /// @custom:access owner
+    /// @param op       Address to configure.
+    /// @param approved True to grant operator rights, false to revoke.
     function setOperator(address op, bool approved) external onlyOwner {
         if (op == address(0)) revert ZeroAddress();
         operators[op] = approved;
@@ -328,9 +386,15 @@ contract IntelStaking {
     }
 
     /// @notice Update staking parameters.
+    /// @custom:access owner
     /// @dev WARNING: calling mid-epoch resets globalCapRemaining to the full new cap,
     ///      discarding how much allowance has already been consumed this epoch.
     ///      Best practice: call only at epoch boundaries (right after advanceEpoch()).
+    /// @param _epochLength  New epoch length in seconds.
+    /// @param _cooldown     New unstake cooldown in seconds.
+    /// @param _k            New sqrt coefficient (1e18 scale).
+    /// @param _walletCap    New per-wallet mint allowance cap per epoch.
+    /// @param _globalEpochCap New global mint allowance cap per epoch.
     function setParams(
         uint256 _epochLength,
         uint256 _cooldown,
@@ -347,8 +411,36 @@ contract IntelStaking {
         emit ParamsUpdated(_epochLength, _cooldown, _k, _walletCap, _globalEpochCap);
     }
 
+    /// @notice Pause all staking operations. Emergency circuit breaker.
+    /// @custom:access owner
+    function pause() external onlyOwner {
+        paused = true;
+        emit Paused(msg.sender);
+    }
+
+    /// @notice Unpause staking operations.
+    /// @custom:access owner
+    function unpause() external onlyOwner {
+        paused = false;
+        emit Unpaused(msg.sender);
+    }
+
+    /// @notice Set the maximum INTEL allowed per single stake() call.
+    /// @custom:access owner
+    /// @dev    Can only be increased (or set to 0 to remove cap entirely).
+    ///         Prevents the owner from accidentally locking current stakers
+    ///         by decreasing the cap below an already-applied level.
+    /// @param  newCap New cap in INTEL wei. 0 = no cap.
+    function setMaxStakePerDeposit(uint256 newCap) external onlyOwner {
+        require(newCap == 0 || newCap >= maxStakePerDeposit, "CannotDecreaseCap");
+        emit MaxStakePerDepositChanged(maxStakePerDeposit, newCap);
+        maxStakePerDeposit = newCap;
+    }
+
     /// @notice Begin ownership transfer. Nominee must call acceptOwnership().
-    ///         Two-step prevents irrecoverable ownership loss from a typo.
+    /// @custom:access owner
+    /// @dev    Two-step prevents irrecoverable ownership loss from a typo.
+    /// @param  newOwner Nominee address.
     function transferOwnership(address newOwner) external onlyOwner {
         if (newOwner == address(0)) revert ZeroAddress();
         pendingOwner = newOwner;
@@ -356,6 +448,7 @@ contract IntelStaking {
     }
 
     /// @notice Nominee accepts ownership to complete the two-step transfer.
+    /// @custom:access pendingOwner
     function acceptOwnership() external {
         if (msg.sender != pendingOwner) revert Unauthorized();
         emit OwnershipTransferred(owner, msg.sender);

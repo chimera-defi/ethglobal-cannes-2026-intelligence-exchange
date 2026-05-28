@@ -5,6 +5,8 @@ libs = ["lib"]
 via_ir = true
 optimizer = true
 optimizer_runs = 200
+# Allow deploy script to write deployment JSON files
+fs_permissions = [{ access = "read-write", path = "deployments/" }]
 
 # RPC Endpoints
 [rpc_endpoints]
