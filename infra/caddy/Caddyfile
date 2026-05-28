@@ -3,30 +3,32 @@
 	auto_https off
 }
 
-:80 {
+http://168.119.15.122 {
 	header {
 		X-Frame-Options "DENY"
 		X-Content-Type-Options "nosniff"
+		X-XSS-Protection "1; mode=block"
 		Referrer-Policy "strict-origin-when-cross-origin"
-		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		Permissions-Policy "geolocation=(), microphone=(), camera=()"
 		-Server
 	}
 
-	@blocked path /.env /.git* /package.json /pnpm-lock.yaml
-	respond @blocked 404
+	# Block sensitive paths FIRST (route ensures ordering)
+	route {
+		@sensitive path /.env /.git* /package.json /package-lock.json /.npmrc
+		handle @sensitive {
+			respond 403
+		}
 
-	handle /v1/* {
-		reverse_proxy localhost:3100
-	}
-
-	handle {
-		root * /home/agents/workspace/ethglobal-cannes-2026-intelligence-exchange/apps/intelligence-exchange-cannes-web/dist
-		try_files {path} /index.html
-		file_server
-	}
-
-	log {
-		output file /var/log/caddy/access.log
-		format json
+		handle /v1/* {
+			reverse_proxy localhost:3001
+		}
+		handle /api/* {
+			uri strip_prefix /api
+			reverse_proxy localhost:3001
+		}
+		handle {
+			reverse_proxy localhost:3100
+		}
 	}
 }
