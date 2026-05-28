@@ -107,6 +107,9 @@ const AgentsPage = React.lazy(() =>
 const LandingPage = React.lazy(() =>
   import('./pages/LandingPage').then(m => ({ default: m.LandingPage }))
 );
+const StakingPage = React.lazy(() =>
+  import('./pages/StakingPage').then(m => ({ default: m.StakingPage }))
+);
 
 function PageFallback() {
   return (
@@ -142,6 +145,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                 <Route path="/workspace" element={<BuyerWorkspace />} />
                 <Route path="/workspace/review" element={<BuyerReviewQueue />} />
                 <Route path="/workspace/history" element={<BuyerHistory />} />
+                <Route path="/staking" element={<StakingPage />} />
               </Routes>
             </Suspense>
           </BrowserRouter>

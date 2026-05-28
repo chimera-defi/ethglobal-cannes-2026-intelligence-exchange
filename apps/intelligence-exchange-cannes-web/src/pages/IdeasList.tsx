@@ -133,7 +133,7 @@ export function IdeasList() {
                       <Eye className="h-3 w-3" />
                       View
                     </Button>
-                    {['unfunded', 'funded'].includes(idea.fundingStatus) && (
+                    {idea.fundingStatus === 'unfunded' && (
                       <Button
                         size="sm"
                         variant="destructive"
@@ -150,6 +150,17 @@ export function IdeasList() {
                           <XCircle className="h-3 w-3" />
                         )}
                         Cancel
+                      </Button>
+                    )}
+                    {idea.fundingStatus === 'funded' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-slate-600 text-slate-400 cursor-default"
+                        disabled
+                        title="Funded ideas must go through the escrow refund flow — contact support"
+                      >
+                        Funded
                       </Button>
                     )}
                   </div>
