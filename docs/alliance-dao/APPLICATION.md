@@ -175,7 +175,7 @@ Being explicit prevents misclassification:
 - **Not a GPU marketplace.** We price output, not compute. The distinction is in `spec/INTELLIGENCE_DERIVATIVES.md` but it bears repeating: FLOPs are fungible, accepted intelligence work is not.
 - **Not a governance token play.** INTEL is a settlement rail. The value proposition is clearing, not voting.
 - **Not vaporware.** The 6-step loop works today, verified 2026-05-27: `corepack pnpm demo:tokenomics:actors` runs and shows real 81/9/10 split numbers.
-- **Not mainnet-ready yet.** All contracts are local/fork only. `IdeaEscrow.sol` and `AdvancedArcEscrow.sol` implement the 81/9/10 split in the contract layer (both fixed during hackathon build; off-chain broker ledger is independently verified). A professional audit is required before handling real user funds.
+- **Not mainnet-ready yet.** Deployed on Ethereum Sepolia testnet; targeting Ethereum mainnet and Base for launch; Arc integration planned post-traction. `IdeaEscrow.sol` and `AdvancedArcEscrow.sol` implement the 81/9/10 split in the contract layer (both fixed during hackathon build; off-chain broker ledger is independently verified). A professional audit is required before handling real user funds.
 - **Not a solo-builder-forever plan.** The co-founder search is active and funded by this grant's builder allocation.
 
 This is an honest ask for early infrastructure that has no token sale, no VCs, and no fabricated traction. The design depth is real. The gap in the market is real. The question is whether the execution can match.

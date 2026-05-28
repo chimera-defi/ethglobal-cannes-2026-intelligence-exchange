@@ -10,15 +10,20 @@ fs_permissions = [{ access = "read-write", path = "deployments/" }]
 
 # RPC Endpoints
 [rpc_endpoints]
-mainnet = "https://ethereum.publicnode.com"
-arc-testnet = "https://rpc.testnet.arc.network"
-arc-mainnet = "https://rpc.arc.network"
+mainnet = "${MAINNET_RPC_URL}"
+sepolia = "${SEPOLIA_RPC_URL}"
+base = "${BASE_RPC_URL}"
+base_sepolia = "${BASE_SEPOLIA_RPC_URL}"
 worldchain-sepolia = "https://worldchain-sepolia.g.alchemy.com/public"
 worldchain-mainnet = "https://worldchain-mainnet.g.alchemy.com/public"
-zerog-testnet = "https://evmrpc-testnet.0g.ai"
+# Optional: Arc/0G chain (future integration)
+# arc-testnet = "https://rpc.testnet.arc.network"
+# arc-mainnet = "https://rpc.arc.network"
+# zerog-testnet = "https://evmrpc-testnet.0g.ai"
 
 [etherscan]
-arc-testnet = { key = "", url = "https://testnet.arcscan.app/api" }
 worldchain-sepolia = { key = "", url = "https://worldchain-sepolia.explorer.alchemy.com/api" }
+# Optional: Arc/0G chain (future integration)
+# arc-testnet = { key = "", url = "https://testnet.arcscan.app/api" }
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

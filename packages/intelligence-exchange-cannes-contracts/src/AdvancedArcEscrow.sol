@@ -1,24 +1,27 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+// NOTE: This contract is designed for optional Arc chain integration. Deploy on Arc when targeting that chain.
+// It is also compatible with any ERC-20 payment token (USDC on Ethereum mainnet, Base, etc.)
+// by passing the token address as constructor param.
+
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {IdentityGate} from "./IdentityGate.sol";
 
 /// @title AdvancedArcEscrow
 /// @notice Advanced USDC-native escrow with conditional release, disputes, automatic timeout,
-///         programmable vesting, and platform fee splits. Designed for Arc testnet/mainnet.
+///         programmable vesting, and platform fee splits. Payment token is constructor-configurable.
 /// @dev This contract implements Prize 1 criteria: conditional escrow with dispute + auto-release,
 ///      programmable payroll/vesting in USDC, and advanced stablecoin logic.
 ///
 /// Key Features:
-/// - Native USDC integration (Arc's gas token at 0x3600...0000)
+/// - Configurable payment token (USDC on any chain, set at deploy time)
 /// - Multi-milestone programmable vesting with per-milestone schedules
 /// - Conditional escrow: funds locked until reviewer approval + attestation
 /// - On-chain dispute mechanism with challenge window and resolver
 /// - Automatic release after dispute timeout (prevents indefinite locks)
 /// - 10% platform fee split on every release
 /// - Integration with IdentityGate for role verification
-/// - ERC-3009 compliant for gasless approvals (Arc USDC supports this)
 ///
 /// State Flow:
 ///   funded → reserved → submitted → underReview → (approved → released | disputed → resolved | timeout → autoReleased)
@@ -201,9 +204,9 @@ contract AdvancedArcEscrow {
     // Constants & Config
     // ─────────────────────────────────────────────────────────────────────────
     
-    /// @notice Native USDC on Arc testnet (also used as gas token)
-    /// @dev Arc uses USDC as native gas token at this address
-    address public constant USDC = 0x3600000000000000000000000000000000000000;
+    /// @notice Payment token address (set at deploy time — use USDC on the target chain)
+    /// @dev Formerly a hardcoded Arc-specific constant; now constructor-configurable for multi-chain support
+    address public immutable paymentToken;
     
     /// @notice Settlement split: worker 81%, staker yield 9%, treasury 10%
     uint256 public constant WORKER_BPS = 8100;
@@ -284,11 +287,13 @@ contract AdvancedArcEscrow {
     // ─────────────────────────────────────────────────────────────────────────
     
     constructor(
+        address _paymentToken,
         address _identityGate,
         address _stakerYieldReceiver,
         address _treasuryReceiver,
         address _disputeResolver
     ) {
+        paymentToken = _paymentToken;
         identityGate = IdentityGate(_identityGate);
         stakerYieldReceiver = _stakerYieldReceiver;
         treasuryReceiver = _treasuryReceiver;
@@ -310,7 +315,7 @@ contract AdvancedArcEscrow {
 
         // Transfer full USDC amount from poster to this contract
         // Platform fee is calculated and taken at release time only
-        bool ok = IERC20(USDC).transferFrom(msg.sender, address(this), amount);
+        bool ok = IERC20(paymentToken).transferFrom(msg.sender, address(this), amount);
         if (!ok) revert TransferFailed();
 
         ideas[ideaId] = IdeaFund({
@@ -556,20 +561,20 @@ contract AdvancedArcEscrow {
 
         // Transfer staker yield (9%)
         if (stakerAmount > 0) {
-            bool stakeOk = IERC20(USDC).transfer(stakerYieldReceiver, stakerAmount);
+            bool stakeOk = IERC20(paymentToken).transfer(stakerYieldReceiver, stakerAmount);
             if (!stakeOk) revert StakerYieldTransferFailed();
             emit StakerYieldPaid(m.ideaId, milestoneId, stakerYieldReceiver, stakerAmount);
         }
 
         // Transfer treasury (10%)
         if (treasuryAmount > 0) {
-            bool treasuryOk = IERC20(USDC).transfer(treasuryReceiver, treasuryAmount);
+            bool treasuryOk = IERC20(paymentToken).transfer(treasuryReceiver, treasuryAmount);
             if (!treasuryOk) revert TransferFailed();
             emit TreasuryPaid(m.ideaId, milestoneId, treasuryReceiver, treasuryAmount);
         }
 
         // Transfer to worker (remainder ~81%, absorbs rounding dust)
-        bool ok = IERC20(USDC).transfer(m.worker, workerAmount);
+        bool ok = IERC20(paymentToken).transfer(m.worker, workerAmount);
         if (!ok) revert TransferFailed();
 
         emit MilestoneReleased(
@@ -605,18 +610,18 @@ contract AdvancedArcEscrow {
             totalEscrowed -= m.amount;
 
             if (stakerAmount > 0) {
-                bool stakeOk = IERC20(USDC).transfer(stakerYieldReceiver, stakerAmount);
+                bool stakeOk = IERC20(paymentToken).transfer(stakerYieldReceiver, stakerAmount);
                 if (!stakeOk) revert StakerYieldTransferFailed();
                 emit StakerYieldPaid(m.ideaId, milestoneId, stakerYieldReceiver, stakerAmount);
             }
 
             if (treasuryAmount > 0) {
-                bool treasuryOk = IERC20(USDC).transfer(treasuryReceiver, treasuryAmount);
+                bool treasuryOk = IERC20(paymentToken).transfer(treasuryReceiver, treasuryAmount);
                 if (!treasuryOk) revert TransferFailed();
                 emit TreasuryPaid(m.ideaId, milestoneId, treasuryReceiver, treasuryAmount);
             }
 
-            bool ok = IERC20(USDC).transfer(m.worker, workerAmount);
+            bool ok = IERC20(paymentToken).transfer(m.worker, workerAmount);
             if (!ok) revert TransferFailed();
 
             emit MilestoneAutoReleased(milestoneId, m.worker, workerAmount, block.timestamp);
@@ -715,7 +720,7 @@ contract AdvancedArcEscrow {
             // which misaligns incentives. Fees only apply when work is delivered (WorkerWins/Split).
             m.status = MilestoneStatus.Refunded;
 
-            bool ok = IERC20(USDC).transfer(fund.poster, m.amount);
+            bool ok = IERC20(paymentToken).transfer(fund.poster, m.amount);
             if (!ok) revert TransferFailed();
 
             emit DisputeResolved(milestoneId, resolver, uint8(resolution), 0, m.amount);
@@ -727,13 +732,13 @@ contract AdvancedArcEscrow {
 
             // Transfer staker yield
             if (stakerAmount > 0) {
-                bool stakeOk = IERC20(USDC).transfer(stakerYieldReceiver, stakerAmount);
+                bool stakeOk = IERC20(paymentToken).transfer(stakerYieldReceiver, stakerAmount);
                 if (!stakeOk) revert StakerYieldTransferFailed();
                 emit StakerYieldPaid(m.ideaId, milestoneId, stakerYieldReceiver, stakerAmount);
             }
             // Transfer treasury fee
             if (treasuryAmount > 0) {
-                bool treasuryOk = IERC20(USDC).transfer(treasuryReceiver, treasuryAmount);
+                bool treasuryOk = IERC20(paymentToken).transfer(treasuryReceiver, treasuryAmount);
                 if (!treasuryOk) revert TransferFailed();
                 emit TreasuryPaid(m.ideaId, milestoneId, treasuryReceiver, treasuryAmount);
             }
@@ -741,7 +746,7 @@ contract AdvancedArcEscrow {
             if (resolution == DisputeResolution.WorkerWins) {
                 m.status = MilestoneStatus.Released;
 
-                bool ok = IERC20(USDC).transfer(m.worker, workerPool);
+                bool ok = IERC20(paymentToken).transfer(m.worker, workerPool);
                 if (!ok) revert TransferFailed();
 
                 emit DisputeResolved(milestoneId, resolver, uint8(resolution), workerPool, 0);
@@ -754,10 +759,10 @@ contract AdvancedArcEscrow {
 
                 m.status = MilestoneStatus.Released;
 
-                bool ok1 = IERC20(USDC).transfer(m.worker, workerShare);
+                bool ok1 = IERC20(paymentToken).transfer(m.worker, workerShare);
                 if (!ok1) revert TransferFailed();
 
-                bool ok2 = IERC20(USDC).transfer(fund.poster, posterShare);
+                bool ok2 = IERC20(paymentToken).transfer(fund.poster, posterShare);
                 if (!ok2) revert TransferFailed();
 
                 emit DisputeResolved(milestoneId, resolver, uint8(resolution), workerShare, posterShare);
@@ -818,7 +823,7 @@ contract AdvancedArcEscrow {
         fund.available -= amount;
         totalEscrowed -= amount;
 
-        bool ok = IERC20(USDC).transfer(fund.poster, amount);
+        bool ok = IERC20(paymentToken).transfer(fund.poster, amount);
         if (!ok) revert TransferFailed();
     }
 
