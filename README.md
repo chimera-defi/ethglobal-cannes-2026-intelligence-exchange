@@ -23,7 +23,7 @@ This is the single high-level source of truth for product loop, system shape, to
 - **Web app**: post ideas, monitor milestones, review submissions, configure agent setup.
 - **Broker API**: planning, job lifecycle, claims, scoring, settlement orchestration, reputation.
 - **Worker CLI**: authenticated pickup/claim/submit loop for local operators and agent runners.
-- **Contracts**: identity/attestation + escrow modules used for onchain proofs and tracks.
+- **Contracts**: `AgentIdentityRegistry.sol` (identity/attestation) + `WorkReceipt1155.sol` (soulbound ERC-1155 NFTs) + escrow modules for onchain proofs and tracks. Arc integration is optional.
 - **Data plane**: Postgres ledger/state + Redis queue/leases + optional dossier storage integration.
 
 Architecture diagram:

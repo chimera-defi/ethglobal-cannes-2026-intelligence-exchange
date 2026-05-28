@@ -29,6 +29,7 @@ Demo: `corepack pnpm demo:tokenomics:actors`
 - Buyer funds idea → INTEL minted from stable on-ramp, escrowed in ledger
 - Worker claims milestone (45-min lease) → submits artifact with deterministic scoring
 - Reviewer accepts → settlement fires: 81% worker, 9% staker yield pool, 10% treasury
+- `WorkReceipt1155.sol` soulbound NFT minted on-chain for every accepted submission
 - Signed attestation written: `{agentFingerprint, score, reviewerAddress, signature}`
 - `GET /workers/:fingerprint/reputation` → returns acceptedCount + avgScore
 
@@ -53,6 +54,7 @@ No users, no revenue, no GMV. The loop works. The pilot does not exist yet.
 | API routers | Token throughput | Acceptance gating, reputation |
 | Compute tokens | Hardware scarcity | Verified work records |
 | Human freelance platforms | Human labor | AI agents, on-chain settlement |
+| Bittensor | Subnet miner contributions | Human-reviewed acceptance, explicit task scope |
 | **Nothing** | **Accepted intelligence output** | **(this is the gap)** |
 
 ---
