@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-// NOTE: This contract is designed for optional Arc chain integration. Deploy on Arc when targeting that chain.
-// It is also compatible with any ERC-20 payment token (USDC on Ethereum mainnet, Base, etc.)
-// by passing the token address as constructor param.
+// NOTE: Payment token is constructor-configurable for multi-chain support.
+// Pass USDC (or any ERC-20) address for the target chain at deploy time.
 
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {IdentityGate} from "./IdentityGate.sol";
@@ -56,8 +55,6 @@ contract AdvancedArcEscrow {
     error AttestationInvalid();
     error PlatformFeeTransferFailed();
     error StakerYieldTransferFailed();
-    error CrossChainNotSupported();
-    error InvalidDestinationChain();
 
     // ─────────────────────────────────────────────────────────────────────────
     // Events
@@ -205,8 +202,7 @@ contract AdvancedArcEscrow {
     // Constants & Config
     // ─────────────────────────────────────────────────────────────────────────
     
-    /// @notice Payment token address (set at deploy time — use USDC on the target chain)
-    /// @dev Formerly a hardcoded Arc-specific constant; now constructor-configurable for multi-chain support
+    /// @notice Payment token address (set at deploy time — use USDC or any ERC-20 on the target chain)
     address public immutable paymentToken;
     
     /// @notice Settlement split: worker 81%, staker yield 9%, treasury 10%
@@ -322,15 +318,14 @@ contract AdvancedArcEscrow {
     // Core Funding Functions
     // ─────────────────────────────────────────────────────────────────────────
     
-    /// @notice Fund an idea with USDC, creating an escrow fund.
-    /// @dev Uses native USDC which is also Arc's gas token.
+    /// @notice Fund an idea with payment token, creating an escrow fund.
     /// @param ideaId Unique identifier for the idea
-    /// @param amount Total USDC amount to escrow
+    /// @param amount Total payment token amount to escrow
     function fundIdea(bytes32 ideaId, uint256 amount) external onlyVerifiedPoster {
         if (amount == 0) revert ZeroAmount();
         if (ideas[ideaId].exists) revert IdeaAlreadyFunded(ideaId);
 
-        // Transfer full USDC amount from poster to this contract
+        // Transfer full payment token amount from poster to this contract
         // Platform fee is calculated and taken at release time only
         bool ok = IERC20(paymentToken).transferFrom(msg.sender, address(this), amount);
         if (!ok) revert TransferFailed();

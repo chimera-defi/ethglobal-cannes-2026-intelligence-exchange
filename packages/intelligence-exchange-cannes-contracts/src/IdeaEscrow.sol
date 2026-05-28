@@ -4,8 +4,8 @@ pragma solidity ^0.8.24;
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 
 /// @title IdeaEscrow
-/// @notice Holds USDC funds for ideas and releases them milestone by milestone.
-///         Used with Arc stablecoin on the Arc network.
+/// @notice Holds ERC-20 funds for ideas and releases them milestone by milestone.
+///         Payment token address is passed per-idea at fund time.
 ///
 /// State machine per milestone:
 ///   funded → reserved → released
