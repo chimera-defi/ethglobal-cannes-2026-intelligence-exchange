@@ -60,6 +60,7 @@ export function StakingPage() {
       { address: INTEL_STAKING_ADDRESS, abi: intelStakingAbi, functionName: 'pendingYield', args: [address] },
       { address: INTEL_STAKING_ADDRESS, abi: intelStakingAbi, functionName: 'mintAllowance', args: [address] },
       { address: INTEL_STAKING_ADDRESS, abi: intelStakingAbi, functionName: 'stakers', args: [address] },
+      { address: INTEL_STAKING_ADDRESS, abi: intelStakingAbi, functionName: 'pendingEthYield', args: [address] },
     ] : [],
     query: { enabled: contractsDeployed && Boolean(address), refetchInterval: 15_000 },
   });
@@ -73,7 +74,8 @@ export function StakingPage() {
   const allowance = walletData?.[1]?.result as bigint | undefined;
   const pendingYield = walletData?.[2]?.result as bigint | undefined;
   const mintAllowance = walletData?.[3]?.result as bigint | undefined;
-  const stakerInfo = walletData?.[4]?.result as readonly [bigint, bigint, bigint, bigint, bigint, bigint, bigint] | undefined;
+  const stakerInfo = walletData?.[4]?.result as readonly [bigint, bigint, bigint, bigint, bigint, bigint, bigint, bigint] | undefined;
+  const pendingEthYield = walletData?.[5]?.result as bigint | undefined;
 
   const stakedAmount = stakerInfo?.[0];
   const pendingUnstake = stakerInfo?.[2];
@@ -137,6 +139,12 @@ export function StakingPage() {
   async function handleClaimYield() {
     await withTx('Claiming yield', () =>
       writeContractAsync({ address: INTEL_STAKING_ADDRESS, abi: intelStakingAbi, functionName: 'claimYield' })
+    );
+  }
+
+  async function handleClaimEthYield() {
+    await withTx('Claiming ETH yield', () =>
+      writeContractAsync({ address: INTEL_STAKING_ADDRESS, abi: intelStakingAbi, functionName: 'claimEthYield' })
     );
   }
 
@@ -218,7 +226,7 @@ export function StakingPage() {
               <CardHeader className="pb-3">
                 <CardTitle className="text-base text-white">Your Position</CardTitle>
               </CardHeader>
-              <CardContent className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <CardContent className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
                 <div>
                   <p className="text-xs text-slate-500">INTEL Balance</p>
                   <p className="text-sm font-mono font-semibold text-white">{fmt(intelBalance)}</p>
@@ -228,12 +236,24 @@ export function StakingPage() {
                   <p className="text-sm font-mono font-semibold text-blue-300">{fmt(stakedAmount)}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500">Pending Yield</p>
+                  <p className="text-xs text-slate-500">Pending Yield (INTEL)</p>
                   <p className="text-sm font-mono font-semibold text-green-300">{fmt(pendingYield)}</p>
                   {pendingYield !== undefined && pendingYield > 0n && (
                     <Button size="sm" variant="ghost" className="mt-1 h-6 px-2 text-xs text-green-400 hover:text-green-300"
                       disabled={loading !== null} onClick={() => void handleClaimYield()}>
                       {loading === 'Claiming yield' ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Claim'}
+                    </Button>
+                  )}
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Pending ETH Yield</p>
+                  <p className="text-sm font-mono font-semibold text-emerald-300">
+                    {pendingEthYield !== undefined ? formatUnits(pendingEthYield, 18) + ' ETH' : '—'}
+                  </p>
+                  {pendingEthYield !== undefined && pendingEthYield > 0n && (
+                    <Button size="sm" variant="ghost" className="mt-1 h-6 px-2 text-xs text-emerald-400 hover:text-emerald-300"
+                      disabled={loading !== null} onClick={() => void handleClaimEthYield()}>
+                      {loading === 'Claiming ETH yield' ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Claim ETH'}
                     </Button>
                   )}
                 </div>
@@ -365,6 +385,7 @@ export function StakingPage() {
             <p>• Every accepted job on the marketplace routes <strong className="text-slate-400">9% of the settlement</strong> to the staker yield pool.</p>
             <p>• Yield is distributed pro-rata based on staked share at deposit time — late stakers cannot claim retroactive yield.</p>
             <p>• Unstaking requires a {cooldownSeconds ? secondsToDuration(cooldownSeconds) : '3-day'} cooldown to prevent mercenary capital.</p>
+            <p>• <strong className="text-slate-400">ETH yield</strong> is deposited by IntelMintController from mint proceeds (45% of each ETH mint routed here). Claim it separately as native ETH.</p>
           </CardContent>
         </Card>
       </div>

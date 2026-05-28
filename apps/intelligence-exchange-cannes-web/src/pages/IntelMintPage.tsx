@@ -10,12 +10,11 @@ import { Badge } from '@/components/ui/badge';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { intelMintControllerAbi } from '../lib/intelMintControllerAbi';
 import { intelStakingAbi } from '../lib/intelStakingAbi';
-import { isArcEnabled } from '../config';
 
 const INTEL_MINT_CONTROLLER_ADDRESS = (import.meta.env.VITE_INTEL_MINT_CONTROLLER_ADDRESS ?? '') as Address;
 const INTEL_TOKEN_ADDRESS = (import.meta.env.VITE_INTEL_TOKEN_ADDRESS ?? '') as Address;
 const INTEL_STAKING_ADDRESS = (import.meta.env.VITE_INTEL_STAKING_ADDRESS ?? '') as Address;
-const CONTRACT_CHAIN_ID = isArcEnabled() ? Number(import.meta.env.VITE_ARC_CHAIN_ID ?? '5042002') : 0;
+const CONTRACT_CHAIN_ID = Number(import.meta.env.VITE_ARC_CHAIN_ID ?? '5042002');
 const INTEL_DECIMALS = 18;
 
 function fmtEth(raw: bigint | undefined, dp = 6): string {
@@ -59,7 +58,6 @@ export function IntelMintPage() {
       { address: INTEL_MINT_CONTROLLER_ADDRESS, abi: intelMintControllerAbi, functionName: 'twap' },
       { address: INTEL_MINT_CONTROLLER_ADDRESS, abi: intelMintControllerAbi, functionName: 'floorPrice' },
       { address: INTEL_MINT_CONTROLLER_ADDRESS, abi: intelMintControllerAbi, functionName: 'premiumBps' },
-      { address: INTEL_MINT_CONTROLLER_ADDRESS, abi: intelMintControllerAbi, functionName: 'utilizationMultiplierBps' },
     ],
     query: { enabled: contractsDeployed, refetchInterval: 30_000 },
   });
@@ -87,7 +85,6 @@ export function IntelMintPage() {
   const twap = globalData?.[1]?.result as bigint | undefined;
   const floorPrice = globalData?.[2]?.result as bigint | undefined;
   const premiumBps = globalData?.[3]?.result as bigint | undefined;
-  const utilizationMultiplierBps = globalData?.[4]?.result as bigint | undefined;
   const quotedCost = quoteData?.[0]?.result as bigint | undefined;
   const mintAllowance = walletData?.[0]?.result as bigint | undefined;
 
@@ -103,8 +100,8 @@ export function IntelMintPage() {
       const hash = await writeContractAsync({
         address: INTEL_MINT_CONTROLLER_ADDRESS,
         abi: intelMintControllerAbi,
-        functionName: 'selfMint',
-        args: [parsedAmount, maxPrice],
+        functionName: 'executeMint',
+        args: [address, parsedAmount, maxPrice],
         value: quotedCost,
       });
       setTxStatus({ msg: `Mint submitted: ${hash.slice(0, 18)}…`, type: 'success' });
@@ -191,13 +188,12 @@ export function IntelMintPage() {
         )}
 
         {/* Price stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { label: 'Mint Price', value: mintPrice !== undefined ? fmtEth(mintPrice) + ' ETH' : '—' },
             { label: 'TWAP', value: twap !== undefined ? fmtEth(twap) + ' ETH' : '—' },
             { label: 'Floor Price', value: floorPrice !== undefined ? fmtEth(floorPrice) + ' ETH' : '—' },
             { label: 'Premium', value: premiumBps !== undefined ? (Number(premiumBps) / 100).toFixed(1) + '%' : '—' },
-            { label: 'Utilization', value: utilizationMultiplierBps !== undefined ? (Number(utilizationMultiplierBps) / 100).toFixed(1) + '%' : '—' },
           ].map(({ label, value }) => (
             <div key={label} className="rounded-md border border-slate-800 bg-[#0D1625] p-3">
               <p className="text-xs text-slate-500">{label}</p>
@@ -323,10 +319,6 @@ export function IntelMintPage() {
                   Slippage protection: up to 1% price increase accepted automatically.
                 </p>
               )}
-
-              <p className="text-xs text-slate-500">
-                Price = TWAP × (1 + utilization premium). Higher protocol utilization → higher mint price → stronger demand signal.
-              </p>
             </CardContent>
           </Card>
         )}
