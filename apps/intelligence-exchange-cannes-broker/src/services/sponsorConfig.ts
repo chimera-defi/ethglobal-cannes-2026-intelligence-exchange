@@ -31,6 +31,10 @@ export function getWorldConfig() {
   };
 }
 
+export function isArcEnabled(): boolean {
+  return process.env.ENABLE_ARC === 'true';
+}
+
 export function getArcConfig() {
   return {
     rpcUrl: process.env.ARC_RPC_URL ?? DEFAULT_ARC_TESTNET_RPC_URL,
@@ -77,11 +81,10 @@ export function getAgentKitConfig() {
 
 export function getIntegrationStatus() {
   const world = getWorldConfig();
-  const arc = getArcConfig();
   const worldchain = getWorldChainConfig();
   const agentKit = getAgentKitConfig();
 
-  return {
+  const status: Record<string, unknown> = {
     world: {
       mode: world.configured ? 'live' : 'demo',
       appId: world.appId ?? null,
@@ -89,12 +92,6 @@ export function getIntegrationStatus() {
       action: world.action ?? null,
       environment: world.environment,
       strict: world.strict,
-    },
-    arc: {
-      rpcUrl: arc.rpcUrl,
-      chainId: arc.chainId,
-      escrowContractAddress: arc.escrowContractAddress,
-      usdcAddress: arc.usdcAddress,
     },
     worldchain: {
       rpcUrl: worldchain.rpcUrl,
@@ -115,4 +112,17 @@ export function getIntegrationStatus() {
       agentBookContractAddress: agentKit.agentBookContractAddress,
     },
   };
+
+  // Arc integration is optional — only included when ENABLE_ARC=true
+  if (isArcEnabled()) {
+    const arc = getArcConfig();
+    status.arc = {
+      rpcUrl: arc.rpcUrl,
+      chainId: arc.chainId,
+      escrowContractAddress: arc.escrowContractAddress,
+      usdcAddress: arc.usdcAddress,
+    };
+  }
+
+  return status;
 }

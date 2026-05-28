@@ -28,24 +28,31 @@ import {IntelPOLManager} from "../src/IntelPOLManager.sol";
 /// - GRANTS_MULTISIG:     Recipient of ecosystem grants tranche (defaults to deployer)
 /// - TIMELOCK_DELAY:      TimelockController delay in seconds (default: 172800 = 48h)
 ///                        For testnets, set to 900 (15 min) or 7200 (2h)
-/// - ARC_TESTNET:         Set to "true" to deploy to Arc testnet with testnet USDC
 ///
-/// Arc Testnet Configuration:
-/// - RPC: https://rpc.testnet.arc.network
-/// - Chain ID: 5042002
-/// - USDC: 0x3600000000000000000000000000000000000000 (native gas token)
-/// - Explorer: https://testnet.arcscan.app
+/// Supported Chains:
+/// - Ethereum Mainnet (1)
+/// - Sepolia testnet (11155111)
+/// - Base Mainnet (8453)
+/// - Base Sepolia (84532)
+/// - Anvil local (31337)
 contract Deploy is Script {
-    // Arc Testnet USDC (also gas token)
-    address public constant ARC_TESTNET_USDC = 0x3600000000000000000000000000000000000000;
-
     // Uniswap V3 NonfungiblePositionManager
     address public constant POSITION_MANAGER_MAINNET = 0xC36442b4a4522E871399CD717aBDD847Ab11FE88;
     address public constant POSITION_MANAGER_SEPOLIA = 0x1238536071E1c677A632429e3655c799b22cDA52;
+    address public constant POSITION_MANAGER_BASE = 0x03a520b32C04BF3bEEf7BEb72E919cf822Ed34f1;
+    address public constant POSITION_MANAGER_BASE_SEPOLIA = 0x27F971cb582BF9E50F397e4d29a5C7A34f11faA2;
 
     // WETH9
     address public constant WETH9_MAINNET = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
     address public constant WETH9_SEPOLIA = 0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14;
+    address public constant WETH9_BASE = 0x4200000000000000000000000000000000000006;
+    address public constant WETH9_BASE_SEPOLIA = 0x4200000000000000000000000000000000000006;
+
+    // USDC per chain (Circle canonical addresses)
+    address public constant USDC_MAINNET      = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
+    address public constant USDC_SEPOLIA      = 0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238;
+    address public constant USDC_BASE         = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
+    address public constant USDC_BASE_SEPOLIA = 0x036CbD53842c5426634e7929541eC2318f3dCF7e;
 
     // IntelToken defaults
     string  public constant INTEL_NAME          = "Intelligence Exchange Token";
@@ -160,18 +167,51 @@ contract Deploy is Script {
             console2.log("TIMELOCK_DELAY: default 48h");
         }
 
-        // ── Chain detection ──────────────────────────────────────────────
+        // ── Chain detection & address resolution ─────────────────────────
         uint256 chainId    = block.chainid;
-        bool isArcTestnet  = (chainId == 5042002);
-        bool isArcMainnet  = (chainId == 360);
-        bool isTestnet     = isArcTestnet || chainId == 11155111 /* Sepolia */;
+        bool isTestnet     = chainId == 11155111 /* Sepolia */ || chainId == 84532 /* Base Sepolia */;
 
         console2.log("Deploying to chain ID:", chainId);
-        if (isArcTestnet)  console2.log("=== ARC TESTNET ===");
-        if (isArcMainnet)  console2.log("=== ARC MAINNET ===");
+        if (chainId == 1)        console2.log("=== ETHEREUM MAINNET ===");
+        if (chainId == 11155111) console2.log("=== SEPOLIA TESTNET ===");
+        if (chainId == 8453)     console2.log("=== BASE MAINNET ===");
+        if (chainId == 84532)    console2.log("=== BASE SEPOLIA TESTNET ===");
+        if (chainId == 31337)    console2.log("=== ANVIL LOCAL ===");
         if (isTestnet && timelockDelay == DEFAULT_TIMELOCK_DELAY) {
             // Suggest shorter delay for testnet
             console2.log("TIP: Set TIMELOCK_DELAY=900 for testnet demos (15 min)");
+        }
+
+        // Resolve chain-specific addresses (before broadcast)
+        address positionManager;
+        address weth9;
+        address usdc;
+        if (chainId == 1) {
+            positionManager = POSITION_MANAGER_MAINNET;
+            weth9 = WETH9_MAINNET;
+            usdc = USDC_MAINNET;
+        } else if (chainId == 11155111) {
+            positionManager = POSITION_MANAGER_SEPOLIA;
+            weth9 = WETH9_SEPOLIA;
+            usdc = USDC_SEPOLIA;
+        } else if (chainId == 8453) {
+            positionManager = POSITION_MANAGER_BASE;
+            weth9 = WETH9_BASE;
+            usdc = USDC_BASE;
+        } else if (chainId == 84532) {
+            positionManager = POSITION_MANAGER_BASE_SEPOLIA;
+            weth9 = WETH9_BASE_SEPOLIA;
+            usdc = USDC_BASE_SEPOLIA;
+        } else if (chainId == 31337) {
+            // Anvil local: deployer acts as placeholder
+            positionManager = result.deployer;
+            weth9 = result.deployer;
+            usdc = result.deployer; // placeholder — tests mock USDC
+        } else {
+            // Fallback: deployer as placeholder for unknown chains
+            positionManager = result.deployer;
+            weth9 = result.deployer;
+            usdc = result.deployer;
         }
 
         vm.startBroadcast(deployerPrivateKey);
@@ -193,6 +233,7 @@ contract Deploy is Script {
 
         // ── 4. AdvancedArcEscrow ─────────────────────────────────────────
         result.advancedEscrow = new AdvancedArcEscrow(
+            usdc,
             address(result.identityGate),
             result.stakerYieldReceiver,
             result.platformWallet,
@@ -232,19 +273,6 @@ contract Deploy is Script {
         console2.log("IntelTimelockController:", address(result.timelockController));
 
         // ── 8. IntelPOLManager ───────────────────────────────────────────
-        // Resolve Uniswap V3 addresses per chain
-        address positionManager = POSITION_MANAGER_MAINNET;
-        address weth9 = WETH9_MAINNET;
-        if (chainId == 11155111) {
-            positionManager = POSITION_MANAGER_SEPOLIA;
-            weth9 = WETH9_SEPOLIA;
-        }
-        // For local dev (chainId 31337 / anvil), deployer acts as placeholder
-        if (chainId == 31337 || chainId == 5042002) {
-            positionManager = result.deployer;
-            weth9 = result.deployer;
-        }
-
         result.polManager = new IntelPOLManager(
             result.deployer,   // owner; rotate to timelock post-deploy
             address(result.intelToken),
@@ -366,12 +394,6 @@ contract Deploy is Script {
         console2.log("  Ecosystem grants:             1,000,000 INTEL");
         console2.log("  Airdrop reserve:              1,000,000 INTEL");
         console2.log("  Remaining mintable:          90,000,000 INTEL (via IntelMintController)");
-
-        if (isArcTestnet) {
-            console2.log("\n=== ARC TESTNET INTEGRATION ===");
-            console2.log("USDC (native gas token):", ARC_TESTNET_USDC);
-            console2.log("Explorer: https://testnet.arcscan.app");
-        }
 
         _writeDeploymentJson(result, chainId);
 

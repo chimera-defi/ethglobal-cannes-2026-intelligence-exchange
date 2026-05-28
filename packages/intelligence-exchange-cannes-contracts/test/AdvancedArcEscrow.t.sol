@@ -94,8 +94,9 @@ contract AdvancedArcEscrowTest is Test {
         // Deploy IdentityGate
         identityGate = new IdentityGate(owner);
         
-        // Deploy AdvancedArcEscrow
+        // Deploy AdvancedArcEscrow with mock USDC address as paymentToken
         escrow = new AdvancedArcEscrow(
+            USDC,
             address(identityGate),
             stakerYieldReceiver,
             platformWallet,

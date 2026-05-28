@@ -200,7 +200,7 @@ The current position is pre-seed by any measure. The argument for funding at thi
 |------|------------------|
 | Cold-start supply | High. 100 workers from zero is hard. Pilot design addresses this by seeding with INTEL credits and direct outreach. |
 | Cold-start demand | High. Buyers need to trust the reviewer gate before routing real spend. Needs design/trust work. |
-| Contract split gap | **RESOLVED.** Both `IdeaEscrow.sol` (commit `2685173`) and `AdvancedArcEscrow.sol` (commit `7753df9`) now implement 81/9/10 split across all 3 transfer sites. 99/99 tests passing. Off-chain ledger verified live. |
+| Contract split gap | ✅ FIXED in commit `2685173` — IdeaEscrow now routes 81/9/10 (worker/staker/treasury) as specified. `AdvancedArcEscrow.sol` (commit `7753df9`) also implements 81/9/10 split across all 3 transfer sites. 99/99 tests passing. Off-chain ledger verified live. |
 | Output quality variance | Medium. Human reviewer gate is the control. Quality degrades if reviewer pool is too small or incentive is wrong. |
 | Token reflexivity | Mitigated by design (`utilizationMultiplier` makes minting expensive when activity is low). Not eliminated. |
 | Audit cost | High one-time cost. Non-negotiable before real value on-chain. Included in grant ask. |

@@ -9,8 +9,19 @@
 
 import { createPublicClient, createWalletClient, http, parseAbi, encodeFunctionData, type Address, type Hash } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { getArcConfig } from './sponsorConfig';
+import { getArcConfig, isArcEnabled } from './sponsorConfig';
 import { httpError } from './errors';
+
+export class ArcNotEnabledError extends Error {
+  constructor() {
+    super('Arc integration is not enabled. Set ENABLE_ARC=true to activate.');
+    this.name = 'ArcNotEnabledError';
+  }
+}
+
+function assertArcEnabled(): void {
+  if (!isArcEnabled()) throw new ArcNotEnabledError();
+}
 
 // AdvancedArcEscrow ABI (simplified for used functions)
 const ADVANCED_ARC_ESCROW_ABI = parseAbi([
@@ -26,7 +37,7 @@ const ADVANCED_ARC_ESCROW_ABI = parseAbi([
   'function getPlatformFee(uint256 amount) pure returns (uint256)',
   'function disputes(bytes32 milestoneId) view returns (bytes32 milestoneId, address disputant, bytes32 reasonHash, uint256 raisedAt, uint256 resolutionDeadline, uint8 resolution, bool resolved, address resolver)',
   'function PLATFORM_FEE_BPS() view returns (uint256)',
-  'function USDC() view returns (address)',
+  'function paymentToken() view returns (address)',
   'function reviewTimeout() view returns (uint256)',
   'function disputeWindow() view returns (uint256)',
   
@@ -189,6 +200,7 @@ let walletClient: ReturnType<typeof createWalletClient> | null = null;
  * Get the Arc chain configuration
  */
 export function getArcEscrowConfig(): ArcChainConfig {
+  assertArcEnabled();
   const config = getArcConfig();
   return {
     rpcUrl: config.rpcUrl,
@@ -202,6 +214,7 @@ export function getArcEscrowConfig(): ArcChainConfig {
  * Create a public client for reading from Arc
  */
 export function getArcPublicClient() {
+  assertArcEnabled();
   if (publicClient) return publicClient;
   
   const config = getArcConfig();
@@ -220,6 +233,7 @@ export function getArcPublicClient() {
  * Create a wallet client for writing to Arc
  */
 export function getArcWalletClient() {
+  assertArcEnabled();
   if (walletClient) return walletClient;
   
   const privateKey = process.env.ARC_PRIVATE_KEY || process.env.PRIVATE_KEY;
@@ -245,6 +259,7 @@ export function getArcWalletClient() {
  * Get the broker attestation account for Arc
  */
 export function getArcAttestorAccount() {
+  assertArcEnabled();
   const privateKey = process.env.ARC_ATTESTOR_PRIVATE_KEY || process.env.ARC_PRIVATE_KEY || process.env.PRIVATE_KEY;
   if (!privateKey) {
     throw httpError('ARC_ATTESTOR_PRIVATE_KEY not configured', 500, 'ARC_CONFIG_MISSING');
@@ -547,7 +562,7 @@ export async function getEscrowConfig() {
     client.readContract({
       address: config.escrowContractAddress as Address,
       abi: ADVANCED_ARC_ESCROW_ABI,
-      functionName: 'USDC',
+      functionName: 'paymentToken',
     }),
     client.readContract({
       address: config.escrowContractAddress as Address,
