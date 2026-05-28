@@ -110,6 +110,9 @@ const LandingPage = React.lazy(() =>
 const StakingPage = React.lazy(() =>
   import('./pages/StakingPage').then(m => ({ default: m.StakingPage }))
 );
+const IntelMintPage = React.lazy(() =>
+  import('./pages/IntelMintPage').then(m => ({ default: m.IntelMintPage }))
+);
 
 function PageFallback() {
   return (
@@ -146,6 +149,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                 <Route path="/workspace/review" element={<BuyerReviewQueue />} />
                 <Route path="/workspace/history" element={<BuyerHistory />} />
                 <Route path="/staking" element={<StakingPage />} />
+                <Route path="/mint" element={<IntelMintPage />} />
               </Routes>
             </Suspense>
           </BrowserRouter>
