@@ -1669,7 +1669,7 @@ export function JobsBoard() {
             <CardContent className="text-center py-12 space-y-3">
               <AlertCircle className="h-8 w-8 text-gray-600 mx-auto" />
               <p className="text-gray-400">
-                No <span className="text-white">{activeTab}</span> request briefs right now.
+                No tasks posted yet — be the first!
               </p>
               {activeTab === 'queued' && (
                 <p className="text-gray-500 text-sm">
