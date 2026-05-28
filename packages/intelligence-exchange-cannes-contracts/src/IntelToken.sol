@@ -111,7 +111,7 @@ contract IntelToken {
 
     /// @notice Mint `amount` INTEL to `to`. Callable by `minter` or `owner`.
     ///         Set `minter` to IntelMintController via setMinter() after deployment.
-    function mint(address to, uint256 amount) external onlyMinter {
+    function mint(address to, uint256 amount) external onlyMinter whenNotPaused {
         if (maxSupply > 0 && totalSupply + amount > maxSupply) {
             revert MaxSupplyExceeded(amount, maxSupply - totalSupply);
         }
