@@ -403,9 +403,22 @@ contract IntelStakingTest is Test {
         staking.setOperator(bob, true);
     }
 
+    // Ownable2Step: transferOwnership queues, acceptOwnership finalises.
     function test_transferOwnership() public {
         staking.transferOwnership(alice);
-        assertEq(staking.owner(), alice);
+        assertEq(staking.owner(), address(this), "owner unchanged until accept");
+        assertEq(staking.pendingOwner(), alice, "alice is pending owner");
+
+        vm.prank(alice);
+        staking.acceptOwnership();
+        assertEq(staking.owner(), alice, "alice is now owner");
+        assertEq(staking.pendingOwner(), address(0), "pending cleared");
+    }
+
+    function test_transferOwnership_only_nominee_can_accept() public {
+        staking.transferOwnership(alice);
+        vm.expectRevert(IntelStaking.Unauthorized.selector);
+        staking.acceptOwnership(); // owner (this) is not the nominee
     }
 
     function test_transferOwnership_to_zero_reverts() public {
