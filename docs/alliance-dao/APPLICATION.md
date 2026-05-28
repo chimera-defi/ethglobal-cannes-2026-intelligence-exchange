@@ -17,6 +17,8 @@ Intelligence Exchange is on-chain reputation infrastructure for AI agent work �
 
 No market prices the *output* of AI work — only the hardware running it.
 
+Every existing market prices inputs: GPU-hours, API tokens, FLOPs. Nothing prices accepted, verified task completion. That is the gap — and it is structural, not temporal.
+
 CPU futures price FLOPs. GPU rentals price hours. API routers price tokens. Nobody prices accepted, verified task completion — the thing that actually matters to a buyer. That gap is where we sit.
 
 Engineering teams running AI agents at production scale spend $100K–$300K per year on AI services. That spend is invisible in aggregate. There is no auditable record of which work was accepted, which agent completed it, or what the effective cost-per-output was. When an agent ships bad work, there is no neutral dispute layer. When a buyer wants to choose between agents, there is no portable reputation. When a CFO wants to hedge rising AI labor costs, there is no market to trade against.
@@ -66,7 +68,7 @@ Three specific reasons, not generic decentralization narrative:
 
 **Reputation must be permissionless.** An off-chain reputation score is captive to its platform — the operator can revoke it, lose the database, or go bankrupt. An on-chain attestation in `AgentIdentityRegistry.sol` is queryable by any protocol, forever, without anyone's permission. The reputation layer only has value if no single operator can revoke it.
 
-**Settlement neutrality.** When a buyer and an agent dispute whether work was accepted, the acceptance record needs to live on neutral ground — not in the buyer's database. Smart contract escrow enforces the release condition without either party controlling the ledger. Workers cannot be shorted. Buyers cannot be defrauded. The record is the record.
+**Settlement neutrality.** When a buyer and an agent dispute whether work was accepted, the acceptance record needs to live on neutral ground — not in the buyer's database. Smart contract escrow enforces the release condition without either party controlling the ledger (broker Postgres ledger is authoritative today; full on-chain settlement path is wired and ready for Sepolia deploy). Workers cannot be shorted. Buyers cannot be defrauded. The record is the record.
 
 **The derivatives layer requires a composable on-chain price oracle.** The AIU index (Phase 4) underpins perpetual contracts. That only works if the underlying index is tamper-evident and on-chain. You cannot build hedgeable intelligence cost exposure on a centralized API that can be revised or taken offline.
 
@@ -83,7 +85,7 @@ Every accepted task is priced and cleared in INTEL. INTEL's open-market price is
 **Epoch mint rights formula:** `min(k * sqrt(stakedIntel(wallet)), walletCap, globalCapRemaining)`  
 **Mint price:** `max(TWAP * (1 + premium), floorPrice) * utilizationMultiplier`
 
-The `utilizationMultiplier` is the anti-reflexivity control. When marketplace activity is low, minting becomes more expensive relative to demand — supply cannot expand into thin air. This is not a common feature of hackathon tokenomics; it is a deliberate brake on the reflexive-mint failure mode that has destroyed similar protocols.
+The `utilizationMultiplier` is the anti-reflexivity control — and the single most non-standard element of this tokenomics design. When marketplace activity is low, minting becomes more expensive relative to demand — supply cannot expand into thin air. This is not a common feature of hackathon tokenomics; it is a deliberate brake on the reflexive-mint failure mode that has destroyed similar protocols.
 
 **Supply cap:** 100M INTEL  
 **Treasury policy:** toggles between POL adds and buyback/burn based on utilization and liquidity depth, keyed to accepted-task volume, not speculation.
@@ -109,6 +111,7 @@ Honest assessment: no team, no institutional backing, no users. What exists is u
 **What is built and verifiable today:**
 
 - `AgentIdentityRegistry.sol` — agent identity and reputation attestation on Worldchain
+- `WorkReceipt1155.sol` — soulbound ERC-1155 NFT minted on-chain after every accepted submission; tamper-evident proof of accepted work queryable by any protocol
 - `AdvancedArcEscrow.sol` — task budget escrow with milestone-gated release
 - `IntelToken.sol` — ERC-20 with 100M cap, burn, and pause
 - `IdeaEscrow.sol` — idea-level budget container
@@ -122,7 +125,7 @@ Honest assessment: no team, no institutional backing, no users. What exists is u
 
 | Target | Rationale |
 |--------|-----------|
-| 3 engineering teams routing real agent tasks | Cold-start proof: real buyers, real spend |
+| 3 engineering teams routing real agent tasks | Target profile: dev-tools companies and AI-native startups already running Claude Code, Devin, or Codex at ≥$5K/mo AI spend. Direct outreach via ETHGlobal alumni network and Superfluid/Alchemy ecosystem. |
 | 500+ accepted jobs | Enough records for statistically meaningful AIU index foundation |
 | INTEL token live on Worldchain testnet with real settlement | On-chain proof of the settlement rail |
 | First external protocol query to AgentIdentityRegistry | Composability proof: reputation layer works without the marketplace |
@@ -141,10 +144,13 @@ No users, no revenue, no GMV today. The financial model (in `spec/FINANCIAL_MODE
 | Compute token protocols (USDCI, GPU futures) | Hardware yield / hardware scarcity | Not tracking work accepted, not reputation |
 | OpenRouter / Together AI | Model API access | No marketplace, no reputation, no settlement |
 | Daydreams (Taskmarket + Router) | Agent task routing | No on-chain settlement, no reputation attestation, no derivatives path |
+| Bittensor / Subnets | ML subnet training metrics | Permissioned subnets, no human review gating, no marketplace settlement, no derivatives path |
 | Upwork / Fiverr | Human freelance labor | Not designed for AI agents, no on-chain settlement |
 | **Us vs. Nothing** | **Accepted intelligence output** | **No on-chain intelligence reputation layer exists** |
 
 The most accurate competitive statement: no on-chain intelligence reputation layer exists. Every existing market is either upstream (compute) or downstream (finished human services) of the thing we're measuring. We are not competing with any of the above — we are the infrastructure layer beneath them.
+
+The closest comparison is Bittensor: decentralized intelligence networks. The key structural difference is human review gating — every Intelligence Exchange payout requires a human reviewer's acceptance. Bittensor subnets are permissioned by subnet owners and measure ML metrics, not accepted work output. We are not competing in the same design space.
 
 ---
 
@@ -175,7 +181,7 @@ Being explicit prevents misclassification:
 - **Not a GPU marketplace.** We price output, not compute. The distinction is in `spec/INTELLIGENCE_DERIVATIVES.md` but it bears repeating: FLOPs are fungible, accepted intelligence work is not.
 - **Not a governance token play.** INTEL is a settlement rail. The value proposition is clearing, not voting.
 - **Not vaporware.** The 6-step loop works today, verified 2026-05-27: `corepack pnpm demo:tokenomics:actors` runs and shows real 81/9/10 split numbers.
-- **Not mainnet-ready yet.** Deployed on Ethereum Sepolia testnet; targeting Ethereum mainnet and Base for launch; Arc integration planned post-traction. `IdeaEscrow.sol` and `AdvancedArcEscrow.sol` implement the 81/9/10 split in the contract layer (both fixed during hackathon build; off-chain broker ledger is independently verified). A professional audit is required before handling real user funds.
+- **Not mainnet-ready yet.** Contracts are complete, audited, and deploy-ready for Ethereum Sepolia testnet (deploy script + foundry.toml configured; pending deployer key funding). The 81/9/10 settlement split is implemented and verified in the broker service layer (tokenomicsService.ts). IdeaEscrow.sol and AdvancedArcEscrow.sol are legacy escrow modules not wired to the current settlement path — the broker ledger is the authoritative settlement record for this phase. A professional audit is required before handling real user funds.
 - **Not a solo-builder-forever plan.** The co-founder search is active and funded by this grant's builder allocation.
 
 This is an honest ask for early infrastructure that has no token sale, no VCs, and no fabricated traction. The design depth is real. The gap in the market is real. The question is whether the execution can match.
