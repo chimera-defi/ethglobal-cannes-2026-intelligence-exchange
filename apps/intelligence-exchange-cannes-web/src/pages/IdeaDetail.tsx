@@ -427,12 +427,6 @@ export function IdeaDetail() {
             </CardHeader>
             <CardContent className="space-y-3">
               <p className="text-gray-300 text-sm leading-relaxed">{brief.summary}</p>
-              {brief.dossierUri && (
-                <div className="bg-blue-900/20 border border-blue-800 rounded-lg p-3">
-                  <p className="text-blue-400 text-xs font-medium mb-1">0G Dossier URI</p>
-                  <p className="text-blue-300 font-mono text-xs break-all">{brief.dossierUri}</p>
-                </div>
-              )}
             </CardContent>
           </Card>
         ) : (
