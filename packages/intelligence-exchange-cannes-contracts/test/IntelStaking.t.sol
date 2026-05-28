@@ -505,4 +505,35 @@ contract IntelStakingTest is Test {
 
         assertApproxEqAbs(staking.pendingEthYield(alice), 0.5 ether, 1, "ETH via receive() should be claimable");
     }
+
+    /// @notice Regression: after a partial requestUnstake, the staker should still
+    ///         earn ETH yield on their remaining staked balance immediately — no "25%
+    ///         accumulator growth" penalty (pass3 M-1 fix).
+    function test_ethYield_accrues_on_remaining_stake_after_partial_unstake() public {
+        // Alice stakes 100 INTEL
+        vm.prank(alice);
+        staking.stake(100e18);
+
+        // 1 ETH yield deposited → alice earns 100% (only staker)
+        vm.deal(address(this), 2 ether);
+        staking.depositEthYield{value: 1 ether}();
+        assertApproxEqAbs(staking.pendingEthYield(alice), 1 ether, 1, "M-1 pre: alice should have 1 ETH pending");
+
+        // Alice requests unstake of 50 INTEL (partial unstake)
+        // _settleEthYield is called inside → alice's 1 ETH yield is settled & sent
+        uint256 ethBefore = alice.balance;
+        vm.prank(alice);
+        staking.requestUnstake(50e18);
+        // The yield from the first 1 ETH deposit is automatically settled during requestUnstake
+        assertApproxEqAbs(alice.balance - ethBefore, 1 ether, 1 ether / 1000, "M-1: 1 ETH yield settled on unstake");
+
+        // More ETH yield deposited — alice still has 50 INTEL staked
+        staking.depositEthYield{value: 1 ether}();
+
+        // Alice should earn 1 ETH (100% of new yield — she's still the only staker on 50 INTEL,
+        // bob hasn't staked). Without the M-1 fix, ethYieldDebt was anchored to 100 tokens,
+        // so alice would earn 0 until the accumulator grew by 100%.
+        uint256 pending = staking.pendingEthYield(alice);
+        assertApproxEqAbs(pending, 1 ether, 1 ether / 1000, "M-1 fix: alice earns yield on remaining 50 tokens immediately");
+    }
 }

@@ -119,6 +119,7 @@ contract IntelMintController {
         twap = _initialTWAP;
         twapUpdatedAt = block.timestamp;
         utilizationMultiplierBps = BPS; // default 1x
+        _reentrancyStatus = _NOT_ENTERED;
     }
 
     // ─── Price View ───────────────────────────────────────────────────────────
@@ -195,13 +196,26 @@ contract IntelMintController {
         );
     }
 
+    // ─── Reentrancy guard ─────────────────────────────────────────────────────
+
+    uint256 private _reentrancyStatus;
+    uint256 private constant _NOT_ENTERED = 1;
+    uint256 private constant _ENTERED = 2;
+
+    modifier nonReentrant() {
+        require(_reentrancyStatus != _ENTERED, "IntelMintController: reentrant call");
+        _reentrancyStatus = _ENTERED;
+        _;
+        _reentrancyStatus = _NOT_ENTERED;
+    }
+
     /// @notice Self-mint: any holder of sufficient staking allowance can mint for themselves.
     ///         This is the user-facing entry point (no operator whitelist required).
     ///         Payment in ETH (msg.value). Excess refunded.
     ///
     /// @param intelAmount  Amount of INTEL to mint (in wei / 1e18 units).
     /// @param maxPrice     Slippage guard — reverts if mintPrice() > maxPrice.
-    function selfMint(uint256 intelAmount, uint256 maxPrice) external payable {
+    function selfMint(uint256 intelAmount, uint256 maxPrice) external payable nonReentrant {
         if (intelAmount == 0) revert ZeroAmount();
 
         uint256 price = mintPrice();
