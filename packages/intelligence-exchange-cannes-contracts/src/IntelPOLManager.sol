@@ -19,6 +19,8 @@ contract IntelPOLManager {
     error Unauthorized();
     error ZeroAddress();
     error Phase2NotEnabled();
+    error Phase2NotImplemented(); // stub: real UniV3 integration pending
+    error ZeroAmount();
     error TransferFailed();
     error InsufficientBalance(uint256 available, uint256 requested);
 
@@ -98,6 +100,7 @@ contract IntelPOLManager {
     /// @notice Withdraw INTEL tokens to `to` (manual liquidity deployment).
     function withdrawIntel(address to, uint256 amount) external onlyOwner {
         if (to == address(0)) revert ZeroAddress();
+        if (amount == 0)      revert ZeroAmount();
 
         uint256 bal = _intelBalance();
         if (amount > bal) revert InsufficientBalance(bal, amount);
@@ -145,25 +148,21 @@ contract IntelPOLManager {
 
         // Phase 2 implementation: call INonfungiblePositionManager.mint()
         // with the pool's token0/token1 sorted correctly and WETH wrapping.
-        // Left as a TODO for the Phase 2 milestone.
         //
         // Reference implementation:
         //   IPositionManager.MintParams memory params = IPositionManager.MintParams({
-        //       token0: token0,
-        //       token1: token1,
-        //       fee: 3000,          // 0.3% pool
-        //       tickLower: tickLower,
-        //       tickUpper: tickUpper,
-        //       amount0Desired: ...,
-        //       amount1Desired: ...,
-        //       amount0Min: 0,
-        //       amount1Min: 0,
-        //       recipient: address(this),
-        //       deadline: block.timestamp + 15 minutes
+        //       token0: token0, token1: token1, fee: 3000,
+        //       tickLower: tickLower, tickUpper: tickUpper,
+        //       amount0Desired: ..., amount1Desired: ...,
+        //       amount0Min: 0, amount1Min: 0,
+        //       recipient: address(this), deadline: block.timestamp + 15 minutes
         //   });
         //   positionManager.mint{value: ethAmount}(params);
-
-        emit UniV3Deployed(pool, intelAmount, ethAmount, tickLower, tickUpper);
+        //   emit UniV3Deployed(pool, intelAmount, ethAmount, tickLower, tickUpper);
+        //
+        // Stub reverts until real implementation replaces this block.
+        // Prevents false UniV3Deployed events on-chain (audit finding P4-P5).
+        revert Phase2NotImplemented();
     }
 
     // ─── Views ────────────────────────────────────────────────────────────

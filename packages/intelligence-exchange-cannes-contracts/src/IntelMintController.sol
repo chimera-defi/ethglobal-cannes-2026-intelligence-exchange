@@ -232,7 +232,7 @@ contract IntelMintController {
         address paymentToken,
         uint256 paymentAmount,
         uint256 maxPrice
-    ) external onlyOperator {
+    ) external onlyOperator nonReentrant {
         if (to == address(0)) revert ZeroAddress();
         if (intelAmount == 0) revert ZeroAmount();
         if (paymentToken == address(0)) revert ZeroAddress();
