@@ -100,8 +100,8 @@ export function IntelMintPage() {
       const hash = await writeContractAsync({
         address: INTEL_MINT_CONTROLLER_ADDRESS,
         abi: intelMintControllerAbi,
-        functionName: 'executeMint',
-        args: [address, parsedAmount, maxPrice],
+        functionName: 'selfMint',
+        args: [parsedAmount, maxPrice],
         value: quotedCost,
       });
       setTxStatus({ msg: `Mint submitted: ${hash.slice(0, 18)}…`, type: 'success' });
