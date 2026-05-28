@@ -1,6 +1,20 @@
 {
 	admin off
 	auto_https off
+	# PRODUCTION NOTE: To enable Caddy-level rate limiting, install the
+	# caddy-ratelimit plugin (https://github.com/mholt/caddy-ratelimit) and
+	# add a rate_limit directive inside the site block below.
+	# Example (requires plugin):
+	#   rate_limit {
+	#       zone dynamic {
+	#           key    {http.request.header.X-Forwarded-For}
+	#           events 100
+	#           window 1m
+	#       }
+	#   }
+	# The broker already applies in-process rate limiting (60 req/min global,
+	# 20 req/min per wallet), but Caddy-level limiting protects earlier in
+	# the stack before Bun/Node overhead is incurred.
 }
 
 http://168.119.15.122 {

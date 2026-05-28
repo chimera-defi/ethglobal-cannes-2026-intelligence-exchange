@@ -1,8 +1,20 @@
 import type { Context, Next } from 'hono';
 
 /**
- * Simple in-memory rate limiter for mutation endpoints.
- * In production, replace with Redis-backed rate limiting.
+ * In-memory rate limiter for broker endpoints.
+ *
+ * PRODUCTION NOTE:
+ *   This implementation uses a process-local Map, which means limits are NOT
+ *   shared across multiple broker instances (e.g. horizontal scaling) and are
+ *   reset on restart.
+ *
+ *   For production hardening:
+ *   1. Replace with a Redis-backed rate limiter (e.g. `rate-limiter-flexible`
+ *      with an ioredis store) so limits survive restarts and work across replicas.
+ *   2. Consider adding Caddy-level rate limiting as a first line of defense
+ *      (see infra/caddy/Caddyfile for configuration notes).
+ *   3. The X-Forwarded-For header is trusted as-is — if behind a load balancer,
+ *      ensure only trusted proxies can set this header to prevent IP spoofing.
  */
 const requestCounts = new Map<string, { count: number; resetAt: number }>();
 const WINDOW_MS = 60_000; // 1 minute

@@ -21,14 +21,48 @@ import { getSessionAccountAddress } from './services/accessService';
 
 export const app = new Hono();
 
-// CORS: restrict to known origins in production; allow local dev fallback
-const CORS_ORIGIN = process.env.WEB_APP_URL ?? 'http://localhost:3000';
+/*
+ * CORS security:
+ * - Set CORS_ALLOWED_ORIGINS to a comma-separated list of allowed origins in production.
+ *   Example: CORS_ALLOWED_ORIGINS=https://yourdomain.com,https://app.yourdomain.com
+ * - If CORS_ALLOWED_ORIGINS is not set in production, credentials are disabled to prevent
+ *   cross-origin cookie/auth leakage (OWASP A05:2021 Security Misconfiguration).
+ * - In development (NODE_ENV != production), WEB_APP_URL or localhost:3000 is used as a
+ *   permissive fallback.
+ */
+function buildCorsConfig(): { origin: string | string[]; credentials: boolean } {
+  const allowedOriginsEnv = process.env.CORS_ALLOWED_ORIGINS;
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  if (allowedOriginsEnv) {
+    const origins = allowedOriginsEnv.split(',').map((o) => o.trim()).filter(Boolean);
+    return { origin: origins.length === 1 ? origins[0] : origins, credentials: true };
+  }
+
+  if (isProduction) {
+    // No explicit allowlist set in production — fall back to WEB_APP_URL without credentials
+    // to avoid wildcard + credentials misconfiguration.
+    const origin = process.env.WEB_APP_URL ?? '';
+    if (!origin) {
+      console.warn(
+        '[security:cors] WARNING: Neither CORS_ALLOWED_ORIGINS nor WEB_APP_URL is set in production. ' +
+        'CORS credentials are disabled. Set CORS_ALLOWED_ORIGINS to your frontend domain.'
+      );
+    }
+    return { origin: origin || 'null', credentials: false };
+  }
+
+  // Development fallback
+  return { origin: process.env.WEB_APP_URL ?? 'http://localhost:3000', credentials: true };
+}
+
+const corsConfig = buildCorsConfig();
 
 // Middleware
 app.use('*', cors({
-  origin: CORS_ORIGIN,
+  origin: corsConfig.origin,
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  credentials: true,
+  credentials: corsConfig.credentials,
 }));
 app.use('*', logger());
 app.use('*', rateLimit());
