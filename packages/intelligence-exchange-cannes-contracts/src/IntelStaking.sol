@@ -192,6 +192,13 @@ contract IntelStaking {
         s.pendingUnstake += amount;
         s.unstakeAvailableAt = block.timestamp + cooldown;
 
+        // Re-sync yield debts to the new (smaller) staked position.
+        // Without this, the staker's debt is anchored to the pre-unstake staked amount,
+        // causing them to earn zero yield until the accumulator grows by amount/remaining_staked.
+        // This mirrors the pattern in stake() where debts are re-synced after staked increases.
+        s.yieldDebt    = (s.staked * accYieldPerShare)    / PRECISION;
+        s.ethYieldDebt = (s.staked * accEthYieldPerShare) / PRECISION;
+
         emit UnstakeRequested(msg.sender, amount, s.unstakeAvailableAt);
     }
 
