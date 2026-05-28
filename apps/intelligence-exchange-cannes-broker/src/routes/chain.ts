@@ -4,14 +4,14 @@ import { ChainReceiptSyncSchema } from 'intelligence-exchange-cannes-shared';
 import { eq } from 'drizzle-orm';
 import { db } from '../db/client';
 import { ideas, jobs } from '../db/schema';
-import { requireSessionAccountAddress, requireWorldRole } from '../services/accessService';
+import { requireSessionAccountAddress, requireWorldRoleIfStrict } from '../services/accessService';
 import { applyChainSync } from '../services/chainService';
 import { httpError } from '../services/errors';
 
 export const chainRouter = new Hono();
 
 async function requirePosterOwnedIdea(accountAddress: string, ideaId: string) {
-  await requireWorldRole(accountAddress, 'poster');
+  await requireWorldRoleIfStrict(accountAddress, 'poster');
 
   const [idea] = await db.select().from(ideas).where(eq(ideas.ideaId, ideaId));
   if (!idea) throw httpError('Idea not found', 404, 'IDEA_NOT_FOUND');
@@ -45,7 +45,7 @@ chainRouter.post('/sync', zValidator('json', ChainReceiptSyncSchema), async (c) 
       if (!idea) throw httpError('Idea not found', 404, 'IDEA_NOT_FOUND');
 
       if (idea.posterId !== accountAddress) {
-        await requireWorldRole(accountAddress, 'reviewer');
+        await requireWorldRoleIfStrict(accountAddress, 'reviewer');
       }
       break;
     }
