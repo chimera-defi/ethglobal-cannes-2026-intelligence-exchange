@@ -8,12 +8,11 @@
 
 ## Executive Summary
 
-The competitive landscape for intelligence pricing splits into four structural categories:
+The competitive landscape for intelligence pricing splits into three structural categories:
 
 1. **Compute-pricing protocols** (Pearl Protocol, Gensyn, Prime Intellect) — price GPU hours/FLOPs, not output quality
 2. **ML-metric protocols** (Bittensor) — price subnet performance via automated validator scoring, no human acceptance gating
-3. **Agent coordination/marketplaces** (SingularityNET, Olas, Fetch.ai, ChainML) — coordination layers and service marketplaces with varying verification mechanisms
-4. **Data annotation platforms** (Perle) — specialized data labeling marketplaces
+3. **Data/agent marketplaces** (Perle, Fetch.ai, ChainML) — intermediate layers with varying verification mechanisms
 
 **Key structural differentiator:** Intelligence Exchange prices **ACCEPTED OUTPUT** (human-gated) not compute spend, training metrics, or API usage. Every payout requires a human reviewer's acceptance, creating a verified, tamper-evident record of intelligence work that no other protocol provides.
 
@@ -49,80 +48,11 @@ The competitive landscape for intelligence pricing splits into four structural c
 - No reputation layer for agents or models
 - Cannot answer "did this agent produce work a human accepted?"
 
-**Note:** There is also **Perle (PRL)** on Solana — a data annotation marketplace where contributors earn PRL for verified data work. This is closer to Intelligence Exchange's model but still focuses on data labeling, not general AI agent task completion with reputation attestation. Pearl Protocol and Perle are separate entities that happen to share the PRL ticker.
+**Note:** There is also **Perle (PRL)** on Solana — a data annotation marketplace where contributors earn PRL for verified data work. This is closer to Intelligence Exchange's model but still focuses on data labeling, not general AI agent task completion with reputation attestation.
 
 ---
 
-### 2. SingularityNET (AGIX/ASI Alliance) — AI Services Marketplace
-
-**How they measure/price intelligence:**
-- AI services marketplace where agents offer services via AGIX token settlement
-- On-chain reputation and rating layer for AI agents
-- Service requests and transactions settled in AGIX (now part of ASI Alliance token)
-- 2024 ASI Alliance merger: FET + AGIX + OCEAN → ASI (artificial superintelligence alliance)
-
-**What event triggers token minting/reward:**
-- AGIX/ASI tokens used for service payments and settlement
-- Rewards flow for service completion, not necessarily accepted output quality
-- Marketplace transactions settle in AGIX/ASI without human acceptance gating
-
-**Human review or machine metrics:**
-- Machine metrics: on-chain reputation scores and ratings from service interactions
-- Community-driven reputation system via staking and validation
-- No human acceptance gating at the protocol level for individual task outputs
-- Rating system exists but not tied to specific work receipt attestations
-
-**Composability:**
-- Multi-chain marketplace (Ethereum, Cardano, others)
-- On-chain service records and reputation data
-- Reputation layer exists but is rating-based, not acceptance-based
-- Other protocols can query agent reputation but not specific accepted work attestations
-
-**Key weakness vs Intelligence Exchange:**
-- No human-gated acceptance for individual task outputs
-- No output-based settlement — rewards flow for service completion, not accepted quality
-- No work receipt attestation layer for specific task completions
-- Reputation is rating-based, not acceptance-based — cannot verify "this specific work was accepted"
-- Settlement layer exists but without the quality gating that creates verified reputation data
-
----
-
-### 3. Olas (Autonolas) — Agent Coordination Protocol
-
-**How they measure/price intelligence:**
-- Agent coordination protocol for managing multi-agent systems
-- On-chain service records for agent operations and performance
-- Bonding curve mechanics for service token economics
-- Focus on agent coordination and service discovery, not individual task settlement
-
-**What event triggers token minting/reward:**
-- OLAS token for protocol governance and service incentives
-- Bonding curve mechanics for service token issuance and price discovery
-- Rewards for service provision and coordination activities
-- No specific rewards for individual task acceptance or output quality
-
-**Human review or machine metrics:**
-- Machine metrics: on-chain service records, operational data, performance metrics
-- Community governance for service validation and ranking
-- No human acceptance gating for individual agent task outputs
-- Performance tracking exists but not tied to specific work acceptance
-
-**Composability:**
-- Multi-chain deployment (Ethereum, Polygon, Gnosis Chain)
-- On-chain service records and agent registries
-- Bonding curve mechanics for service token economics
-- Other protocols can query service records but not specific work attestations
-
-**Key weakness vs Intelligence Exchange:**
-- Coordination layer, not settlement layer — focuses on agent orchestration, not task pricing
-- No human acceptance gating for individual task outputs
-- No output-based settlement — rewards for coordination, not accepted work quality
-- No work receipt attestation layer for specific task completions
-- Service records exist but lack the quality verification of acceptance-gated outputs
-
----
-
-### 4. Bittensor (TAO) — Subnet Competition Markets
+### 2. Bittensor (TAO) — Subnet Competition Markets
 
 **How they measure/price intelligence:**
 - Subnet-specific incentive mechanisms define work and evaluation standards
@@ -158,7 +88,7 @@ The competitive landscape for intelligence pricing splits into four structural c
 
 ---
 
-### 5. Fetch.ai (FET/ASI) — Agent Launch & Agentverse
+### 3. Fetch.ai (FET/ASI) — Agent Launch & Agentverse
 
 **How they measure/price intelligence:**
 - Agent Launch: bonding curve pricing for agent tokens based on supply/demand
@@ -190,7 +120,7 @@ The competitive landscape for intelligence pricing splits into four structural c
 
 ---
 
-### 6. Gensyn ($AI) — Decentralized Compute Network
+### 4. Gensyn ($AI) — Decentralized Compute Network
 
 **How they measure/price intelligence:**
 - Compute contributions (GPU/CPU resources) to ML training tasks
@@ -223,7 +153,7 @@ The competitive landscape for intelligence pricing splits into four structural c
 
 ---
 
-### 7. Ritual — On-Chain AI Inference Layer
+### 5. Ritual — On-Chain AI Inference Layer
 
 **How they measure/price intelligence:**
 - TEE-executed AI computations (LLM inference, HTTP calls, agent orchestration)
@@ -253,7 +183,7 @@ The competitive landscape for intelligence pricing splits into four structural c
 
 ---
 
-### 8. ChainML (TheoriqAI / TAI) — Agent Protocol
+### 6. ChainML (TheoriqAI / TAI) — Agent Protocol
 
 **How they measure/price intelligence:**
 - Micropayments for AI agent services via Web3 protocol
@@ -283,7 +213,7 @@ The competitive landscape for intelligence pricing splits into four structural c
 
 ---
 
-### 9. Prime Intellect (PI) — Decentralized Compute & Model Co-Ownership
+### 7. Prime Intellect (PI) — Decentralized Compute & Model Co-Ownership
 
 **How they measure/price intelligence:**
 - Compute contributions (GPU resources) to distributed training
@@ -322,8 +252,6 @@ The competitive landscape for intelligence pricing splits into four structural c
 | Protocol | Prices | Human Gated | Reputation Layer |
 |----------|--------|-------------|------------------|
 | Pearl Protocol | GPU cycles (MatMul) | No | No |
-| SingularityNET | AI service completion | No | Rating-based (not acceptance-based) |
-| Olas | Agent coordination | No | Service records (not acceptance-based) |
 | Bittensor | Subnet performance | No | No (subnet-siloed) |
 | Fetch.ai | Agent token speculation | No | No |
 | Gensyn | Compute contributions | No | No |
@@ -387,153 +315,17 @@ Every competitor analyzed is missing one or more of:
 
 Intelligence Exchange is the only protocol combining all five: human-gated acceptance, portable reputation (AgentIdentityRegistry), output-based pricing, marketplace settlement, and a credible derivatives path (AIU index).
 
-### Competitive Flywheel: The Actual Moat
-
-The structural differentiator creates a compounding flywheel that no competitor can replicate:
-
-**More jobs settled → More WorkReceipt1155 attestations → Stronger AgentIdentityRegistry → External protocols query it for agent trust → Drives more demand for INTEL settlement rail → More jobs**
-
-This flywheel is the actual moat:
-
-1. **Data network effects:** Every accepted job mints a WorkReceipt1155 NFT — a tamper-evident attestation of accepted work. More jobs = more attestations = richer reputation data.
-
-2. **Reputation layer externalities:** As AgentIdentityRegistry grows, external protocols (lending, insurance, task routing, access control) begin querying it for agent trust signals. This creates demand for INTEL settlement independent of the core marketplace.
-
-3. **Settlement rail stickiness:** Once external protocols depend on AgentIdentityRegistry for trust signals, the INTEL settlement rail becomes infrastructure they cannot easily replace. Switching costs are not technical — they are data network effects.
-
-4. **Compounding demand:** External protocol demand + core marketplace demand = higher INTEL velocity = more jobs settled = more attestations = stronger registry. The loop reinforces.
-
-No competitor has this flywheel. SingularityNET has reputation but it's rating-based, not acceptance-based. Olas has service records but no acceptance gating. Pearl, Gensyn, and Bittensor have no reputation layer at all. Without acceptance-gated outputs, there is no tamper-evident reputation data. Without reputation data, there is no flywheel.
-
-The flywheel is why Intelligence Exchange can become the reputation layer that everything else eventually depends on — not because we have better features, but because we have the only mechanism that generates the data layer everyone else needs.
-
 ---
 
 ## Conclusion
 
 The competitive landscape validates the gap: **nobody prices accepted intelligence output with human gating and portable reputation.**
 
-Competitors fall into four categories:
+Competitors fall into three categories:
 - Compute-pricing protocols (Pearl, Gensyn, Prime Intellect) — infrastructure, not output
 - ML-metric protocols (Bittensor) — automated scoring, no human acceptance
-- Agent coordination/marketplaces (SingularityNET, Olas, Fetch.ai, ChainML, Ritual) — coordination layers, not acceptance-gated settlement
-- Data annotation platforms (Perle) — specialized data labeling, not general agent tasks
+- Agent infrastructure (Fetch.ai, ChainML, Ritual) — execution layers, not pricing layers
 
 Intelligence Exchange's structural differentiator — **human-gated acceptance creating verified, tamper-evident reputation data** — is not just a feature; it is the foundation for everything else: portable reputation, market-discovered intelligence pricing, and credible derivatives.
 
-We are building the reputation layer that everything else will eventually depend on.
-
----
-
-## Appendix: Traditional Web2/Infra AI Players
-
-These are not direct competitors to the intelligence pricing layer, but they define the landscape any buyer or worker is already familiar with. The contrast helps clarify why a new category is needed.
-
-| Player | Category | Task market | Trust / reputation | Settlement / dispute | Agent-first surface | Key weakness vs IEX |
-|---|---|---|---|---|---|---|
-| Daydreams (Taskmarket + Router) | Agent commerce network | Strong | Strong | Partial | Strong | No human acceptance gating; no output attestation |
-| OpenRouter | Model/API router | Weak | Weak | Weak | Partial | Routing, not settlement; no quality enforcement |
-| Together AI | Inference + GPU cloud | Weak | Weak | Weak | Partial | Infra-performance strong; not a task marketplace |
-| Replicate | Model execution API | Weak | Weak | Weak | Partial | Strong API surface; no marketplace semantics |
-| Vast.ai | Compute marketplace | Partial | Weak | Weak | Weak | Raw capacity only; quality variance, high buyer ops burden |
-| TensorDock | Compute marketplace | Partial | Weak | Weak | Weak | Similar to Vast.ai — compute, not intelligence |
-
-**Reading these rows together:** every player that approaches "task market" quality (Daydreams) still lacks human-gated acceptance. Every player with strong infrastructure (OpenRouter, Together, Replicate) lacks any settlement or reputation layer. Intelligence Exchange is the only design that combines task market, human acceptance gating, on-chain settlement, and portable reputation.
-
-*Sources: Daydreams router quickstart, docs.dreams.fun; OpenRouter BYOK docs; Together AI pricing page; Replicate docs; Vast.ai docs; TensorDock marketplace. Data as of March 2026.*
-
----
-
-## Additional Protocols (2025-2026 Update)
-
-The following protocols emerged or gained significant traction in 2025-2026 and are not covered in the main analysis above. None of them close the structural gap.
-
----
-
-### io.net — Decentralized GPU Cluster Network
-
-**Pricing mechanism:** io.net prices GPU cluster-hours — specifically, the cost of renting a slice of a decentralized GPU network aggregated from data centers, crypto miners, and idle consumer hardware. Workers earn IO tokens proportional to compute contributed, verified by a proof-of-work challenge that confirms GPU availability and throughput. Pricing is a function of GPU model, VRAM, and cluster duration.
-
-**Token minting/reward trigger:** IO tokens are awarded continuously to nodes that pass availability challenges and serve cluster requests. There is no settlement event tied to the *output* of any computation — a node earns IO for being reachable and serving throughput, regardless of whether the model it ran produced useful results.
-
-**Human review:** None. The entire verification stack is automated: hardware availability probes, throughput benchmarks, and slashing for downtime. Output quality is entirely opaque to the protocol.
-
-**Key weakness vs Intelligence Exchange:** io.net prices raw GPU availability — the furthest upstream you can be from accepted output. A cluster can pass every hardware probe and return garbage inference results; io.net has no mechanism to detect or penalize this. Intelligence Exchange prices what buyers actually care about: the moment a human reviewer confirms the work was useful.
-
----
-
-### Vana — Data DAO Contribution Marketplace
-
-**Pricing mechanism:** Vana prices data contributions to user-controlled "DataDAOs" — pools of training data that individuals contribute and collectively govern. Contributors earn VANA tokens proportional to the quality and uniqueness of their data as assessed by a DataDAO-specific validation function. Quality scoring uses "proof of contribution" — a combination of cryptographic data fingerprinting and DataDAO-defined validators that run off-chain.
-
-**Token minting/reward trigger:** VANA mints to contributors when a DataDAO accepts a data submission and scores it above its quality threshold. The trigger is data acceptance by the DataDAO governance mechanism, not task output acceptance by a human reviewer. DataDAOs may license their pools to AI companies; revenue flows back proportionally to contributors.
-
-**Human review:** Partial — DataDAO governance can include human votes, but validation is primarily automated (similarity scoring, deduplication checks, DataDAO-defined ML validators). There is no human reviewer gate at the protocol level for individual contributions.
-
-**Key weakness vs Intelligence Exchange:** Vana's primitives are data provenance and training data markets, not AI *output* markets. A Vana DataDAO records that data was contributed and accepted; it cannot attest that any agent produced verified work output that a human found useful. The reputation primitive is "this wallet contributed accepted data," not "this agent produced accepted intelligence work." These are complementary layers — Vana could eventually be an input to Intelligence Exchange's agent training pipeline — but they do not compete on the acceptance-gated output layer.
-
----
-
-### Grass — Data Scraping and Collection Marketplace
-
-**Pricing mechanism:** Grass prices bandwidth contributions to a decentralized web-scraping network. Node operators run a Grass extension that routes scraping traffic through their residential IP; they earn GRASS tokens proportional to bandwidth routed and data collected. Pricing is bandwidth × uptime, not output quality.
-
-**Token minting/reward trigger:** GRASS rewards accrue per epoch based on bandwidth validated through Grass's centralized-then-decentralizing routing layer. The trigger is bandwidth delivered, verified by the Grass network operator. There is no semantic validation of the data collected — correctness and usefulness of scraped content are not assessed.
-
-**Human review:** None at the protocol level. Grass validates that traffic was routed and data was returned; it has no mechanism to assess whether the scraped data was useful, accurate, or accepted by any downstream consumer.
-
-**Key weakness vs Intelligence Exchange:** Grass prices the cheapest-possible input layer (bandwidth and IP routing), which is further from output quality than even GPU compute. It has no agent identity, no task scope, no acceptance gate, and no reputation layer. The comparison is instructive: a spectrum runs from bandwidth (Grass) → compute (io.net, Gensyn) → inference execution (Ritual) → task coordination (Olas) → accepted output (Intelligence Exchange). Each layer is further upstream from what buyers actually value.
-
----
-
-### Giza — ML Model Verifiable Inference On-Chain
-
-**Pricing mechanism:** Giza prices ZKML inference — the cost of running a provably correct ML model inference with a zero-knowledge proof that the model weights and computation were unaltered. The GIZA token is used for protocol fees and staking by model operators. Pricing is per-inference with a fee schedule based on model complexity and proof generation cost.
-
-**Token minting/reward trigger:** GIZA rewards flow to model operators who stake and serve verified inferences. The trigger is a valid ZK proof of correct inference — cryptographically proving the model ran correctly, not that its output was useful. Model operators can be slashed for downtime or invalid proofs.
-
-**Human review:** None. ZK proofs verify cryptographic correctness of computation — that a specific set of model weights produced a specific output given specific inputs. Whether that output is useful, accepted, or valuable is entirely outside the protocol's scope.
-
-**Key weakness vs Intelligence Exchange:** Giza solves the model integrity problem (was the *right* model run correctly?) but not the output value problem (was the output *accepted* by a human as useful?). These are orthogonal concerns. A ZKML proof can confirm a model ran correctly and still produce confidently wrong answers. Intelligence Exchange's human acceptance gate captures output value independent of computational integrity — a complementary layer that Giza cannot replace.
-
----
-
-### Near AI — Agent Marketplace and Hub
-
-**Pricing mechanism:** Near AI prices agent service calls within the NEAR ecosystem, using NEAR tokens for gas and settlement. The Near AI Hub allows developers to publish AI agents and models; usage is metered by API calls and compute consumed. Agents earn revenue from consumers who pay in NEAR for service calls. There is no output-quality pricing — all settlement is based on service execution, not acceptance.
-
-**Token minting/reward trigger:** NEAR gas fees for transactions are burned/distributed to validators per the standard NEAR protocol mechanics. Agent developers earn NEAR from consumer payments for service calls. No protocol-level event ties rewards to output acceptance or human review — the trigger is service execution completing without error.
-
-**Human review:** None at the protocol level. Near AI Hub tracks API call volume and rating scores (optional, user-provided), but acceptance gating is not a protocol primitive. The agent rating system is advisory, not economically enforced.
-
-**Key weakness vs Intelligence Exchange:** Near AI Hub is a discovery and distribution layer — it solves "how do consumers find and call agents" but not "how does the ecosystem know which agents produce work that buyers find valuable." Without an acceptance gate, all agent reputation is self-reported or based on raw call volume, which rewards noisy agents as much as capable ones. Intelligence Exchange's `AgentIdentityRegistry.sol` produces acceptance-gated attestations that Near AI Hub has no equivalent for.
-
----
-
-### Theoriq (TheoriqAI / TAI) — Deeper Protocol Analysis
-
-*Theoriq was mentioned briefly in the main analysis under ChainML. Given its direct positioning as an "agent protocol," it warrants more detailed treatment.*
-
-**Pricing mechanism:** Theoriq prices agent service calls via micropayments in TAI tokens, routed through an escrow contract that burns a portion of each payment. The protocol focuses on multi-agent coordination — chaining specialized agents into "agent-teams" that collectively execute a task. Pricing is per-step in the agent chain, with each sub-agent billing for its contribution.
-
-**Token minting/reward trigger:** TAI tokens are paid by consumers and partially burned in escrow on task completion. Sub-agents are paid proportionally to their contribution within the agent team. The trigger is task completion (all steps executed) — not task acceptance by a human reviewer. A task that executes every step but produces garbage output earns the same TAI as one that produces valuable work.
-
-**Human review:** None. Theoriq validates that agent chains executed and completed all defined steps. Output quality assessment is entirely off-chain and the responsibility of the consumer, not enforced by the protocol.
-
-**Key weakness vs Intelligence Exchange:** Theoriq's escrow-and-burn model is structurally elegant for multi-agent pipeline pricing, but it prices *execution* not *acceptance*. A four-step agent chain that hallucinates through every step gets paid the same as one that produces work a buyer accepts. Intelligence Exchange's acceptance gate is the missing settlement condition — Theoriq's execution-complete trigger and Intelligence Exchange's human-accepted trigger are the critical difference between pricing AI work and pricing AI output.
-
----
-
-### Synthetic Comparison: New Protocols Added to Summary Table
-
-| Protocol | Prices | Human Gated | Reputation Layer | Layer in Stack |
-|---|---|---|---|---|
-| io.net | GPU cluster availability/throughput | No | No | Hardware |
-| Vana | Data contribution quality (DataDAO-validated) | Partial (DAO) | Contribution-based | Data provenance |
-| Grass | Bandwidth / IP routing | No | No | Data collection |
-| Giza | ZK-verified model inference | No | No | Compute integrity |
-| Near AI | Agent service call volume | No | Rating-advisory only | Discovery/distribution |
-| Theoriq | Agent chain execution steps | No | No | Multi-agent execution |
-| **Intelligence Exchange** | **Accepted work output** | **Yes** | **Yes (AgentIdentityRegistry)** | **Output settlement** |
-
-The pattern is consistent: every 2025-2026 entrant prices something upstream of accepted output — bandwidth, data provenance, compute integrity, inference execution, service call volume, or pipeline steps. None have a human acceptance gate. None produce tamper-evident, permissionless attestations of accepted intelligence work. The structural gap identified in the main analysis is unchanged by these entrants.
+The question is not "who are we competing with?" but "who will build the reputation layer that everyone else eventually depends on?"
