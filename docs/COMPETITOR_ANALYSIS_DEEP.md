@@ -8,11 +8,12 @@
 
 ## Executive Summary
 
-The competitive landscape for intelligence pricing splits into three structural categories:
+The competitive landscape for intelligence pricing splits into four structural categories:
 
 1. **Compute-pricing protocols** (Pearl Protocol, Gensyn, Prime Intellect) — price GPU hours/FLOPs, not output quality
 2. **ML-metric protocols** (Bittensor) — price subnet performance via automated validator scoring, no human acceptance gating
-3. **Data/agent marketplaces** (Perle, Fetch.ai, ChainML) — intermediate layers with varying verification mechanisms
+3. **Agent coordination/marketplaces** (SingularityNET, Olas, Fetch.ai, ChainML) — coordination layers and service marketplaces with varying verification mechanisms
+4. **Data annotation platforms** (Perle) — specialized data labeling marketplaces
 
 **Key structural differentiator:** Intelligence Exchange prices **ACCEPTED OUTPUT** (human-gated) not compute spend, training metrics, or API usage. Every payout requires a human reviewer's acceptance, creating a verified, tamper-evident record of intelligence work that no other protocol provides.
 
@@ -48,11 +49,80 @@ The competitive landscape for intelligence pricing splits into three structural 
 - No reputation layer for agents or models
 - Cannot answer "did this agent produce work a human accepted?"
 
-**Note:** There is also **Perle (PRL)** on Solana — a data annotation marketplace where contributors earn PRL for verified data work. This is closer to Intelligence Exchange's model but still focuses on data labeling, not general AI agent task completion with reputation attestation.
+**Note:** There is also **Perle (PRL)** on Solana — a data annotation marketplace where contributors earn PRL for verified data work. This is closer to Intelligence Exchange's model but still focuses on data labeling, not general AI agent task completion with reputation attestation. Pearl Protocol and Perle are separate entities that happen to share the PRL ticker.
 
 ---
 
-### 2. Bittensor (TAO) — Subnet Competition Markets
+### 2. SingularityNET (AGIX/ASI Alliance) — AI Services Marketplace
+
+**How they measure/price intelligence:**
+- AI services marketplace where agents offer services via AGIX token settlement
+- On-chain reputation and rating layer for AI agents
+- Service requests and transactions settled in AGIX (now part of ASI Alliance token)
+- 2024 ASI Alliance merger: FET + AGIX + OCEAN → ASI (artificial superintelligence alliance)
+
+**What event triggers token minting/reward:**
+- AGIX/ASI tokens used for service payments and settlement
+- Rewards flow for service completion, not necessarily accepted output quality
+- Marketplace transactions settle in AGIX/ASI without human acceptance gating
+
+**Human review or machine metrics:**
+- Machine metrics: on-chain reputation scores and ratings from service interactions
+- Community-driven reputation system via staking and validation
+- No human acceptance gating at the protocol level for individual task outputs
+- Rating system exists but not tied to specific work receipt attestations
+
+**Composability:**
+- Multi-chain marketplace (Ethereum, Cardano, others)
+- On-chain service records and reputation data
+- Reputation layer exists but is rating-based, not acceptance-based
+- Other protocols can query agent reputation but not specific accepted work attestations
+
+**Key weakness vs Intelligence Exchange:**
+- No human-gated acceptance for individual task outputs
+- No output-based settlement — rewards flow for service completion, not accepted quality
+- No work receipt attestation layer for specific task completions
+- Reputation is rating-based, not acceptance-based — cannot verify "this specific work was accepted"
+- Settlement layer exists but without the quality gating that creates verified reputation data
+
+---
+
+### 3. Olas (Autonolas) — Agent Coordination Protocol
+
+**How they measure/price intelligence:**
+- Agent coordination protocol for managing multi-agent systems
+- On-chain service records for agent operations and performance
+- Bonding curve mechanics for service token economics
+- Focus on agent coordination and service discovery, not individual task settlement
+
+**What event triggers token minting/reward:**
+- OLAS token for protocol governance and service incentives
+- Bonding curve mechanics for service token issuance and price discovery
+- Rewards for service provision and coordination activities
+- No specific rewards for individual task acceptance or output quality
+
+**Human review or machine metrics:**
+- Machine metrics: on-chain service records, operational data, performance metrics
+- Community governance for service validation and ranking
+- No human acceptance gating for individual agent task outputs
+- Performance tracking exists but not tied to specific work acceptance
+
+**Composability:**
+- Multi-chain deployment (Ethereum, Polygon, Gnosis Chain)
+- On-chain service records and agent registries
+- Bonding curve mechanics for service token economics
+- Other protocols can query service records but not specific work attestations
+
+**Key weakness vs Intelligence Exchange:**
+- Coordination layer, not settlement layer — focuses on agent orchestration, not task pricing
+- No human acceptance gating for individual task outputs
+- No output-based settlement — rewards for coordination, not accepted work quality
+- No work receipt attestation layer for specific task completions
+- Service records exist but lack the quality verification of acceptance-gated outputs
+
+---
+
+### 4. Bittensor (TAO) — Subnet Competition Markets
 
 **How they measure/price intelligence:**
 - Subnet-specific incentive mechanisms define work and evaluation standards
@@ -88,7 +158,7 @@ The competitive landscape for intelligence pricing splits into three structural 
 
 ---
 
-### 3. Fetch.ai (FET/ASI) — Agent Launch & Agentverse
+### 5. Fetch.ai (FET/ASI) — Agent Launch & Agentverse
 
 **How they measure/price intelligence:**
 - Agent Launch: bonding curve pricing for agent tokens based on supply/demand
@@ -120,7 +190,7 @@ The competitive landscape for intelligence pricing splits into three structural 
 
 ---
 
-### 4. Gensyn ($AI) — Decentralized Compute Network
+### 6. Gensyn ($AI) — Decentralized Compute Network
 
 **How they measure/price intelligence:**
 - Compute contributions (GPU/CPU resources) to ML training tasks
@@ -153,7 +223,7 @@ The competitive landscape for intelligence pricing splits into three structural 
 
 ---
 
-### 5. Ritual — On-Chain AI Inference Layer
+### 7. Ritual — On-Chain AI Inference Layer
 
 **How they measure/price intelligence:**
 - TEE-executed AI computations (LLM inference, HTTP calls, agent orchestration)
@@ -183,7 +253,7 @@ The competitive landscape for intelligence pricing splits into three structural 
 
 ---
 
-### 6. ChainML (TheoriqAI / TAI) — Agent Protocol
+### 8. ChainML (TheoriqAI / TAI) — Agent Protocol
 
 **How they measure/price intelligence:**
 - Micropayments for AI agent services via Web3 protocol
@@ -213,7 +283,7 @@ The competitive landscape for intelligence pricing splits into three structural 
 
 ---
 
-### 7. Prime Intellect (PI) — Decentralized Compute & Model Co-Ownership
+### 9. Prime Intellect (PI) — Decentralized Compute & Model Co-Ownership
 
 **How they measure/price intelligence:**
 - Compute contributions (GPU resources) to distributed training
@@ -252,6 +322,8 @@ The competitive landscape for intelligence pricing splits into three structural 
 | Protocol | Prices | Human Gated | Reputation Layer |
 |----------|--------|-------------|------------------|
 | Pearl Protocol | GPU cycles (MatMul) | No | No |
+| SingularityNET | AI service completion | No | Rating-based (not acceptance-based) |
+| Olas | Agent coordination | No | Service records (not acceptance-based) |
 | Bittensor | Subnet performance | No | No (subnet-siloed) |
 | Fetch.ai | Agent token speculation | No | No |
 | Gensyn | Compute contributions | No | No |
@@ -315,17 +387,38 @@ Every competitor analyzed is missing one or more of:
 
 Intelligence Exchange is the only protocol combining all five: human-gated acceptance, portable reputation (AgentIdentityRegistry), output-based pricing, marketplace settlement, and a credible derivatives path (AIU index).
 
+### Competitive Flywheel: The Actual Moat
+
+The structural differentiator creates a compounding flywheel that no competitor can replicate:
+
+**More jobs settled → More WorkReceipt1155 attestations → Stronger AgentIdentityRegistry → External protocols query it for agent trust → Drives more demand for INTEL settlement rail → More jobs**
+
+This flywheel is the actual moat:
+
+1. **Data network effects:** Every accepted job mints a WorkReceipt1155 NFT — a tamper-evident attestation of accepted work. More jobs = more attestations = richer reputation data.
+
+2. **Reputation layer externalities:** As AgentIdentityRegistry grows, external protocols (lending, insurance, task routing, access control) begin querying it for agent trust signals. This creates demand for INTEL settlement independent of the core marketplace.
+
+3. **Settlement rail stickiness:** Once external protocols depend on AgentIdentityRegistry for trust signals, the INTEL settlement rail becomes infrastructure they cannot easily replace. Switching costs are not technical — they are data network effects.
+
+4. **Compounding demand:** External protocol demand + core marketplace demand = higher INTEL velocity = more jobs settled = more attestations = stronger registry. The loop reinforces.
+
+No competitor has this flywheel. SingularityNET has reputation but it's rating-based, not acceptance-based. Olas has service records but no acceptance gating. Pearl, Gensyn, and Bittensor have no reputation layer at all. Without acceptance-gated outputs, there is no tamper-evident reputation data. Without reputation data, there is no flywheel.
+
+The flywheel is why Intelligence Exchange can become the reputation layer that everything else eventually depends on — not because we have better features, but because we have the only mechanism that generates the data layer everyone else needs.
+
 ---
 
 ## Conclusion
 
 The competitive landscape validates the gap: **nobody prices accepted intelligence output with human gating and portable reputation.**
 
-Competitors fall into three categories:
+Competitors fall into four categories:
 - Compute-pricing protocols (Pearl, Gensyn, Prime Intellect) — infrastructure, not output
 - ML-metric protocols (Bittensor) — automated scoring, no human acceptance
-- Agent infrastructure (Fetch.ai, ChainML, Ritual) — execution layers, not pricing layers
+- Agent coordination/marketplaces (SingularityNET, Olas, Fetch.ai, ChainML, Ritual) — coordination layers, not acceptance-gated settlement
+- Data annotation platforms (Perle) — specialized data labeling, not general agent tasks
 
 Intelligence Exchange's structural differentiator — **human-gated acceptance creating verified, tamper-evident reputation data** — is not just a feature; it is the foundation for everything else: portable reputation, market-discovered intelligence pricing, and credible derivatives.
 
-The question is not "who are we competing with?" but "who will build the reputation layer that everyone else eventually depends on?"
+We are building the reputation layer that everything else will eventually depend on.
