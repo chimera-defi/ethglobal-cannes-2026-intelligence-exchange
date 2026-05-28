@@ -1,11 +1,16 @@
 {
   "timeout_seconds": 600,
-  "max_retries": 1,
-  "fallback_engine": "kimi",
-  "fallback_model": "kimi-default",
+  "max_retries": 2,
+  "fallback_engine": "claude",
+  "fallback_provider": "anthropic",
+  "fallback_model": "claude-sonnet-4-6",
   "workspace": "/home/agents/workspace/ethglobal-cannes-2026-intelligence-exchange",
   "task_defaults": {
     "include_git_context": true,
     "include_recent_history": true
+  },
+  "_notes": {
+    "kimi_quota": "Kimi quota exhausted 2026-05-28, switched fallback to claude",
+    "delegation_threshold": "Use devin for tasks >2 files or >100 lines; inline for <50 lines single-file"
   }
 }
