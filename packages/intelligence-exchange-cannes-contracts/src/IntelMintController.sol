@@ -5,6 +5,7 @@ pragma solidity ^0.8.24;
 
 import {IntelToken} from "./IntelToken.sol";
 import {IntelStaking} from "./IntelStaking.sol";
+import {IUniswapV3Pool} from "./interfaces/IUniswapV3.sol";
 
 /// @title IntelMintController
 /// @notice Anti-reflexivity mint pricing with direct inflow routing.
@@ -31,6 +32,7 @@ contract IntelMintController {
     error Unauthorized();
     error ZeroAddress();
     error ZeroAmount();
+    error InvalidParam();
     error PriceTooLow(uint256 paid, uint256 required);
     error AllowanceInsufficient(address wallet, uint256 requested, uint256 remaining);
     error SlippageExceeded(uint256 price, uint256 maxPrice);
@@ -271,7 +273,7 @@ contract IntelMintController {
     // ─── Oracle / Operator Updates ────────────────────────────────────────────
 
     /// @notice Update TWAP. Called by operator after each oracle observation.
-    ///         Phase 2: replace with Chainlink / Uniswap V3 TWAP pull.
+    ///         Bootstrap method for before pool exists.
     /// @custom:access operator or owner
     /// @param  newTWAP New TWAP value in payment units per 1e18 INTEL (must be > 0).
     function updateTWAP(uint256 newTWAP) external onlyOperator {
@@ -279,6 +281,86 @@ contract IntelMintController {
         twap = newTWAP;
         twapUpdatedAt = block.timestamp;
         emit TWAPUpdated(newTWAP, block.timestamp);
+    }
+
+    /// @notice Pull TWAP from a Uniswap V3 pool and update the stored twap.
+    ///         Permissionless — anyone can call this to keep the oracle fresh.
+    /// @param  pool        IUniswapV3Pool address (INTEL/WETH 0.3% pool)
+    /// @param  twapPeriod  Observation window in seconds (recommended: 1800 = 30 min)
+    /// @param  intelIsToken0  True if INTEL address < WETH address on this pool
+    function pullTWAP(address pool, uint32 twapPeriod, bool intelIsToken0) external {
+        if (pool == address(0)) revert ZeroAddress();
+        if (twapPeriod < 60) revert InvalidParam();
+
+        uint32[] memory secondsAgos = new uint32[](2);
+        secondsAgos[0] = twapPeriod;
+        secondsAgos[1] = 0;
+
+        (int56[] memory tickCumulatives,) = IUniswapV3Pool(pool).observe(secondsAgos);
+
+        // Average tick over the window
+        int56 delta = tickCumulatives[1] - tickCumulatives[0];
+        int24 avgTick = int24(delta / int56(int32(twapPeriod)));
+
+        // Convert tick to price (ETH per 1e18 INTEL, scaled to 1e18)
+        uint256 price = _tickToPrice(avgTick, intelIsToken0);
+
+        // Enforce floor — never drop below floorPrice
+        if (price < floorPrice) price = floorPrice;
+
+        twap = price;
+        twapUpdatedAt = block.timestamp;
+        emit TWAPUpdated(price, block.timestamp);
+    }
+
+    /// @dev Convert Uniswap V3 tick to ETH-per-INTEL price scaled to 1e18.
+    ///      Uses the identity: sqrtPrice = 1.0001^(tick/2)
+    ///      price = sqrtPrice^2 = 1.0001^tick
+    function _tickToPrice(int24 tick, bool intelIsToken0) internal pure returns (uint256 price) {
+        // For tick = 0, price is exactly 1e18 (1.0001^0 = 1)
+        if (tick == 0) return 1e18;
+
+        bool negative = tick < 0;
+        uint256 absTick = uint256(int256(negative ? -int256(int24(tick)) : int256(int24(tick))));
+
+        // sqrtRatio starts at 1.0 in Q128.128 format (= 2^128)
+        uint256 ratio = 0x100000000000000000000000000000000;
+
+        // Uniswap V3 precomputed magic numbers (from TickMath.sol)
+        if (absTick & 0x1  != 0) ratio = (ratio * 0xfffcb933bd6fad37aa2d162d1a594001) >> 128;
+        if (absTick & 0x2  != 0) ratio = (ratio * 0xfff97272373d413259a46990580e213a) >> 128;
+        if (absTick & 0x4  != 0) ratio = (ratio * 0xfff2e50f5f656932ef12357cf3c7fdcc) >> 128;
+        if (absTick & 0x8  != 0) ratio = (ratio * 0xffe5caca7e10e4e61c3624eaa0941cd0) >> 128;
+        if (absTick & 0x10 != 0) ratio = (ratio * 0xffcb9843d60f6159c9db58835c926644) >> 128;
+        if (absTick & 0x20 != 0) ratio = (ratio * 0xff973b41fa98c081472e6896dfb254c0) >> 128;
+        if (absTick & 0x40 != 0) ratio = (ratio * 0xff2ea16466c96a3843ec78b326b52861) >> 128;
+        if (absTick & 0x80 != 0) ratio = (ratio * 0xfe5dee046a99a2a811c461f1969c3053) >> 128;
+        if (absTick & 0x100 != 0) ratio = (ratio * 0xfcbe86c7900a88aedcffc83b479aa3a4) >> 128;
+        if (absTick & 0x200 != 0) ratio = (ratio * 0xf987a7253ac413176f2b074cf7815e54) >> 128;
+        if (absTick & 0x400 != 0) ratio = (ratio * 0xf3392b0822b70005940c7a398e4b70f3) >> 128;
+        if (absTick & 0x800 != 0) ratio = (ratio * 0xe7159475a2c29b7443b29c7fa6e889d9) >> 128;
+        if (absTick & 0x1000 != 0) ratio = (ratio * 0xd097f3bdfd2022b8845ad8f792aa5825) >> 128;
+        if (absTick & 0x2000 != 0) ratio = (ratio * 0xa9f746462d870fdf8a65dc1f90e061e5) >> 128;
+        if (absTick & 0x4000 != 0) ratio = (ratio * 0x70d869a156d2a1b890bb3df62baf32f7) >> 128;
+        if (absTick & 0x8000 != 0) ratio = (ratio * 0x31be135f97d08fd981231505542fcfa6) >> 128;
+        if (absTick & 0x10000 != 0) ratio = (ratio * 0x9aa508b5b7a84e1c677de54f3e99bc9) >> 128;
+        if (absTick & 0x20000 != 0) ratio = (ratio * 0x5d6af8dedb81196699c329225ee604) >> 128;
+        if (absTick & 0x40000 != 0) ratio = (ratio * 0x2216e584f5fa1ea926041bedfe98) >> 128;
+        if (absTick & 0x80000 != 0) ratio = (ratio * 0x48a170391f7dc42444e8fa2) >> 128;
+
+        if (!negative) ratio = type(uint256).max / ratio;
+
+        // sqrtRatioX96 is ratio shifted right by 32 bits
+        uint160 sqrtRatioX96 = uint160((ratio >> 32) + (ratio % (1 << 32) == 0 ? 0 : 1));
+
+        // price = sqrtRatioX96^2 / 2^192, scaled to 1e18
+        uint256 sq = uint256(sqrtRatioX96) * uint256(sqrtRatioX96);
+        price = ((sq >> 128) * 1e18) >> 64;
+
+        // If INTEL is token1, price is INTEL-per-ETH, so invert to ETH-per-INTEL
+        if (!intelIsToken0) {
+            price = (1e18 * 1e18) / price;
+        }
     }
 
     /// @notice Update utilization metrics and recalculate multiplier.
