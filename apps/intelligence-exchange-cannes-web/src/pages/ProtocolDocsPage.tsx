@@ -614,6 +614,84 @@ export function ProtocolDocsPage() {
           </div>
         </div>
 
+        {/* ── Section 5: How We Price Intelligence ─────────────────────────── */}
+        <SectionHeading>How We Price Intelligence</SectionHeading>
+
+        <p className="text-sm text-slate-400 mb-6 max-w-3xl">
+          Every existing AI market prices an <em className="text-slate-200">input</em> — GPU-hours, API tokens, FLOPs, or
+          model credits. Intelligence Exchange prices an <em className="text-slate-200">output</em>: a human-accepted,
+          on-chain-attested unit of completed AI work.
+        </p>
+
+        <div className="space-y-4 mb-8">
+          {[
+            {
+              label: 'Pearl Protocol (PRL)',
+              what: 'GPU cycles (matrix multiplications)',
+              gap: 'Cryptographic proofs verify compute happened — not that results were useful. No human acceptance gating, no output reputation.',
+            },
+            {
+              label: 'Bittensor / Subnets',
+              what: 'ML subnet training metrics via automated validator scoring',
+              gap: 'Permissioned subnets owned by subnet operators. Machine metrics only. No marketplace settlement, no human review, no derivatives path.',
+            },
+            {
+              label: 'Gensyn / Prime Intellect',
+              what: 'Compute contribution to distributed ML training',
+              gap: 'Prices the input (compute), not the output (useful results). No acceptance gating or output reputation layer.',
+            },
+            {
+              label: 'Fetch.ai / Ritual / ChainML',
+              what: 'Agent execution or token speculation',
+              gap: 'No acceptance gating. Pricing reflects speculation or execution cost — not verified, accepted task completion.',
+            },
+          ].map(({ label, what, gap }) => (
+            <div
+              key={label}
+              className="rounded-md border border-slate-800 p-4 grid grid-cols-[160px_1fr_1fr] gap-4 items-start"
+              style={{ backgroundColor: '#0D1625' }}
+            >
+              <div className="text-sm font-semibold text-slate-200" style={{ fontFamily: 'Departure Mono, monospace' }}>{label}</div>
+              <div>
+                <div className="text-xs text-slate-500 mb-1">What they price</div>
+                <div className="text-sm text-slate-400">{what}</div>
+              </div>
+              <div>
+                <div className="text-xs text-red-500/70 mb-1">Structural gap</div>
+                <div className="text-sm text-slate-500">{gap}</div>
+              </div>
+            </div>
+          ))}
+
+          <div
+            className="rounded-md border border-blue-900/40 p-4 grid grid-cols-[160px_1fr_1fr] gap-4 items-start"
+            style={{ backgroundColor: '#0D1625' }}
+          >
+            <div className="text-sm font-semibold text-blue-300" style={{ fontFamily: 'Departure Mono, monospace' }}>Intelligence Exchange</div>
+            <div>
+              <div className="text-xs text-slate-500 mb-1">What we price</div>
+              <div className="text-sm text-slate-300">Accepted intelligence output — a human-reviewed, broker-settled, on-chain-attested unit of completed AI task work</div>
+            </div>
+            <div>
+              <div className="text-xs text-emerald-500/70 mb-1">Structural advantage</div>
+              <div className="text-sm text-slate-400">Every settlement produces a <code className="text-blue-300 text-xs">WorkReceipt1155</code> NFT and an <code className="text-blue-300 text-xs">AgentIdentityRegistry</code> attestation — a tamper-evident, portable reputation record no other protocol provides.</div>
+            </div>
+          </div>
+        </div>
+
+        <div
+          className="rounded-md border border-slate-700/50 p-4 mb-6"
+          style={{ backgroundColor: '#0a1220' }}
+        >
+          <div className="text-xs text-slate-500 uppercase tracking-wider mb-2">The AIU Index — Phase 3</div>
+          <p className="text-sm text-slate-400">
+            Aggregate settlement data from Phase 1 becomes the <strong className="text-white">AIU (Accepted Intelligence Unit)</strong> index —
+            a market-discovered price of one unit of verified AI work output. Phase 4 underpins perpetual futures:
+            AI-heavy companies short AIU to hedge agent cost exposure; worker pools go long on productivity.
+            No credible index exists today because no protocol captures human-gated output at scale. We are building the dataset.
+          </p>
+        </div>
+
         {/* Footer note */}
         <div className="mt-10 pb-10 text-xs text-slate-600 border-t border-slate-800 pt-4">
           Full governance spec:{' '}
