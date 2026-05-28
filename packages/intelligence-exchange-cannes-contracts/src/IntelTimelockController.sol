@@ -49,7 +49,12 @@ contract IntelTimelockController {
 
     // ─── Constants ────────────────────────────────────────────────────────
 
-    /// @notice Minimum enforceable delay (15 minutes — enough for testnets)
+    /// @notice Minimum enforceable delay.
+    /// @dev    Set to 15 minutes for testnet convenience (audit finding P4-T8).
+    ///         MAINNET BLOCKER: deploy with `_delay >= 24 hours` and raise this
+    ///         constant to `24 hours` before any mainnet deployment.
+    ///         The `_delay` constructor param enforces the floor; passing `48 hours`
+    ///         (DEFAULT_TIMELOCK_DELAY in Deploy.s.sol) is correct for mainnet.
     uint256 public constant MINIMUM_DELAY = 15 minutes;
 
     /// @notice Window after readyAt during which execute() is valid.

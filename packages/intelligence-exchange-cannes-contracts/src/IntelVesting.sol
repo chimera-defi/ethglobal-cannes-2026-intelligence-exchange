@@ -15,6 +15,7 @@ contract IntelVesting {
 
     error Unauthorized();
     error ZeroAddress();
+    error InvalidDuration(); // duration must be > 0
     error CliffNotReached();
     error AlreadyRevoked();
     error RevocationLockedAfterCliff();
@@ -75,7 +76,7 @@ contract IntelVesting {
         if (_token == address(0))       revert ZeroAddress();
         if (_beneficiary == address(0)) revert ZeroAddress();
         if (_treasury == address(0))    revert ZeroAddress();
-        if (_duration == 0)             revert ZeroAddress(); // reuse for "bad param"
+        if (_duration == 0)             revert InvalidDuration();
 
         token           = _token;
         beneficiary     = _beneficiary;
