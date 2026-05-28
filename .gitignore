@@ -21,6 +21,7 @@ packages/intelligence-exchange-cannes-contracts/out/
 packages/intelligence-exchange-cannes-contracts/cache/
 packages/intelligence-exchange-cannes-contracts/broadcast/
 packages/intelligence-exchange-cannes-contracts/.cache/
+packages/intelligence-exchange-cannes-contracts/deployments/*.json
 
 # Bun
 .bun/

@@ -1,7 +1,8 @@
 import { randomUUID } from 'crypto';
 import { and, eq, inArray } from 'drizzle-orm';
 import type { AcceptedSubmissionAttestation, ChainReceiptSync } from 'intelligence-exchange-cannes-shared';
-import { encodePacked, keccak256, toBytes } from 'viem';
+import { encodePacked, keccak256, toBytes, createWalletClient, http } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
 import { db } from '../db/client';
 import {
   acceptedAttestations,
@@ -309,4 +310,76 @@ export async function getLatestSubmissionForJob(jobId: string) {
   const [submission] = await db.select().from(submissions).where(eq(submissions.jobId, jobId));
   if (!submission) throw httpError('Submission not found for job', 404, 'SUBMISSION_NOT_FOUND');
   return submission;
+}
+
+export async function mintWorkReceipt(workerAddress: string, ideaId: string, agentFingerprint: string, score: number) {
+  const contractAddress = process.env.WORK_RECEIPT_CONTRACT_ADDRESS;
+  if (!contractAddress || contractAddress.trim() === '') {
+    console.warn('[chain:mintWorkReceipt] WORK_RECEIPT_CONTRACT_ADDRESS not set — skipping on-chain mint (off-chain-only mode)');
+    return;
+  }
+
+  const privateKey = process.env.BROKER_ATTESTOR_PRIVATE_KEY;
+  if (!privateKey) {
+    console.error('[chain:mintWorkReceipt] BROKER_ATTESTOR_PRIVATE_KEY not set — cannot mint WorkReceipt');
+    return;
+  }
+
+  const rpcUrl = process.env.WORLDCHAIN_RPC_URL;
+  const chainId = process.env.WORLDCHAIN_CHAIN_ID;
+  if (!rpcUrl || !chainId) {
+    console.error('[chain:mintWorkReceipt] WORLDCHAIN_RPC_URL or WORLDCHAIN_CHAIN_ID not set — cannot mint WorkReceipt');
+    return;
+  }
+
+  try {
+    const account = privateKeyToAccount(privateKey as `0x${string}`);
+
+    // Define minimal chain configuration for viem
+    const chain = {
+      id: Number(chainId),
+      name: 'Worldchain Sepolia',
+      nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+      rpcUrls: {
+        default: { http: [rpcUrl] },
+        public: { http: [rpcUrl] },
+      },
+    } as const;
+
+    const walletClient = createWalletClient({
+      account,
+      chain,
+      transport: http(),
+    });
+
+    // Encode the mint function call: mint(address worker, bytes32 taskId, bytes32 workerFingerprint, uint8 score)
+    const taskIdHash = keccak256(toBytes(ideaId));
+    const workerFingerprintBytes = agentFingerprint as `0x${string}`;
+    const scoreUint8 = Math.min(Math.max(score, 0), 100);
+
+    const hash = await walletClient.writeContract({
+      address: contractAddress as `0x${string}`,
+      abi: [
+        {
+          type: 'function',
+          name: 'mint',
+          stateMutability: 'nonpayable',
+          inputs: [
+            { name: 'worker', type: 'address' },
+            { name: 'taskId', type: 'bytes32' },
+            { name: 'workerFingerprint', type: 'bytes32' },
+            { name: 'score', type: 'uint8' },
+          ],
+          outputs: [{ name: 'tokenId', type: 'uint256' }],
+        },
+      ],
+      functionName: 'mint',
+      args: [workerAddress as `0x${string}`, taskIdHash, workerFingerprintBytes, scoreUint8],
+    });
+
+    console.log(`[chain:mintWorkReceipt] Minted WorkReceipt for worker=${workerAddress} ideaId=${ideaId} txHash=${hash}`);
+  } catch (err) {
+    console.error('[chain:mintWorkReceipt] Failed to mint WorkReceipt:', err);
+    // Do not throw — minting failure must not block the acceptance flow
+  }
 }

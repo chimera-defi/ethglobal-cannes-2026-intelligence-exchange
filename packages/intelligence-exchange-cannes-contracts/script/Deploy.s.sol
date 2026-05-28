@@ -72,8 +72,7 @@ contract Deploy is Script {
     uint256 public constant MINT_PREMIUM_BPS   = 500;      // 5% premium above TWAP
     uint256 public constant MINT_INITIAL_TWAP  = 0.001e18; // bootstrapped at floor
 
-    // WorkReceipt1155 default metadata base URI
-    string  public constant WORK_RECEIPT_BASE_URI = "https://api.iex.cannes/metadata/receipts/";
+    // WorkReceipt1155 default metadata base URI (can be overridden via WORK_RECEIPT_BASE_URI env var)
 
     // ── Token distribution (from 10M initial mint) ──────────────────────
     // Total: 10M = 2M + 2M + 2M + 2M + 1M + 1M
@@ -159,13 +158,8 @@ contract Deploy is Script {
             console2.log("GRANTS_MULTISIG not set - using deployer as grants multisig");
         }
 
-        uint256 timelockDelay = DEFAULT_TIMELOCK_DELAY;
-        try vm.envUint("TIMELOCK_DELAY") returns (uint256 d) {
-            timelockDelay = d;
-            console2.log("TIMELOCK_DELAY override:", d);
-        } catch {
-            console2.log("TIMELOCK_DELAY: default 48h");
-        }
+        uint256 timelockDelay = vm.envOr("TIMELOCK_DELAY", uint256(48 hours));
+        console2.log("TIMELOCK_DELAY:", timelockDelay);
 
         // ── Chain detection & address resolution ─────────────────────────
         uint256 chainId    = block.chainid;
@@ -295,9 +289,10 @@ contract Deploy is Script {
         console2.log("IntelMintController:", address(result.mintController));
 
         // ── 10. WorkReceipt1155 ──────────────────────────────────────────
+        string memory baseUri = vm.envOr("WORK_RECEIPT_BASE_URI", string("https://api.iex.cannes/metadata/receipts/"));
         result.workReceipt = new WorkReceipt1155(
             result.deployer,
-            WORK_RECEIPT_BASE_URI
+            baseUri
         );
         console2.log("WorkReceipt1155:", address(result.workReceipt));
 
