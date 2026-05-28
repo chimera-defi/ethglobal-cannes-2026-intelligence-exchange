@@ -3,6 +3,16 @@ import { STALLED_JOB_INTERVAL_MS } from 'intelligence-exchange-cannes-shared';
 import type { BrokerDb } from '../db/client';
 import { logJobEvent } from '../services/jobEvents';
 
+/*
+ * PRODUCTION SECURITY: Redis must be hardened before exposing the stack publicly.
+ *
+ *   1. requirepass: Add `requirepass <strong-random-password>` to redis.conf and
+ *      update REDIS_URL to redis://:<password>@127.0.0.1:6379
+ *   2. bind: Ensure redis.conf has `bind 127.0.0.1` so Redis is NOT reachable
+ *      from external interfaces.
+ *   3. No pub/sub channels expose sensitive data — the milestone-jobs queue
+ *      carries only job IDs and milestone types (no PII, no keys).
+ */
 const REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6379';
 
 // Parse redis connection from URL
@@ -12,6 +22,24 @@ function parseRedisConnection(url: string) {
     return { host: u.hostname, port: parseInt(u.port || '6379', 10) };
   } catch {
     return { host: 'localhost', port: 6379 };
+  }
+}
+
+// Security: warn if REDIS_URL resolves to a non-loopback address in production
+if (process.env.NODE_ENV === 'production') {
+  try {
+    const parsedRedis = new URL(REDIS_URL);
+    const host = parsedRedis.hostname;
+    const isLocalhost = host === 'localhost' || host === '127.0.0.1' || host === '::1';
+    if (!isLocalhost) {
+      console.warn(
+        '[security:redis] WARNING: REDIS_URL points to a non-localhost host in production (' + host + '). ' +
+        'Ensure Redis is firewalled and requirepass is set. ' +
+        'See: https://redis.io/docs/manual/security/'
+      );
+    }
+  } catch {
+    // unparseable URL — leave connection setup to fail naturally
   }
 }
 
