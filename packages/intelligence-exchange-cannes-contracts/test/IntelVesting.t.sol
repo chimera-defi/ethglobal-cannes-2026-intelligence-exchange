@@ -73,6 +73,11 @@ contract IntelVestingTest is Test {
         new IntelVesting(address(token), beneficiary, address(0), startTime, CLIFF_DELAY, DURATION, TOTAL);
     }
 
+    function test_reverts_on_zero_duration() public {
+        vm.expectRevert(IntelVesting.InvalidDuration.selector);
+        new IntelVesting(address(token), beneficiary, treasury, startTime, CLIFF_DELAY, 0, TOTAL);
+    }
+
     // ─── vestedAmount ─────────────────────────────────────────────────────
 
     function test_vested_before_cliff_is_zero() public view {

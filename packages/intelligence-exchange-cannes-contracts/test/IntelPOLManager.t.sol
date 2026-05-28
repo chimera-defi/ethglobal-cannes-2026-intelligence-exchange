@@ -156,6 +156,12 @@ contract IntelPOLManagerTest is Test {
         pol.withdrawIntel(address(0), 1_000e18);
     }
 
+    function test_withdrawIntel_reverts_zero_amount() public {
+        vm.prank(owner);
+        vm.expectRevert(IntelPOLManager.ZeroAmount.selector);
+        pol.withdrawIntel(alice, 0);
+    }
+
     // ─── enablePhase2 ────────────────────────────────────────────────────
 
     function test_enablePhase2_by_owner() public {
@@ -187,49 +193,39 @@ contract IntelPOLManagerTest is Test {
         pol.deployToUniV3(fakePool, 1_000e18, 1 ether, -60, 60);
     }
 
-    function test_deployToUniV3_after_enable_emits_event() public {
+    function test_deployToUniV3_after_enable_reverts_not_implemented() public {
+        // Stub always reverts Phase2NotImplemented after phase2 is enabled
+        // (audit fix P4-P5: prevents false UniV3Deployed events on-chain).
         vm.prank(owner);
         pol.enablePhase2();
 
         address fakePool = makeAddr("pool");
-        // Must succeed (stub) and emit event
-        vm.expectEmit(true, false, false, true);
-        emit IntelPOLManager.UniV3Deployed(fakePool, 1_000e18, 1 ether, -60, 60);
         vm.prank(owner);
+        vm.expectRevert(IntelPOLManager.Phase2NotImplemented.selector);
         pol.deployToUniV3(fakePool, 1_000e18, 1 ether, -60, 60);
     }
 
     function test_deployToUniV3_reverts_insufficient_eth() public {
-        vm.prank(owner);
-        pol.enablePhase2();
-
+        // Phase2 not enabled → Phase2NotEnabled (before balance check)
         address fakePool = makeAddr("pool");
         vm.prank(owner);
-        vm.expectRevert(
-            abi.encodeWithSelector(IntelPOLManager.InsufficientBalance.selector, 10 ether, 100 ether)
-        );
+        vm.expectRevert(IntelPOLManager.Phase2NotEnabled.selector);
         pol.deployToUniV3(fakePool, 1_000e18, 100 ether, -60, 60);
     }
 
     function test_deployToUniV3_reverts_insufficient_intel() public {
-        vm.prank(owner);
-        pol.enablePhase2();
-
+        // Phase2 not enabled → Phase2NotEnabled (before balance check)
         address fakePool = makeAddr("pool");
         uint256 tooMuch = INTEL_SEED + 1;
         vm.prank(owner);
-        vm.expectRevert(
-            abi.encodeWithSelector(IntelPOLManager.InsufficientBalance.selector, INTEL_SEED, tooMuch)
-        );
+        vm.expectRevert(IntelPOLManager.Phase2NotEnabled.selector);
         pol.deployToUniV3(fakePool, tooMuch, 1 ether, -60, 60);
     }
 
     function test_deployToUniV3_reverts_zero_pool() public {
+        // Phase2 not enabled → Phase2NotEnabled (before zero-address check)
         vm.prank(owner);
-        pol.enablePhase2();
-
-        vm.prank(owner);
-        vm.expectRevert(IntelPOLManager.ZeroAddress.selector);
+        vm.expectRevert(IntelPOLManager.Phase2NotEnabled.selector);
         pol.deployToUniV3(address(0), 1_000e18, 1 ether, -60, 60);
     }
 
