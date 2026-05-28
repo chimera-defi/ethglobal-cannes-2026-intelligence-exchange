@@ -39,6 +39,12 @@ contract IntelMintController {
     error MintingPaused();
     error EpochMintCapExceeded(uint256 requested, uint256 remaining);
 
+    // ─── Constants ────────────────────────────────────────────────────────────
+
+    /// @notice Maximum age of TWAP before it is considered stale.
+    ///         When stale, mintPrice() falls back to floorPrice.
+    uint256 public constant TWAP_MAX_AGE = 2 hours;
+
     // ─── Events ───────────────────────────────────────────────────────────────
 
     event MintExecuted(
@@ -176,11 +182,19 @@ contract IntelMintController {
 
     // ─── Price View ───────────────────────────────────────────────────────────
 
+    /// @notice Returns true if the stored TWAP is older than TWAP_MAX_AGE.
+    ///         Callers may check this before relying on mintPrice().
+    function twapIsStale() public view returns (bool) {
+        return twapUpdatedAt > 0 && block.timestamp - twapUpdatedAt > TWAP_MAX_AGE;
+    }
+
     /// @notice Current mint price per 1e18 INTEL in payment units.
     /// @dev    mintPrice = max(TWAP * (1 + premium), floorPrice) * utilizationMultiplier
+    ///         Falls back to floorPrice when TWAP is stale (> TWAP_MAX_AGE old).
     /// @return Current mint price in payment token wei per 1e18 INTEL.
     function mintPrice() public view returns (uint256) {
-        uint256 twapWithPremium = (twap * (BPS + premiumBps)) / BPS;
+        uint256 effectiveTWAP = twapIsStale() ? floorPrice : twap;
+        uint256 twapWithPremium = (effectiveTWAP * (BPS + premiumBps)) / BPS;
         uint256 base = twapWithPremium > floorPrice ? twapWithPremium : floorPrice;
         return (base * utilizationMultiplierBps) / BPS;
     }
