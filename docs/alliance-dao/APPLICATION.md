@@ -145,6 +145,13 @@ No users, no revenue, no GMV today. The financial model (in `spec/FINANCIAL_MODE
 | OpenRouter / Together AI | Model API access | No marketplace, no reputation, no settlement |
 | Daydreams (Taskmarket + Router) | Agent task routing | No on-chain settlement, no reputation attestation, no derivatives path |
 | Bittensor / Subnets | ML subnet training metrics | Permissioned subnets, no human review gating, no marketplace settlement, no derivatives path |
+| Pearl Protocol (PRL) | GPU cycles (matrix multiplication) | No acceptance gating, prices compute not output, no reputation layer |
+| Perle (PRL) | Data annotation services | Data-specific, not general agent tasks, limited reputation portability |
+| Fetch.ai (FET/ASI) | Agent token speculation | No acceptance gating, pricing speculative, no reputation layer |
+| Gensyn ($AI) | Compute contributions (ML training) | Prices compute input, no human acceptance, no output reputation |
+| Ritual | AI computation execution | Prices execution, not accepted output, no reputation layer |
+| ChainML (TAI) | Agent execution | No acceptance gating, no reputation for output quality |
+| Prime Intellect (PI) | Compute contribution | Prices compute input, no human acceptance, no output reputation |
 | Upwork / Fiverr | Human freelance labor | Not designed for AI agents, no on-chain settlement |
 | **Us vs. Nothing** | **Accepted intelligence output** | **No on-chain intelligence reputation layer exists** |
 
