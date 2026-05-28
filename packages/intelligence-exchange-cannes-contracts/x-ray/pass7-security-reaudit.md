@@ -70,7 +70,11 @@ Ensure that `IntelMintController` and all settlement contract addresses are regi
 
 ## LOW findings
 
-**P7-A2 — LOW — OPEN: Missing TWAP staleness check in IntelMintController**
+**P7-A2 — LOW — FIXED: Missing TWAP staleness check in IntelMintController**
+
+> **Resolution (2026-05-28):** Added `twapIsStale()` view and `TWAP_MAX_AGE = 2 hours` constant. `mintPrice()` now falls back to `floorPrice` when TWAP is stale, preventing stale oracle pricing while keeping minting operational. 356 tests pass.
+
+
 
 **Contract:** `IntelMintController.sol`  
 **Function:** `pullTWAP()` (line 292)  
@@ -112,7 +116,11 @@ Alternatively, add a `forceUpdateTWAP` function with stricter access control (e.
 
 ---
 
-**P7-A3 — LOW — OPEN: Missing input validation for jobId/milestoneId in broker API**
+**P7-A3 — LOW — FIXED: Missing input validation for jobId/milestoneId in broker API**
+
+> **Resolution (2026-05-28):** Added explicit `!jobId || !jobId.trim()` guard in GET `/:jobId`, GET `/:jobId/skill.md`, and POST `/:jobId/claim` handlers — returns 400 with INVALID_PARAM code. Verified via curl: whitespace jobId now returns 400. TypeScript clean.
+
+
 
 **Component:** Broker API  
 **Files:** `apps/intelligence-exchange-cannes-broker/src/routes/jobs.ts`, `apps/intelligence-exchange-cannes-broker/src/services/jobService.ts`  
@@ -200,10 +208,10 @@ jobsRouter.get('/:jobId', async (c) => {
 
 **Fixed in pass7:**
 1. ✅ **FIXED:** Added `onlyOperator` modifier to IntelStaking yield deposit functions (P7-A1)
+2. ✅ **FIXED:** TWAP staleness fallback in `mintPrice()` + `twapIsStale()` view (P7-A2)
+3. ✅ **FIXED:** jobId input validation in broker job routes (P7-A3)
 
 **Recommended before mainnet:**
-1. **SHOULD FIX:** Add TWAP staleness check to IntelMintController (P7-A2)
-2. **SHOULD FIX:** Add explicit input validation for jobId/milestoneId in broker API (P7-A3)
-3. **MANDATORY:** Raise IntelTimelockController.MINIMUM_DELAY to ≥24 hours (P6-A4)
+1. **MANDATORY:** Raise IntelTimelockController.MINIMUM_DELAY to ≥24 hours (P6-A4)
 
 **No CRITICAL or HIGH severity findings.** The codebase maintains strong security posture with comprehensive access control, CEI pattern with reentrancy guards, and Solidity 0.8.24 built-in overflow protection.

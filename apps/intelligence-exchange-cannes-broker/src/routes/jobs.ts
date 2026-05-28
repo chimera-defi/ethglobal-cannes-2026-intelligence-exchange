@@ -381,6 +381,7 @@ jobsRouter.get('/', async (c) => {
 // GET /v1/cannes/jobs/:jobId — get job details
 jobsRouter.get('/:jobId', async (c) => {
   const { jobId } = c.req.param();
+  if (!jobId || !jobId.trim()) return c.json({ error: { code: 'INVALID_PARAM', message: 'jobId is required' } }, 400);
   const detail = await getJobDetail(jobId);
   if (!detail) return c.json({ error: { code: 'NOT_FOUND', message: 'Job not found' } }, 404);
   return c.json(detail);
@@ -389,6 +390,7 @@ jobsRouter.get('/:jobId', async (c) => {
 // GET /v1/cannes/jobs/:jobId/skill.md — serve skill.md task file for agents
 jobsRouter.get('/:jobId/skill.md', async (c) => {
   const { jobId } = c.req.param();
+  if (!jobId || !jobId.trim()) return c.json({ error: { code: 'INVALID_PARAM', message: 'jobId is required' } }, 400);
   const result = await buildSkillMdResponse(jobId);
   if ('error' in result) {
     return c.json({ error: result.error }, result.status);
@@ -399,6 +401,7 @@ jobsRouter.get('/:jobId/skill.md', async (c) => {
 // POST /v1/cannes/jobs/:jobId/claim — agent claims a milestone
 jobsRouter.post('/:jobId/claim', zValidator('json', JobClaimRequestSchema), async (c) => {
   const { jobId } = c.req.param();
+  if (!jobId || !jobId.trim()) return c.json({ error: { code: 'INVALID_PARAM', message: 'jobId is required' } }, 400);
   const req = c.req.valid('json');
 
   try {
