@@ -315,6 +315,77 @@ vercel --prod
 
 ---
 
+## Option 4: Self-Hosted (Caddy on Hetzner/DigitalOcean VPS)
+
+Replaces Vercel (web) + Railway (broker) with a single VPS. Used for hackathon demo at ETHGlobal Cannes 2026.
+
+### Architecture
+
+```
+Internet → VPS:80 → Caddy reverse proxy
+                         │
+                         ├── /v1/*  → broker:3001  (keep /v1 prefix)
+                         ├── /api/* → broker:3001  (strip /api prefix)
+                         └── /*     → web:3100     (Vite build)
+```
+
+### Quick Start
+
+```bash
+# 1. Clone and configure
+git clone <repo> && cd intelligence-exchange-cannes-2026
+cp apps/intelligence-exchange-cannes-broker/.env.example apps/intelligence-exchange-cannes-broker/.env
+cp apps/intelligence-exchange-cannes-web/.env.example apps/intelligence-exchange-cannes-web/.env.local
+
+# 2. Edit .env files with your secrets (BROKER_ATTESTOR_PRIVATE_KEY, etc.)
+# 3. Install Caddy + configure
+./infra/scripts/deploy-caddy.sh --ip YOUR_SERVER_IP
+
+# 4. Start the stack
+./infra/scripts/server-up.sh --build
+
+# 5. Verify security
+./infra/scripts/security-scan.sh --host http://YOUR_SERVER_IP
+
+# 6. Tear down after testing
+./infra/scripts/server-down.sh --caddy
+```
+
+### Security headers (applied by Caddy automatically)
+
+| Header | Value |
+|--------|-------|
+| `X-Frame-Options` | `DENY` |
+| `X-Content-Type-Options` | `nosniff` |
+| `X-XSS-Protection` | `1; mode=block` |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` |
+| `Permissions-Policy` | `geolocation=(), microphone=(), camera=()` |
+| `Server` | (stripped) |
+
+### Blocked paths (403)
+
+`.env`, `.git*`, `package.json`, `package-lock.json`, `.npmrc`
+
+### Production security checklist
+
+- [ ] Redis: `requirepass <password>` + `bind 127.0.0.1` in `redis.conf`
+- [ ] Postgres: dedicated low-privilege user, `scram-sha-256` in `pg_hba.conf`
+- [ ] Set `CORS_ALLOWED_ORIGINS=https://yourdomain.com` in broker `.env`
+- [ ] Firewall ports 3001/3100/5432/6379 from public internet
+- [ ] Enable TLS: change `auto_https off` → `auto_https on` in Caddyfile once using a domain
+
+### Comparison with managed hosting
+
+| Factor | Caddy Self-Hosted | Vercel + Railway | Fly.io |
+|--------|------------------|-----------------|--------|
+| **Setup time** | 30 min | 15 min | 20 min |
+| **Cost** | VPS only (~$5/mo) | Free → $20+/mo | Free → $10+/mo |
+| **Control** | Full | Limited | Moderate |
+| **SSL** | Manual (auto w/ domain) | Automatic | Automatic |
+| **Scripts** | `infra/scripts/` | N/A | flyctl |
+
+---
+
 ## Environment Variables Summary
 
 ### Frontend (Vercel)
