@@ -8,11 +8,6 @@ import {IntelStaking} from "./IntelStaking.sol";
 import {ReviewerStakeManager} from "./ReviewerStakeManager.sol";
 import {WorkerStakeManager} from "./WorkerStakeManager.sol";
 
-interface IReviewerStakeManager {
-    function slash(address reviewer, uint256 amount) external;
-    function reviewerBond(address reviewer) external view returns (uint256);
-}
-
 /// @title DisputeResolution
 /// @notice On-chain dispute resolution for the Assay Protocol using staker juries.
 ///
@@ -35,7 +30,6 @@ contract DisputeResolution {
     error DisputeNotPending();
     error InvalidJuror();
     error QuorumTooHigh();
-    error TaskAlreadyDisputed(bytes32 taskId);
 
     // ─── Events ───────────────────────────────────────────────────────────────
 
@@ -68,8 +62,6 @@ contract DisputeResolution {
     event DisputeWindowUpdated(uint256 oldWindow, uint256 newWindow);
     event VotingWindowUpdated(uint256 oldWindow, uint256 newWindow);
     event DisputeBondUpdated(uint256 oldBond, uint256 newBond);
-    event ReviewerSlashBpsUpdated(uint256 oldBps, uint256 newBps);
-    event SlashFailed(uint256 indexed disputeId, address indexed target, bytes reason);
     event ReviewerStakeManagerUpdated(address indexed oldManager, address indexed newManager);
     event WorkerStakeManagerUpdated(address indexed oldManager, address indexed newManager);
 
@@ -89,7 +81,6 @@ contract DisputeResolution {
     uint256 public disputeWindow;   // default 72 hours
     uint256 public votingWindow;    // default 48 hours
     uint256 public disputeBond;     // default 100e18 INTEL
-    uint256 public reviewerSlashBps; // default 2000 (20%)
 
     // Dispute state
     enum DisputeState { Pending, UpheldWorkerFault, UpheldReviewerFault, Rejected, Expired }
@@ -107,13 +98,11 @@ contract DisputeResolution {
         uint256 votesReject;
         address[] jury;
         mapping(address => bool) hasVoted;
-        mapping(address => bool) jurorVotedUphold;
     }
 
     mapping(uint256 => Dispute) public disputes;
     uint256 public nextDisputeId;
     mapping(address => uint256[]) public activeJuryDuty; // juror => disputeIds
-    mapping(bytes32 => uint256) public taskDisputeId; // taskId => disputeId+1 (0 = no dispute)
 
     // Ownership
     address public owner;
@@ -170,7 +159,6 @@ contract DisputeResolution {
         disputeWindow = 72 hours;
         votingWindow = 48 hours;
         disputeBond = 100e18;  // 100 INTEL
-        reviewerSlashBps = 2000;  // 20%
         _reentrancyStatus = _NOT_ENTERED;
     }
 
@@ -188,7 +176,6 @@ contract DisputeResolution {
     ) external nonReentrant {
         if (worker == address(0)) revert ZeroAddress();
         if (reviewer == address(0)) revert ZeroAddress();
-        if (taskDisputeId[taskId] != 0) revert TaskAlreadyDisputed(taskId);
 
         uint256 disputeId = nextDisputeId++;
         Dispute storage dispute = disputes[disputeId];
@@ -203,12 +190,9 @@ contract DisputeResolution {
         dispute.state = DisputeState.Pending;
 
         // Transfer bond from disputer
-        // Note: IntelToken is a standard OZ ERC20 that reverts on failure.
-        // The bool check is defensive; the require ensures execution stops on false return.
         bool bondOk = intel.transferFrom(msg.sender, address(this), disputeBond);
         require(bondOk, "DisputeResolution: bond transferFrom failed");
 
-        taskDisputeId[taskId] = disputeId + 1; // +1 so 0 means no dispute
         emit DisputeOpened(disputeId, taskId, msg.sender, worker, reviewer, disputeBond);
     }
 
@@ -226,7 +210,7 @@ contract DisputeResolution {
         for (uint256 i = 0; i < jurors.length; i++) {
             if (jurors[i] == address(0)) revert ZeroAddress();
             // Check juror has staked INTEL > 0
-            (uint256 staked,,,,,,,,,,) = staking.stakers(jurors[i]);
+            (uint256 staked,,,,,,,) = staking.stakers(jurors[i]);
             if (staked == 0) revert InvalidJuror();
         }
 
@@ -262,7 +246,6 @@ contract DisputeResolution {
         if (!isJuror) revert NotJuror();
 
         dispute.hasVoted[msg.sender] = true;
-        dispute.jurorVotedUphold[msg.sender] = uphold;
         if (uphold) {
             dispute.votesUphold++;
         } else {
@@ -275,8 +258,7 @@ contract DisputeResolution {
     /// @notice Resolve a dispute after voting deadline.
     /// @dev Tallies votes and executes slashing/bond return logic.
     /// @param disputeId Dispute ID.
-    /// @param reviewerAtFault True if reviewer is at fault (fraudulent accept), false if worker is at fault.
-    function resolveDispute(uint256 disputeId, bool reviewerAtFault) external onlyOperator nonReentrant {
+    function resolveDispute(uint256 disputeId) external nonReentrant {
         Dispute storage dispute = disputes[disputeId];
         if (dispute.state != DisputeState.Pending) revert DisputeNotPending();
         if (block.timestamp <= dispute.votingDeadline) revert VotingWindowOpen();
@@ -294,69 +276,35 @@ contract DisputeResolution {
             // Check quorum
             uint256 quorumThreshold = (jurorCount * quorumBps) / 10000;
             if (dispute.votesUphold >= quorumThreshold) {
-                if (reviewerAtFault) {
-                    // Dispute upheld - reviewer at fault (fraudulent accept)
-                    dispute.state = DisputeState.UpheldReviewerFault;
-
-                    // Slash reviewer by proportion of their bond
-                    if (address(reviewerStakeManager) != address(0)) {
-                        try reviewerStakeManager.reviewerBond(dispute.reviewer) returns (uint256 reviewerBondAmount) {
-                            uint256 slashAmount = (reviewerBondAmount * reviewerSlashBps) / 10000;
-                            if (slashAmount > 0) {
-                                try reviewerStakeManager.slash(dispute.reviewer, slashAmount) {
-                                    reviewerSlashed = true;
-                                    emit BondSlashed(disputeId, dispute.reviewer, slashAmount);
-                                } catch (bytes memory reason) {
-                                    emit SlashFailed(disputeId, dispute.reviewer, reason);
-                                }
-                            }
-                        } catch (bytes memory reason) {
-                            emit SlashFailed(disputeId, dispute.reviewer, reason);
-                        }
-                    }
-
-                    // Return bond to disputer
-                    _returnBond(disputeId, dispute.disputer, dispute.bond);
-                } else {
-                    // Dispute upheld - worker at fault
-                    dispute.state = DisputeState.UpheldWorkerFault;
-
-                    // Slash worker
-                    if (address(workerStakeManager) != address(0)) {
-                        try workerStakeManager.slash(dispute.worker, dispute.bond, dispute.disputer) {
-                            workerSlashed = true;
-                            emit BondSlashed(disputeId, dispute.worker, dispute.bond);
-                        } catch (bytes memory reason) {
-                            emit SlashFailed(disputeId, dispute.worker, reason);
-                        }
-                    }
-
-                    // Slash reviewer
-                    if (address(reviewerStakeManager) != address(0)) {
-                        try reviewerStakeManager.slash(dispute.reviewer, dispute.bond) {
-                            reviewerSlashed = true;
-                            emit BondSlashed(disputeId, dispute.reviewer, dispute.bond);
-                        } catch (bytes memory reason) {
-                            emit SlashFailed(disputeId, dispute.reviewer, reason);
-                        }
-                    }
-
-                    // Return bond to disputer with bonus
-                    _returnBond(disputeId, dispute.disputer, dispute.bond);
+                // Dispute upheld - slash worker and reviewer
+                dispute.state = DisputeState.UpheldWorkerFault;
+                
+                // Slash worker
+                if (address(workerStakeManager) != address(0)) {
+                    try workerStakeManager.slash(dispute.worker, dispute.bond, dispute.disputer) {
+                        workerSlashed = true;
+                        emit BondSlashed(disputeId, dispute.worker, dispute.bond);
+                    } catch {}
                 }
+
+                // Slash reviewer
+                if (address(reviewerStakeManager) != address(0)) {
+                    try reviewerStakeManager.slash(dispute.reviewer, dispute.bond) {
+                        reviewerSlashed = true;
+                        emit BondSlashed(disputeId, dispute.reviewer, dispute.bond);
+                    } catch {}
+                }
+
+                // Return bond to disputer with bonus
+                _returnBond(disputeId, dispute.disputer, dispute.bond);
             } else {
                 // Dispute rejected - slash disputer's bond
                 dispute.state = DisputeState.Rejected;
                 _slashBond(disputeId, dispute.disputer, dispute.bond);
-
+                
                 // Reward correct jurors (those who voted reject)
                 _rewardJurors(disputeId, false);
             }
-        }
-
-        // Clear task lock if dispute was rejected/expired — allow re-dispute
-        if (dispute.state == DisputeState.Rejected || dispute.state == DisputeState.Expired) {
-            taskDisputeId[dispute.taskId] = 0;
         }
 
         emit DisputeResolved(disputeId, dispute.state, workerSlashed, reviewerSlashed);
@@ -372,25 +320,18 @@ contract DisputeResolution {
         dispute.state = DisputeState.Expired;
         _returnBond(disputeId, dispute.disputer, dispute.bond);
 
-        // Clear task lock — allow re-dispute
-        taskDisputeId[dispute.taskId] = 0;
-
         emit DisputeExpired(disputeId);
     }
 
     // ─── Internal Helpers ─────────────────────────────────────────────────────
 
     function _returnBond(uint256 disputeId, address recipient, uint256 amount) private {
-        // Note: IntelToken is a standard OZ ERC20 that reverts on failure.
-        // The bool check is defensive; the require ensures execution stops on false return.
         bool transferOk = intel.transfer(recipient, amount);
         require(transferOk, "DisputeResolution: bond return transfer failed");
         emit BondReturned(disputeId, recipient, amount);
     }
 
     function _slashBond(uint256 disputeId, address slashed, uint256 amount) private {
-        // Note: IntelToken is a standard OZ ERC20 that reverts on failure.
-        // The bool check is defensive; the require ensures execution stops on false return.
         bool transferOk = intel.transfer(treasury, amount);
         require(transferOk, "DisputeResolution: bond slash transfer failed");
         emit BondSlashed(disputeId, slashed, amount);
@@ -398,36 +339,28 @@ contract DisputeResolution {
 
     function _rewardJurors(uint256 disputeId, bool rewardUpholdVoters) private {
         Dispute storage dispute = disputes[disputeId];
-
+        
         // Simple reward: split bond among correct jurors
         uint256 correctVotes = rewardUpholdVoters ? dispute.votesUphold : dispute.votesReject;
         if (correctVotes == 0) return;
 
         uint256 rewardPerJuror = dispute.bond / correctVotes;
-        uint256 distributed = 0;
-        address lastRewardedJuror;
-
+        
         for (uint256 i = 0; i < dispute.jury.length; i++) {
             address juror = dispute.jury[i];
-            // Check if juror voted correctly (track actual vote direction)
-            if (dispute.hasVoted[juror] && dispute.jurorVotedUphold[juror] == rewardUpholdVoters) {
-                // Note: IntelToken is a standard OZ ERC20 that reverts on failure.
-                // The bool check is defensive; the conditional emit handles false return gracefully.
+            // Check if juror voted correctly
+            bool votedCorrectly = false;
+            if (rewardUpholdVoters && dispute.hasVoted[juror]) {
+                votedCorrectly = true; // Simplified - in production track vote direction
+            } else if (!rewardUpholdVoters && dispute.hasVoted[juror]) {
+                votedCorrectly = true; // Simplified
+            }
+            
+            if (votedCorrectly) {
                 bool transferOk = intel.transfer(juror, rewardPerJuror);
                 if (transferOk) {
-                    distributed += rewardPerJuror;
-                    lastRewardedJuror = juror;
                     emit JurorRewarded(disputeId, juror, rewardPerJuror);
                 }
-            }
-        }
-
-        // Give dust to last rewarded juror
-        if (distributed < dispute.bond && correctVotes > 0 && lastRewardedJuror != address(0)) {
-            uint256 dust = dispute.bond - distributed;
-            bool transferOk = intel.transfer(lastRewardedJuror, dust);
-            if (transferOk) {
-                emit JurorRewarded(disputeId, lastRewardedJuror, dust);
             }
         }
     }
@@ -473,15 +406,6 @@ contract DisputeResolution {
     function setDisputeBond(uint256 _disputeBond) external onlyOwner {
         emit DisputeBondUpdated(disputeBond, _disputeBond);
         disputeBond = _disputeBond;
-    }
-
-    /// @notice Set the reviewer slash basis points.
-    /// @custom:access owner
-    /// @param _reviewerSlashBps New reviewer slash in BPS (10000 = 100%).
-    function setReviewerSlashBps(uint256 _reviewerSlashBps) external onlyOwner {
-        if (_reviewerSlashBps > 10000) revert QuorumTooHigh();
-        emit ReviewerSlashBpsUpdated(reviewerSlashBps, _reviewerSlashBps);
-        reviewerSlashBps = _reviewerSlashBps;
     }
 
     /// @notice Set the treasury address.

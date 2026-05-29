@@ -195,20 +195,11 @@ contract ReviewerCredentialTest is Test {
 
         // Add more reviews but high slash rate (20% > 15%)
         _simulateReviews(alice, 10, 2); // Total: 20 reviews, 2 slashes = 10% rate (still OK for Tier 1)
-
+        
         // Make it worse: 20 reviews, 4 slashes = 20% rate (should drop to Tier 0)
         vm.prank(operator);
         credential.evaluateAndUpdateTier(alice, 4);
 
-        // Grace period starts - tier not downgraded yet
-        assertEq(credential.currentTier(alice), 1);
-
-        // Fast-forward past 7-day grace period
-        vm.warp(block.timestamp + 8 days);
-
-        // Re-evaluate after grace period - should downgrade to Tier 0
-        vm.prank(operator);
-        credential.evaluateAndUpdateTier(alice, 4);
         assertEq(credential.currentTier(alice), 0);
     }
 

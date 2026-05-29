@@ -71,8 +71,6 @@ contract WorkerStakeManager {
     mapping(address => uint256) public workerStake;
     mapping(address => uint256) public unstakeAvailableAt;
     mapping(address => uint256) public pendingUnstake;
-    mapping(address => uint256) public slashLockUntil;
-    uint256 public constant SLASH_LOCK_WINDOW = 1 hours;
 
     address public treasuryAddress;
 
@@ -132,8 +130,6 @@ contract WorkerStakeManager {
         if (amount == 0) revert ZeroAmount();
 
         // Transfer tokens from worker
-        // Note: IntelToken is a standard OZ ERC20 that reverts on failure.
-        // The bool check is defensive; the require ensures execution stops on false return.
         bool stakeOk = intel.transferFrom(msg.sender, address(this), amount);
         require(stakeOk, "WorkerStakeManager: stake transferFrom failed");
 
@@ -155,7 +151,6 @@ contract WorkerStakeManager {
         workerStake[msg.sender] = currentStake - amount;
         pendingUnstake[msg.sender] += amount;
         unstakeAvailableAt[msg.sender] = block.timestamp + cooldown;
-        slashLockUntil[msg.sender] = block.timestamp + SLASH_LOCK_WINDOW;
 
         emit UnstakeRequested(msg.sender, amount, unstakeAvailableAt[msg.sender]);
     }
@@ -167,15 +162,12 @@ contract WorkerStakeManager {
         if (block.timestamp < unstakeAvailableAt[msg.sender]) {
             revert CooldownActive(unstakeAvailableAt[msg.sender]);
         }
-        require(block.timestamp >= slashLockUntil[msg.sender], "WorkerStakeManager: slash lock active");
 
         // Clear pending state
         pendingUnstake[msg.sender] = 0;
         unstakeAvailableAt[msg.sender] = 0;
 
         // Transfer tokens back to worker
-        // Note: IntelToken is a standard OZ ERC20 that reverts on failure.
-        // The bool check is defensive; the require ensures execution stops on false return.
         bool unstakeOk = intel.transfer(msg.sender, pending);
         require(unstakeOk, "WorkerStakeManager: finalizeUnstake transfer failed");
 
@@ -231,19 +223,13 @@ contract WorkerStakeManager {
             pendingUnstake[worker] -= stakedToSlash;
         }
 
-        slashLockUntil[worker] = block.timestamp + SLASH_LOCK_WINDOW;
-
         // Transfer shares
         if (treasuryShare > 0) {
-            // Note: IntelToken is a standard OZ ERC20 that reverts on failure.
-            // The bool check is defensive; the require ensures execution stops on false return.
             bool treasuryOk = intel.transfer(treasuryAddress, treasuryShare);
             require(treasuryOk, "WorkerStakeManager: slash treasury transfer failed");
         }
 
         if (reporterShare > 0) {
-            // Note: IntelToken is a standard OZ ERC20 that reverts on failure.
-            // The bool check is defensive; the require ensures execution stops on false return.
             bool reporterOk = intel.transfer(reporter, reporterShare);
             require(reporterOk, "WorkerStakeManager: slash reporter transfer failed");
         }

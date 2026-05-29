@@ -8,10 +8,6 @@ import {IntelPOLManager} from "./IntelPOLManager.sol";
 import {ISwapRouter} from "./interfaces/ISwapRouter.sol";
 import {IWETH9} from "./interfaces/IUniswapV3.sol";
 
-interface ILiquidityMining {
-    function depositRewards(uint256 amount) external;
-}
-
 /// @title BuybackBurn
 /// @notice Protocol buyback and burn mechanism for INTEL token.
 ///
@@ -32,12 +28,10 @@ contract BuybackBurn {
     error SlippageExceeded(uint256 spot, uint256 twap, uint256 maxSlippageBps);
     error InsufficientEthBalance(uint256 available, uint256 required);
     error InsufficientIntelBalance(uint256 available, uint256 required);
-    error TwapTooLow(uint256 twap, uint256 minTwap);
 
     // ─── Events ───────────────────────────────────────────────────────────────
 
-    event BuybackExecuted(uint256 ethSpent, uint256 intelBurned, uint256 intelToMining, uint256 twapAtExecution);
-    event LpMiningUpdated(address indexed addr, uint256 bps);
+    event BuybackExecuted(uint256 ethSpent, uint256 intelBurned, uint256 twapAtExecution);
     event EthDeposited(address indexed from, uint256 amount);
     event EthWithdrawn(address indexed to, uint256 amount);
     event ParamsUpdated(string param, uint256 oldValue, uint256 newValue);
@@ -45,13 +39,11 @@ contract BuybackBurn {
     event OperatorSet(address indexed op, bool approved);
     event OwnershipTransferStarted(address indexed previous, address indexed next);
     event OwnershipTransferred(address indexed previous, address indexed next);
-    event TrappedRewardsRecovered(uint256 amount);
 
     // ─── Constants ────────────────────────────────────────────────────────────
 
     uint256 public constant BPS = 10_000;
     uint24 public constant POOL_FEE = 3000; // 0.3%
-    uint256 public constant TWAP_MAX_AGE = 2 hours;
 
     // ─── Storage ──────────────────────────────────────────────────────────────
 
@@ -67,10 +59,6 @@ contract BuybackBurn {
 
     uint256 public maxSlippageBps; // default 200 (2%)
     uint256 public minBuybackEth;  // minimum ETH to trigger buyback, default 0.1 ETH
-    address public lpMiningAddress; // receives lpMiningBps share of each buyback
-    uint256 public lpMiningBps;     // default 2000 (20%)
-    uint256 public minTwap;         // minimum TWAP to prevent suppressed price attacks
-    uint256 public twapUpdatedAt;   // timestamp of last TWAP fetch
 
     // ─── Reentrancy guard ─────────────────────────────────────────────────────
 
@@ -146,12 +134,6 @@ contract BuybackBurn {
         // Get current TWAP from POL manager
         uint256 twap = _getTWAP();
         if (twap == 0) revert ZeroAmount();
-        if (minTwap > 0 && twap < minTwap) revert TwapTooLow(twap, minTwap);
-
-        // Check TWAP staleness
-        if (twapUpdatedAt > 0 && block.timestamp - twapUpdatedAt > TWAP_MAX_AGE) {
-            revert InvalidParam(); // TWAP is too old
-        }
 
         // Wrap ETH to WETH
         IWETH9(weth).deposit{value: ethBalance}();
@@ -184,23 +166,16 @@ contract BuybackBurn {
         // Clear approvals
         _approveToken(weth, address(swapRouter), 0);
 
-        // Route lpMiningBps share to LiquidityMining; burn the rest
-        uint256 miningShare = 0;
-        if (lpMiningAddress != address(0) && lpMiningBps > 0) {
-            miningShare = (intelReceived * lpMiningBps) / BPS;
-            if (miningShare > 0) {
-                intel.approve(lpMiningAddress, miningShare);
-                try ILiquidityMining(lpMiningAddress).depositRewards(miningShare) {
-                    // Deposit succeeded
-                } catch {
-                    // Zero leftover approval on failure to prevent approval leak
-                    intel.approve(lpMiningAddress, 0);
-                }
-            }
+        // Verify slippage protection post-swap
+        uint256 spotPrice = (ethBalance * 1e18) / intelReceived;
+        if (_checkSlippageExceeded(spotPrice, twap, maxSlippageBps)) {
+            revert SlippageExceeded(spotPrice, twap, maxSlippageBps);
         }
-        _burnIntel(intelReceived - miningShare);
 
-        emit BuybackExecuted(ethBalance, intelReceived - miningShare, miningShare, twap);
+        // Burn all received INTEL
+        _burnIntel(intelReceived);
+
+        emit BuybackExecuted(ethBalance, intelReceived, twap);
     }
 
     /// @notice Deposit ETH to fund the next buyback. Anyone can call.
@@ -221,26 +196,6 @@ contract BuybackBurn {
         require(ok, "BuybackBurn: ETH withdrawal failed");
 
         emit EthWithdrawn(owner, amount);
-    }
-
-    /// @notice Recover trapped INTEL mining rewards by retrying deposit or sending to treasury.
-    /// @custom:access owner only
-    function recoverTrappedMiningRewards() external onlyOwner {
-        uint256 balance = intel.balanceOf(address(this));
-        if (balance == 0) return;
-
-        if (lpMiningAddress != address(0)) {
-            intel.approve(lpMiningAddress, balance);
-            try ILiquidityMining(lpMiningAddress).depositRewards(balance) {
-                intel.approve(lpMiningAddress, 0);
-                return;
-            } catch {
-                intel.approve(lpMiningAddress, 0);
-            }
-        }
-
-        intel.transfer(treasury, balance);
-        emit TrappedRewardsRecovered(balance);
     }
 
     // ─── Admin / Config ───────────────────────────────────────────────────────
@@ -274,27 +229,6 @@ contract BuybackBurn {
         emit TreasuryUpdated(old, _treasury);
     }
 
-    /// @notice Set the LP mining address and share. Pass address(0) to disable LP mining routing.
-    /// @custom:access owner
-    /// @param _lpMiningAddress LiquidityMining contract address (0 to disable).
-    /// @param _lpMiningBps     BPS of each buyback routed to LP mining (max 5000 = 50%).
-    function setLpMining(address _lpMiningAddress, uint256 _lpMiningBps) external onlyOwner {
-        if (_lpMiningBps > 3000) revert InvalidParam(); // 70% burn floor (Gensyn model)
-        if (_lpMiningAddress != address(0) && _lpMiningAddress.code.length == 0) revert InvalidParam(); // Must be a contract
-        lpMiningAddress = _lpMiningAddress;
-        lpMiningBps = _lpMiningBps;
-        emit LpMiningUpdated(_lpMiningAddress, _lpMiningBps);
-    }
-
-    /// @notice Set the minimum TWAP to prevent suppressed price attacks.
-    /// @custom:access owner
-    /// @param _minTwap Minimum TWAP in payment units per 1e18 INTEL (0 to disable).
-    function setMinTwap(uint256 _minTwap) external onlyOwner {
-        uint256 old = minTwap;
-        minTwap = _minTwap;
-        emit ParamsUpdated("minTwap", old, _minTwap);
-    }
-
     /// @notice Approve or revoke an operator address.
     /// @custom:access owner
     /// @param op       Address to configure.
@@ -323,10 +257,9 @@ contract BuybackBurn {
     // ─── Internal Helpers ─────────────────────────────────────────────────────
 
     /// @notice Get current TWAP from IntelPOLManager.
-    function _getTWAP() internal returns (uint256) {
+    function _getTWAP() internal view returns (uint256) {
         (bool ok, bytes memory data) = pol.staticcall(abi.encodeWithSignature("pullTWAP()"));
         if (!ok || data.length < 32) revert ZeroAmount();
-        twapUpdatedAt = block.timestamp;
         return abi.decode(data, (uint256));
     }
 

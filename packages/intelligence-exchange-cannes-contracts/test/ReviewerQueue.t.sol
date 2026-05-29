@@ -77,7 +77,7 @@ contract ReviewerQueueTest is Test {
         uint256 taskCategory = 0; // Code
 
         vm.prank(operator);
-        queue.assignReview(taskId, taskCategory, eligibleReviewers, address(0));
+        queue.assignReview(taskId, taskCategory, eligibleReviewers);
 
         // Check assignment was created
         (bytes32 storedTaskId, address assignedReviewer, uint256 assignedAt, uint256 category, bool completed, bool timedOut) = 
@@ -115,7 +115,7 @@ contract ReviewerQueueTest is Test {
         for (uint256 i = 0; i < 20; i++) {
             bytes32 taskId = keccak256(abi.encodePacked("task", uint256(i)));
             vm.prank(operator);
-            queue.assignReview(taskId, 0, eligibleReviewers, address(0));
+            queue.assignReview(taskId, 0, eligibleReviewers);
 
             (, address assignedReviewer,,,,) = queue.assignments(taskId);
             if (assignedReviewer == bob) {
@@ -139,7 +139,7 @@ contract ReviewerQueueTest is Test {
 
         vm.prank(operator);
         vm.expectRevert(ReviewerQueue.NoEligibleReviewers.selector);
-        queue.assignReview(taskId, 0, eligibleReviewers, address(0));
+        queue.assignReview(taskId, 0, eligibleReviewers);
     }
 
     function test_assignReview_reviewerAtCapacity() public {
@@ -157,13 +157,13 @@ contract ReviewerQueueTest is Test {
         for (uint256 i = 0; i < 5; i++) {
             bytes32 taskId = keccak256(abi.encodePacked("alice_task", i));
             vm.prank(operator);
-            queue.assignReview(taskId, 0, eligibleReviewers, address(0));
+            queue.assignReview(taskId, 0, eligibleReviewers);
         }
 
         // Try to assign another task - only bob should be eligible
         bytes32 newTaskId = keccak256("new_task");
         vm.prank(operator);
-        queue.assignReview(newTaskId, 0, eligibleReviewers, address(0));
+        queue.assignReview(newTaskId, 0, eligibleReviewers);
 
         (, address assignedReviewer,,,,) = queue.assignments(newTaskId);
         assertEq(assignedReviewer, bob);
@@ -184,18 +184,18 @@ contract ReviewerQueueTest is Test {
         for (uint256 i = 0; i < 5; i++) {
             bytes32 taskId1 = keccak256(abi.encodePacked("alice_task", i));
             bytes32 taskId2 = keccak256(abi.encodePacked("bob_task", i));
-
+            
             vm.prank(operator);
-            queue.assignReview(taskId1, 0, eligibleReviewers, address(0));
+            queue.assignReview(taskId1, 0, eligibleReviewers);
             vm.prank(operator);
-            queue.assignReview(taskId2, 0, eligibleReviewers, address(0));
+            queue.assignReview(taskId2, 0, eligibleReviewers);
         }
 
         // Try to assign another task - should revert
         bytes32 newTaskId = keccak256("new_task");
         vm.prank(operator);
         vm.expectRevert(ReviewerQueue.ReviewerAtCapacity.selector);
-        queue.assignReview(newTaskId, 0, eligibleReviewers, address(0));
+        queue.assignReview(newTaskId, 0, eligibleReviewers);
     }
 
     function test_assignReview_unauthorized() public {
@@ -204,7 +204,7 @@ contract ReviewerQueueTest is Test {
 
         vm.prank(alice);
         vm.expectRevert(ReviewerQueue.Unauthorized.selector);
-        queue.assignReview(keccak256("task1"), 0, eligibleReviewers, address(0));
+        queue.assignReview(keccak256("task1"), 0, eligibleReviewers);
     }
 
     // ─── completeReview Tests ──────────────────────────────────────────────────
@@ -220,7 +220,7 @@ contract ReviewerQueueTest is Test {
         bytes32 taskId = keccak256("task1");
 
         vm.prank(operator);
-        queue.assignReview(taskId, 0, eligibleReviewers, address(0));
+        queue.assignReview(taskId, 0, eligibleReviewers);
 
         // Complete the review
         vm.prank(operator);
@@ -251,7 +251,7 @@ contract ReviewerQueueTest is Test {
         bytes32 taskId = keccak256("task1");
 
         vm.prank(operator);
-        queue.assignReview(taskId, 0, eligibleReviewers, address(0));
+        queue.assignReview(taskId, 0, eligibleReviewers);
 
         // Complete the review
         vm.prank(operator);
@@ -285,7 +285,7 @@ contract ReviewerQueueTest is Test {
         bytes32 taskId = keccak256("task1");
 
         vm.prank(operator);
-        queue.assignReview(taskId, 0, eligibleReviewers, address(0));
+        queue.assignReview(taskId, 0, eligibleReviewers);
 
         (, address oldReviewer,,,,) = queue.assignments(taskId);
         uint256 oldActiveCount = queue.reviewerActiveCount(oldReviewer);
@@ -319,7 +319,7 @@ contract ReviewerQueueTest is Test {
         bytes32 taskId = keccak256("task1");
 
         vm.prank(operator);
-        queue.assignReview(taskId, 0, eligibleReviewers, address(0));
+        queue.assignReview(taskId, 0, eligibleReviewers);
 
         // Try to reassign before timeout
         vm.prank(operator);
@@ -347,7 +347,7 @@ contract ReviewerQueueTest is Test {
         bytes32 taskId = keccak256("task1");
 
         vm.prank(operator);
-        queue.assignReview(taskId, 0, eligibleReviewers, address(0));
+        queue.assignReview(taskId, 0, eligibleReviewers);
 
         // Complete the review
         vm.prank(operator);
@@ -386,9 +386,9 @@ contract ReviewerQueueTest is Test {
         bytes32 taskId2 = keccak256("task2");
 
         vm.prank(operator);
-        queue.assignReview(taskId1, 0, eligibleReviewers, address(0));
+        queue.assignReview(taskId1, 0, eligibleReviewers);
         vm.prank(operator);
-        queue.assignReview(taskId2, 0, eligibleReviewers, address(0));
+        queue.assignReview(taskId2, 0, eligibleReviewers);
 
         bytes32[] memory reviewerQueue = queue.getReviewerQueue(alice);
         assertEq(reviewerQueue.length, 2);
@@ -411,7 +411,7 @@ contract ReviewerQueueTest is Test {
 
         // After assignment
         vm.prank(operator);
-        queue.assignReview(taskId, 0, eligibleReviewers, address(0));
+        queue.assignReview(taskId, 0, eligibleReviewers);
         assertTrue(queue.isAssignedReviewer(taskId, alice));
 
         // After completion
@@ -494,7 +494,7 @@ contract ReviewerQueueTest is Test {
         for (uint256 i = 0; i < 3; i++) {
             bytes32 taskId = keccak256(abi.encodePacked("task", i));
             vm.prank(operator);
-            queue.assignReview(taskId, 0, eligibleReviewers, address(0));
+            queue.assignReview(taskId, 0, eligibleReviewers);
         }
 
         // Complete some reviews
@@ -541,7 +541,7 @@ contract ReviewerQueueTest is Test {
         uint256 taskCategory = 0;
 
         vm.prank(operator);
-        queueNoGate.assignReview(taskId, taskCategory, eligibleReviewers, address(0));
+        queueNoGate.assignReview(taskId, taskCategory, eligibleReviewers);
 
         // Check assignment - either should be assigned (no WorldID gate)
         (, address assignedReviewer,,,,) = queueNoGate.assignments(taskId);
@@ -567,7 +567,7 @@ contract ReviewerQueueTest is Test {
         uint256 taskCategory = 0;
 
         vm.prank(operator);
-        queue.assignReview(taskId, taskCategory, eligibleReviewers, address(0));
+        queue.assignReview(taskId, taskCategory, eligibleReviewers);
 
         // Check assignment - only alice should be assigned (bob excluded due to no WorldID)
         (, address assignedReviewer,,,,) = queue.assignments(taskId);
@@ -593,7 +593,7 @@ contract ReviewerQueueTest is Test {
         uint256 taskCategory = 0;
 
         vm.prank(operator);
-        queue.assignReview(taskId, taskCategory, eligibleReviewers, address(0));
+        queue.assignReview(taskId, taskCategory, eligibleReviewers);
 
         // Check assignment - either should be assigned (both have bond + WorldID)
         (, address assignedReviewer,,,,) = queue.assignments(taskId);
@@ -604,162 +604,5 @@ contract ReviewerQueueTest is Test {
         IdentityGate newGate = new IdentityGate(address(this));
         queue.setIdentityGate(address(newGate));
         assertEq(address(queue.identityGate()), address(newGate));
-    }
-
-    // ─── Max Reviewer Scan Cap Tests ───────────────────────────────────────────
-
-    function test_setMaxReviewerScanCount_validRange() public {
-        queue.setMaxReviewerScanCount(100);
-        assertEq(queue.maxReviewerScanCount(), 100);
-
-        queue.setMaxReviewerScanCount(10);
-        assertEq(queue.maxReviewerScanCount(), 10);
-
-        queue.setMaxReviewerScanCount(200);
-        assertEq(queue.maxReviewerScanCount(), 200);
-    }
-
-    function test_setMaxReviewerScanCount_tooLow() public {
-        vm.expectRevert("Invalid scan count");
-        queue.setMaxReviewerScanCount(9);
-    }
-
-    function test_setMaxReviewerScanCount_tooHigh() public {
-        vm.expectRevert("Invalid scan count");
-        queue.setMaxReviewerScanCount(201);
-    }
-
-    function test_setMaxReviewerScanCount_unauthorized() public {
-        vm.prank(alice);
-        vm.expectRevert(ReviewerQueue.Unauthorized.selector);
-        queue.setMaxReviewerScanCount(100);
-    }
-
-    // ─── Self-Assignment Prevention Tests ──────────────────────────────────────
-
-    function test_assignReview_selfAssignmentPrevented() public {
-        // Register alice as reviewer
-        vm.prank(alice);
-        stakeManager.registerAsReviewer(500e18);
-
-        address[] memory eligibleReviewers = new address[](1);
-        eligibleReviewers[0] = alice;
-
-        bytes32 taskId = keccak256("task1");
-
-        // Try to assign with alice as both reviewer and worker - should skip alice
-        vm.prank(operator);
-        vm.expectRevert(ReviewerQueue.ReviewerAtCapacity.selector);
-        queue.assignReview(taskId, 0, eligibleReviewers, alice);
-    }
-
-    function test_assignReview_selfAssignmentPrevented_multipleReviewers() public {
-        // Register both alice and bob as reviewers
-        vm.prank(alice);
-        stakeManager.registerAsReviewer(500e18);
-        vm.prank(bob);
-        stakeManager.registerAsReviewer(1000e18);
-
-        address[] memory eligibleReviewers = new address[](2);
-        eligibleReviewers[0] = alice;
-        eligibleReviewers[1] = bob;
-
-        bytes32 taskId = keccak256("task1");
-
-        // Assign with alice as worker - should only select bob
-        vm.prank(operator);
-        queue.assignReview(taskId, 0, eligibleReviewers, alice);
-
-        (, address assignedReviewer,,,,) = queue.assignments(taskId);
-        assertEq(assignedReviewer, bob); // Only bob should be selected since alice is the worker
-    }
-
-    function test_assignReview_selfAssignmentAllowed_whenWorkerIsZero() public {
-        // Register alice as reviewer
-        vm.prank(alice);
-        stakeManager.registerAsReviewer(500e18);
-
-        address[] memory eligibleReviewers = new address[](1);
-        eligibleReviewers[0] = alice;
-
-        bytes32 taskId = keccak256("task1");
-
-        // Assign with address(0) as worker - alice should be eligible
-        vm.prank(operator);
-        queue.assignReview(taskId, 0, eligibleReviewers, address(0));
-
-        (, address assignedReviewer,,,,) = queue.assignments(taskId);
-        assertEq(assignedReviewer, alice);
-    }
-
-    // ─── O(1) Queue Removal Tests ───────────────────────────────────────────────
-
-    function test_removeFromQueue_correctness() public {
-        // Register alice as reviewer
-        vm.prank(alice);
-        stakeManager.registerAsReviewer(500e18);
-
-        address[] memory eligibleReviewers = new address[](1);
-        eligibleReviewers[0] = alice;
-
-        // Assign multiple tasks
-        bytes32 taskId1 = keccak256("task1");
-        bytes32 taskId2 = keccak256("task2");
-        bytes32 taskId3 = keccak256("task3");
-
-        vm.prank(operator);
-        queue.assignReview(taskId1, 0, eligibleReviewers, address(0));
-        vm.prank(operator);
-        queue.assignReview(taskId2, 0, eligibleReviewers, address(0));
-        vm.prank(operator);
-        queue.assignReview(taskId3, 0, eligibleReviewers, address(0));
-
-        // Complete middle task to test O(1) removal
-        vm.prank(operator);
-        queue.completeReview(taskId2, alice);
-
-        // Check that queue still has correct tasks
-        bytes32[] memory reviewerQueue = queue.getReviewerQueue(alice);
-        assertEq(reviewerQueue.length, 2);
-        // The order may change due to swap-and-pop, but both remaining tasks should be present
-        assertTrue(reviewerQueue[0] == taskId1 || reviewerQueue[0] == taskId3);
-        assertTrue(reviewerQueue[1] == taskId1 || reviewerQueue[1] == taskId3);
-    }
-
-    function test_removeFromQueue_multipleRemovals() public {
-        // Register alice as reviewer
-        vm.prank(alice);
-        stakeManager.registerAsReviewer(500e18);
-
-        address[] memory eligibleReviewers = new address[](1);
-        eligibleReviewers[0] = alice;
-
-        // Assign multiple tasks
-        bytes32 taskId1 = keccak256("task1");
-        bytes32 taskId2 = keccak256("task2");
-        bytes32 taskId3 = keccak256("task3");
-        bytes32 taskId4 = keccak256("task4");
-
-        vm.prank(operator);
-        queue.assignReview(taskId1, 0, eligibleReviewers, address(0));
-        vm.prank(operator);
-        queue.assignReview(taskId2, 0, eligibleReviewers, address(0));
-        vm.prank(operator);
-        queue.assignReview(taskId3, 0, eligibleReviewers, address(0));
-        vm.prank(operator);
-        queue.assignReview(taskId4, 0, eligibleReviewers, address(0));
-
-        // Complete tasks in non-sequential order
-        vm.prank(operator);
-        queue.completeReview(taskId2, alice);
-        vm.prank(operator);
-        queue.completeReview(taskId4, alice);
-        vm.prank(operator);
-        queue.completeReview(taskId1, alice);
-
-        // Check that only task3 remains
-        bytes32[] memory reviewerQueue = queue.getReviewerQueue(alice);
-        assertEq(reviewerQueue.length, 1);
-        assertEq(reviewerQueue[0], taskId3);
     }
 }

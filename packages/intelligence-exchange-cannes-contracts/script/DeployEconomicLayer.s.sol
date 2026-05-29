@@ -73,7 +73,7 @@ contract DeployEconomicLayer is Script {
 
         // Resolve existing contract addresses based on chain
         if (chainId == 11155111) {
-            // NOTE: Replace with actual Sepolia deployment addresses before mainnet deployment
+            // TODO: Replace these with actual Sepolia deployment addresses
             revert("Sepolia deployment addresses not yet configured. Please update the script with actual Sepolia contract addresses.");
         } else if (chainId == 31337) {
             // Use local anvil addresses from existing deployment
@@ -123,7 +123,7 @@ contract DeployEconomicLayer is Script {
         );
         console2.log("BuybackBurn:", address(result.buybackBurn));
 
-        // NOTE: Post-deployment, call IntelPOLManager.setTwapPool(poolAddress) with the INTEL/WETH Uniswap V3 pool address.
+        // TODO: Post-deployment, call IntelPOLManager.setTwapPool(poolAddress) with the INTEL/WETH Uniswap V3 pool address.
         // This is required for BuybackBurn.executeBuyback() to work, as it calls pol.pullTWAP() which reads from IntelPOLManager.twapPool.
         // The pool address is not known at deployment time, so this must be called manually after the pool is created.
 

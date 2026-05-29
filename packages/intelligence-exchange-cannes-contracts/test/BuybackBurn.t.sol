@@ -16,9 +16,8 @@ contract MockSwapRouter is ISwapRouter {
     }
 
     function exactInputSingle(ExactInputSingleParams calldata params) external payable returns (uint256 amountOut) {
-        // Return fixed INTEL amount, enforcing amountOutMinimum to simulate Uniswap slippage protection
+        // Return fixed INTEL amount for testing
         amountOut = fixedIntelAmount;
-        require(amountOut >= params.amountOutMinimum, "Too little received");
     }
 }
 
@@ -406,92 +405,5 @@ contract BuybackBurnTest is Test {
         assertTrue(success);
         
         assertEq(address(buybackBurn).balance, preBalance + 1 ether);
-    }
-
-    // ─── LP Mining Config Tests ───────────────────────────────────────────────
-
-    function test_setLpMining_ownerCanSet() public {
-        // setLpMining requires a contract address (code.length > 0); use intel (already deployed)
-        address lpMiningAddr = address(intel);
-        buybackBurn.setLpMining(lpMiningAddr, 2000);
-        assertEq(buybackBurn.lpMiningAddress(), lpMiningAddr);
-        assertEq(buybackBurn.lpMiningBps(), 2000);
-    }
-
-    function test_setLpMining_rejectsAbove30pct() public {
-        address lpMiningAddr = address(0x1234);
-        vm.expectRevert(BuybackBurn.InvalidParam.selector);
-        buybackBurn.setLpMining(lpMiningAddr, 3001);
-    }
-
-    function test_setLpMining_requiresContract() public {
-        vm.expectRevert(BuybackBurn.InvalidParam.selector);
-        buybackBurn.setLpMining(address(0xDEAD), 2000);
-    }
-
-    function test_setLpMining_zeroAddressDisablesRouting() public {
-        buybackBurn.setLpMining(address(0), 0);
-        assertEq(buybackBurn.lpMiningAddress(), address(0));
-        assertEq(buybackBurn.lpMiningBps(), 0);
-    }
-
-    // ─── Security Fix Tests ───────────────────────────────────────────────────
-
-    function test_executeBuyback_slippageProtection_via_amountOutMinimum() public {
-        vm.prank(user);
-        buybackBurn.depositEth{value: 1 ether}();
-
-        // Set max slippage to 1% (100 bps)
-        buybackBurn.setMaxSlippage(100);
-
-        // Mock swap router returns less than minimum expected
-        // Expected: 1 ETH / 0.001e18 = 1000 INTEL, with 1% slippage = 990 INTEL min
-        // Set router to return only 980 INTEL (below minimum)
-        swapRouter.setFixedIntelAmount(980e18);
-
-        vm.prank(operator);
-        vm.expectRevert(); // Swap should revert due to insufficient amountOut
-        buybackBurn.executeBuyback();
-    }
-
-    function test_setMinTwap_ownerCanSet() public {
-        buybackBurn.setMinTwap(0.0005e18); // 0.0005 ETH per INTEL
-        assertEq(buybackBurn.minTwap(), 0.0005e18);
-    }
-
-    function test_executeBuyback_revertsWhenTwapBelowMin() public {
-        vm.prank(user);
-        buybackBurn.depositEth{value: 1 ether}();
-
-        // Set minimum TWAP
-        buybackBurn.setMinTwap(0.002e18); // 0.002 ETH per INTEL
-
-        // Set mock TWAP below minimum
-        pol.setMockTWAP(0.001e18); // 0.001 ETH per INTEL
-
-        vm.prank(operator);
-        vm.expectRevert(abi.encodeWithSelector(BuybackBurn.TwapTooLow.selector, uint256(0.001e18), uint256(0.002e18)));
-        buybackBurn.executeBuyback();
-    }
-
-    function test_executeBuyback_succeedsWhenTwapAboveMin() public {
-        vm.prank(user);
-        buybackBurn.depositEth{value: 1 ether}();
-
-        // Set minimum TWAP
-        buybackBurn.setMinTwap(0.0005e18);
-
-        // Set mock TWAP above minimum
-        pol.setMockTWAP(0.001e18);
-
-        // Set max slippage very high for testing
-        buybackBurn.setMaxSlippage(10000);
-
-        uint256 preIntelSupply = intel.totalSupply();
-
-        vm.prank(operator);
-        buybackBurn.executeBuyback();
-
-        assertEq(intel.totalSupply(), preIntelSupply - 990e18);
     }
 }

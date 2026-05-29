@@ -1,11 +1,10 @@
-import { timingSafeEqual } from 'crypto';
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
-import { createWalletClient, createPublicClient, http, keccak256, toBytes } from 'viem';
+import { createWalletClient, createPublicClient, http } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
+import { keccak256, toBytes } from 'viem';
 import { httpError } from '../services/errors';
-import { getBreakerStatus, resetBreaker } from '../services/circuitBreakerService';
 
 export const adminRouter = new Hono();
 
@@ -41,10 +40,7 @@ function requireAdminAuth(c: { req: { header: (name: string) => string | undefin
     throw httpError('ADMIN_API_KEY not configured', 500, 'ADMIN_NOT_CONFIGURED');
   }
 
-  const tokenBuf = Buffer.from(token);
-  const expectedBuf = Buffer.from(expectedToken);
-  const tokenInvalid = tokenBuf.length !== expectedBuf.length || !timingSafeEqual(tokenBuf, expectedBuf);
-  if (tokenInvalid) {
+  if (token !== expectedToken) {
     // Rate limit on failed auth
     const now = Date.now();
     const attempts = (failedAttempts.get(ip) ?? []).filter(t => now - t < 60000);
@@ -147,7 +143,7 @@ adminRouter.post(
           },
         ],
         functionName: 'submitEpochScores',
-        args: [BigInt(req.epoch), req.workers as `0x${string}`[], scoresWei],
+        args: [BigInt(req.epoch), req.workers as any, scoresWei],
       });
 
       console.log(`[admin:epoch/submit-scores] Submitted scores for epoch=${req.epoch} txHash=${hash}`);
@@ -388,21 +384,4 @@ adminRouter.post('/reviewer/:address/mint-credential', async (c) => {
     console.error('[admin:reviewer/mint-credential] Failed to mint credential:', err);
     return c.json({ error: String(err) }, 500);
   }
-});
-
-// GET /admin/circuit-breakers
-adminRouter.get('/circuit-breakers', async (c) => {
-  requireAdminAuth(c);
-  const statuses = getBreakerStatus();
-  return c.json({ breakers: statuses, timestamp: new Date().toISOString() });
-});
-
-// POST /admin/circuit-breakers/reset
-adminRouter.post('/circuit-breakers/reset', zValidator('json', z.object({
-  name: z.string(),
-})), async (c) => {
-  requireAdminAuth(c);
-  const { name } = c.req.valid('json');
-  resetBreaker(name);
-  return c.json({ reset: true, name, timestamp: new Date().toISOString() });
 });

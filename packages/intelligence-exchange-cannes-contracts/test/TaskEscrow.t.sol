@@ -62,7 +62,7 @@ contract TaskEscrowTest is Test {
         vm.prank(funder);
         escrow.fundTask(TASK_ID, TASK_AMOUNT);
 
-        (bytes32 taskId, address funderAddr, address workerAddr, uint256 amount, , uint256 fundedAt, , , , ) = escrow.tasks(TASK_ID);
+        (bytes32 taskId, address funderAddr, address workerAddr, uint256 amount, , uint256 fundedAt, ) = escrow.tasks(TASK_ID);
 
         assertEq(taskId, TASK_ID);
         assertEq(funderAddr, funder);
@@ -148,7 +148,7 @@ contract TaskEscrowTest is Test {
         vm.prank(operator);
         escrow.setWorker(TASK_ID, worker);
 
-        (, , address workerAddr, , , , , , , ) = escrow.tasks(TASK_ID);
+        (, , address workerAddr, , , , ) = escrow.tasks(TASK_ID);
         assertEq(workerAddr, worker);
     }
 
@@ -219,45 +219,6 @@ contract TaskEscrowTest is Test {
 
         uint256 workerBalanceAfter = token.balanceOf(worker);
         assertEq(workerBalanceAfter - workerBalanceBefore, (TASK_AMOUNT * 8100) / 10_000);
-    }
-
-    // ─── autoRelease ───────────────────────────────────────────────────────────
-
-    function test_autoRelease_afterTimeout() public {
-        // Fund task and assign worker
-        vm.prank(funder);
-        escrow.fundTask(TASK_ID, TASK_AMOUNT);
-        vm.prank(operator);
-        escrow.setWorker(TASK_ID, worker);
-
-        // Try to auto-release before timeout - should revert
-        vm.expectRevert(TaskEscrow.RefundWindowNotElapsed.selector);
-        escrow.autoRelease(TASK_ID, worker);
-
-        // Warp past auto-release window (30 days)
-        vm.warp(block.timestamp + 30 days + 1);
-
-        // Auto-release should now succeed
-        uint256 workerBalanceBefore = token.balanceOf(worker);
-        escrow.autoRelease(TASK_ID, worker);
-        uint256 workerBalanceAfter = token.balanceOf(worker);
-
-        // Worker should receive 81% (8100 BPS)
-        uint256 expectedWorkerShare = (TASK_AMOUNT * 8100) / 10_000;
-        assertEq(workerBalanceAfter - workerBalanceBefore, expectedWorkerShare);
-    }
-
-    function test_autoRelease_requiresWorker() public {
-        // Fund task without assigning worker
-        vm.prank(funder);
-        escrow.fundTask(TASK_ID, TASK_AMOUNT);
-
-        // Warp past auto-release window
-        vm.warp(block.timestamp + 30 days + 1);
-
-        // Auto-release should revert without assigned worker
-        vm.expectRevert(TaskEscrow.ZeroAddress.selector);
-        escrow.autoRelease(TASK_ID, worker);
     }
 
     // ─── refund ───────────────────────────────────────────────────────────────

@@ -36,7 +36,6 @@ contract EpochRewardDistributor {
     // ─── Constants ────────────────────────────────────────────────────────────
 
     uint256 public constant BPS = 10_000;
-    uint256 public constant MAX_WORKERS_PER_EPOCH = 1_000;
 
     // ─── Events ───────────────────────────────────────────────────────────────
 
@@ -52,8 +51,6 @@ contract EpochRewardDistributor {
     event TopPercentileBpsUpdated(uint256 oldBps, uint256 newBps);
     event MinAiuThresholdUpdated(uint256 oldThreshold, uint256 newThreshold);
     event OperatorSet(address indexed operator, bool approved);
-    event EpochCapExceeded(uint256 indexed epoch, address indexed worker);
-    event MaxJobsPerWalletPerEpochUpdated(uint256 oldCap, uint256 newCap);
 
     // ─── Storage ──────────────────────────────────────────────────────────────
 
@@ -64,8 +61,6 @@ contract EpochRewardDistributor {
     uint256 public epochRewardPool;
     uint256 public topPercentileBps;
     uint256 public minAiuThreshold;
-    uint256 public maxJobsPerWalletPerEpoch = 20;
-    mapping(uint256 => mapping(address => uint256)) public epochJobCount;
 
     struct EpochReward {
         uint256 epoch;
@@ -142,24 +137,18 @@ contract EpochRewardDistributor {
         uint256[] calldata aiuScores
     ) external onlyOperator {
         if (workers.length != aiuScores.length) revert ArrayLengthMismatch();
-        if (workers.length > MAX_WORKERS_PER_EPOCH) revert InvalidParam();
 
         EpochReward storage reward = epochRewards[epoch];
         reward.epoch = epoch;
+        reward.workerCount = workers.length;
         reward.topCount = (workers.length * topPercentileBps) / BPS;
         if (reward.topCount == 0 && workers.length > 0) reward.topCount = 1;
 
         for (uint256 i = 0; i < workers.length; i++) {
             if (aiuScores[i] < minAiuThreshold) revert BelowMinAiu();
-            if (epochJobCount[epoch][workers[i]] >= maxJobsPerWalletPerEpoch) {
-                emit EpochCapExceeded(epoch, workers[i]);
-                continue;
-            }
             reward.aiuScore[workers[i]] = aiuScores[i];
             reward.rankedWorkers.push(workers[i]);
         }
-
-        reward.workerCount = reward.rankedWorkers.length;
 
         emit EpochScoresSubmitted(epoch, workers.length, reward.topCount);
     }
@@ -185,25 +174,14 @@ contract EpochRewardDistributor {
         if (totalAiu == 0) revert ZeroAmount();
 
         uint256 pool = epochRewardPool;
-        require(pool > 0, 'EpochRewardDistributor: pool is zero');
-        require(intel.balanceOf(treasury) >= pool, 'EpochRewardDistributor: insufficient treasury balance');
-        // Note: IntelToken is a standard OZ ERC20 that reverts on failure.
-        // No bool check here; the revert is handled by the token itself on failure.
         intel.transferFrom(treasury, address(this), pool);
         reward.totalPool = pool;
 
-        uint256 distributed;
         for (uint256 i = 0; i < topCount; i++) {
             address worker = reward.rankedWorkers[i];
             uint256 workerAiu = reward.aiuScore[worker];
             uint256 rewardAmount = (pool * workerAiu) / totalAiu;
             reward.rewardEarned[worker] = rewardAmount;
-            distributed += rewardAmount;
-        }
-
-        // Handle dust: give remainder to last worker if any
-        if (distributed < pool && topCount > 0) {
-            reward.rewardEarned[reward.rankedWorkers[topCount - 1]] += pool - distributed;
         }
 
         reward.distributed = true;
@@ -216,15 +194,6 @@ contract EpochRewardDistributor {
     function advanceEpoch() external onlyOperator {
         currentEpoch += 1;
         emit EpochAdvanced(currentEpoch);
-    }
-
-    /// @notice Increment job count for a worker in an epoch. Called by broker after each accepted job.
-    /// @custom:access operator or owner
-    /// @param epoch The epoch number.
-    /// @param worker The worker address.
-    function incrementEpochJobCount(uint256 epoch, address worker) external onlyOperator {
-        if (worker == address(0)) revert ZeroAddress();
-        epochJobCount[epoch][worker] += 1;
     }
 
     // ─── User Functions ────────────────────────────────────────────────────────
@@ -241,19 +210,9 @@ contract EpochRewardDistributor {
         uint256 amount = reward.rewardEarned[msg.sender];
         reward.claimed[msg.sender] = true;
 
-        // Note: IntelToken is a standard OZ ERC20 that reverts on failure.
-        // No bool check here; the revert is handled by the token itself on failure.
         intel.transfer(msg.sender, amount);
 
         emit RewardClaimed(epoch, msg.sender, amount);
-    }
-
-    /// @notice Get the reward earned by a worker for a specific epoch.
-    /// @param epoch The epoch number.
-    /// @param worker The worker address.
-    /// @return The reward amount earned by the worker.
-    function rewardEarned(uint256 epoch, address worker) external view returns (uint256) {
-        return epochRewards[epoch].rewardEarned[worker];
     }
 
     /// @notice Deposit INTEL to the reward pool. Anyone can deposit.
@@ -261,8 +220,6 @@ contract EpochRewardDistributor {
     function depositRewardPool(uint256 amount) external {
         if (amount == 0) revert ZeroAmount();
 
-        // Note: IntelToken is a standard OZ ERC20 that reverts on failure.
-        // No bool check here; the revert is handled by the token itself on failure.
         intel.transferFrom(msg.sender, address(this), amount);
 
         uint256 newBalance = intel.balanceOf(address(this));
@@ -294,14 +251,6 @@ contract EpochRewardDistributor {
         uint256 oldThreshold = minAiuThreshold;
         minAiuThreshold = _minAiuThreshold;
         emit MinAiuThresholdUpdated(oldThreshold, _minAiuThreshold);
-    }
-
-    /// @notice Set the maximum jobs per wallet per epoch to prevent reward gaming.
-    /// @custom:access only owner
-    function setMaxJobsPerWalletPerEpoch(uint256 _maxJobsPerWalletPerEpoch) external onlyOwner {
-        uint256 oldCap = maxJobsPerWalletPerEpoch;
-        maxJobsPerWalletPerEpoch = _maxJobsPerWalletPerEpoch;
-        emit MaxJobsPerWalletPerEpochUpdated(oldCap, _maxJobsPerWalletPerEpoch);
     }
 
     /// @notice Set the treasury address.

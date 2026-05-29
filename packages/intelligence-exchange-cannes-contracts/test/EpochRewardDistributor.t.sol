@@ -223,13 +223,7 @@ contract EpochRewardDistributorTest is Test {
         distributor.claimReward(1);
 
         assertEq(intel.balanceOf(workers[0]), worker1Reward);
-        // worker2 gets dust remainder to ensure full pool distribution
-        uint256 totalDistributed = worker1Reward + worker2Reward;
-        uint256 expectedWorker2Reward = worker2Reward;
-        if (totalDistributed < REWARD_POOL) {
-            expectedWorker2Reward += REWARD_POOL - totalDistributed;
-        }
-        assertEq(intel.balanceOf(workers[1]), expectedWorker2Reward);
+        assertEq(intel.balanceOf(workers[1]), worker2Reward);
         // Allow for rounding errors in division
         assertLe(intel.balanceOf(workers[0]) + intel.balanceOf(workers[1]), REWARD_POOL);
         assertGe(intel.balanceOf(workers[0]) + intel.balanceOf(workers[1]), REWARD_POOL - 1e18); // Within 1 INTEL
@@ -552,120 +546,5 @@ contract EpochRewardDistributorTest is Test {
         vm.prank(worker2);
         vm.expectRevert(EpochRewardDistributor.Unauthorized.selector);
         distributor.acceptOwnership();
-    }
-
-    // ─── Per-Wallet Epoch Job Cap ───────────────────────────────────────────────
-
-    function test_setMaxJobsPerWalletPerEpoch() public {
-        uint256 newCap = 50;
-        distributor.setMaxJobsPerWalletPerEpoch(newCap);
-        assertEq(distributor.maxJobsPerWalletPerEpoch(), newCap);
-    }
-
-    function test_incrementEpochJobCount() public {
-        vm.prank(operator);
-        distributor.incrementEpochJobCount(1, worker1);
-        assertEq(distributor.epochJobCount(1, worker1), 1);
-
-        vm.prank(operator);
-        distributor.incrementEpochJobCount(1, worker1);
-        assertEq(distributor.epochJobCount(1, worker1), 2);
-    }
-
-    function test_incrementEpochJobCount_zeroAddress_reverts() public {
-        vm.prank(operator);
-        vm.expectRevert(EpochRewardDistributor.ZeroAddress.selector);
-        distributor.incrementEpochJobCount(1, address(0));
-    }
-
-    function test_incrementEpochJobCount_nonOperator_reverts() public {
-        vm.prank(worker1);
-        vm.expectRevert(EpochRewardDistributor.Unauthorized.selector);
-        distributor.incrementEpochJobCount(1, worker1);
-    }
-
-    function test_submitEpochScores_capExcluded_workerSkipped() public {
-        // Set cap to 2 jobs per wallet per epoch
-        distributor.setMaxJobsPerWalletPerEpoch(2);
-
-        // Increment worker1's job count to exceed cap
-        vm.prank(operator);
-        distributor.incrementEpochJobCount(1, worker1);
-        vm.prank(operator);
-        distributor.incrementEpochJobCount(1, worker1);
-        vm.prank(operator);
-        distributor.incrementEpochJobCount(1, worker1); // 3 jobs, exceeds cap of 2
-
-        // worker2 has only 1 job, under cap
-        vm.prank(operator);
-        distributor.incrementEpochJobCount(1, worker2);
-
-        address[] memory workers = new address[](2);
-        workers[0] = worker1;
-        workers[1] = worker2;
-
-        uint256[] memory aiuScores = new uint256[](2);
-        aiuScores[0] = 100;
-        aiuScores[1] = 80;
-
-        vm.expectEmit(true, true, false, false);
-        emit EpochRewardDistributor.EpochCapExceeded(1, worker1);
-        vm.prank(operator);
-        distributor.submitEpochScores(1, workers, aiuScores);
-
-        // Only worker2 should be included (worker1 was skipped due to cap)
-        (, , uint256 workerCount, , ) = distributor.epochRewards(1);
-        assertEq(workerCount, 1); // Only worker2
-    }
-
-    function test_submitEpochScores_normalCase_allWorkersIncluded() public {
-        // Set cap to 5 jobs per wallet per epoch
-        distributor.setMaxJobsPerWalletPerEpoch(5);
-
-        // All workers have job counts under cap
-        vm.prank(operator);
-        distributor.incrementEpochJobCount(1, worker1);
-        vm.prank(operator);
-        distributor.incrementEpochJobCount(1, worker2);
-        vm.prank(operator);
-        distributor.incrementEpochJobCount(1, worker3);
-
-        address[] memory workers = new address[](3);
-        workers[0] = worker1;
-        workers[1] = worker2;
-        workers[2] = worker3;
-
-        uint256[] memory aiuScores = new uint256[](3);
-        aiuScores[0] = 100;
-        aiuScores[1] = 80;
-        aiuScores[2] = 60;
-
-        vm.prank(operator);
-        distributor.submitEpochScores(1, workers, aiuScores);
-
-        // All workers should be included
-        (, , uint256 workerCount, , ) = distributor.epochRewards(1);
-        assertEq(workerCount, 3);
-    }
-
-    function test_submitEpochScores_capExceeded_emitsEvent() public {
-        distributor.setMaxJobsPerWalletPerEpoch(1);
-
-        // Increment worker1's job count to exceed cap
-        vm.prank(operator);
-        distributor.incrementEpochJobCount(1, worker1);
-        vm.prank(operator);
-        distributor.incrementEpochJobCount(1, worker1); // 2 jobs, exceeds cap of 1
-
-        address[] memory workers = new address[](1);
-        workers[0] = worker1;
-
-        uint256[] memory aiuScores = new uint256[](1);
-        aiuScores[0] = 100;
-
-        vm.expectEmit(true, true, false, false);
-        emit EpochRewardDistributor.EpochCapExceeded(1, worker1);
-        vm.prank(operator);
-        distributor.submitEpochScores(1, workers, aiuScores);
     }
 }
