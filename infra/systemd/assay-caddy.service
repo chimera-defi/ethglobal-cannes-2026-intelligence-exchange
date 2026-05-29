@@ -1,0 +1,13 @@
+[Unit]
+Description=Assay Protocol Caddy (reverse proxy)
+After=network.target assay-broker.service
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/bin/caddy run --config /home/agents/workspace/ethglobal-cannes-2026-intelligence-exchange/infra/caddy/Caddyfile
+ExecReload=/usr/bin/caddy reload --config /home/agents/workspace/ethglobal-cannes-2026-intelligence-exchange/infra/caddy/Caddyfile
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
