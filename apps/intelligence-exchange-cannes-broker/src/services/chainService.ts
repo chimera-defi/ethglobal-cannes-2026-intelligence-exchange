@@ -23,6 +23,22 @@ function normalizePayload(payload: Record<string, unknown> | null | undefined) {
   return payload ?? {};
 }
 
+async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 3, delayMs = 2000): Promise<T> {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (attempt === maxAttempts) {
+        console.error(`[chain:retry-exhausted] Failed after ${maxAttempts} attempts:`, err);
+        throw err;
+      }
+      console.warn(`[chain:retry] Attempt ${attempt}/${maxAttempts} failed:`, err);
+      await new Promise(resolve => setTimeout(resolve, delayMs * attempt));
+    }
+  }
+  throw new Error('Retry loop exhausted without returning');
+}
+
 function getAttestationDomain() {
   return {
     registryAddress: (process.env.IEX_AGENT_REGISTRY_ADDRESS ??
@@ -357,7 +373,7 @@ export async function mintWorkReceipt(workerAddress: string, ideaId: string, age
     const workerFingerprintBytes = agentFingerprint as `0x${string}`;
     const scoreUint8 = Math.min(Math.max(score, 0), 100);
 
-    const hash = await walletClient.writeContract({
+    const hash = await withRetry(() => walletClient.writeContract({
       address: contractAddress as `0x${string}`,
       abi: [
         {
@@ -375,7 +391,7 @@ export async function mintWorkReceipt(workerAddress: string, ideaId: string, age
       ],
       functionName: 'mint',
       args: [workerAddress as `0x${string}`, taskIdHash, workerFingerprintBytes, scoreUint8],
-    });
+    }));
 
     console.log(`[chain:mintWorkReceipt] Minted WorkReceipt for worker=${workerAddress} ideaId=${ideaId} txHash=${hash}`);
   } catch (err) {
@@ -1220,7 +1236,7 @@ export async function releaseTaskEscrow(taskId: string, workerAddress: string): 
     });
 
     const taskIdHash = keccak256(toBytes(taskId));
-    const releaseHash = await walletClient.writeContract({
+    const releaseHash = await withRetry(() => walletClient.writeContract({
       address: contractAddress as `0x${string}`,
       abi: [
         {
@@ -1236,9 +1252,15 @@ export async function releaseTaskEscrow(taskId: string, workerAddress: string): 
       ],
       functionName: 'release',
       args: [taskIdHash, workerAddress as `0x${string}`],
-    });
+    }));
 
     console.log(`[chain:releaseTaskEscrow] Released task ${taskId} to worker ${workerAddress} txHash=${releaseHash}`);
+
+    // Mark job as on-chain settled
+    await db.update(jobs)
+      .set({ onChainSettled: true, updatedAt: new Date() })
+      .where(eq(jobs.jobId, taskId));
+
     return releaseHash;
   } catch (err) {
     console.error('[chain:releaseTaskEscrow] Failed to release task escrow:', err);
