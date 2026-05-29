@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { MermaidDiagram } from '../components/MermaidDiagram';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Types
@@ -208,6 +209,76 @@ const FLOW_STEPS: FlowStep[] = [
 ];
 
 // ──────────────────────────────────────────────────────────────────────────────
+// Mermaid diagram constants
+// ──────────────────────────────────────────────────────────────────────────────
+
+const ARCHITECTURE_DIAGRAM = `flowchart TB
+    subgraph L1["Layer 1 — Token"]
+        IT[IntelToken]
+        IV[IntelVesting]
+        ITC[IntelTimelockController]
+    end
+    
+    subgraph L2["Layer 2 — Market"]
+        IMC[IntelMintController]
+        IPM[IntelPOLManager]
+        IS[IntelStaking]
+    end
+    
+    subgraph L3["Layer 3 — Reputation"]
+        AIR[AgentIdentityRegistry]
+        WR[WorkReceipt1155]
+        RC[ReviewerCredential]
+        IG[IdentityGate]
+    end
+    
+    subgraph L4["Layer 4 — Settlement"]
+        TE[TaskEscrow]
+    end
+    
+    subgraph L5["Layer 5 — Security"]
+        WSM[WorkerStakeManager]
+        RSM[ReviewerStakeManager]
+        DR[DisputeResolution]
+        RQ[ReviewerQueue]
+    end
+    
+    subgraph L6["Layer 6 — Rewards"]
+        ERD[EpochRewardDistributor]
+        CR[CategoryRegistry]
+        BBB[BuybackBurn]
+    end
+    
+    TE -->|depositYield 9%| IS
+    TE -->|transfer 81%| IT
+    TE -->|transfer 10%| IT
+    DR -->|slash| WSM
+    DR -->|slash| RSM
+    RQ -->|isEligible| RSM
+    RC -->|reads review count| RSM
+    ERD -->|transfer bonus| IT
+    BBB -->|TWAP| IPM
+    IPM -->|UniV3 swap+burn| BBB`;
+
+const USER_FLOW_DIAGRAM = `flowchart LR
+    A[Buyer] -->|1. Mint INTEL| B[Smart Contracts]
+    A -->|2. Fund Task| B
+    C[Worker] -->|3. Stake INTEL| B
+    C -->|4. Claim Job| D[Broker]
+    D -->|setWorker| B
+    C -->|5. Submit Artifacts| D
+    E[Reviewer] -->|6. Accept Submission| B
+    D -->|7. Release| B
+    B -->|81% to Worker| C
+    B -->|9% to Stakers| F[Protocol]
+    B -->|10% to Treasury| F
+    B -->|8. Mint NFT| F
+    B -->|9. Record Attestation| F
+    B -->|10. Update Tier| F
+    B -->|11. Record Category| F
+    B -->|12. Distribute Bonus| F`;
+
+// ──────────────────────────────────────────────────────────────────────────────
 // Components
 // ──────────────────────────────────────────────────────────────────────────────
 
@@ -266,75 +337,11 @@ export function ArchitecturePage() {
   }, []);
 
   const copyArchitectureDiagram = () => {
-    const src = `flowchart TB
-    subgraph L1["Layer 1 — Token"]
-        IT[IntelToken]
-        IV[IntelVesting]
-        ITC[IntelTimelockController]
-    end
-    
-    subgraph L2["Layer 2 — Market"]
-        IMC[IntelMintController]
-        IPM[IntelPOLManager]
-        IS[IntelStaking]
-    end
-    
-    subgraph L3["Layer 3 — Reputation"]
-        AIR[AgentIdentityRegistry]
-        WR[WorkReceipt1155]
-        RC[ReviewerCredential]
-        IG[IdentityGate]
-    end
-    
-    subgraph L4["Layer 4 — Settlement"]
-        TE[TaskEscrow]
-    end
-    
-    subgraph L5["Layer 5 — Security"]
-        WSM[WorkerStakeManager]
-        RSM[ReviewerStakeManager]
-        DR[DisputeResolution]
-        RQ[ReviewerQueue]
-    end
-    
-    subgraph L6["Layer 6 — Rewards"]
-        ERD[EpochRewardDistributor]
-        CR[CategoryRegistry]
-        BBB[BuybackBurn]
-    end
-    
-    TE -->|depositYield 9%| IS
-    TE -->|transfer 81%| IT
-    TE -->|transfer 10%| IT
-    DR -->|slash| WSM
-    DR -->|slash| RSM
-    RQ -->|isEligible| RSM
-    RC -->|reads review count| RSM
-    ERD -->|transfer bonus| IT
-    BBB -->|TWAP| IPM
-    IPM -->|UniV3 swap+burn| BBB`;
-    navigator.clipboard.writeText(src).catch(() => undefined);
+    navigator.clipboard.writeText(ARCHITECTURE_DIAGRAM).catch(() => undefined);
   };
 
   const copyUserFlowDiagram = () => {
-    const src = `flowchart LR
-    A[Buyer] -->|1. Mint INTEL| B[Smart Contracts]
-    A -->|2. Fund Task| B
-    C[Worker] -->|3. Stake INTEL| B
-    C -->|4. Claim Job| D[Broker]
-    D -->|setWorker| B
-    C -->|5. Submit Artifacts| D
-    E[Reviewer] -->|6. Accept Submission| B
-    D -->|7. Release| B
-    B -->|81% to Worker| C
-    B -->|9% to Stakers| F[Protocol]
-    B -->|10% to Treasury| F
-    B -->|8. Mint NFT| F
-    B -->|9. Record Attestation| F
-    B -->|10. Update Tier| F
-    B -->|11. Record Category| F
-    B -->|12. Distribute Bonus| F`;
-    navigator.clipboard.writeText(src).catch(() => undefined);
+    navigator.clipboard.writeText(USER_FLOW_DIAGRAM).catch(() => undefined);
   };
 
   return (
@@ -403,56 +410,7 @@ export function ArchitecturePage() {
                   Copy Mermaid
                 </button>
               </div>
-              <pre className="text-xs text-slate-300 overflow-x-auto"
-                style={{ fontFamily: 'JetBrains Mono, monospace', lineHeight: '1.5' }}>
-{`flowchart TB
-    subgraph L1["Layer 1 — Token"]
-        IT[IntelToken]
-        IV[IntelVesting]
-        ITC[IntelTimelockController]
-    end
-    
-    subgraph L2["Layer 2 — Market"]
-        IMC[IntelMintController]
-        IPM[IntelPOLManager]
-        IS[IntelStaking]
-    end
-    
-    subgraph L3["Layer 3 — Reputation"]
-        AIR[AgentIdentityRegistry]
-        WR[WorkReceipt1155]
-        RC[ReviewerCredential]
-        IG[IdentityGate]
-    end
-    
-    subgraph L4["Layer 4 — Settlement"]
-        TE[TaskEscrow]
-    end
-    
-    subgraph L5["Layer 5 — Security"]
-        WSM[WorkerStakeManager]
-        RSM[ReviewerStakeManager]
-        DR[DisputeResolution]
-        RQ[ReviewerQueue]
-    end
-    
-    subgraph L6["Layer 6 — Rewards"]
-        ERD[EpochRewardDistributor]
-        CR[CategoryRegistry]
-        BBB[BuybackBurn]
-    end
-    
-    TE -->|depositYield 9%| IS
-    TE -->|transfer 81%| IT
-    TE -->|transfer 10%| IT
-    DR -->|slash| WSM
-    DR -->|slash| RSM
-    RQ -->|isEligible| RSM
-    RC -->|reads review count| RSM
-    ERD -->|transfer bonus| IT
-    BBB -->|TWAP| IPM
-    IPM -->|UniV3 swap+burn| BBB`}
-              </pre>
+              <MermaidDiagram chart={ARCHITECTURE_DIAGRAM} />
             </Surface>
 
             {/* Layer descriptions */}
@@ -522,26 +480,7 @@ export function ArchitecturePage() {
                   Copy Mermaid
                 </button>
               </div>
-              <pre className="text-xs text-slate-300 overflow-x-auto"
-                style={{ fontFamily: 'JetBrains Mono, monospace', lineHeight: '1.5' }}>
-{`flowchart LR
-    A[Buyer] -->|1. Mint INTEL| B[Smart Contracts]
-    A -->|2. Fund Task| B
-    C[Worker] -->|3. Stake INTEL| B
-    C -->|4. Claim Job| D[Broker]
-    D -->|setWorker| B
-    C -->|5. Submit Artifacts| D
-    E[Reviewer] -->|6. Accept Submission| B
-    D -->|7. Release| B
-    B -->|81% to Worker| C
-    B -->|9% to Stakers| F[Protocol]
-    B -->|10% to Treasury| F
-    B -->|8. Mint NFT| F
-    B -->|9. Record Attestation| F
-    B -->|10. Update Tier| F
-    B -->|11. Record Category| F
-    B -->|12. Distribute Bonus| F`}
-              </pre>
+              <MermaidDiagram chart={USER_FLOW_DIAGRAM} />
             </Surface>
 
             {/* Step-by-step breakdown */}
