@@ -1246,3 +1246,69 @@ export async function releaseTaskEscrow(taskId: string, workerAddress: string): 
     return null;
   }
 }
+
+export async function refundTaskEscrow(taskId: string): Promise<string | null> {
+  const contractAddress = process.env.TASK_ESCROW_ADDRESS;
+  if (!contractAddress || contractAddress.trim() === '') {
+    console.warn('[chain:refund] TASK_ESCROW_ADDRESS not set — skipping on-chain refund (off-chain-only mode)');
+    return null;
+  }
+
+  const privateKey = process.env.BROKER_ATTESTOR_PRIVATE_KEY;
+  if (!privateKey) {
+    console.error('[chain:refund] BROKER_ATTESTOR_PRIVATE_KEY not set — cannot refund task escrow');
+    return null;
+  }
+
+  const rpcUrl = process.env.WORLDCHAIN_RPC_URL;
+  const chainId = process.env.WORLDCHAIN_CHAIN_ID;
+  if (!rpcUrl || !chainId) {
+    console.error('[chain:refund] WORLDCHAIN_RPC_URL or WORLDCHAIN_CHAIN_ID not set — cannot refund task escrow');
+    return null;
+  }
+
+  try {
+    const account = privateKeyToAccount(privateKey as `0x${string}`);
+
+    const chain = {
+      id: Number(chainId),
+      name: 'Worldchain Sepolia',
+      nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+      rpcUrls: {
+        default: { http: [rpcUrl] },
+        public: { http: [rpcUrl] },
+      },
+    } as const;
+
+    const walletClient = createWalletClient({
+      account,
+      chain,
+      transport: http(),
+    });
+
+    const taskIdHash = keccak256(toBytes(taskId));
+    const refundHash = await walletClient.writeContract({
+      address: contractAddress as `0x${string}`,
+      abi: [
+        {
+          type: 'function',
+          name: 'refund',
+          stateMutability: 'nonpayable',
+          inputs: [
+            { name: 'taskId', type: 'bytes32' },
+          ],
+          outputs: [],
+        },
+      ],
+      functionName: 'refund',
+      args: [taskIdHash],
+    });
+
+    console.log(`[chain:refund] Refunded task ${taskId} txHash=${refundHash}`);
+    return refundHash;
+  } catch (err) {
+    console.error('[chain:refund] Failed to refund task escrow:', err);
+    // Do not throw — refund failure must not block the reject flow
+    return null;
+  }
+}
