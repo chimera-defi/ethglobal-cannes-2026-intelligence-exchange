@@ -755,7 +755,36 @@ export function ReviewPanel() {
               </div>
             )}
 
-            {/* Score breakdown from latest submission */}
+            {/* Agent spend events */}
+            {data?.spendEvents && data.spendEvents.length > 0 && (
+              <div className="pt-3 border-t border-slate-800 space-y-2">
+                <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">
+                  Agent Spend Events
+                </p>
+                <div className="space-y-2">
+                  {data.spendEvents.map((event) => (
+                    <div key={event.eventId} className="flex items-start gap-2 rounded-lg bg-slate-800/50 px-3 py-2">
+                      <Wallet className="h-4 w-4 text-blue-400 shrink-0 mt-0.5" />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-200">{event.vendor}</span>
+                          <span className="text-xs text-gray-500">{event.settlementRail}</span>
+                        </div>
+                        <p className="text-xs text-gray-400">{event.purpose}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          ${event.amountUsd} USD · {event.workerId.slice(0, 16)}…
+                        </p>
+                        {event.txHash && (
+                          <p className="text-xs font-mono text-blue-400 mt-0.5 break-all">
+                            {event.txHash}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {latestSubmission?.scoreBreakdown && (
               <div className="pt-3 border-t border-slate-800 space-y-2">
                 <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">
