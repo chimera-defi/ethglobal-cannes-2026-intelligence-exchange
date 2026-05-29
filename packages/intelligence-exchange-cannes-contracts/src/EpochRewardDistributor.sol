@@ -144,7 +144,6 @@ contract EpochRewardDistributor {
 
         EpochReward storage reward = epochRewards[epoch];
         reward.epoch = epoch;
-        reward.workerCount = workers.length;
         reward.topCount = (workers.length * topPercentileBps) / BPS;
         if (reward.topCount == 0 && workers.length > 0) reward.topCount = 1;
 
@@ -157,6 +156,8 @@ contract EpochRewardDistributor {
             reward.aiuScore[workers[i]] = aiuScores[i];
             reward.rankedWorkers.push(workers[i]);
         }
+
+        reward.workerCount = reward.rankedWorkers.length;
 
         emit EpochScoresSubmitted(epoch, workers.length, reward.topCount);
     }
