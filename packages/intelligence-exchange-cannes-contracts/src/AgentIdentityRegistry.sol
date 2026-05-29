@@ -46,6 +46,7 @@ contract AgentIdentityRegistry {
     mapping(bytes32 fingerprint => AgentIdentity) public agents;
     mapping(uint256 tokenId => bytes32) public tokenToFingerprint;
     mapping(bytes32 jobId => bool) public attestedJobs;
+    mapping(address operator => bytes32 fingerprint) public operatorToFingerprint;
     uint256 public nextTokenId = 1;
 
     IdentityGate public identityGate;
@@ -106,6 +107,7 @@ contract AgentIdentityRegistry {
             registeredAt: block.timestamp
         });
         tokenToFingerprint[tokenId] = fingerprint;
+        operatorToFingerprint[msg.sender] = fingerprint;
 
         emit AgentRegistered(fingerprint, tokenId, msg.sender, agentType, role, permissionsHash);
         return (fingerprint, tokenId);
@@ -211,13 +213,9 @@ contract AgentIdentityRegistry {
     /// @param operator Operator address to search for.
     /// @return Fingerprint if found, bytes32(0) otherwise.
     function _findFingerprintByOperator(address operator) internal view returns (bytes32) {
-        // This is a simple linear search - in production, consider adding a reverse mapping
-        // for better performance if this becomes a bottleneck
-        for (uint256 i = 1; i < nextTokenId; i++) {
-            bytes32 fingerprint = tokenToFingerprint[i];
-            if (agents[fingerprint].operatorAddress == operator && agents[fingerprint].registered) {
-                return fingerprint;
-            }
+        bytes32 fingerprint = operatorToFingerprint[operator];
+        if (fingerprint != bytes32(0) && agents[fingerprint].registered) {
+            return fingerprint;
         }
         return bytes32(0);
     }

@@ -4,8 +4,12 @@ pragma solidity ^0.8.24;
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 
 /// @title IdeaEscrow
-/// @notice Holds ERC-20 funds for ideas and releases them milestone by milestone.
-///         Payment token address is passed per-idea at fund time.
+/// @notice DEPRECATED. This contract is legacy and not wired to the current settlement path.
+///         Use the broker settlement service (tokenomicsService) for task payments.
+/// @custom:deprecated true
+///
+/// Holds ERC-20 funds for ideas and releases them milestone by milestone.
+/// Payment token address is passed per-idea at fund time.
 ///
 /// State machine per milestone:
 ///   funded → reserved → released
