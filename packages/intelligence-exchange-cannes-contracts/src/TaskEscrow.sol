@@ -163,7 +163,10 @@ contract TaskEscrow {
     /// @notice Release escrowed INTEL to worker, staker yield pool, and treasury.
     /// @custom:access operator only
     /// @param taskId  Task identifier to release.
-    function release(bytes32 taskId) external onlyOperator nonReentrant {
+    /// @param worker  Address of the worker to receive funds (actual accepted worker).
+    function release(bytes32 taskId, address worker) external onlyOperator nonReentrant {
+        if (worker == address(0)) revert ZeroAddress();
+
         Task storage task = tasks[taskId];
         if (task.state != TaskState.Funded) revert TaskNotFunded();
 
@@ -171,8 +174,8 @@ contract TaskEscrow {
         uint256 stakerShare = (task.amount * stakerBps) / BPS;
         uint256 treasuryShare = task.amount - workerShare - stakerShare; // remainder avoids rounding dust
 
-        // Transfer worker share
-        bool workerOk = intel.transfer(task.worker, workerShare);
+        // Transfer worker share to the actual worker (not task.worker)
+        bool workerOk = intel.transfer(worker, workerShare);
         require(workerOk, "TaskEscrow: release worker transfer failed");
 
         // Approve and transfer staker share to IntelStaking
@@ -187,7 +190,7 @@ contract TaskEscrow {
         task.state = TaskState.Released;
         task.releasedAt = block.timestamp;
 
-        emit TaskReleased(taskId, task.worker, workerShare, stakerShare, treasuryShare);
+        emit TaskReleased(taskId, worker, workerShare, stakerShare, treasuryShare);
     }
 
     /// @notice Refund escrowed INTEL to funder. Allowed after refund window or by owner anytime.

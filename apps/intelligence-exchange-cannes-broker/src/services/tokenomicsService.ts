@@ -346,7 +346,7 @@ export async function settleAcceptedJobCredits(input: {
 
   // Release task escrow on-chain via TaskEscrow.release()
   // This is fire-and-forget: if it fails, we log and continue (off-chain-only mode for demo)
-  const releaseTx = await releaseTaskEscrow(input.jobId);
+  const releaseTx = await releaseTaskEscrow(input.jobId, input.workerId);
   if (releaseTx) {
     console.log(`[settlement] TaskEscrow.release called, tx: ${releaseTx}`);
   }
