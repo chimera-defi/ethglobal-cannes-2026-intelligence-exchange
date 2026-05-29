@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import { and, eq, inArray } from 'drizzle-orm';
 import type { AcceptedSubmissionAttestation, ChainReceiptSync } from 'intelligence-exchange-cannes-shared';
-import { encodePacked, keccak256, toBytes, createWalletClient, http } from 'viem';
+import { encodePacked, keccak256, toBytes, createWalletClient, createPublicClient, http } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { db } from '../db/client';
 import {
@@ -381,5 +381,216 @@ export async function mintWorkReceipt(workerAddress: string, ideaId: string, age
   } catch (err) {
     console.error('[chain:mintWorkReceipt] Failed to mint WorkReceipt:', err);
     // Do not throw — minting failure must not block the acceptance flow
+  }
+}
+
+export async function depositStakerYield(amountIntel: number) {
+  const contractAddress = process.env.INTEL_STAKING_CONTRACT_ADDRESS;
+  if (!contractAddress || contractAddress.trim() === '') {
+    console.warn('[chain:depositStakerYield] INTEL_STAKING_CONTRACT_ADDRESS not set — skipping on-chain yield deposit (off-chain-only mode)');
+    return;
+  }
+
+  const privateKey = process.env.BROKER_ATTESTOR_PRIVATE_KEY;
+  if (!privateKey) {
+    console.error('[chain:depositStakerYield] BROKER_ATTESTOR_PRIVATE_KEY not set — cannot deposit staker yield');
+    return;
+  }
+
+  const rpcUrl = process.env.WORLDCHAIN_RPC_URL;
+  const chainId = process.env.WORLDCHAIN_CHAIN_ID;
+  if (!rpcUrl || !chainId) {
+    console.error('[chain:depositStakerYield] WORLDCHAIN_RPC_URL or WORLDCHAIN_CHAIN_ID not set — cannot deposit staker yield');
+    return;
+  }
+
+  const intelTokenAddress = process.env.INTEL_TOKEN_CONTRACT_ADDRESS;
+  if (!intelTokenAddress || intelTokenAddress.trim() === '') {
+    console.error('[chain:depositStakerYield] INTEL_TOKEN_CONTRACT_ADDRESS not set — cannot deposit staker yield');
+    return;
+  }
+
+  try {
+    const account = privateKeyToAccount(privateKey as `0x${string}`);
+
+    // Define minimal chain configuration for viem
+    const chain = {
+      id: Number(chainId),
+      name: 'Worldchain Sepolia',
+      nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+      rpcUrls: {
+        default: { http: [rpcUrl] },
+        public: { http: [rpcUrl] },
+      },
+    } as const;
+
+    const walletClient = createWalletClient({
+      account,
+      chain,
+      transport: http(),
+    });
+
+    // Convert INTEL amount to wei (18 decimals)
+    const amountWei = BigInt(Math.floor(amountIntel * 1e18));
+
+    // First approve the IntelStaking contract to spend INTEL
+    const approveHash = await walletClient.writeContract({
+      address: intelTokenAddress as `0x${string}`,
+      abi: [
+        {
+          type: 'function',
+          name: 'approve',
+          stateMutability: 'nonpayable',
+          inputs: [
+            { name: 'spender', type: 'address' },
+            { name: 'amount', type: 'uint256' },
+          ],
+          outputs: [{ name: 'success', type: 'bool' }],
+        },
+      ],
+      functionName: 'approve',
+      args: [contractAddress as `0x${string}`, amountWei],
+    });
+
+    console.log(`[chain:depositStakerYield] Approved IntelStaking to spend ${amountIntel} INTEL txHash=${approveHash}`);
+
+    // Then deposit the yield
+    const depositHash = await walletClient.writeContract({
+      address: contractAddress as `0x${string}`,
+      abi: [
+        {
+          type: 'function',
+          name: 'depositYield',
+          stateMutability: 'nonpayable',
+          inputs: [
+            { name: 'amount', type: 'uint256' },
+          ],
+        },
+      ],
+      functionName: 'depositYield',
+      args: [amountWei],
+    });
+
+    console.log(`[chain:depositStakerYield] Deposited ${amountIntel} INTEL staker yield txHash=${depositHash}`);
+  } catch (err) {
+    console.error('[chain:depositStakerYield] Failed to deposit staker yield:', err);
+    // Do not throw — deposit failure must not block the settlement flow
+  }
+}
+
+// ─── WorkerStakeManager Integration ─────────────────────────────────────────────
+
+export async function checkWorkerStake(workerAddress: string, taskValueWei: bigint): Promise<{ canClaim: boolean; error?: string }> {
+  const contractAddress = process.env.WORKER_STAKE_MANAGER_ADDRESS;
+  if (!contractAddress || contractAddress.trim() === '') {
+    console.warn('[chain:checkWorkerStake] WORKER_STAKE_MANAGER_ADDRESS not set — allowing claim without stake check (off-chain-only mode)');
+    return { canClaim: true };
+  }
+
+  const rpcUrl = process.env.WORLDCHAIN_RPC_URL;
+  if (!rpcUrl) {
+    console.warn('[chain:checkWorkerStake] WORLDCHAIN_RPC_URL not set — allowing claim without stake check (off-chain-only mode)');
+    return { canClaim: true };
+  }
+
+  try {
+    const publicClient = createPublicClient({
+      transport: http(rpcUrl, {
+        timeout: 10000,
+        retryCount: 2,
+      }),
+    });
+
+    const canClaim = await publicClient.readContract({
+      address: contractAddress as `0x${string}`,
+      abi: [
+        {
+          type: 'function',
+          name: 'canClaim',
+          stateMutability: 'view',
+          inputs: [
+            { name: 'worker', type: 'address' },
+            { name: 'taskValueWei', type: 'uint256' },
+          ],
+          outputs: [{ name: '', type: 'bool' }],
+        },
+      ],
+      functionName: 'canClaim',
+      args: [workerAddress as `0x${string}`, taskValueWei],
+    });
+
+    return { canClaim: canClaim as boolean };
+  } catch (err) {
+    console.error('[chain:checkWorkerStake] Failed to check worker stake:', err);
+    // Degrade gracefully — allow claim to proceed if contract call fails
+    return { canClaim: true, error: String(err) };
+  }
+}
+
+// ─── ReviewerStakeManager Integration ───────────────────────────────────────────
+
+export async function recordReviewerReview(reviewerAddress: string, taskValueIntel: bigint): Promise<{ success: boolean; error?: string }> {
+  const contractAddress = process.env.REVIEWER_STAKE_MANAGER_ADDRESS;
+  if (!contractAddress || contractAddress.trim() === '') {
+    console.warn('[chain:recordReviewerReview] REVIEWER_STAKE_MANAGER_ADDRESS not set — skipping on-chain record (off-chain-only mode)');
+    return { success: true };
+  }
+
+  const privateKey = process.env.BROKER_ATTESTOR_PRIVATE_KEY;
+  if (!privateKey) {
+    console.error('[chain:recordReviewerReview] BROKER_ATTESTOR_PRIVATE_KEY not set — cannot record review');
+    return { success: false, error: 'BROKER_ATTESTOR_PRIVATE_KEY not set' };
+  }
+
+  const rpcUrl = process.env.WORLDCHAIN_RPC_URL;
+  const chainId = process.env.WORLDCHAIN_CHAIN_ID;
+  if (!rpcUrl || !chainId) {
+    console.error('[chain:recordReviewerReview] WORLDCHAIN_RPC_URL or WORLDCHAIN_CHAIN_ID not set — cannot record review');
+    return { success: false, error: 'WORLDCHAIN_RPC_URL or WORLDCHAIN_CHAIN_ID not set' };
+  }
+
+  try {
+    const account = privateKeyToAccount(privateKey as `0x${string}`);
+
+    const chain = {
+      id: Number(chainId),
+      name: 'Worldchain Sepolia',
+      nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+      rpcUrls: {
+        default: { http: [rpcUrl] },
+        public: { http: [rpcUrl] },
+      },
+    } as const;
+
+    const walletClient = createWalletClient({
+      account,
+      chain,
+      transport: http(),
+    });
+
+    const hash = await walletClient.writeContract({
+      address: contractAddress as `0x${string}`,
+      abi: [
+        {
+          type: 'function',
+          name: 'recordReview',
+          stateMutability: 'nonpayable',
+          inputs: [
+            { name: 'reviewer', type: 'address' },
+            { name: 'taskValue', type: 'uint256' },
+          ],
+          outputs: [],
+        },
+      ],
+      functionName: 'recordReview',
+      args: [reviewerAddress as `0x${string}`, taskValueIntel],
+    });
+
+    console.log(`[chain:recordReviewerReview] Recorded review for reviewer=${reviewerAddress} taskValue=${taskValueIntel} txHash=${hash}`);
+    return { success: true };
+  } catch (err) {
+    console.error('[chain:recordReviewerReview] Failed to record review:', err);
+    // Fire-and-forget — never block the acceptance flow
+    return { success: false, error: String(err) };
   }
 }

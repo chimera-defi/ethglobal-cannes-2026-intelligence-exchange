@@ -10,7 +10,7 @@ import {
 } from 'intelligence-exchange-cannes-shared';
 import { randomUUID } from 'crypto';
 import { httpError } from './errors';
-import { issueAcceptedSubmissionAttestation, mintWorkReceipt } from './chainService';
+import { issueAcceptedSubmissionAttestation, mintWorkReceipt, recordReviewerReview } from './chainService';
 import { logJobEvent } from './jobEvents';
 import { settleAcceptedJobCredits } from './tokenomicsService';
 
@@ -317,6 +317,16 @@ export async function acceptJob(jobId: string, reviewerId: string) {
     sub.agentFingerprint,
     score,
   ).catch((err) => console.error('[job:accept] Failed to mint WorkReceipt:', err));
+
+  // Fire-and-forget ReviewerStakeManager.recordReview call
+  const budgetUsd = Number.parseFloat(job.budgetUsd);
+  // Convert USD to INTEL (approximate: 1 INTEL = $1)
+  const intelPriceUsd = 1;
+  const taskValueIntel = BigInt(Math.floor(budgetUsd / intelPriceUsd * 1e18));
+  
+  recordReviewerReview(reviewerId, taskValueIntel).catch((err) => {
+    console.error(`[job:accept] Failed to record review for reviewer=${reviewerId}:`, err);
+  });
 
   return { accepted: true, attestation, settlement };
 }

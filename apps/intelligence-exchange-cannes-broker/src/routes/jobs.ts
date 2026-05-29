@@ -16,7 +16,7 @@ import {
 import { MILESTONE_ORDER } from 'intelligence-exchange-cannes-shared';
 import { getSessionAccountAddress, requireAgentAuthorization, requireWorldRoleIfStrict } from '../services/accessService';
 import { consumeChallenge } from '../services/authService';
-import { hydrateAcceptedSubmissionAttestation } from '../services/chainService';
+import { hydrateAcceptedSubmissionAttestation, checkWorkerStake } from '../services/chainService';
 import { computeAgentFingerprint, normalizeAccountAddress } from '../services/identityService';
 import { httpError } from '../services/errors';
 import { getWorldConfig } from '../services/sponsorConfig';
@@ -406,6 +406,7 @@ jobsRouter.post('/:jobId/claim', zValidator('json', JobClaimRequestSchema), asyn
 
   try {
     let result: Awaited<ReturnType<typeof claimJob>>;
+    let workerAddress: string;
 
     if (isSignedClaimRequest(req)) {
       await consumeChallenge({
@@ -427,12 +428,40 @@ jobsRouter.post('/:jobId/claim', zValidator('json', JobClaimRequestSchema), asyn
         requiredPermissions: ['claim_jobs'],
       });
 
-      result = await claimJob(jobId, req.signedAction.accountAddress, req.signedAction.agentFingerprint);
+      workerAddress = req.signedAction.accountAddress;
     } else {
       if (getWorldConfig().strict) {
         throw httpError('Signed worker claim required when WORLD_ID_STRICT is enabled', 401, 'AUTH_REQUIRED');
       }
 
+      const demoIdentity = buildDemoAgentIdentity(req);
+      workerAddress = demoIdentity.accountAddress;
+    }
+
+    // Worker stake check for high-value tasks
+    const [job] = await db.select().from(jobs).where(eq(jobs.jobId, jobId));
+    if (job) {
+      const budgetUsd = Number.parseFloat(job.budgetUsd);
+      // Convert USD to ETH wei (approximate: 1 ETH = $3000)
+      const ethPriceUsd = 3000;
+      const taskValueWei = BigInt(Math.floor((budgetUsd / ethPriceUsd) * 1e18));
+      
+      const stakeCheck = await checkWorkerStake(workerAddress, taskValueWei);
+      if (!stakeCheck.canClaim) {
+        console.warn(`[jobs:claim] Worker stake check failed for worker=${workerAddress} jobId=${jobId} budgetUsd=${budgetUsd}`);
+        return c.json({ 
+          error: { 
+            code: 'INSUFFICIENT_STAKE', 
+            message: 'Worker stake insufficient for high-value task. Stake INTEL at WorkerStakeManager to claim tasks above threshold.' 
+          } 
+        }, 403);
+      }
+    }
+
+    // Proceed with claim after stake check passes
+    if (isSignedClaimRequest(req)) {
+      result = await claimJob(jobId, req.signedAction.accountAddress, req.signedAction.agentFingerprint);
+    } else {
       const demoIdentity = buildDemoAgentIdentity(req);
       result = await claimJob(jobId, demoIdentity.accountAddress, demoIdentity.fingerprint);
     }

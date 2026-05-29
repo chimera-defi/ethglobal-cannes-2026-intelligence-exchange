@@ -11,6 +11,7 @@ import { db } from '../db/client';
 import { ideaTokenReserves, tokenAccounts, tokenLedgerEntries } from '../db/schema';
 import { httpError } from './errors';
 import { normalizeAccountAddress } from './identityService';
+import { depositStakerYield } from './chainService';
 
 function parseBoolean(value: string | undefined, fallback = false) {
   if (value === undefined) return fallback;
@@ -336,6 +337,12 @@ export async function settleAcceptedJobCredits(input: {
       },
     ]);
   });
+
+  // Deposit staker yield to IntelStaking contract on-chain
+  // This is non-blocking: if it fails, we log and continue (off-chain-only mode for demo)
+  if (split.stakerYieldIntel > 0) {
+    await depositStakerYield(split.stakerYieldIntel);
+  }
 
   return {
     tokenSymbol: config.symbol,
