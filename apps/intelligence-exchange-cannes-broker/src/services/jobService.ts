@@ -10,7 +10,7 @@ import {
 } from 'intelligence-exchange-cannes-shared';
 import { randomUUID } from 'crypto';
 import { httpError } from './errors';
-import { issueAcceptedSubmissionAttestation, mintWorkReceipt, recordReviewerReview, setWorkerOnEscrow, clearWorkerOnEscrow, recordCategoryCompletion, submitAiuScore, evaluateReviewerTier } from './chainService';
+import { issueAcceptedSubmissionAttestation, mintWorkReceipt, recordReviewerReview, setWorkerOnEscrow, clearWorkerOnEscrow, recordCategoryCompletion, submitAiuScore, evaluateReviewerTier, checkReviewerAssignment } from './chainService';
 import { logJobEvent } from './jobEvents';
 import { settleAcceptedJobCredits } from './tokenomicsService';
 
@@ -280,6 +280,12 @@ export async function acceptJob(jobId: string, reviewerId: string) {
   if (!job) throw httpError('Job not found', 404, 'JOB_NOT_FOUND');
   if (job.status !== 'submitted') {
     throw httpError(`Job not in submitted state: ${job.status}`, 409, 'JOB_NOT_REVIEWABLE');
+  }
+
+  // ReviewerQueue enforcement check (soft enforcement — logs warning but proceeds)
+  const isAssigned = await checkReviewerAssignment(jobId, reviewerId).catch(() => true);
+  if (!isAssigned) {
+    console.warn('[job:accept] Reviewer not assigned via ReviewerQueue — proceeding (soft enforcement)');
   }
 
   const [sub] = await db.select().from(submissions)

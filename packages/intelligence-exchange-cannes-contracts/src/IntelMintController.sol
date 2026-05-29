@@ -39,6 +39,7 @@ contract IntelMintController {
     error MintingPaused();
     error EpochMintCapExceeded(uint256 requested, uint256 remaining);
     error FeatureDisabled();
+    error TwapDeviationTooLarge(uint256 twap, uint256 floor);
 
     // ─── Constants ────────────────────────────────────────────────────────────
 
@@ -69,6 +70,7 @@ contract IntelMintController {
     event MintUnpaused(address indexed by);
     event EpochMintCapChanged(uint256 oldCap, uint256 newCap);
     event EpochCapUpdated(uint256 oldCap, uint256 newCap, uint256 settledVolume);
+    event TwapDeviationCheckToggled(bool enabled);
 
     // ─── Storage ──────────────────────────────────────────────────────────────
 
@@ -135,6 +137,17 @@ contract IntelMintController {
 
     /// @notice Whether activity-based cap adjustment is enabled (default false).
     bool public activityCapEnabled;
+
+    // ─── TWAP deviation circuit breaker (appended to storage) ─────────────────
+
+    /// @notice Maximum allowed deviation of TWAP from floorPrice as a safety check.
+    ///         Default 3000 (30%). If TWAP drops below floorPrice * (BPS - maxTwapDeviationBps) / BPS,
+    ///         it is likely manipulated and minting is blocked.
+    uint256 public maxTwapDeviationBps;
+
+    /// @notice Whether TWAP deviation check is enabled (default false).
+    ///         Feature flag for gradual rollout.
+    bool public twapDeviationPauseEnabled;
 
     // ─── Reentrancy guard ─────────────────────────────────────────────────────
 
@@ -206,6 +219,10 @@ contract IntelMintController {
         activityCapFloorBps = 2000;          // 20% of BASE_EPOCH_CAP
         activityCapCeilingBps = 20000;        // 2x of BASE_EPOCH_CAP
         activityCapEnabled = false;           // Disabled by default to preserve existing behavior
+
+        // Initialize TWAP deviation circuit breaker (disabled by default)
+        maxTwapDeviationBps = 3000;           // 30% max deviation
+        twapDeviationPauseEnabled = false;    // Disabled by default for gradual rollout
     }
 
     // ─── Price View ───────────────────────────────────────────────────────────
@@ -232,6 +249,20 @@ contract IntelMintController {
     /// @return cost        ETH cost in wei.
     function quoteMint(uint256 intelAmount) external view returns (uint256 cost) {
         cost = (mintPrice() * intelAmount) / 1e18;
+    }
+
+    /// @notice Internal check for TWAP deviation from floorPrice.
+    ///         Prevents minting when TWAP appears manipulated (extremely low relative to floor).
+    ///         Only active when twapDeviationPauseEnabled is true.
+    function _checkTwapDeviation() internal view {
+        if (!twapDeviationPauseEnabled) return;
+        if (twap == 0) return; // No TWAP yet
+
+        // If TWAP is significantly below floorPrice, it may be manipulated
+        // Check: twap < floorPrice * (BPS - maxTwapDeviationBps) / BPS
+        if (floorPrice > 0 && twap < (floorPrice * (BPS - maxTwapDeviationBps)) / BPS) {
+            revert TwapDeviationTooLarge(twap, floorPrice);
+        }
     }
 
     // ─── Mint (ETH path) ──────────────────────────────────────────────────────
@@ -281,6 +312,9 @@ contract IntelMintController {
         if (intelAmount == 0) revert ZeroAmount();
         if (paymentToken == address(0)) revert ZeroAddress();
         if (mintPaused) revert MintingPaused();
+
+        // Check TWAP deviation before computing price
+        _checkTwapDeviation();
 
         uint256 price = mintPrice();
         if (price > maxPrice) revert SlippageExceeded(price, maxPrice);
@@ -554,6 +588,24 @@ contract IntelMintController {
         activityCapEnabled = _enabled;
     }
 
+    // ─── TWAP deviation circuit breaker admin ─────────────────────────────────
+
+    /// @notice Set the maximum allowed TWAP deviation from floorPrice.
+    /// @custom:access owner
+    /// @param  bps Maximum deviation in basis points (e.g., 3000 = 30%).
+    function setMaxTwapDeviation(uint256 bps) external onlyOwner {
+        if (bps > BPS) revert InvalidParam();
+        maxTwapDeviationBps = bps;
+    }
+
+    /// @notice Enable or disable TWAP deviation checking.
+    /// @custom:access owner
+    /// @param  enabled True to enable, false to disable.
+    function setTwapDeviationPauseEnabled(bool enabled) external onlyOwner {
+        twapDeviationPauseEnabled = enabled;
+        emit TwapDeviationCheckToggled(enabled);
+    }
+
     // ─── Ownable2Step ─────────────────────────────────────────────────────────
 
     /// @notice Begin ownership transfer. Nominee must call acceptOwnership().
@@ -592,6 +644,9 @@ contract IntelMintController {
     ///      and for any access-control modifiers.
     function _doMint(address to, uint256 intelAmount, uint256 maxPrice) internal {
         if (mintPaused) revert MintingPaused();
+
+        // Check TWAP deviation before computing price
+        _checkTwapDeviation();
 
         uint256 price = mintPrice();
         if (price > maxPrice) revert SlippageExceeded(price, maxPrice);
