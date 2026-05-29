@@ -664,6 +664,72 @@ export async function setWorkerOnEscrow(taskId: string, workerAddress: string): 
   }
 }
 
+export async function clearWorkerOnEscrow(taskId: string): Promise<string | null> {
+  const contractAddress = process.env.TASK_ESCROW_ADDRESS;
+  if (!contractAddress || contractAddress.trim() === '') {
+    console.warn('[chain:clearWorkerOnEscrow] TASK_ESCROW_ADDRESS not set — skipping on-chain clearWorker (off-chain-only mode)');
+    return null;
+  }
+
+  const privateKey = process.env.BROKER_ATTESTOR_PRIVATE_KEY;
+  if (!privateKey) {
+    console.error('[chain:clearWorkerOnEscrow] BROKER_ATTESTOR_PRIVATE_KEY not set — cannot clear worker');
+    return null;
+  }
+
+  const rpcUrl = process.env.WORLDCHAIN_RPC_URL;
+  const chainId = process.env.WORLDCHAIN_CHAIN_ID;
+  if (!rpcUrl || !chainId) {
+    console.error('[chain:clearWorkerOnEscrow] WORLDCHAIN_RPC_URL or WORLDCHAIN_CHAIN_ID not set — cannot clear worker');
+    return null;
+  }
+
+  try {
+    const account = privateKeyToAccount(privateKey as `0x${string}`);
+
+    const chain = {
+      id: Number(chainId),
+      name: 'Worldchain Sepolia',
+      nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+      rpcUrls: {
+        default: { http: [rpcUrl] },
+        public: { http: [rpcUrl] },
+      },
+    } as const;
+
+    const walletClient = createWalletClient({
+      account,
+      chain,
+      transport: http(),
+    });
+
+    const taskIdBytes32 = keccak256(toBytes(taskId));
+
+    const hash = await walletClient.writeContract({
+      address: contractAddress as `0x${string}`,
+      abi: [
+        {
+          type: 'function',
+          name: 'clearWorker',
+          stateMutability: 'nonpayable',
+          inputs: [
+            { name: 'taskId', type: 'bytes32' },
+          ],
+          outputs: [],
+        },
+      ],
+      functionName: 'clearWorker',
+      args: [taskIdBytes32],
+    });
+
+    console.log(`[chain:clearWorkerOnEscrow] Cleared worker for taskId=${taskId} txHash=${hash}`);
+    return hash;
+  } catch (err) {
+    console.error('[chain:clearWorkerOnEscrow] Failed to clear worker:', err);
+    return null;
+  }
+}
+
 // ─── CategoryRegistry Integration ─────────────────────────────────────────────
 
 export async function recordCategoryCompletion(agentAddress: string, category: number, aiuScore: number): Promise<void> {

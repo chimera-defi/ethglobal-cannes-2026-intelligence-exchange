@@ -10,7 +10,7 @@ import {
 } from 'intelligence-exchange-cannes-shared';
 import { randomUUID } from 'crypto';
 import { httpError } from './errors';
-import { issueAcceptedSubmissionAttestation, mintWorkReceipt, recordReviewerReview, setWorkerOnEscrow, recordCategoryCompletion, submitAiuScore, evaluateReviewerTier } from './chainService';
+import { issueAcceptedSubmissionAttestation, mintWorkReceipt, recordReviewerReview, setWorkerOnEscrow, clearWorkerOnEscrow, recordCategoryCompletion, submitAiuScore, evaluateReviewerTier } from './chainService';
 import { logJobEvent } from './jobEvents';
 import { settleAcceptedJobCredits } from './tokenomicsService';
 
@@ -193,6 +193,9 @@ export async function unclaimJob(jobId: string, accountAddress: string, agentFin
     agentFingerprint: agentFingerprint ?? null,
   });
   console.log(`[job:unclaimed] jobId=${jobId} worker=${accountAddress}`);
+
+  // Clear worker on TaskEscrow after successful unclaim
+  clearWorkerOnEscrow(jobId).catch(err => console.error('[unclaimJob] clearWorkerOnEscrow failed:', err));
 
   return { unclaimed: true, status: 'queued' as const };
 }
