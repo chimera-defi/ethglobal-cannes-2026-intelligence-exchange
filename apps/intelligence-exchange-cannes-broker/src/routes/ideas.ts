@@ -310,5 +310,7 @@ ideasRouter.get('/:ideaId/escrow-funding-params', async (c) => {
     approveCalldata,
     fundTaskCalldata,
     instructions: 'Broadcast approve tx from your buyer wallet, then fundTask tx. Both must use the same wallet that funded this idea.',
+    deprecated: true,
+    deprecationMessage: 'Use GET /jobs/:jobId/escrow-funding-params instead for job-level escrow funding with consistent taskId hashing',
   });
 });

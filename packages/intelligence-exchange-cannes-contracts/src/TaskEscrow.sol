@@ -45,6 +45,7 @@ contract TaskEscrow {
     event OperatorSet(address indexed op, bool approved);
     event RefundWindowUpdated(uint256 window);
     event WorkerAssigned(bytes32 indexed taskId, address indexed worker);
+    event WorkerCleared(bytes32 indexed taskId, address indexed previousWorker);
     event OwnershipTransferStarted(address indexed previous, address indexed next);
     event OwnershipTransferred(address indexed previous, address indexed next);
 
@@ -138,6 +139,7 @@ contract TaskEscrow {
     // ─── Core Escrow Functions ────────────────────────────────────────────────
 
     /// @notice Fund a task with INTEL. Tokens are transferred from caller and held in escrow.
+    /// @dev Each taskId is independent. fundTask creates a new entry; release only drains that entry's amount.
     /// @param taskId  Unique task identifier (bytes32).
     /// @param amount  INTEL amount to escrow (in wei, 18 decimals).
     function fundTask(bytes32 taskId, uint256 amount) external nonReentrant {
@@ -172,6 +174,18 @@ contract TaskEscrow {
 
         task.worker = worker;
         emit WorkerAssigned(taskId, worker);
+    }
+
+    /// @notice Clear the worker assignment for a funded task. Called by operator when a claim expires or is cancelled.
+    /// @custom:access operator only
+    /// @param taskId  Task identifier to clear worker from.
+    function clearWorker(bytes32 taskId) external onlyOperator {
+        Task storage task = tasks[taskId];
+        if (task.state != TaskState.Funded) revert TaskNotFunded();
+
+        address previousWorker = task.worker;
+        task.worker = address(0);
+        emit WorkerCleared(taskId, previousWorker);
     }
 
     /// @notice Release escrowed INTEL to worker, staker yield pool, and treasury.

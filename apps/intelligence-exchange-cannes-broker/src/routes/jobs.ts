@@ -3,7 +3,7 @@ import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { desc, eq, inArray } from 'drizzle-orm';
 import { db } from '../db/client';
-import { acceptedAttestations, agentSpendEvents, briefs, claims, ideas, jobs, milestones, submissions } from '../db/schema';
+import { acceptedAttestations, agentSpendEvents, briefs, claims, ideas, ideaTokenReserves, jobs, milestones, submissions } from '../db/schema';
 import { claimJob, recordSpendEvent, submitJob, unclaimJob } from '../services/jobService';
 import {
   JobClaimRequestSchema,
@@ -21,7 +21,7 @@ import { hydrateAcceptedSubmissionAttestation, checkWorkerStake } from '../servi
 import { computeAgentFingerprint, normalizeAccountAddress } from '../services/identityService';
 import { httpError } from '../services/errors';
 import { getWorldConfig } from '../services/sponsorConfig';
-import { keccak256, toBytes, createWalletClient, createPublicClient, http } from 'viem';
+import { keccak256, toBytes, createWalletClient, createPublicClient, http, encodeFunctionData } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
 export const jobsRouter = new Hono();
@@ -398,6 +398,59 @@ jobsRouter.get('/:jobId/skill.md', async (c) => {
     return c.json({ error: result.error }, result.status);
   }
   return result.response;
+});
+
+// GET /v1/cannes/jobs/:jobId/escrow-funding-params — get escrow funding params for a specific job
+jobsRouter.get('/:jobId/escrow-funding-params', async (c) => {
+  const { jobId } = c.req.param();
+
+  const taskEscrowAddress = process.env.TASK_ESCROW_ADDRESS;
+  if (!taskEscrowAddress || taskEscrowAddress.trim() === '') {
+    return c.json({ error: 'On-chain escrow not configured', configured: false }, 200);
+  }
+
+  const [job] = await db.select().from(jobs).where(eq(jobs.jobId, jobId));
+  if (!job) {
+    return c.json({ error: { code: 'NOT_FOUND', message: 'Job not found' } }, 404);
+  }
+
+  const [ideaReserve] = await db.select().from(ideaTokenReserves).where(eq(ideaTokenReserves.ideaId, job.ideaId));
+  if (!ideaReserve) {
+    return c.json({ error: { code: 'NOT_FOUND', message: 'Idea token reserves not found' } }, 404);
+  }
+
+  const budgetUsd = Number.parseFloat(job.budgetUsd);
+  const avgMintPriceUsdPerIntel = Number.parseFloat(ideaReserve.avgMintPriceUsdPerIntel);
+  const amountIntel = budgetUsd / avgMintPriceUsdPerIntel;
+  const amountWei = BigInt(Math.floor(amountIntel * 1e18));
+  const taskIdBytes32 = keccak256(toBytes(jobId)); // Uses jobId, matches broker setWorker/release calls
+
+  const intelTokenAddress = process.env.INTEL_TOKEN_CONTRACT_ADDRESS;
+
+  const erc20ApproveAbi = [{ type: 'function' as const, name: 'approve', inputs: [{name:'spender',type:'address'},{name:'amount',type:'uint256'}], outputs: [{type:'bool'}], stateMutability:'nonpayable' as const }];
+  const taskEscrowAbi = [{ type: 'function' as const, name: 'fundTask', inputs: [{name:'taskId',type:'bytes32'},{name:'amount',type:'uint256'}], outputs: [], stateMutability:'nonpayable' as const }];
+
+  const approveCalldata = encodeFunctionData({
+    abi: erc20ApproveAbi,
+    functionName: 'approve',
+    args: [taskEscrowAddress as `0x${string}`, amountWei],
+  });
+
+  const fundTaskCalldata = encodeFunctionData({
+    abi: taskEscrowAbi,
+    functionName: 'fundTask',
+    args: [taskIdBytes32, amountWei],
+  });
+
+  return c.json({
+    taskEscrowAddress,
+    intelTokenAddress: intelTokenAddress ?? null,
+    taskIdBytes32,
+    amountWei: amountWei.toString(),
+    approveCalldata,
+    fundTaskCalldata,
+    instructions: 'Broadcast approve tx from your buyer wallet, then fundTask tx. Both must use the same wallet that funded this job.',
+  });
 });
 
 // POST /v1/cannes/jobs/:jobId/claim — agent claims a milestone
