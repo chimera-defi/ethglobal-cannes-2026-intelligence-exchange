@@ -594,3 +594,170 @@ export async function recordReviewerReview(reviewerAddress: string, taskValueInt
     return { success: false, error: String(err) };
   }
 }
+
+// ─── TaskEscrow Integration ─────────────────────────────────────────────────────
+
+export async function fundTaskEscrow(taskId: string, workerAddress: string, amountIntel: number): Promise<string | null> {
+  const contractAddress = process.env.TASK_ESCROW_ADDRESS;
+  if (!contractAddress || contractAddress.trim() === '') {
+    console.warn('[chain:fundTaskEscrow] TASK_ESCROW_ADDRESS not set — skipping on-chain funding (off-chain-only mode)');
+    return null;
+  }
+
+  const privateKey = process.env.BROKER_ATTESTOR_PRIVATE_KEY;
+  if (!privateKey) {
+    console.error('[chain:fundTaskEscrow] BROKER_ATTESTOR_PRIVATE_KEY not set — cannot fund task escrow');
+    return null;
+  }
+
+  const rpcUrl = process.env.WORLDCHAIN_RPC_URL;
+  const chainId = process.env.WORLDCHAIN_CHAIN_ID;
+  if (!rpcUrl || !chainId) {
+    console.error('[chain:fundTaskEscrow] WORLDCHAIN_RPC_URL or WORLDCHAIN_CHAIN_ID not set — cannot fund task escrow');
+    return null;
+  }
+
+  const intelTokenAddress = process.env.INTEL_TOKEN_CONTRACT_ADDRESS;
+  if (!intelTokenAddress || intelTokenAddress.trim() === '') {
+    console.error('[chain:fundTaskEscrow] INTEL_TOKEN_CONTRACT_ADDRESS not set — cannot fund task escrow');
+    return null;
+  }
+
+  try {
+    const account = privateKeyToAccount(privateKey as `0x${string}`);
+
+    const chain = {
+      id: Number(chainId),
+      name: 'Worldchain Sepolia',
+      nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+      rpcUrls: {
+        default: { http: [rpcUrl] },
+        public: { http: [rpcUrl] },
+      },
+    } as const;
+
+    const walletClient = createWalletClient({
+      account,
+      chain,
+      transport: http(),
+    });
+
+    // Convert INTEL amount to wei (18 decimals)
+    const amountWei = BigInt(Math.floor(amountIntel * 1e18));
+
+    // First approve the TaskEscrow contract to spend INTEL
+    const approveHash = await walletClient.writeContract({
+      address: intelTokenAddress as `0x${string}`,
+      abi: [
+        {
+          type: 'function',
+          name: 'approve',
+          stateMutability: 'nonpayable',
+          inputs: [
+            { name: 'spender', type: 'address' },
+            { name: 'amount', type: 'uint256' },
+          ],
+          outputs: [{ name: 'success', type: 'bool' }],
+        },
+      ],
+      functionName: 'approve',
+      args: [contractAddress as `0x${string}`, amountWei],
+    });
+
+    console.log(`[chain:fundTaskEscrow] Approved TaskEscrow to spend ${amountIntel} INTEL txHash=${approveHash}`);
+
+    // Then fund the task
+    const taskIdHash = keccak256(toBytes(taskId));
+    const fundHash = await walletClient.writeContract({
+      address: contractAddress as `0x${string}`,
+      abi: [
+        {
+          type: 'function',
+          name: 'fundTask',
+          stateMutability: 'nonpayable',
+          inputs: [
+            { name: 'taskId', type: 'bytes32' },
+            { name: 'worker', type: 'address' },
+            { name: 'amount', type: 'uint256' },
+          ],
+          outputs: [],
+        },
+      ],
+      functionName: 'fundTask',
+      args: [taskIdHash, workerAddress as `0x${string}`, amountWei],
+    });
+
+    console.log(`[chain:fundTaskEscrow] Funded task ${taskId} with ${amountIntel} INTEL for worker=${workerAddress} txHash=${fundHash}`);
+    return fundHash;
+  } catch (err) {
+    console.error('[chain:fundTaskEscrow] Failed to fund task escrow:', err);
+    // Do not throw — funding failure must not block the flow
+    return null;
+  }
+}
+
+export async function releaseTaskEscrow(taskId: string): Promise<string | null> {
+  const contractAddress = process.env.TASK_ESCROW_ADDRESS;
+  if (!contractAddress || contractAddress.trim() === '') {
+    console.warn('[chain:releaseTaskEscrow] TASK_ESCROW_ADDRESS not set — skipping on-chain release (off-chain-only mode)');
+    return null;
+  }
+
+  const privateKey = process.env.BROKER_ATTESTOR_PRIVATE_KEY;
+  if (!privateKey) {
+    console.error('[chain:releaseTaskEscrow] BROKER_ATTESTOR_PRIVATE_KEY not set — cannot release task escrow');
+    return null;
+  }
+
+  const rpcUrl = process.env.WORLDCHAIN_RPC_URL;
+  const chainId = process.env.WORLDCHAIN_CHAIN_ID;
+  if (!rpcUrl || !chainId) {
+    console.error('[chain:releaseTaskEscrow] WORLDCHAIN_RPC_URL or WORLDCHAIN_CHAIN_ID not set — cannot release task escrow');
+    return null;
+  }
+
+  try {
+    const account = privateKeyToAccount(privateKey as `0x${string}`);
+
+    const chain = {
+      id: Number(chainId),
+      name: 'Worldchain Sepolia',
+      nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+      rpcUrls: {
+        default: { http: [rpcUrl] },
+        public: { http: [rpcUrl] },
+      },
+    } as const;
+
+    const walletClient = createWalletClient({
+      account,
+      chain,
+      transport: http(),
+    });
+
+    const taskIdHash = keccak256(toBytes(taskId));
+    const releaseHash = await walletClient.writeContract({
+      address: contractAddress as `0x${string}`,
+      abi: [
+        {
+          type: 'function',
+          name: 'release',
+          stateMutability: 'nonpayable',
+          inputs: [
+            { name: 'taskId', type: 'bytes32' },
+          ],
+          outputs: [],
+        },
+      ],
+      functionName: 'release',
+      args: [taskIdHash],
+    });
+
+    console.log(`[chain:releaseTaskEscrow] Released task ${taskId} txHash=${releaseHash}`);
+    return releaseHash;
+  } catch (err) {
+    console.error('[chain:releaseTaskEscrow] Failed to release task escrow:', err);
+    // Do not throw — release failure must not block the settlement flow
+    return null;
+  }
+}
