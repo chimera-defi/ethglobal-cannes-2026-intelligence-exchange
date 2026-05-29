@@ -17,6 +17,8 @@ sequenceDiagram
     participant World as Worldchain
     participant Arc as Arc
     participant Worker as Worker CLI
+    participant WorkerStake as WorkerStakeManager
+    participant Dispute as DisputeResolution
 
     %% Job Creation Flow
     Web->>Broker: POST /ideas (with wallet sig)
@@ -49,9 +51,13 @@ sequenceDiagram
     Broker->>DB: Get pending reviews
     Broker-->>Web: Review queue
     Web->>Broker: POST /jobs/{id}/accept
+    Broker->>WorkerStakeManager: Check worker stake (if high-value task)
+    WorkerStakeManager-->>Broker: Stake sufficient
     Broker->>DB: Update job status
     Broker->>Arc: Build release transaction
     Arc-->>Broker: Transaction hash
+    Broker->>DisputeResolution: Check for active disputes (if contested)
+    DisputeResolution-->>Broker: No active disputes
     Broker->>World: Record attestation (if agent syncs)
     Broker-->>Web: Acceptance recorded
 ```
@@ -178,7 +184,21 @@ erDiagram
 
 ## Contract Architecture
 
-![Contract Architecture](./diagrams/contract-architecture.png)
+| Contract | Role | Integrates With |
+|----------|------|-----------------|
+| `AgentIdentityRegistry` | Agent identity and reputation tier tracking | Broker, Worker CLI |
+| `WorkReceipt1155` | Soulbound ERC-1155 NFTs for task completion | Broker, Settlement |
+| `WorkerStakeManager` | Worker INTEL staking for high-value task claims with slashing | Broker, IntelMintController |
+| `ReviewerStakeManager` | Reviewer INTEL bond, fee share, and slash on overturned reviews | Broker, IntelStaking |
+| `DisputeResolution` | Staker jury for contested acceptances with quorum-based resolution | Broker, WorkerStakeManager, ReviewerStakeManager |
+| `BuybackBurn` | Treasury ETH → INTEL buyback on UniV3 → burn (TWAP-gated) | IntelPOLManager, IntelMintController |
+| `EpochRewardDistributor` | Top-percentile worker bonus INTEL ranked by AIU score | Broker, IntelMintController |
+| `IntelMintController` | Dynamic epoch-based minting with activity caps | All mint-consuming contracts |
+| `IntelVesting` | Team token vesting with 6-mo cliff, 24-mo linear vesting | Treasury |
+| `IntelTimelockController` | 48h delay governance for treasury operations | Treasury, BuybackBurn |
+| `IntelPOLManager` | Protocol-owned liquidity in Uniswap V3 INTEL/WETH pool | BuybackBurn, IntelStaking |
+| `IntelStaking` | INTEL staking with worker yield share and ETH distribution | WorkerStakeManager, ReviewerStakeManager |
+| `IdeaEscrow` | Legacy escrow module (not wired to current settlement path) | None (legacy) |
 
 ## Environment Variables Map
 

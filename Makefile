@@ -18,7 +18,7 @@ BROKER_URL ?= http://localhost:$(BROKER_PORT)
 VITE_DEV_PROXY_TARGET ?= $(BROKER_URL)
 COMPOSE ?= ./scripts/tooling/docker-compose.sh
 
-.PHONY: help install setup dev dev-broker dev-web seed stop clean test validate tunnel fork-mainnet deploy-intel-liquidity fork-mainnet-smoke tokenomics-demo
+.PHONY: help install setup dev dev-broker dev-web seed stop clean test validate tunnel fork-mainnet deploy-intel-liquidity fork-mainnet-smoke tokenomics-demo demo-fork
 
 # Default command
 help:
@@ -53,6 +53,7 @@ help:
 	@echo "  make deploy-intel-liquidity  Deploy INTEL + WETH pool to local fork"
 	@echo "  make fork-mainnet-smoke      Full fork + liquidity smoke test"
 	@echo "  make tokenomics-demo         Run LP/staker/holder tokenomics actor simulation"
+	@echo "  make demo-fork               Run full Assay Protocol demo on local mainnet fork"
 
 # Setup commands
 install:
@@ -159,3 +160,14 @@ tokenomics-demo:
 # Quick start for demos
 demo: setup
 	@$(MAKE) dev
+
+# Full demo on mainnet fork
+demo-fork:
+	@echo '=== Starting mainnet fork ==='
+	@cd packages/intelligence-exchange-cannes-contracts && bash script/fork_mainnet.sh &
+	@sleep 3
+	@echo '=== Deploying Assay Protocol stack ==='
+	@cd packages/intelligence-exchange-cannes-contracts && forge script script/ForkDeploy.s.sol --rpc-url http://127.0.0.1:8545 --broadcast --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+	@echo '=== Running integration tests ==='
+	@cd packages/intelligence-exchange-cannes-contracts && forge test --match-contract ForkIntegration --fork-url http://127.0.0.1:8545 -vv
+	@echo '=== Demo complete ==='

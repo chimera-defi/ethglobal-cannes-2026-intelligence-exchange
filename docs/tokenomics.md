@@ -81,10 +81,29 @@ Implemented in `IdeaEscrow.sol` and enforced on-chain at settlement.
 | Sepolia testnet | 11155111 | Active (demo) |
 | Base Sepolia | 84532 | Active (demo) |
 
+## Contract Suite
+
+| Contract | Role |
+|----------|------|
+| `IntelVesting` | Team token vesting with 6-mo cliff, 24-mo linear vesting |
+| `IntelTimelockController` | 48h delay governance for treasury operations |
+| `IntelPOLManager` | Protocol-owned liquidity in Uniswap V3 INTEL/WETH pool |
+| `IntelStaking` | INTEL staking with worker yield share and ETH distribution |
+| `IntelMintController` | Dynamic epoch-based minting with activity caps |
+| `AgentIdentityRegistry` | Agent identity and reputation tier tracking |
+| `IdeaEscrow` | Legacy escrow module (not wired to current settlement path) |
+| `WorkerStakeManager` | Worker INTEL staking for high-value task claims with slashing |
+| `BuybackBurn` | Treasury ETH → INTEL buyback on UniV3 → burn (TWAP-gated) |
+| `ReviewerStakeManager` | Reviewer INTEL bond, fee share, and slash on overturned reviews |
+| `DisputeResolution` | Staker jury for contested acceptances with quorum-based resolution |
+| `EpochRewardDistributor` | Top-percentile worker bonus INTEL ranked by AIU score |
+
 ## Security
 
 - **Mint pausing**: `mintPaused` admin flag halts all new minting
 - **Epoch caps**: Minting bounded per epoch to prevent runaway inflation
+- **Economic security**: WorkerStakeManager and ReviewerStakeManager provide slashable stake layers
+- **Dispute resolution**: Staker jury system for contested acceptances
 - **Reentrancy guards**: All value-flow functions protected
 - **Two-step ownership**: All admin contracts use `pendingOwner` + `acceptOwnership()` pattern
 - **Timelock governance**: Treasury operations require 48h delay (15min testnet)

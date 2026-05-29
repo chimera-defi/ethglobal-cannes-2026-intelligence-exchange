@@ -43,6 +43,7 @@ export function Nav() {
     { to: '/agents', label: 'Agents' },
     { to: '/ideas', label: 'My Ideas' },
     { to: '/docs', label: 'Protocol Docs' },
+    { to: '/architecture', label: 'Architecture' },
   ];
 
   const verifiedRoles = [
