@@ -105,6 +105,17 @@ export async function bootstrap() {
   if (bootstrapPromise) return bootstrapPromise;
 
   bootstrapPromise = (async () => {
+    // Security check: validate ADMIN_API_KEY in production
+    if (process.env.NODE_ENV === 'production') {
+      const adminApiKey = process.env.ADMIN_API_KEY;
+      if (!adminApiKey || adminApiKey.length < 32) {
+        console.warn(
+          '[security:admin-key] WARNING: ADMIN_API_KEY is not set or is too short in production. ' +
+          'Generate a secure key with: openssl rand -hex 32'
+        );
+      }
+    }
+
     await migrate();
     if (process.env.NODE_ENV !== 'test' && process.env.DISABLE_LEASE_REQUEUE !== '1') {
       await setupLeaseExpiryRequeue(db);
