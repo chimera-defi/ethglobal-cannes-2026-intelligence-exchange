@@ -10,7 +10,7 @@ import {
 } from 'intelligence-exchange-cannes-shared';
 import { randomUUID } from 'crypto';
 import { httpError } from './errors';
-import { issueAcceptedSubmissionAttestation, mintWorkReceipt, recordReviewerReview, setWorkerOnEscrow, clearWorkerOnEscrow, recordCategoryCompletion, evaluateReviewerTier, checkReviewerAssignment } from './chainService';
+import { issueAcceptedSubmissionAttestation, mintWorkReceipt, recordReviewerReview, setWorkerOnEscrow, clearWorkerOnEscrow, recordCategoryCompletion, evaluateReviewerTier, checkReviewerAssignment, refundTaskEscrow } from './chainService';
 import { logJobEvent } from './jobEvents';
 import { settleAcceptedJobCredits } from './tokenomicsService';
 
@@ -388,6 +388,9 @@ export async function rejectJob(jobId: string, reviewerId: string, reason?: stri
     await db.update(claims).set({ status: 'cancelled' }).where(eq(claims.claimId, job.activeClaimId));
   }
   await logJobEvent(jobId, 'rework', reviewerId, { reason });
+
+  // Fire-and-forget escrow refund
+  refundTaskEscrow(jobId).catch(err => console.error('[job:reject] escrow refund failed:', err));
 
   console.log(`[job:rejected→rework] jobId=${jobId} reason=${reason}`);
   return { rework: true };
