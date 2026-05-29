@@ -29,7 +29,7 @@ contract ReviewerQueue {
     error AssignmentNotFound();
     error ReviewNotTimedOut();
     error AlreadyCompleted();
-    error ReviewerNotWorldVerified();
+    
 
     // ─── Events ───────────────────────────────────────────────────────────────
 
@@ -102,16 +102,12 @@ contract ReviewerQueue {
     /// @notice Deploy ReviewerQueue.
     /// @param _reviewerStakeManager Address of the ReviewerStakeManager contract.
     /// @param _categoryRegistry Address of the CategoryRegistry contract.
-    /// @param _identityGate Address of the IdentityGate contract (optional, can be set later).
-    constructor(address _reviewerStakeManager, address _categoryRegistry, address _identityGate) {
+    constructor(address _reviewerStakeManager, address _categoryRegistry) {
         if (_reviewerStakeManager == address(0)) revert ZeroAddress();
         if (_categoryRegistry == address(0)) revert ZeroAddress();
 
         reviewerStakeManager = ReviewerStakeManager(_reviewerStakeManager);
         categoryRegistry = CategoryRegistry(_categoryRegistry);
-        if (_identityGate != address(0)) {
-            identityGate = IdentityGate(_identityGate);
-        }
         owner = msg.sender;
 
         reviewTimeout = 24 hours;

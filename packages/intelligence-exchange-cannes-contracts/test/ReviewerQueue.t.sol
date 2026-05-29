@@ -30,7 +30,7 @@ contract ReviewerQueueTest is Test {
         stakeManager = new ReviewerStakeManager(address(intel), treasury);
         categoryRegistry = new CategoryRegistry();
         identityGate = new IdentityGate(address(this)); // owner as attestor
-        queue = new ReviewerQueue(address(stakeManager), address(categoryRegistry), address(identityGate));
+        queue = new ReviewerQueue(address(stakeManager), address(categoryRegistry));
 
         // Mint tokens to test users
         intel.mint(alice, 100_000e18);
@@ -50,6 +50,9 @@ contract ReviewerQueueTest is Test {
         stakeManager.setOperator(operator, true);
         queue.setOperator(operator, true);
         categoryRegistry.setOperator(operator, true);
+
+        // Set IdentityGate for most tests
+        queue.setIdentityGate(address(identityGate));
 
         // Verify test users with WorldID for reviewer role
         identityGate.setVerified(alice, keccak256("reviewer"), true);
@@ -516,7 +519,36 @@ contract ReviewerQueueTest is Test {
 
     // ─── WorldID Verification Tests ───────────────────────────────────────────
 
-    function test_assignReview_reviewerWithBondButNoWorldID_excluded() public {
+    function test_assignReview_identityGateAddressZero_allReviewersEligible() public {
+        // Deploy a new queue without IdentityGate set
+        ReviewerQueue queueNoGate = new ReviewerQueue(address(stakeManager), address(categoryRegistry));
+
+        // Set operator for the new queue
+        queueNoGate.setOperator(operator, true);
+
+        // Register reviewers with bonds
+        vm.prank(alice);
+        stakeManager.registerAsReviewer(500e18);
+        vm.prank(bob);
+        stakeManager.registerAsReviewer(1000e18);
+
+        // No WorldID verification - all bonded reviewers should be eligible
+        address[] memory eligibleReviewers = new address[](2);
+        eligibleReviewers[0] = alice;
+        eligibleReviewers[1] = bob;
+
+        bytes32 taskId = keccak256("task1");
+        uint256 taskCategory = 0;
+
+        vm.prank(operator);
+        queueNoGate.assignReview(taskId, taskCategory, eligibleReviewers);
+
+        // Check assignment - either should be assigned (no WorldID gate)
+        (, address assignedReviewer,,,,) = queueNoGate.assignments(taskId);
+        assertTrue(assignedReviewer == alice || assignedReviewer == bob);
+    }
+
+    function test_assignReview_identityGateSet_unverifiedReviewerExcluded() public {
         // Register reviewers with bonds
         vm.prank(alice);
         stakeManager.registerAsReviewer(500e18);
@@ -525,6 +557,7 @@ contract ReviewerQueueTest is Test {
 
         // Only verify alice with WorldID
         identityGate.setVerified(alice, keccak256("reviewer"), true);
+        identityGate.setVerified(bob, keccak256("reviewer"), false); // bob not verified
 
         address[] memory eligibleReviewers = new address[](2);
         eligibleReviewers[0] = alice;
@@ -564,35 +597,6 @@ contract ReviewerQueueTest is Test {
 
         // Check assignment - either should be assigned (both have bond + WorldID)
         (, address assignedReviewer,,,,) = queue.assignments(taskId);
-        assertTrue(assignedReviewer == alice || assignedReviewer == bob);
-    }
-
-    function test_assignReview_noWorldIDSet_backwardCompat() public {
-        // Deploy a new queue without IdentityGate set
-        ReviewerQueue queueNoGate = new ReviewerQueue(address(stakeManager), address(categoryRegistry), address(0));
-
-        // Set operator for the new queue
-        queueNoGate.setOperator(operator, true);
-
-        // Register reviewers with bonds
-        vm.prank(alice);
-        stakeManager.registerAsReviewer(500e18);
-        vm.prank(bob);
-        stakeManager.registerAsReviewer(1000e18);
-
-        // No WorldID verification set - should work as before
-        address[] memory eligibleReviewers = new address[](2);
-        eligibleReviewers[0] = alice;
-        eligibleReviewers[1] = bob;
-
-        bytes32 taskId = keccak256("task1");
-        uint256 taskCategory = 0;
-
-        vm.prank(operator);
-        queueNoGate.assignReview(taskId, taskCategory, eligibleReviewers);
-
-        // Check assignment - either should be assigned (no WorldID gate)
-        (, address assignedReviewer,,,,) = queueNoGate.assignments(taskId);
         assertTrue(assignedReviewer == alice || assignedReviewer == bob);
     }
 
