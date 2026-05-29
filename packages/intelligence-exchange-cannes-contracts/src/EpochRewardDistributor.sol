@@ -51,6 +51,8 @@ contract EpochRewardDistributor {
     event TopPercentileBpsUpdated(uint256 oldBps, uint256 newBps);
     event MinAiuThresholdUpdated(uint256 oldThreshold, uint256 newThreshold);
     event OperatorSet(address indexed operator, bool approved);
+    event EpochCapExceeded(uint256 indexed epoch, address indexed worker);
+    event MaxJobsPerWalletPerEpochUpdated(uint256 oldCap, uint256 newCap);
 
     // ─── Storage ──────────────────────────────────────────────────────────────
 
@@ -61,6 +63,8 @@ contract EpochRewardDistributor {
     uint256 public epochRewardPool;
     uint256 public topPercentileBps;
     uint256 public minAiuThreshold;
+    uint256 public maxJobsPerWalletPerEpoch = 20;
+    mapping(uint256 => mapping(address => uint256)) public epochJobCount;
 
     struct EpochReward {
         uint256 epoch;
@@ -146,6 +150,10 @@ contract EpochRewardDistributor {
 
         for (uint256 i = 0; i < workers.length; i++) {
             if (aiuScores[i] < minAiuThreshold) revert BelowMinAiu();
+            if (epochJobCount[epoch][workers[i]] >= maxJobsPerWalletPerEpoch) {
+                emit EpochCapExceeded(epoch, workers[i]);
+                continue;
+            }
             reward.aiuScore[workers[i]] = aiuScores[i];
             reward.rankedWorkers.push(workers[i]);
         }
@@ -194,6 +202,15 @@ contract EpochRewardDistributor {
     function advanceEpoch() external onlyOperator {
         currentEpoch += 1;
         emit EpochAdvanced(currentEpoch);
+    }
+
+    /// @notice Increment job count for a worker in an epoch. Called by broker after each accepted job.
+    /// @custom:access operator or owner
+    /// @param epoch The epoch number.
+    /// @param worker The worker address.
+    function incrementEpochJobCount(uint256 epoch, address worker) external onlyOperator {
+        if (worker == address(0)) revert ZeroAddress();
+        epochJobCount[epoch][worker] += 1;
     }
 
     // ─── User Functions ────────────────────────────────────────────────────────
@@ -251,6 +268,14 @@ contract EpochRewardDistributor {
         uint256 oldThreshold = minAiuThreshold;
         minAiuThreshold = _minAiuThreshold;
         emit MinAiuThresholdUpdated(oldThreshold, _minAiuThreshold);
+    }
+
+    /// @notice Set the maximum jobs per wallet per epoch to prevent reward gaming.
+    /// @custom:access only owner
+    function setMaxJobsPerWalletPerEpoch(uint256 _maxJobsPerWalletPerEpoch) external onlyOwner {
+        uint256 oldCap = maxJobsPerWalletPerEpoch;
+        maxJobsPerWalletPerEpoch = _maxJobsPerWalletPerEpoch;
+        emit MaxJobsPerWalletPerEpochUpdated(oldCap, _maxJobsPerWalletPerEpoch);
     }
 
     /// @notice Set the treasury address.
