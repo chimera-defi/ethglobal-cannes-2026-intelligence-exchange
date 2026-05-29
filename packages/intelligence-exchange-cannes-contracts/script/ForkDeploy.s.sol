@@ -335,6 +335,12 @@ contract ForkDeploy is Script {
         // }
         console2.log("Pool creation skipped (interface limitation)");
 
+        // ── Set TWAP pool for IntelPOLManager ─────────────────────────────
+        // TODO: Once pool creation is enabled, capture the pool address and call:
+        // address poolAddress = <pool address from creation>;
+        // result.polManager.setTwapPool(poolAddress);
+        // console2.log("IntelPOLManager.setTwapPool:", poolAddress);
+
         vm.stopBroadcast();
 
         // ── Print deployment summary ─────────────────────────────────────

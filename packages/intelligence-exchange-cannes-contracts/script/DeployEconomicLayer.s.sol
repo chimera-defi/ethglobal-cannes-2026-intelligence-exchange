@@ -123,6 +123,10 @@ contract DeployEconomicLayer is Script {
         );
         console2.log("BuybackBurn:", address(result.buybackBurn));
 
+        // TODO: Post-deployment, call IntelPOLManager.setTwapPool(poolAddress) with the INTEL/WETH Uniswap V3 pool address.
+        // This is required for BuybackBurn.executeBuyback() to work, as it calls pol.pullTWAP() which reads from IntelPOLManager.twapPool.
+        // The pool address is not known at deployment time, so this must be called manually after the pool is created.
+
         // ── 4. DisputeResolution ───────────────────────────────────────────────
         result.disputeResolution = new DisputeResolution(
             result.intelToken,

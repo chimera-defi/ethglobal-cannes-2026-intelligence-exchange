@@ -10,7 +10,7 @@ import {
 } from 'intelligence-exchange-cannes-shared';
 import { randomUUID } from 'crypto';
 import { httpError } from './errors';
-import { issueAcceptedSubmissionAttestation, mintWorkReceipt, recordReviewerReview, setWorkerOnEscrow, clearWorkerOnEscrow, recordCategoryCompletion, submitAiuScore, evaluateReviewerTier, checkReviewerAssignment } from './chainService';
+import { issueAcceptedSubmissionAttestation, mintWorkReceipt, recordReviewerReview, setWorkerOnEscrow, clearWorkerOnEscrow, recordCategoryCompletion, evaluateReviewerTier, checkReviewerAssignment } from './chainService';
 import { logJobEvent } from './jobEvents';
 import { settleAcceptedJobCredits } from './tokenomicsService';
 
@@ -348,10 +348,6 @@ export async function acceptJob(jobId: string, reviewerId: string) {
 
   recordCategoryCompletion(workerAddress, category, aiuScore).catch((err) => {
     console.error(`[job:accept] Failed to record category completion:`, err);
-  });
-
-  submitAiuScore(epoch, [workerAddress], [aiuScore]).catch((err) => {
-    console.error(`[job:accept] Failed to submit AIU score:`, err);
   });
 
   evaluateReviewerTier(reviewerId, 0).catch((err) => {
