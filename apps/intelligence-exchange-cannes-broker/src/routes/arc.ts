@@ -592,13 +592,15 @@ arcRouter.post('/tx/release-milestone', zValidator('json', ReleaseMilestoneSchem
  */
 arcRouter.post('/webhook/escrow-event', async (c) => {
   const ARC_WEBHOOK_SECRET = process.env.ARC_WEBHOOK_SECRET;
-  const rawBody = await c.req.text();
 
   // Fail closed: if the secret is not configured, refuse all requests rather than
   // accepting unsigned events (P8-A1 — webhook signature bypass).
+  // 501 = endpoint exists but is not configured for use (permanent, not transient).
   if (!ARC_WEBHOOK_SECRET) {
-    return c.json({ error: 'Webhook endpoint not configured' }, 503);
+    return c.json({ error: 'Webhook endpoint not configured' }, 501);
   }
+
+  const rawBody = await c.req.text();
 
   const signature = c.req.header('X-Arc-Signature');
   if (!signature) {
@@ -614,7 +616,6 @@ arcRouter.post('/webhook/escrow-event', async (c) => {
   }
   if (!signatureValid) {
     return c.json({ error: 'Invalid webhook signature' }, 401);
-  }
   }
 
   let event: Record<string, unknown>;
