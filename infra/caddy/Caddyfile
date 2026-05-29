@@ -1,6 +1,9 @@
 {
 	admin off
 	auto_https off
+	servers {
+		trusted_proxies static 127.0.0.1/8 ::1/128
+	}
 	# PRODUCTION NOTE: To enable Caddy-level rate limiting, install the
 	# caddy-ratelimit plugin (https://github.com/mholt/caddy-ratelimit) and
 	# add a rate_limit directive inside the site block below.
@@ -17,32 +20,45 @@
 	# the stack before Bun/Node overhead is incurred.
 }
 
-http://168.119.15.122 {
+:80 {
+	# Security headers
 	header {
 		X-Frame-Options "DENY"
 		X-Content-Type-Options "nosniff"
 		X-XSS-Protection "1; mode=block"
 		Referrer-Policy "strict-origin-when-cross-origin"
-		Permissions-Policy "geolocation=(), microphone=(), camera=()"
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.celo.org https://*.polygon.technology https://*.etherscan.io https://*.basescan.org wss://;"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
 		-Server
 	}
 
-	# Block sensitive paths FIRST (route ensures ordering)
-	route {
-		@sensitive path /.env /.git* /package.json /package-lock.json /.npmrc
-		handle @sensitive {
-			respond 403
-		}
+	# Block sensitive paths
+	@blocked {
+		path /.env /.git* /package.json /package-lock.json /pnpm-lock.yaml /bun.lock /.env.* /.gitignore
+	}
+	respond @blocked 404
 
-		handle /v1/* {
-			reverse_proxy localhost:3001
-		}
-		handle /api/* {
-			uri strip_prefix /api
-			reverse_proxy localhost:3001
-		}
-		handle {
-			reverse_proxy localhost:3100
+	# API routes to broker
+	@api {
+		path /v1/*
+	}
+	reverse_proxy @api localhost:3100
+
+	# Serve static files for everything else
+	root * /home/agents/workspace/ethglobal-cannes-2026-intelligence-exchange/apps/intelligence-exchange-cannes-web/dist
+	file_server
+
+	# Logging
+	log {
+		output file /var/log/caddy/access.log
+		format json
+	}
+	
+	# Handle SPA routing
+	@spa {
+		file {
+			try_files {path} /index.html
 		}
 	}
+	rewrite @spa /index.html
 }
