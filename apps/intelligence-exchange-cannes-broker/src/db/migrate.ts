@@ -120,6 +120,7 @@ export async function migrate() {
       lease_expiry TIMESTAMPTZ,
       active_claim_id TEXT,
       active_claim_worker_id TEXT,
+      on_chain_settled BOOLEAN NOT NULL DEFAULT FALSE,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
@@ -380,6 +381,8 @@ export async function migrate() {
 
   await sql`ALTER TABLE submissions ADD COLUMN IF NOT EXISTS account_address TEXT`;
   await sql`ALTER TABLE submissions ADD COLUMN IF NOT EXISTS agent_fingerprint TEXT`;
+
+  await sql`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS on_chain_settled BOOLEAN NOT NULL DEFAULT FALSE`;
 
   await sql`ALTER TABLE agent_identities ADD COLUMN IF NOT EXISTS account_address TEXT`;
   await sql`ALTER TABLE agent_identities ADD COLUMN IF NOT EXISTS role TEXT`;
