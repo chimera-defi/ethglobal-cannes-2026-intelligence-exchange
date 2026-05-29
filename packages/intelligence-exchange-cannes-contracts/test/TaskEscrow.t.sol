@@ -104,7 +104,7 @@ contract TaskEscrowTest is Test {
         uint256 stakingBalanceBefore = token.balanceOf(address(staking));
 
         vm.prank(operator);
-        escrow.release(TASK_ID);
+        escrow.release(TASK_ID, worker);
 
         uint256 workerBalanceAfter = token.balanceOf(worker);
         uint256 treasuryBalanceAfter = token.balanceOf(treasury);
@@ -124,7 +124,7 @@ contract TaskEscrowTest is Test {
     function test_release_notFunded() public {
         vm.prank(operator);
         vm.expectRevert(TaskEscrow.TaskNotFunded.selector);
-        escrow.release(TASK_ID);
+        escrow.release(TASK_ID, worker);
     }
 
     function test_release_unauthorized() public {
@@ -133,7 +133,16 @@ contract TaskEscrowTest is Test {
 
         vm.prank(funder);
         vm.expectRevert(TaskEscrow.Unauthorized.selector);
-        escrow.release(TASK_ID);
+        escrow.release(TASK_ID, worker);
+    }
+
+    function test_release_zeroWorker() public {
+        vm.prank(funder);
+        escrow.fundTask(TASK_ID, worker, TASK_AMOUNT);
+
+        vm.prank(operator);
+        vm.expectRevert(TaskEscrow.ZeroAddress.selector);
+        escrow.release(TASK_ID, address(0));
     }
 
     // ─── refund ───────────────────────────────────────────────────────────────

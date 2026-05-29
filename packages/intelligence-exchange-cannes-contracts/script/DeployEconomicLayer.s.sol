@@ -8,6 +8,7 @@ import {BuybackBurn} from "../src/BuybackBurn.sol";
 import {DisputeResolution} from "../src/DisputeResolution.sol";
 import {EpochRewardDistributor} from "../src/EpochRewardDistributor.sol";
 import {CategoryRegistry} from "../src/CategoryRegistry.sol";
+import {TaskEscrow} from "../src/TaskEscrow.sol";
 import {IntelToken} from "../src/IntelToken.sol";
 import {IntelStaking} from "../src/IntelStaking.sol";
 import {IntelPOLManager} from "../src/IntelPOLManager.sol";
@@ -44,6 +45,7 @@ contract DeployEconomicLayer is Script {
         DisputeResolution disputeResolution;
         EpochRewardDistributor epochRewardDistributor;
         CategoryRegistry categoryRegistry;
+        TaskEscrow taskEscrow;
         address deployer;
         address treasury;
         address intelToken;
@@ -140,6 +142,14 @@ contract DeployEconomicLayer is Script {
         result.categoryRegistry = new CategoryRegistry();
         console2.log("CategoryRegistry:", address(result.categoryRegistry));
 
+        // ── 7. TaskEscrow ───────────────────────────────────────────────────────
+        result.taskEscrow = new TaskEscrow(
+            result.intelToken,
+            result.intelStaking,
+            result.treasury
+        );
+        console2.log("TaskEscrow:", address(result.taskEscrow));
+
         // ── Post-deployment wiring ──────────────────────────────────────────────
         
         // Set ReviewerStakeManager and WorkerStakeManager in DisputeResolution
@@ -168,6 +178,14 @@ contract DeployEconomicLayer is Script {
         result.categoryRegistry.setOperator(result.deployer, true);
         console2.log("CategoryRegistry.setOperator(deployer, true)");
 
+        // Register TaskEscrow as IntelStaking operator (required for depositYield calls)
+        IntelStaking(payable(result.intelStaking)).setOperator(address(result.taskEscrow), true);
+        console2.log("IntelStaking.setOperator(TaskEscrow, true)");
+
+        // Set deployer as operator for TaskEscrow
+        result.taskEscrow.setOperator(result.deployer, true);
+        console2.log("TaskEscrow.setOperator(deployer, true)");
+
         vm.stopBroadcast();
 
         // ── Print deployment summary ─────────────────────────────────────────────
@@ -188,6 +206,7 @@ contract DeployEconomicLayer is Script {
         console2.log("  DisputeResolution:         ", address(result.disputeResolution));
         console2.log("  EpochRewardDistributor:    ", address(result.epochRewardDistributor));
         console2.log("  CategoryRegistry:          ", address(result.categoryRegistry));
+        console2.log("  TaskEscrow:                ", address(result.taskEscrow));
 
         _writeDeploymentJson(result, chainId);
 
@@ -211,7 +230,8 @@ contract DeployEconomicLayer is Script {
             '    "BuybackBurn": "', vm.toString(address(result.buybackBurn)), '",\n',
             '    "DisputeResolution": "', vm.toString(address(result.disputeResolution)), '",\n',
             '    "EpochRewardDistributor": "', vm.toString(address(result.epochRewardDistributor)), '",\n',
-            '    "CategoryRegistry": "', vm.toString(address(result.categoryRegistry)), '"\n',
+            '    "CategoryRegistry": "', vm.toString(address(result.categoryRegistry)), '",\n',
+            '    "TaskEscrow": "', vm.toString(address(result.taskEscrow)), '"\n',
             '  }\n',
             '}'
         );

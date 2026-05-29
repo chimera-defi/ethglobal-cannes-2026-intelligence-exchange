@@ -696,7 +696,7 @@ export async function fundTaskEscrow(taskId: string, workerAddress: string, amou
   }
 }
 
-export async function releaseTaskEscrow(taskId: string): Promise<string | null> {
+export async function releaseTaskEscrow(taskId: string, workerAddress: string): Promise<string | null> {
   const contractAddress = process.env.TASK_ESCROW_ADDRESS;
   if (!contractAddress || contractAddress.trim() === '') {
     console.warn('[chain:releaseTaskEscrow] TASK_ESCROW_ADDRESS not set — skipping on-chain release (off-chain-only mode)');
@@ -745,15 +745,16 @@ export async function releaseTaskEscrow(taskId: string): Promise<string | null> 
           stateMutability: 'nonpayable',
           inputs: [
             { name: 'taskId', type: 'bytes32' },
+            { name: 'worker', type: 'address' },
           ],
           outputs: [],
         },
       ],
       functionName: 'release',
-      args: [taskIdHash],
+      args: [taskIdHash, workerAddress as `0x${string}`],
     });
 
-    console.log(`[chain:releaseTaskEscrow] Released task ${taskId} txHash=${releaseHash}`);
+    console.log(`[chain:releaseTaskEscrow] Released task ${taskId} to worker ${workerAddress} txHash=${releaseHash}`);
     return releaseHash;
   } catch (err) {
     console.error('[chain:releaseTaskEscrow] Failed to release task escrow:', err);
