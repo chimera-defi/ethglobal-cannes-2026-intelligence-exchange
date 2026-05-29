@@ -5,6 +5,7 @@ import { createWalletClient, createPublicClient, http } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { keccak256, toBytes } from 'viem';
 import { httpError } from '../services/errors';
+import { getBreakerStatus, resetBreaker } from '../services/circuitBreakerService';
 
 export const adminRouter = new Hono();
 
@@ -384,4 +385,21 @@ adminRouter.post('/reviewer/:address/mint-credential', async (c) => {
     console.error('[admin:reviewer/mint-credential] Failed to mint credential:', err);
     return c.json({ error: String(err) }, 500);
   }
+});
+
+// GET /admin/circuit-breakers
+adminRouter.get('/circuit-breakers', async (c) => {
+  requireAdminAuth(c);
+  const statuses = getBreakerStatus();
+  return c.json({ breakers: statuses, timestamp: new Date().toISOString() });
+});
+
+// POST /admin/circuit-breakers/reset
+adminRouter.post('/circuit-breakers/reset', zValidator('json', z.object({
+  name: z.string(),
+})), async (c) => {
+  requireAdminAuth(c);
+  const { name } = c.req.valid('json');
+  resetBreaker(name);
+  return c.json({ reset: true, name, timestamp: new Date().toISOString() });
 });
