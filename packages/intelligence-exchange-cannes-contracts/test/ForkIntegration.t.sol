@@ -18,6 +18,7 @@ import {DisputeResolution} from "../src/DisputeResolution.sol";
 import {EpochRewardDistributor} from "../src/EpochRewardDistributor.sol";
 import {CategoryRegistry} from "../src/CategoryRegistry.sol";
 import {ReviewerQueue} from "../src/ReviewerQueue.sol";
+import {ReviewerCredential} from "../src/ReviewerCredential.sol";
 import {TaskEscrow} from "../src/TaskEscrow.sol";
 
 /// @title ForkIntegration
@@ -45,12 +46,14 @@ contract ForkIntegration is Test {
     EpochRewardDistributor public epochRewardDistributor;
     CategoryRegistry public categoryRegistry;
     ReviewerQueue public reviewerQueue;
+    ReviewerCredential public reviewerCredential;
     TaskEscrow public taskEscrow;
 
     // Test accounts
     address public deployer;
     address public buyer;
     address public worker;
+    address public reviewer;
     address public treasury;
 
     // Constants
@@ -67,7 +70,7 @@ contract ForkIntegration is Test {
 
     function setUp() public {
         // Create mainnet fork
-        string memory rpcUrl = vm.envOr("MAINNET_RPC_URL", "https://ethereum.publicnode.com");
+        string memory rpcUrl = "https://ethereum.publicnode.com";
         vm.createFork(rpcUrl);
         vm.selectFork(vm.activeFork());
 
@@ -75,7 +78,8 @@ contract ForkIntegration is Test {
         deployer = address(this);
         buyer = address(0x1);
         worker = address(0x2);
-        treasury = address(0x3);
+        reviewer = address(0x3);
+        treasury = address(0x4);
 
         // Deploy contracts inline (no broadcast needed in tests)
         _deployContracts();
@@ -171,11 +175,13 @@ contract ForkIntegration is Test {
         // 16. ReviewerQueue
         reviewerQueue = new ReviewerQueue(
             address(reviewerStakeManager),
-            address(categoryRegistry),
-            address(identityGate)
+            address(categoryRegistry)
         );
 
-        // 17. TaskEscrow
+        // 17. ReviewerCredential
+        reviewerCredential = new ReviewerCredential(address(reviewerStakeManager));
+
+        // 18. TaskEscrow
         taskEscrow = new TaskEscrow(address(intelToken), address(staking), treasury);
 
         // Post-deployment wiring
@@ -184,7 +190,7 @@ contract ForkIntegration is Test {
         staking.setOperator(address(taskEscrow), true);
         mintController.setOperator(deployer, true);
         taskEscrow.setOperator(deployer, true);
-        polManager.setOperator(deployer, true);
+        // polManager.setOperator(deployer, true); // Not available in IntelPOLManager
 
         // Wire DisputeResolution
         disputeResolution.setReviewerStakeManager(address(reviewerStakeManager));
@@ -198,6 +204,7 @@ contract ForkIntegration is Test {
         epochRewardDistributor.setOperator(deployer, true);
         categoryRegistry.setOperator(deployer, true);
         reviewerQueue.setOperator(deployer, true);
+        reviewerCredential.setOperator(deployer, true);
 
         // Seed some INTEL to deployer for testing
         intelToken.transfer(deployer, 1_000_000e18);
@@ -300,5 +307,34 @@ contract ForkIntegration is Test {
 
         // Assert escrow is empty
         assertEq(intelToken.balanceOf(address(taskEscrow)), 0);
+    }
+
+    function test_reviewerCredentialFlow() public {
+        // 1. Give reviewer INTEL to stake
+        intelToken.transfer(reviewer, 1000e18);
+
+        // 2. Reviewer approves ReviewerStakeManager and registers as reviewer
+        vm.prank(reviewer);
+        intelToken.approve(address(reviewerStakeManager), 500e18);
+        vm.prank(reviewer);
+        reviewerStakeManager.registerAsReviewer(500e18);
+
+        // 3. Assert reviewer is eligible
+        assertTrue(reviewerStakeManager.isEligible(reviewer));
+
+        // 4. Operator calls reviewerCredential.mintInitialCredential
+        reviewerCredential.mintInitialCredential(reviewer);
+
+        // 5. Assert reviewerCredential.hasMinted(reviewer) == true
+        assertTrue(reviewerCredential.hasMinted(reviewer));
+
+        // 6. Assert reviewerCredential.currentTier(reviewer) == 0
+        assertEq(reviewerCredential.currentTier(reviewer), 0);
+
+        // 7. Assert reviewerCredential.meetsMinTier(reviewer, 0) == true
+        assertTrue(reviewerCredential.meetsMinTier(reviewer, 0));
+
+        // 8. Assert reviewerCredential.meetsMinTier(reviewer, 1) == false (not enough reviews yet)
+        assertFalse(reviewerCredential.meetsMinTier(reviewer, 1));
     }
 }
