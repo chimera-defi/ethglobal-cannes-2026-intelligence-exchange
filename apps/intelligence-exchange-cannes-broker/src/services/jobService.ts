@@ -282,7 +282,19 @@ export async function acceptJob(jobId: string, reviewerId: string) {
     throw httpError(`Job not in submitted state: ${job.status}`, 409, 'JOB_NOT_REVIEWABLE');
   }
 
+  // SELF-ACCEPTANCE check: reviewer cannot be the same as the worker
+  if (reviewerId.toLowerCase() === (job.activeClaimWorkerId ?? '').toLowerCase()) {
+    throw httpError('Reviewer cannot be the same as the worker', 403, 'SELF_ACCEPTANCE_FORBIDDEN');
+  }
+
+  // POSTER-AS-REVIEWER check: poster cannot accept their own job
+  const [idea] = await db.select().from(ideas).where(eq(ideas.ideaId, job.ideaId));
+  if (idea && reviewerId.toLowerCase() === idea.posterId.toLowerCase()) {
+    throw httpError('Poster cannot accept their own job', 403, 'POSTER_SELF_ACCEPTANCE_FORBIDDEN');
+  }
+
   // ReviewerQueue enforcement check (soft enforcement — logs warning but proceeds)
+  // TODO: Add monitoring counter in DB/log for ReviewerQueue bypasses to track potential collusion
   const isAssigned = await checkReviewerAssignment(jobId, reviewerId).catch(() => true);
   if (!isAssigned) {
     console.warn('[job:accept] Reviewer not assigned via ReviewerQueue — proceeding (soft enforcement)');
