@@ -121,9 +121,23 @@ Example loop:
 
 Primary references:
 
+- [docs/CANONICAL_PRODUCT_OVERVIEW.md](docs/CANONICAL_PRODUCT_OVERVIEW.md)
 - [spec/TOKENOMICS.md](spec/TOKENOMICS.md)
 - [spec/tokenomics/INTEL_LAUNCH_ARCHITECTURE.md](spec/tokenomics/INTEL_LAUNCH_ARCHITECTURE.md)
 - [spec/tokenomics/TOKENOMICS_COVERAGE_MATRIX.md](spec/tokenomics/TOKENOMICS_COVERAGE_MATRIX.md)
+
+## Post-Cannes Expansion
+
+Future marketplaces built on the same `protocol-core` settlement primitives:
+
+- **Compute Pool** — Spot/preemptible GPU/CPU marketplace. [products/compute-pool/ARCHITECTURE.md](products/compute-pool/ARCHITECTURE.md)
+- **Inference Market** — Model inference routing with LLM-as-judge scoring. [products/inference-market/ARCHITECTURE.md](products/inference-market/ARCHITECTURE.md)
+
+## Project Planning
+
+- [ROADMAP.md](ROADMAP.md) — Phased delivery plan from hackathon to open marketplace
+- [TECH_DEBT.md](TECH_DEBT.md) — Active debt register with severity and mitigation
+- [PLAN.md](PLAN.md) — Current work plan (ephemeral; updated per sprint)
 
 ## Documentation Map
 
