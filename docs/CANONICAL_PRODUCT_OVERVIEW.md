@@ -107,6 +107,9 @@ corepack pnpm --filter intelligence-exchange-cannes-contracts smoke:intel-liquid
 
 ## 9) Deep-Dive Sources
 
+- Competitor landscape: `docs/COMPETITOR_ANALYSIS_DEEP.md` — Pearl, Bittensor, SingularityNET, Olas, Gensyn + traditional players; synthesis table; flywheel analysis
 - Launch architecture: `spec/tokenomics/INTEL_LAUNCH_ARCHITECTURE.md`
 - Coverage matrix: `spec/tokenomics/TOKENOMICS_COVERAGE_MATRIX.md`
 - End-to-end architecture: `docs/architecture/system-overview.md`
+- Investor one-pager: `docs/INVESTOR_SUMMARY.md`
+- Intelligence derivatives path: `docs/architecture/intelligence-derivatives-evolution.md`
