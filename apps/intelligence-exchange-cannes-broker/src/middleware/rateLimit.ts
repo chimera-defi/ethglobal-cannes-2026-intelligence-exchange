@@ -21,12 +21,17 @@ const WINDOW_MS = 60_000; // 1 minute
 const MAX_REQUESTS = 60;  // per window per IP
 
 function getClientIdentifier(c: Context): string {
-  // Prefer forwarded IP, fallback to direct connection
-  const forwarded = c.req.header('x-forwarded-for');
-  if (forwarded) return forwarded.split(',')[0].trim();
+  // Only trust X-Forwarded-For when request comes from Caddy (127.0.0.1).
+  // Direct connections must use the raw socket IP to prevent rate-limit bypass via spoofed XFF.
   try {
     const info = c.env?.connInfo as { remote?: { address?: string } } | undefined;
-    return info?.remote?.address ?? 'unknown';
+    const remoteIp = info?.remote?.address ?? '';
+    const isFromProxy = remoteIp === '127.0.0.1' || remoteIp === '::1' || remoteIp === '';
+    if (isFromProxy) {
+      const forwarded = c.req.header('x-forwarded-for');
+      if (forwarded) return forwarded.split(',')[0].trim();
+    }
+    return remoteIp || 'unknown';
   } catch {
     return 'unknown';
   }

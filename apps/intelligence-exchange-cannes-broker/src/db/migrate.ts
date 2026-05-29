@@ -308,6 +308,12 @@ export async function migrate() {
     )
   `;
 
+  // Replay protection: one release row per milestone per job (Opus audit finding)
+  await sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS escrow_releases_milestone_job_idx
+    ON escrow_releases(milestone_id, job_id)
+  `;
+
   await sql`
     CREATE TABLE IF NOT EXISTS chain_syncs (
       sync_id UUID PRIMARY KEY,
