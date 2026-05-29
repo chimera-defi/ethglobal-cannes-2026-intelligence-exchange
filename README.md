@@ -21,6 +21,8 @@ The marketplace runs first. The index emerges from the data. The derivatives fol
 | Bittensor | Subnet miner contributions | Human-reviewed acceptance, explicit task scope |
 | **Nothing** | **Accepted intelligence output** | **(this is the gap)** |
 
+Full competitor deep-dive: [docs/COMPETITOR_ANALYSIS_DEEP.md](docs/COMPETITOR_ANALYSIS_DEEP.md) — covers Pearl, Bittensor, SingularityNET, Olas, Gensyn, Ritual, ChainML, Prime Intellect, Fetch.ai, Daydreams, OpenRouter, and more.
+
 ---
 
 ## How It Works
@@ -138,6 +140,7 @@ corepack pnpm --filter intelligence-exchange-cannes-contracts test   # 531+ forg
 ## Documentation
 
 - [docs/CANONICAL_PRODUCT_OVERVIEW.md](docs/CANONICAL_PRODUCT_OVERVIEW.md) — product loop, system shape, tokenomics
+- [docs/COMPETITOR_ANALYSIS_DEEP.md](docs/COMPETITOR_ANALYSIS_DEEP.md) — full competitor landscape: Pearl, Bittensor, SingularityNET, Olas, Gensyn + traditional players
 - [docs/INVESTOR_SUMMARY.md](docs/INVESTOR_SUMMARY.md) — one-page investor summary
 - [docs/alliance-dao/ONE_PAGER.md](docs/alliance-dao/ONE_PAGER.md) — intelligence derivatives angle
 - [docs/architecture/intelligence-derivatives-evolution.md](docs/architecture/intelligence-derivatives-evolution.md) — phase diagram

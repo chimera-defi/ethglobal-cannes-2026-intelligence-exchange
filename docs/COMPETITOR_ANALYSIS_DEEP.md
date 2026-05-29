@@ -422,3 +422,22 @@ Competitors fall into four categories:
 Intelligence Exchange's structural differentiator — **human-gated acceptance creating verified, tamper-evident reputation data** — is not just a feature; it is the foundation for everything else: portable reputation, market-discovered intelligence pricing, and credible derivatives.
 
 We are building the reputation layer that everything else will eventually depend on.
+
+---
+
+## Appendix: Traditional Web2/Infra AI Players
+
+These are not direct competitors to the intelligence pricing layer, but they define the landscape any buyer or worker is already familiar with. The contrast helps clarify why a new category is needed.
+
+| Player | Category | Task market | Trust / reputation | Settlement / dispute | Agent-first surface | Key weakness vs IEX |
+|---|---|---|---|---|---|---|
+| Daydreams (Taskmarket + Router) | Agent commerce network | Strong | Strong | Partial | Strong | No human acceptance gating; no output attestation |
+| OpenRouter | Model/API router | Weak | Weak | Weak | Partial | Routing, not settlement; no quality enforcement |
+| Together AI | Inference + GPU cloud | Weak | Weak | Weak | Partial | Infra-performance strong; not a task marketplace |
+| Replicate | Model execution API | Weak | Weak | Weak | Partial | Strong API surface; no marketplace semantics |
+| Vast.ai | Compute marketplace | Partial | Weak | Weak | Weak | Raw capacity only; quality variance, high buyer ops burden |
+| TensorDock | Compute marketplace | Partial | Weak | Weak | Weak | Similar to Vast.ai — compute, not intelligence |
+
+**Reading these rows together:** every player that approaches "task market" quality (Daydreams) still lacks human-gated acceptance. Every player with strong infrastructure (OpenRouter, Together, Replicate) lacks any settlement or reputation layer. Intelligence Exchange is the only design that combines task market, human acceptance gating, on-chain settlement, and portable reputation.
+
+*Sources: Daydreams router quickstart, docs.dreams.fun; OpenRouter BYOK docs; Together AI pricing page; Replicate docs; Vast.ai docs; TensorDock marketplace. Data as of March 2026.*
