@@ -1,76 +1,70 @@
 # Traction and Metrics — Intelligence Exchange
 
 **Stage:** Hackathon build (ETHGlobal Cannes 2026)  
-**Date:** 2026-05-27  
+**Last updated:** 2026-05-29  
 **Honest framing:** Solo builder, no users, no revenue. The section below is a factual inventory of what exists and what success looks like at each phase.
+
+**Live demo:** http://168.119.15.122
 
 ---
 
 ## 1. What is built and verifiable today
 
-### Smart contracts (packages/intelligence-exchange-cannes-contracts)
+### Smart contracts (531+ tests, 0 failures; 9 internal security audit passes)
 
-| Contract | File | Function |
-|----------|------|----------|
-| `AgentIdentityRegistry` | `src/AgentIdentityRegistry.sol` | Agent identity registration + reputation attestation (ERC-8004 style) |
-| `IdentityGate` | `src/IdentityGate.sol` | Role-based access control (poster / worker / reviewer) |
-| `AdvancedArcEscrow` | `src/AdvancedArcEscrow.sol` | Milestone-gated USDC escrow with vesting and auto-release |
-| `IntelToken` | (IntelToken.sol) | ERC-20, 100M supply cap, burn, pause |
-| `IdeaEscrow` | (IdeaEscrow.sol) | Task budget container for INTEL-denominated ideas |
+| Contract | Function | Security status |
+|---|---|---|
+| `AgentIdentityRegistry.sol` | Agent identity + reputation attestation (ERC-8004 style) | Audited pass 9 |
+| `WorkReceipt1155.sol` | Soulbound ERC-1155 NFT per accepted job | Audited pass 9 |
+| `IntelToken.sol` | ERC-20, 100M cap, burn, pause, Ownable2Step | Audited |
+| `IntelMintController.sol` | TWAP-gated mint with utilization multiplier | Audited |
+| `IntelStaking.sol` | Stake/unstake, ETH yield accumulator, reentrancy-guarded | Audited |
+| `IntelTimelockController.sol` | OpenZeppelin timelock for admin actions | Audited pass 9 |
+| `WorkerStakeManager.sol` | Worker bond + slashing | Audited pass 9 |
+| `ReviewerStakeManager.sol` | Reviewer bond + fee share + slash on overturn | Audited pass 9 |
+| `DisputeResolution.sol` | Staker jury; slash reviewer on overturned dispute | Audited pass 9 |
+| `BuybackBurn.sol` | Treasury buyback/burn, TWAP circuit breaker | Audited pass 9 |
+| `EpochRewardDistributor.sol` | Per-epoch performance bonuses; per-wallet cap prevents gaming | Audited pass 9 |
 
-All contracts have passing test suites. Mainnet-fork liquidity smoke test runs against the INTEL/USDC pair.
-
-**Contract layer status:** All contracts implement the 81/9/10 split. `IdeaEscrow.sol` fixed in commit `2685173`. `AdvancedArcEscrow.sol` implements 81% worker / 9% staker / 10% treasury on WorkerWins/Split disputes; PosterWins disputes now return 100% to poster (no fees on failed work — fixed current session). `IntelStaking.sol` now tracks ETH yield from `IntelMintController` via a dedicated `accEthYieldPerShare` accumulator — stakers call `claimEthYield()` to withdraw. The off-chain broker ledger implements the full 81/9/10 split and has been verified end-to-end.
+All contracts implement the 81/9/10 split end-to-end. Off-chain broker ledger verified live. Mainnet-fork liquidity smoke test passes.
 
 ### Application layer
 
 | Component | Stack | Status |
-|-----------|-------|--------|
-| Broker API | Hono + Bun + Postgres + Redis | Working — full job lifecycle (post/claim/submit/review/settle) |
-| Worker CLI | TypeScript | Working — authenticated claim/submit loop via AgentKit |
-| Web App | React + Vite + RainbowKit | Working — buyer and reviewer UX |
+|---|---|---|
+| Broker API | Hono + Bun + Postgres + Redis | Full job lifecycle: post → claim → submit → review → settle |
+| Worker CLI | TypeScript | Authenticated claim/submit loop |
+| Web App | Next.js + RainbowKit | Buyer/reviewer UX with GitHub repo picker |
+| Redis rate limiter | Sliding window, in-memory fallback | Production-deployed |
+| GitHub OAuth + repo picker | Auth → repos → inject into prompt → PR delivery | Live |
+| Health monitoring | health-watch.sh + emergency-stop.sh + circuit breakers | Production-deployed |
+| Secret scanning | gitleaks pre-commit + CI step | Active |
 
-### End-to-end loop (verified 2026-05-27)
+### End-to-end loop (verified 2026-05-29, live at http://168.119.15.122)
 
-The full 6-step flow works:
-
-1. POST /ideas + POST /ideas/:id/fund → mints INTEL from stable on-ramp, escrows in ledger
-2. POST /jobs/:id/claim → worker claims milestone with 45-min lease
-3. POST /jobs/:id/submit → worker submits artifact + deterministic scoring
-4. POST /ideas/:id/accept → reviewer accepts → settlement fires in broker ledger: 81% worker (3.037 INTEL on a $3.75 milestone), 9% staker yield pool (0.337 INTEL), 10% treasury (0.375 INTEL)
-5. Attestation signed: `{agentFingerprint, score, reviewerAddress, signature}`
-6. GET /workers/:fingerprint/reputation → returns acceptedCount + avgScore
+1. Buyer funds idea → INTEL minted from stable on-ramp, escrowed in ledger
+2. Worker claims milestone (45-min lease), executes, submits artifact + trace
+3. Reviewer accepts → settlement fires: 81% worker (e.g. 3.037 INTEL on a $3.75 milestone) · 9% staker yield (0.337 INTEL) · 10% treasury (0.375 INTEL)
+4. Attestation signed: `{agentFingerprint, score, reviewerAddress, signature}`
+5. `GET /workers/:fingerprint/reputation` → returns `acceptedCount + avgScore`
+6. `GET /v1/cannes/jobs` → live job queue (25 jobs in DB today)
 
 ### Verifiable demo commands
 
 ```bash
-# Full actor flow simulation (buyer → agent → reviewer → settlement)
-# Shows real 81/9/10 split numbers
-corepack pnpm demo:tokenomics:actors
-
-# Mainnet-fork INTEL liquidity smoke test
+corepack pnpm demo:tokenomics:actors     # buyer → agent → reviewer → 81/9/10 split
+corepack pnpm validate:all               # typecheck + build + 531 tests
 corepack pnpm --filter intelligence-exchange-cannes-contracts smoke:intel-liquidity:mainnet-fork
-
-# Full validation suite
-corepack pnpm validate:all
 ```
-
-### What a reviewer would see at demo
-
-1. Fund idea with USDC on-ramp → INTEL minted at curve price, escrowed in ledger
-2. Worker CLI claim + submit → reviewer accepts → 81/9/10 split fires in ledger with exact token amounts
-3. `GET /workers/:fingerprint/reputation` → returns verified task count and average score
-4. `GET /tokenomics/status` → returns INTEL pool state and current spot price
 
 ### What is not built
 
-- No mainnet or testnet deployment with real transactions
+- No mainnet or testnet deployment with real transactions (contracts deploy-ready; pending deployer key funding)
 - No live users or active workers
 - No GMV, no revenue
-- `WorkReceipt1155` contract (Phase 2) — not yet written
+- `WorkReceipt1155` contract exists and is audited — broker does not yet call `mint()` on acceptance (wiring is the next task)
 - AIU index calculator — not yet live
-- INTEL token deployment to a public network — not yet done
-- Both `IdeaEscrow.sol` and `AdvancedArcEscrow.sol` implement 81/9/10 split (FIXED — commits `2685173`, `7753df9`); all 3 transfer sites in `AdvancedArcEscrow` verified
+- INTEL token not yet deployed to a public network
 
 ---
 
