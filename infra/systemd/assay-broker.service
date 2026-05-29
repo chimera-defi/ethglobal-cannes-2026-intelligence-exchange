@@ -1,0 +1,19 @@
+[Unit]
+Description=Assay Protocol Broker
+After=network.target postgresql.service redis.service
+
+[Service]
+Type=simple
+User=agents
+WorkingDirectory=/home/agents/workspace/ethglobal-cannes-2026-intelligence-exchange/apps/intelligence-exchange-cannes-broker
+ExecStart=/home/agents/.bun/bin/bun src/index.ts
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+EnvironmentFile=/home/agents/workspace/ethglobal-cannes-2026-intelligence-exchange/apps/intelligence-exchange-cannes-broker/.env
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=assay-broker
+
+[Install]
+WantedBy=multi-user.target
