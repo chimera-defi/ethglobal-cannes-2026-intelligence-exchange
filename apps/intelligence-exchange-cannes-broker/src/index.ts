@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
+import { aiuRouter } from './routes/aiu';
 import { agentkitRouter } from './routes/agentkit';
 import { arcRouter } from './routes/arc';
 import { authRouter } from './routes/auth';
@@ -82,6 +83,7 @@ app.route('/v1/cannes/ideas', ideasRouter);
 app.use('/v1/cannes/jobs/*', walletRateLimit(async (c) => getSessionAccountAddress(c)));
 app.route('/v1/cannes/jobs', jobsRouter);
 app.route('/v1/cannes/tokenomics', tokenomicsRouter);
+app.route('/v1/cannes/aiu', aiuRouter);
 app.route('/v1/cannes/workers', workersRouter);
 
 // Error handler

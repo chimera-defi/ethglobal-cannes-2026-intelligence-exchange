@@ -394,6 +394,61 @@ export async function getIdeaReserveSnapshot(ideaId: string) {
   };
 }
 
+/**
+ * Refund the reserved INTEL for a rejected job back to the idea's available pool.
+ * Called by rejectJob() so buyers don't lose budget on a rework cycle.
+ */
+export async function refundRejectedJobCredits(input: {
+  ideaId: string;
+  jobId: string;
+  budgetUsd: number;
+}) {
+  const config = getTokenomicsConfig();
+  if (!config.enabled) return null;
+
+  const [reserve] = await db.select().from(ideaTokenReserves).where(eq(ideaTokenReserves.ideaId, input.ideaId));
+  if (!reserve) return null;
+
+  const budgetUsd = round(Math.max(0, input.budgetUsd), 6);
+  if (budgetUsd <= 0) return null;
+
+  const avgMintPriceUsdPerIntel = Math.max(0.00000001, toNumber(reserve.avgMintPriceUsdPerIntel, 1));
+  const refundedIntel = round(budgetUsd / avgMintPriceUsdPerIntel, 8);
+
+  const posterId = await ensureTokenAccount(reserve.posterId);
+  const now = new Date();
+
+  await db.transaction(async (tx) => {
+    // Restore the reserved INTEL to the idea pool
+    await tx.update(ideaTokenReserves).set({
+      intelReserved: sql`${ideaTokenReserves.intelReserved} + ${refundedIntel}`,
+      status: 'active',
+      updatedAt: now,
+    }).where(eq(ideaTokenReserves.ideaId, input.ideaId));
+
+    // Also restore the poster's token account reserve balance
+    await tx.update(tokenAccounts).set({
+      intelReserved: sql`${tokenAccounts.intelReserved} + ${refundedIntel}`,
+      updatedAt: now,
+    }).where(eq(tokenAccounts.accountAddress, posterId));
+
+    // Ledger entry: rejection_refund
+    await tx.insert(tokenLedgerEntries).values({
+      entryId: randomUUID(),
+      accountAddress: posterId,
+      entryType: 'rejection_refund',
+      deltaIntel: refundedIntel.toFixed(8),
+      deltaStableUsd: '0',
+      referenceType: 'job',
+      referenceId: input.jobId,
+      metadata: { ideaId: input.ideaId, budgetUsd },
+      createdAt: now,
+    });
+  });
+
+  return { tokenSymbol: config.symbol, refundedIntel, budgetUsd };
+}
+
 export async function getTokenomicsStatus() {
   const config = getTokenomicsConfig();
   const pool = await getTokenPoolState();

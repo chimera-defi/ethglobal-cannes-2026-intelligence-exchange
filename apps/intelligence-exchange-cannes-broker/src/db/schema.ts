@@ -290,3 +290,19 @@ export const acceptedAttestations = pgTable('accepted_attestations', {
   signature: text('signature').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+// ─── AIU Index Snapshots ──────────────────────────────────────────────────────
+// Time series of the Accepted Intelligence Unit index — the market-discovered
+// price of one unit of verified AI work output. Snapshot saved on each acceptance.
+
+export const aiuSnapshots = pgTable('aiu_snapshots', {
+  snapshotId: uuid('snapshot_id').primaryKey(),
+  computedAt: timestamp('computed_at', { withTimezone: true }).notNull(),
+  totalAcceptedJobs: integer('total_accepted_jobs').notNull().default(0),
+  totalIntelPaidOut: numeric('total_intel_paid_out', { precision: 24, scale: 8 }).notNull().default('0'),
+  aiuPriceIntel: numeric('aiu_price_intel', { precision: 24, scale: 8 }).notNull().default('0'),
+  periodAcceptedJobs: integer('period_accepted_jobs').notNull().default(0),
+  periodIntelPaidOut: numeric('period_intel_paid_out', { precision: 24, scale: 8 }).notNull().default('0'),
+  acceptanceRate: numeric('acceptance_rate', { precision: 5, scale: 4 }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
