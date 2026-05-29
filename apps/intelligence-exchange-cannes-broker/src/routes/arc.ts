@@ -591,25 +591,31 @@ arcRouter.post('/tx/release-milestone', zValidator('json', ReleaseMilestoneSchem
  * Receive escrow events from indexer/webhook
  */
 arcRouter.post('/webhook/escrow-event', async (c) => {
-  const ARC_WEBHOOK_SECRET = process.env.ARC_WEBHOOK_SECRET ?? '';
+  const ARC_WEBHOOK_SECRET = process.env.ARC_WEBHOOK_SECRET;
+
+  // Fail closed: if the secret is not configured, refuse all requests rather than
+  // accepting unsigned events (P8-A1 — webhook signature bypass).
+  // 501 = endpoint exists but is not configured for use (permanent, not transient).
+  if (!ARC_WEBHOOK_SECRET) {
+    return c.json({ error: 'Webhook endpoint not configured' }, 501);
+  }
+
   const rawBody = await c.req.text();
 
-  if (ARC_WEBHOOK_SECRET) {
-    const signature = c.req.header('X-Arc-Signature');
-    if (!signature) {
-      return c.json({ error: 'Missing webhook signature' }, 401);
-    }
-    const expected = 'sha256=' + createHmac('sha256', ARC_WEBHOOK_SECRET).update(rawBody).digest('hex');
-    let signatureValid = false;
-    try {
-      signatureValid = timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
-    } catch {
-      // timingSafeEqual throws RangeError if buffers differ in length
-      signatureValid = false;
-    }
-    if (!signatureValid) {
-      return c.json({ error: 'Invalid webhook signature' }, 401);
-    }
+  const signature = c.req.header('X-Arc-Signature');
+  if (!signature) {
+    return c.json({ error: 'Missing webhook signature' }, 401);
+  }
+  const expected = 'sha256=' + createHmac('sha256', ARC_WEBHOOK_SECRET).update(rawBody).digest('hex');
+  let signatureValid = false;
+  try {
+    signatureValid = timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
+  } catch {
+    // timingSafeEqual throws RangeError if buffers differ in length
+    signatureValid = false;
+  }
+  if (!signatureValid) {
+    return c.json({ error: 'Invalid webhook signature' }, 401);
   }
 
   let event: Record<string, unknown>;
