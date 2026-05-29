@@ -119,6 +119,9 @@ const IntelMintPage = React.lazy(() =>
 const ProtocolDocsPage = React.lazy(() =>
   import('./pages/ProtocolDocsPage').then(m => ({ default: m.ProtocolDocsPage }))
 );
+const ArchitecturePage = React.lazy(() =>
+  import('./pages/ArchitecturePage').then(m => ({ default: m.ArchitecturePage }))
+);
 
 function PageFallback() {
   return (
@@ -157,6 +160,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                 <Route path="/staking" element={<StakingPage />} />
                 <Route path="/mint" element={<IntelMintPage />} />
                 <Route path="/docs" element={<ProtocolDocsPage />} />
+                <Route path="/architecture" element={<ArchitecturePage />} />
               </Routes>
             </Suspense>
           </BrowserRouter>
