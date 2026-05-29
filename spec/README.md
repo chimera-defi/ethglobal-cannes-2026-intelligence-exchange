@@ -8,14 +8,15 @@ Canonical high-level entrypoint:
 
 ## Recommended Read Order (Current)
 
-1. `docs/CANONICAL_PRODUCT_OVERVIEW.md`
-2. `README.md`
-3. `spec/CANNES_2026_MVP_SPEC.md`
-4. `spec/SPEC.md`
-5. `spec/TOKEN_ARCHITECTURE.md`
-6. `spec/TOKENOMICS.md`
-7. `spec/tokenomics/INTEL_LAUNCH_ARCHITECTURE.md`
-8. `spec/tokenomics/TOKENOMICS_COVERAGE_MATRIX.md`
+1. `README.md` — value prop, product loop, live demo
+2. `docs/CANONICAL_PRODUCT_OVERVIEW.md` — canonical system shape, tokenomics flows
+3. `docs/COMPETITOR_ANALYSIS_DEEP.md` — competitor landscape and structural differentiator
+4. `spec/CANNES_2026_MVP_SPEC.md` — MVP scope and constraints
+5. `spec/SPEC.md` — full technical spec
+6. `spec/TOKEN_ARCHITECTURE.md` — token design decisions
+7. `spec/TOKENOMICS.md` — tokenomics policy
+8. `spec/tokenomics/INTEL_LAUNCH_ARCHITECTURE.md` — launch architecture detail
+9. `spec/tokenomics/TOKENOMICS_COVERAGE_MATRIX.md` — coverage matrix
 
 ## Active Design Docs
 
