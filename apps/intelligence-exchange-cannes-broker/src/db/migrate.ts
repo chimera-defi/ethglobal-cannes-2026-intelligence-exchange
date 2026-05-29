@@ -415,6 +415,26 @@ export async function migrate() {
     ON token_ledger_entries (reference_type, reference_id)
   `;
 
+  // AIU index snapshot table — time series of market-discovered intelligence price
+  await sql`
+    CREATE TABLE IF NOT EXISTS aiu_snapshots (
+      snapshot_id UUID PRIMARY KEY,
+      computed_at TIMESTAMPTZ NOT NULL,
+      total_accepted_jobs INTEGER NOT NULL DEFAULT 0,
+      total_intel_paid_out NUMERIC(24,8) NOT NULL DEFAULT 0,
+      aiu_price_intel NUMERIC(24,8) NOT NULL DEFAULT 0,
+      period_accepted_jobs INTEGER NOT NULL DEFAULT 0,
+      period_intel_paid_out NUMERIC(24,8) NOT NULL DEFAULT 0,
+      acceptance_rate NUMERIC(5,4),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS aiu_snapshots_computed_at_idx
+    ON aiu_snapshots (computed_at DESC)
+  `;
+
   console.log('✓ Database schema ready');
 }
 

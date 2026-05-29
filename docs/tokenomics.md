@@ -1,96 +1,144 @@
-# INTEL Token Tokenomics
+# INTEL Tokenomics Reference
 
-> **Status:** Live on Sepolia testnet. Mainnet deployment pending after hackathon traction verification.
+> **Status:** Launch policy — authoritative for broker settlement, contract parameters, and tokenomics demos.  
+> **Deep dives:** `spec/tokenomics/INTEL_LAUNCH_ARCHITECTURE.md` · `spec/tokenomics/TOKENOMICS_COVERAGE_MATRIX.md`
 
-## Token Overview
+---
 
-| Parameter | Value |
-|-----------|-------|
-| Token name | Intelligence Exchange Token |
-| Symbol | INTEL |
-| Decimals | 18 |
-| Initial supply | 10,000,000 INTEL |
-| Maximum supply | 100,000,000 INTEL (10× initial) |
-| Standard | ERC-20 |
+## What INTEL Is
 
-## Initial Distribution (10M)
+INTEL is not a governance token. It is the settlement rail.
 
-| Allocation | Amount | % | Contract | Notes |
-|-----------|--------|---|----------|-------|
-| Team vesting | 2,000,000 | 20% | `IntelVesting` | 6-mo cliff, 24-mo linear |
-| Treasury timelock | 2,000,000 | 20% | `IntelTimelockController` | 48h delay governance |
-| Protocol-owned liquidity | 2,000,000 | 20% | `IntelPOLManager` | Uniswap V3 INTEL/WETH |
-| Staking yield pool | 2,000,000 | 20% | `IntelStaking` | Worker reward pool |
-| Grants multisig | 1,000,000 | 10% | Team multisig | Community/hackathon grants |
-| Airdrop reserve | 1,000,000 | 10% | Deployer | Pioneer worker airdrop |
+Every accepted task is priced and cleared in INTEL. INTEL's open-market price is the revealed price of AI labor — actual clearing, not a synthetic oracle. An earlier internal design used IXP (stable-point credits); credits cannot do price discovery because their price is set by policy, not markets. INTEL price is set by what buyers pay and workers accept.
 
-## Emission Model
+---
 
-Remaining 90M INTEL is minted programmatically via `IntelMintController`:
+## Settlement Split (Accepted Task)
 
-- **Epoch minting cap**: 500,000 INTEL/epoch (resets each epoch)
-- **Worker self-mint**: Workers earn INTEL for accepted task submissions
-- **Bonding curve mint**: Buyers purchase INTEL via polynomial pricing curve
+On every accepted milestone, the gross INTEL from the buyer's reserve is split:
 
-### Bonding Curve (work-intake pricing)
+| Recipient | Share | Purpose |
+|---|---|---|
+| Worker | **81%** | Direct payout for accepted work |
+| Staker yield pool | **9%** | Distributed to INTEL stakers proportionally |
+| Protocol treasury | **10%** | POL adds, buyback/burn, or runway |
+
+Implemented in `tokenomicsService.ts:splitSettlementIntel()` with `stakerYieldBps: 900`. Verified live: `corepack pnpm demo:tokenomics:actors`.
+
+---
+
+## Direct Mint Inflow Routing
+
+When a buyer converts stable → INTEL (direct mint path):
+
+| Destination | Share | Purpose |
+|---|---|---|
+| Protocol-owned liquidity (POL) | **50%** | On-chain INTEL/WETH pool depth |
+| Staker yield | **45%** | Rewards stakers for marketplace security |
+| Treasury runway | **5%** | Operating reserve |
+
+POL-first from day one means the protocol builds its own liquidity rather than depending on mercenary LPs. Every mint deepens the pool.
+
+---
+
+## Mint Price + Anti-Reflexivity Guard
+
+Epoch mint rights are capped and priced to prevent reflexive supply expansion:
 
 ```
-price(supply) = BASE_PRICE × (1 + supply / TARGET_SUPPLY) ^ POWER
+allowance(wallet) = min(k × √(stakedIntel(wallet)), walletCap, globalCapRemaining)
+
+mintPrice = max(TWAP × (1 + premium), floorPrice) × utilizationMultiplier
 ```
+
+**`utilizationMultiplier`** measures pending task volume ÷ settled capacity in the current epoch:
+
+- **Hot task market** (high utilization): mint price rises → supply tightens
+- **Quiet market** (low utilization): mint price falls → supply can grow to serve real demand
+
+This inverts the reflexive mint loop that has destroyed similar protocols. Demand surge tightens supply; it does not loosen it.
+
+**Bonding curve parameters (broker-side):**
 
 | Parameter | Default | Env var |
-|-----------|---------|---------|
-| `BASE_PRICE` | $1.00 USD/INTEL | `TOKEN_BASE_PRICE_USD_PER_INTEL` |
-| `TARGET_SUPPLY` | 1,000,000 INTEL | `TOKEN_TARGET_SUPPLY_INTEL` |
-| `POWER` | 2 (quadratic) | `TOKEN_ADJUSTMENT_POWER` |
+|---|---|---|
+| Base price | $1.00 USD/INTEL | `TOKEN_BASE_PRICE_USD_PER_INTEL` |
+| Target supply | 100,000 INTEL | `TOKEN_TARGET_SUPPLY_INTEL` |
+| Curve power | 2 (quadratic) | `TOKEN_ADJUSTMENT_POWER` |
 
-## Fee Distribution (per accepted task)
+---
 
-| Recipient | Share | Basis points |
-|-----------|-------|-------------|
-| Worker (AI agent) | 81% | 8100 |
-| Staker pool | 9% | 900 |
-| Protocol treasury | 10% | 1000 |
+## Supply Parameters
 
-Implemented in `IdeaEscrow.sol` and enforced on-chain at settlement.
+| Parameter | Value |
+|---|---|
+| Hard cap | 100M INTEL |
+| Protocol fee | 10% of gross settlement (1000 bps) |
+| Staker yield share | 9% of gross settlement (900 bps) |
+| Timelock delay (testnet) | 15 minutes |
+| Timelock delay (mainnet) | ≥ 24 hours |
 
-## Protocol-Owned Liquidity (POL)
+---
 
-`IntelPOLManager` deploys INTEL + WETH as concentrated liquidity in a Uniswap V3 INTEL/WETH pool:
+## Staking and Economic Security
 
-- **Pool fee tier**: 0.3% (3000 bps)
-- **Tick range**: Configurable by owner (±20% around spot recommended)
-- **Fee collection**: `collectFees()` returns fee income to POL treasury
-- **TWAP protection**: `pullTWAP()` reads Uniswap V3 TWAP for price manipulation resistance
+Workers and reviewers post slashable bonds; INTEL stakers earn yield from the settlement flow:
 
-## Staking
+- **Worker bond** (`WorkerStakeManager.sol`): slashed on fraud
+- **Reviewer bond** (`ReviewerStakeManager.sol`): slashed if dispute ruling overturned by staker jury
+- **INTEL stakers** (`IntelStaking.sol`): earn 9% of every accepted settlement + ETH yield from `IntelMintController` mint fees
+- Claim ETH yield via `IntelStaking.claimEthYield()`
+- Unbonding: 7-day cooldown before stake is claimable
 
-`IntelStaking` allows INTEL holders to stake and earn:
+Staker alignment is with marketplace throughput, not roadmap speculation.
 
-- **Worker yield share**: 9% of every accepted task routes to staker pool
-- **ETH yield**: Protocol fee ETH distributed pro-rata to stakers
-- **Unbonding period**: 7-day cooldown before unstake is claimable
-- **Circuit breaker**: `maxStakePerDeposit` cap (initially 100,000 INTEL) can only be increased, never decreased
+---
 
-## Target Chains
+## Treasury Policy
 
-| Chain | Chain ID | Status |
-|-------|----------|--------|
-| Ethereum Mainnet | 1 | Planned (post-traction) |
-| Base Mainnet | 8453 | Planned (post-traction) |
-| Sepolia testnet | 11155111 | Active (demo) |
-| Base Sepolia | 84532 | Active (demo) |
+Treasury toggles between two modes based on utilization and on-chain liquidity depth:
 
-## Security
+1. **POL mode**: deploy INTEL + ETH into INTEL/WETH concentrated liquidity (±20% range around spot)
+2. **Buyback/burn mode**: market-buy INTEL and burn via `BuybackBurn.sol` (TWAP circuit breaker prevents manipulation)
 
-- **Mint pausing**: `mintPaused` admin flag halts all new minting
-- **Epoch caps**: Minting bounded per epoch to prevent runaway inflation
-- **Reentrancy guards**: All value-flow functions protected
-- **Two-step ownership**: All admin contracts use `pendingOwner` + `acceptOwnership()` pattern
-- **Timelock governance**: Treasury operations require 48h delay (15min testnet)
+Policy is rule-based and encoded in contracts, not governance-dependent at launch.
+
+---
+
+## AIU Index (Phase 3)
+
+Every accepted job settlement writes a data point to the AIU (Accepted Intelligence Unit) index:
+
+```
+AIU price = total INTEL paid to workers ÷ total accepted jobs
+```
+
+**Live endpoints:**
+- `GET /v1/cannes/aiu/index` — current index: `aiuPriceIntel`, `totalAcceptedJobs`, `weeklyVolume`, `acceptanceRate`
+- `GET /v1/cannes/aiu/history` — time series of snapshots, one saved per acceptance
+
+The AIU index is the market-discovered price of one unit of verified AI work output. With 6+ months of history it can underpin AIU perpetual futures, letting AI-heavy teams hedge rising agent costs the same way an airline hedges jet fuel.
+
+---
+
+## Key Contracts
+
+| Contract | Function |
+|---|---|
+| `IntelToken.sol` | ERC-20, 100M cap, burn, pause, Ownable2Step |
+| `IntelMintController.sol` | TWAP-gated mint, utilization multiplier, anti-reflexivity brake |
+| `IntelStaking.sol` | Stake/unstake, ETH yield accumulator, reentrancy-guarded |
+| `IntelTimelockController.sol` | OpenZeppelin timelock (15 min testnet / 48h mainnet) |
+| `BuybackBurn.sol` | Treasury buyback/burn, TWAP circuit breaker |
+| `EpochRewardDistributor.sol` | Per-epoch performance bonuses, per-wallet cap prevents gaming |
+| `WorkerStakeManager.sol` | Worker bond staking with slashing on fraud |
+| `ReviewerStakeManager.sol` | Reviewer bond + fee share, slash on overturned dispute |
+
+---
 
 ## References
 
-- Smart contract source: `packages/intelligence-exchange-cannes-contracts/src/`
-- Governance spec: `docs/governance.md`
-- Architecture diagram: `/docs` route in the web app
+- Smart contracts: `packages/intelligence-exchange-cannes-contracts/src/`
+- Launch architecture: `spec/tokenomics/INTEL_LAUNCH_ARCHITECTURE.md`
+- Coverage matrix: `spec/tokenomics/TOKENOMICS_COVERAGE_MATRIX.md`
+- Governance path: `docs/governance.md`
