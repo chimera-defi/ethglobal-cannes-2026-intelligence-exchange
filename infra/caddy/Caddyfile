@@ -1,64 +1,32 @@
 {
 	admin off
 	auto_https off
-	servers {
-		trusted_proxies static 127.0.0.1/8 ::1/128
-	}
-	# PRODUCTION NOTE: To enable Caddy-level rate limiting, install the
-	# caddy-ratelimit plugin (https://github.com/mholt/caddy-ratelimit) and
-	# add a rate_limit directive inside the site block below.
-	# Example (requires plugin):
-	#   rate_limit {
-	#       zone dynamic {
-	#           key    {http.request.header.X-Forwarded-For}
-	#           events 100
-	#           window 1m
-	#       }
-	#   }
-	# The broker already applies in-process rate limiting (60 req/min global,
-	# 20 req/min per wallet), but Caddy-level limiting protects earlier in
-	# the stack before Bun/Node overhead is incurred.
 }
 
 :80 {
-	# Security headers
 	header {
 		X-Frame-Options "DENY"
 		X-Content-Type-Options "nosniff"
-		X-XSS-Protection "1; mode=block"
 		Referrer-Policy "strict-origin-when-cross-origin"
-		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.celo.org https://*.polygon.technology https://*.etherscan.io https://*.basescan.org wss://;"
 		Permissions-Policy "camera=(), microphone=(), geolocation=()"
 		-Server
 	}
 
-	# Block sensitive paths
-	@blocked {
-		path /.env /.git* /package.json /package-lock.json /pnpm-lock.yaml /bun.lock /.env.* /.gitignore
-	}
+	@blocked path /.env /.git* /package.json /pnpm-lock.yaml
 	respond @blocked 404
 
-	# API routes to broker
-	@api {
-		path /v1/*
+	handle /v1/* {
+		reverse_proxy localhost:3100
 	}
-	reverse_proxy @api localhost:3100
 
-	# Serve static files for everything else
-	root * /home/agents/workspace/ethglobal-cannes-2026-intelligence-exchange/apps/intelligence-exchange-cannes-web/dist
-	file_server
+	handle {
+		root * /home/agents/workspace/ethglobal-cannes-2026-intelligence-exchange/apps/intelligence-exchange-cannes-web/dist
+		try_files {path} /index.html
+		file_server
+	}
 
-	# Logging
 	log {
 		output file /var/log/caddy/access.log
 		format json
 	}
-	
-	# Handle SPA routing
-	@spa {
-		file {
-			try_files {path} /index.html
-		}
-	}
-	rewrite @spa /index.html
 }
