@@ -79,7 +79,7 @@ githubRouter.get('/repos', async (c) => {
     return c.json({ error: { code: 'MISSING_SESSION', message: 'X-GitHub-Session header required' } }, 401);
   }
 
-  const session = await getGitHubSession(sessionToken);
+  const session = getGitHubSession(sessionToken);
   if (!session) {
     return c.json({ error: { code: 'INVALID_SESSION', message: 'Invalid or expired session' } }, 401);
   }
@@ -109,7 +109,7 @@ githubRouter.get('/repos/:fullName/context', async (c) => {
     return c.json({ error: { code: 'MISSING_SESSION', message: 'X-GitHub-Session header required' } }, 401);
   }
 
-  const session = await getGitHubSession(sessionToken);
+  const session = getGitHubSession(sessionToken);
   if (!session) {
     return c.json({ error: { code: 'INVALID_SESSION', message: 'Invalid or expired session' } }, 401);
   }
@@ -147,7 +147,7 @@ githubRouter.post('/create-pr', zValidator('json', z.object({
   }
 
   const req = c.req.valid('json');
-  const session = await getGitHubSession(req.sessionToken);
+  const session = getGitHubSession(req.sessionToken);
   if (!session) {
     return c.json({ error: { code: 'INVALID_SESSION', message: 'Invalid or expired session' } }, 401);
   }
