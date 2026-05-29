@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
+import { z } from 'zod';
 import { desc, eq, inArray } from 'drizzle-orm';
 import { db } from '../db/client';
 import { acceptedAttestations, agentSpendEvents, briefs, claims, ideas, jobs, milestones, submissions } from '../db/schema';
@@ -20,7 +21,8 @@ import { hydrateAcceptedSubmissionAttestation, checkWorkerStake } from '../servi
 import { computeAgentFingerprint, normalizeAccountAddress } from '../services/identityService';
 import { httpError } from '../services/errors';
 import { getWorldConfig } from '../services/sponsorConfig';
-import { keccak256, toBytes } from 'viem';
+import { keccak256, toBytes, createWalletClient, createPublicClient, http } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
 
 export const jobsRouter = new Hono();
 
@@ -606,6 +608,143 @@ jobsRouter.post('/:jobId/spend', zValidator('json', JobSpendCreateRequestSchema)
   } catch (err: unknown) {
     const status = (err as { status?: number }).status ?? 500;
     const code = (err as { code?: string }).code ?? 'SPEND_FAILED';
+    return c.json({ error: { code, message: String(err) } }, status as 401 | 403 | 404 | 409 | 500);
+  }
+});
+
+// POST /v1/cannes/jobs/:jobId/dispute — open a dispute for a job
+jobsRouter.post(
+  '/:jobId/dispute',
+  zValidator('json', z.object({
+    workerAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+    reviewerAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+  })),
+  async (c) => {
+    const { jobId } = c.req.param();
+    const req = c.req.valid('json') as { workerAddress: string; reviewerAddress: string };
+
+    try {
+      const sessionAccountAddress = await getSessionAccountAddress(c);
+      if (!sessionAccountAddress && getWorldConfig().strict) {
+        throw httpError('Authenticated session required to open dispute', 401, 'AUTH_REQUIRED');
+      }
+
+      const contractAddress = process.env.DISPUTE_RESOLUTION_ADDRESS;
+      if (!contractAddress || contractAddress.trim() === '') {
+        return c.json({ error: 'DISPUTE_RESOLUTION_ADDRESS not configured' }, 500);
+      }
+
+      const privateKey = process.env.BROKER_ATTESTOR_PRIVATE_KEY;
+      const rpcUrl = process.env.WORLDCHAIN_RPC_URL;
+      const chainId = process.env.WORLDCHAIN_CHAIN_ID;
+
+      if (!privateKey || !rpcUrl || !chainId) {
+        return c.json({ error: 'Broker chain configuration not set' }, 500);
+      }
+
+      const account = privateKeyToAccount(privateKey as `0x${string}`);
+
+      const chain = {
+        id: Number(chainId),
+        name: 'Worldchain Sepolia',
+        nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+        rpcUrls: {
+          default: { http: [rpcUrl] },
+          public: { http: [rpcUrl] },
+        },
+      } as const;
+
+      const walletClient = createWalletClient({
+        account,
+        chain,
+        transport: http(),
+      });
+
+      const taskIdBytes32 = keccak256(toBytes(jobId));
+
+      const hash = await walletClient.writeContract({
+        address: contractAddress as `0x${string}`,
+        abi: [
+          {
+            type: 'function',
+            name: 'openDispute',
+            stateMutability: 'nonpayable',
+            inputs: [
+              { name: 'taskId', type: 'bytes32' },
+              { name: 'worker', type: 'address' },
+              { name: 'reviewer', type: 'address' },
+            ],
+            outputs: [],
+          },
+        ],
+        functionName: 'openDispute',
+        args: [taskIdBytes32, req.workerAddress as `0x${string}`, req.reviewerAddress as `0x${string}`],
+      });
+
+      console.log(`[jobs:dispute] Opened dispute for jobId=${jobId} worker=${req.workerAddress} reviewer=${req.reviewerAddress} txHash=${hash}`);
+      return c.json({ txHash: hash, message: 'Dispute opened. Post INTEL bond via disputeBond amount.' });
+    } catch (err: unknown) {
+      console.error('[jobs:dispute] Failed to open dispute:', err);
+      const status = (err as { status?: number }).status ?? 500;
+      const code = (err as { code?: string }).code ?? 'DISPUTE_FAILED';
+      return c.json({ error: { code, message: String(err) } }, status as 401 | 403 | 404 | 409 | 500);
+    }
+  }
+);
+
+// GET /v1/cannes/jobs/:jobId/dispute — get dispute state for a job
+jobsRouter.get('/:jobId/dispute', async (c) => {
+  const { jobId } = c.req.param();
+
+  try {
+    const contractAddress = process.env.DISPUTE_RESOLUTION_ADDRESS;
+    if (!contractAddress || contractAddress.trim() === '') {
+      return c.json({ error: 'DISPUTE_RESOLUTION_ADDRESS not configured' }, 500);
+    }
+
+    const rpcUrl = process.env.WORLDCHAIN_RPC_URL;
+    if (!rpcUrl) {
+      return c.json({ error: 'WORLDCHAIN_RPC_URL not set' }, 500);
+    }
+
+    const publicClient = createPublicClient({
+      transport: http(rpcUrl, {
+        timeout: 10000,
+        retryCount: 2,
+      }),
+    });
+
+    const taskIdBytes32 = keccak256(toBytes(jobId));
+
+    const dispute = await publicClient.readContract({
+      address: contractAddress as `0x${string}`,
+      abi: [
+        {
+          type: 'function',
+          name: 'disputes',
+          stateMutability: 'view',
+          inputs: [
+            { name: '', type: 'uint256' },
+          ],
+          outputs: [
+            { name: 'taskId', type: 'bytes32' },
+            { name: 'worker', type: 'address' },
+            { name: 'reviewer', type: 'address' },
+            { name: 'isOpen', type: 'bool' },
+            { name: 'resolvedInFavorOfWorker', type: 'bool' },
+          ],
+        },
+      ],
+      functionName: 'disputes',
+      args: [BigInt(taskIdBytes32)],
+    });
+
+    console.log(`[jobs:dispute] Retrieved dispute state for jobId=${jobId}`);
+    return c.json({ dispute });
+  } catch (err: unknown) {
+    console.error('[jobs:dispute] Failed to get dispute state:', err);
+    const status = (err as { status?: number }).status ?? 500;
+    const code = (err as { code?: string }).code ?? 'DISPUTE_QUERY_FAILED';
     return c.json({ error: { code, message: String(err) } }, status as 401 | 403 | 404 | 409 | 500);
   }
 });
