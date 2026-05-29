@@ -8,6 +8,11 @@ import {IntelStaking} from "./IntelStaking.sol";
 import {ReviewerStakeManager} from "./ReviewerStakeManager.sol";
 import {WorkerStakeManager} from "./WorkerStakeManager.sol";
 
+interface IReviewerStakeManager {
+    function slash(address reviewer, uint256 amount) external;
+    function reviewerBond(address reviewer) external view returns (uint256);
+}
+
 /// @title DisputeResolution
 /// @notice On-chain dispute resolution for the Assay Protocol using staker juries.
 ///
@@ -62,6 +67,7 @@ contract DisputeResolution {
     event DisputeWindowUpdated(uint256 oldWindow, uint256 newWindow);
     event VotingWindowUpdated(uint256 oldWindow, uint256 newWindow);
     event DisputeBondUpdated(uint256 oldBond, uint256 newBond);
+    event ReviewerSlashBpsUpdated(uint256 oldBps, uint256 newBps);
     event ReviewerStakeManagerUpdated(address indexed oldManager, address indexed newManager);
     event WorkerStakeManagerUpdated(address indexed oldManager, address indexed newManager);
 
@@ -81,6 +87,7 @@ contract DisputeResolution {
     uint256 public disputeWindow;   // default 72 hours
     uint256 public votingWindow;    // default 48 hours
     uint256 public disputeBond;     // default 100e18 INTEL
+    uint256 public reviewerSlashBps; // default 2000 (20%)
 
     // Dispute state
     enum DisputeState { Pending, UpheldWorkerFault, UpheldReviewerFault, Rejected, Expired }
@@ -159,6 +166,7 @@ contract DisputeResolution {
         disputeWindow = 72 hours;
         votingWindow = 48 hours;
         disputeBond = 100e18;  // 100 INTEL
+        reviewerSlashBps = 2000;  // 20%
         _reentrancyStatus = _NOT_ENTERED;
     }
 
@@ -258,7 +266,8 @@ contract DisputeResolution {
     /// @notice Resolve a dispute after voting deadline.
     /// @dev Tallies votes and executes slashing/bond return logic.
     /// @param disputeId Dispute ID.
-    function resolveDispute(uint256 disputeId) external nonReentrant {
+    /// @param reviewerAtFault True if reviewer is at fault (fraudulent accept), false if worker is at fault.
+    function resolveDispute(uint256 disputeId, bool reviewerAtFault) external nonReentrant {
         Dispute storage dispute = disputes[disputeId];
         if (dispute.state != DisputeState.Pending) revert DisputeNotPending();
         if (block.timestamp <= dispute.votingDeadline) revert VotingWindowOpen();
@@ -276,32 +285,53 @@ contract DisputeResolution {
             // Check quorum
             uint256 quorumThreshold = (jurorCount * quorumBps) / 10000;
             if (dispute.votesUphold >= quorumThreshold) {
-                // Dispute upheld - slash worker and reviewer
-                dispute.state = DisputeState.UpheldWorkerFault;
-                
-                // Slash worker
-                if (address(workerStakeManager) != address(0)) {
-                    try workerStakeManager.slash(dispute.worker, dispute.bond, dispute.disputer) {
-                        workerSlashed = true;
-                        emit BondSlashed(disputeId, dispute.worker, dispute.bond);
-                    } catch {}
-                }
+                if (reviewerAtFault) {
+                    // Dispute upheld - reviewer at fault (fraudulent accept)
+                    dispute.state = DisputeState.UpheldReviewerFault;
 
-                // Slash reviewer
-                if (address(reviewerStakeManager) != address(0)) {
-                    try reviewerStakeManager.slash(dispute.reviewer, dispute.bond) {
-                        reviewerSlashed = true;
-                        emit BondSlashed(disputeId, dispute.reviewer, dispute.bond);
-                    } catch {}
-                }
+                    // Slash reviewer by proportion of their bond
+                    if (address(reviewerStakeManager) != address(0)) {
+                        try reviewerStakeManager.reviewerBond(dispute.reviewer) returns (uint256 reviewerBondAmount) {
+                            uint256 slashAmount = (reviewerBondAmount * reviewerSlashBps) / 10000;
+                            if (slashAmount > 0) {
+                                try reviewerStakeManager.slash(dispute.reviewer, slashAmount) {
+                                    reviewerSlashed = true;
+                                    emit BondSlashed(disputeId, dispute.reviewer, slashAmount);
+                                } catch {}
+                            }
+                        } catch {}
+                    }
 
-                // Return bond to disputer with bonus
-                _returnBond(disputeId, dispute.disputer, dispute.bond);
+                    // Return bond to disputer
+                    _returnBond(disputeId, dispute.disputer, dispute.bond);
+                } else {
+                    // Dispute upheld - worker at fault
+                    dispute.state = DisputeState.UpheldWorkerFault;
+
+                    // Slash worker
+                    if (address(workerStakeManager) != address(0)) {
+                        try workerStakeManager.slash(dispute.worker, dispute.bond, dispute.disputer) {
+                            workerSlashed = true;
+                            emit BondSlashed(disputeId, dispute.worker, dispute.bond);
+                        } catch {}
+                    }
+
+                    // Slash reviewer
+                    if (address(reviewerStakeManager) != address(0)) {
+                        try reviewerStakeManager.slash(dispute.reviewer, dispute.bond) {
+                            reviewerSlashed = true;
+                            emit BondSlashed(disputeId, dispute.reviewer, dispute.bond);
+                        } catch {}
+                    }
+
+                    // Return bond to disputer with bonus
+                    _returnBond(disputeId, dispute.disputer, dispute.bond);
+                }
             } else {
                 // Dispute rejected - slash disputer's bond
                 dispute.state = DisputeState.Rejected;
                 _slashBond(disputeId, dispute.disputer, dispute.bond);
-                
+
                 // Reward correct jurors (those who voted reject)
                 _rewardJurors(disputeId, false);
             }
@@ -406,6 +436,15 @@ contract DisputeResolution {
     function setDisputeBond(uint256 _disputeBond) external onlyOwner {
         emit DisputeBondUpdated(disputeBond, _disputeBond);
         disputeBond = _disputeBond;
+    }
+
+    /// @notice Set the reviewer slash basis points.
+    /// @custom:access owner
+    /// @param _reviewerSlashBps New reviewer slash in BPS (10000 = 100%).
+    function setReviewerSlashBps(uint256 _reviewerSlashBps) external onlyOwner {
+        if (_reviewerSlashBps > 10000) revert QuorumTooHigh();
+        emit ReviewerSlashBpsUpdated(reviewerSlashBps, _reviewerSlashBps);
+        reviewerSlashBps = _reviewerSlashBps;
     }
 
     /// @notice Set the treasury address.
