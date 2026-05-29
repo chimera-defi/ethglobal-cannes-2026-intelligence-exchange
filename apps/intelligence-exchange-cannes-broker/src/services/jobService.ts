@@ -1,6 +1,6 @@
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import { db } from '../db/client';
-import { jobs, claims, submissions, ideas, briefs, milestones, agentSpendEvents, ideaTokenReserves } from '../db/schema';
+import { jobs, claims, submissions, ideas, briefs, milestones, agentSpendEvents, agentIdentities } from '../db/schema';
 import { scoreSubmission } from '../scoring/scorer';
 import {
   MILESTONE_ORDER,
@@ -12,7 +12,8 @@ import { randomUUID } from 'crypto';
 import { httpError } from './errors';
 import { issueAcceptedSubmissionAttestation, mintWorkReceipt, recordReviewerReview, setWorkerOnEscrow, clearWorkerOnEscrow, recordCategoryCompletion, evaluateReviewerTier, checkReviewerAssignment, refundTaskEscrow } from './chainService';
 import { logJobEvent } from './jobEvents';
-import { settleAcceptedJobCredits } from './tokenomicsService';
+import { refundRejectedJobCredits, settleAcceptedJobCredits } from './tokenomicsService';
+import { saveAIUSnapshot } from './aiuService';
 
 type SpendEventInput = {
   workerId: string;
@@ -342,29 +343,14 @@ export async function acceptJob(jobId: string, reviewerId: string) {
     score,
   ).catch((err) => console.error('[job:accept] Failed to mint WorkReceipt:', err));
 
-  // Fire-and-forget ReviewerStakeManager.recordReview call
-  const budgetUsd = Number.parseFloat(job.budgetUsd);
-  // Convert USD to INTEL (approximate: 1 INTEL = $1)
-  const intelPriceUsd = 1;
-  const taskValueIntel = BigInt(Math.floor(budgetUsd / intelPriceUsd * 1e18));
-  
-  recordReviewerReview(reviewerId, taskValueIntel).catch((err) => {
-    console.error(`[job:accept] Failed to record review for reviewer=${reviewerId}:`, err);
-  });
+  // Update agent reputation inline — increment acceptedCount + recalculate avgScore.
+  // This replaces the manual chain/sync webhook dependency for off-chain reputation tracking.
+  updateAgentReputation(sub.agentFingerprint, score)
+    .catch((err) => console.error('[job:accept] Failed to update agent reputation:', err));
 
-  // Fire-and-forget economic security layer calls
-  const workerAddress = job.activeClaimWorkerId ?? sub.workerId;
-  const category = 0; // Default to General (0) - category mapping can be added later
-  const aiuScore = score ?? 1;
-  const epoch = Math.floor(Date.now() / (7 * 24 * 3600 * 1000)); // Current epoch (weekly)
-
-  recordCategoryCompletion(workerAddress, category, aiuScore).catch((err) => {
-    console.error(`[job:accept] Failed to record category completion:`, err);
-  });
-
-  evaluateReviewerTier(reviewerId, 0).catch((err) => {
-    console.error(`[job:accept] Failed to evaluate reviewer tier:`, err);
-  });
+  // Snapshot the AIU index after every acceptance to build the time series.
+  saveAIUSnapshot()
+    .catch((err) => console.error('[job:accept] Failed to save AIU snapshot:', err));
 
   return { accepted: true, attestation, settlement };
 }
@@ -389,11 +375,38 @@ export async function rejectJob(jobId: string, reviewerId: string, reason?: stri
   }
   await logJobEvent(jobId, 'rework', reviewerId, { reason });
 
-  // Fire-and-forget escrow refund
-  refundTaskEscrow(jobId).catch(err => console.error('[job:reject] escrow refund failed:', err));
+  // Return the reserved INTEL to the buyer's idea pool so they can re-post the job.
+  const refund = await refundRejectedJobCredits({
+    ideaId: job.ideaId,
+    jobId,
+    budgetUsd: Number.parseFloat(job.budgetUsd),
+  }).catch((err) => {
+    console.error('[job:reject] Failed to refund INTEL credits:', err);
+    return null;
+  });
 
-  console.log(`[job:rejected→rework] jobId=${jobId} reason=${reason}`);
-  return { rework: true };
+  console.log(`[job:rejected→rework] jobId=${jobId} reason=${reason} refunded=${refund?.refundedIntel ?? 0}`);
+  return { rework: true, refund };
+}
+
+async function updateAgentReputation(fingerprint: string, score: number) {
+  const [identity] = await db.select().from(agentIdentities)
+    .where(eq(agentIdentities.fingerprint, fingerprint));
+
+  if (!identity) {
+    // Agent identity not registered yet — skip silently (on-chain registry is the source of truth)
+    console.warn(`[job:accept] agentIdentity not found for fingerprint=${fingerprint}, skipping reputation update`);
+    return;
+  }
+
+  const nextAcceptedCount = (identity.acceptedCount ?? 0) + 1;
+  const cumulativeScore = (Number(identity.avgScore) * (identity.acceptedCount ?? 0)) + score;
+  const nextAvgScore = nextAcceptedCount > 0 ? cumulativeScore / nextAcceptedCount : score;
+
+  await db.update(agentIdentities).set({
+    acceptedCount: nextAcceptedCount,
+    avgScore: nextAvgScore.toFixed(2),
+  }).where(eq(agentIdentities.fingerprint, fingerprint));
 }
 
 export async function recordSpendEvent(jobId: string, input: SpendEventInput) {
