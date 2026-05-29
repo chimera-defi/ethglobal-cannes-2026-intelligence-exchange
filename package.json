@@ -28,6 +28,14 @@
   "pnpm": {
     "overrides": {
       "axios": "^1.8.2"
-    }
+    },
+    "onlyBuiltDependencies": [
+      "bufferutil",
+      "es5-ext",
+      "esbuild",
+      "keccak",
+      "msgpackr-extract",
+      "utf-8-validate"
+    ]
   }
 }
