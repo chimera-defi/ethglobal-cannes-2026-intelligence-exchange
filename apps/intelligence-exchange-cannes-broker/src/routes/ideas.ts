@@ -24,6 +24,7 @@ import { createIdea, generateBrief, acceptJob, rejectJob } from '../services/job
 import { getWorldConfig } from '../services/sponsorConfig';
 import { mintAndReserveIdeaCredits } from '../services/tokenomicsService';
 import { readWorldVerificationToken } from '../services/worldId';
+import { recordAccept, recordError } from '../services/circuitBreakerService';
 
 export const ideasRouter = new Hono();
 type CreateIdeaRequest = z.infer<typeof JobCreateRequestSchema>;
@@ -183,6 +184,10 @@ ideasRouter.post('/:ideaId/accept', zValidator('json', AcceptJobRequestSchema), 
   const { jobId } = c.req.valid('json');
   const worldConfig = getWorldConfig();
 
+  if (!recordAccept('accept')) {
+    return c.json({ error: { code: 'CIRCUIT_BREAKER_OPEN', message: 'Accept rate limit exceeded — possible exploit in progress' } }, 503);
+  }
+
   const [idea] = await db.select().from(ideas).where(eq(ideas.ideaId, ideaId));
   if (!idea) return c.json({ error: { code: 'NOT_FOUND', message: 'Idea not found' } }, 404);
 
@@ -203,6 +208,8 @@ ideasRouter.post('/:ideaId/accept', zValidator('json', AcceptJobRequestSchema), 
     return c.json(result);
   } catch (err: unknown) {
     const status = (err as { status?: number }).status ?? 500;
+    const is5xx = status >= 500 && status < 600;
+    recordError('accept', is5xx);
     const code = (err as { code?: string }).code ?? 'ACCEPT_FAILED';
     return c.json({ error: { code, message: String(err) } }, status as 401 | 403 | 404 | 409 | 500);
   }
