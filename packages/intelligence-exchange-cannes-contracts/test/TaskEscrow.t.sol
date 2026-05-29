@@ -60,13 +60,13 @@ contract TaskEscrowTest is Test {
 
     function test_fundTask_happyPath() public {
         vm.prank(funder);
-        escrow.fundTask(TASK_ID, worker, TASK_AMOUNT);
+        escrow.fundTask(TASK_ID, TASK_AMOUNT);
 
         (bytes32 taskId, address funderAddr, address workerAddr, uint256 amount, , uint256 fundedAt, ) = escrow.tasks(TASK_ID);
 
         assertEq(taskId, TASK_ID);
         assertEq(funderAddr, funder);
-        assertEq(workerAddr, worker);
+        assertEq(workerAddr, address(0)); // Worker unknown at funding time
         assertEq(amount, TASK_AMOUNT);
         assertGt(fundedAt, 0);
         assertEq(token.balanceOf(address(escrow)), TASK_AMOUNT);
@@ -74,30 +74,24 @@ contract TaskEscrowTest is Test {
 
     function test_fundTask_duplicateRevert() public {
         vm.prank(funder);
-        escrow.fundTask(TASK_ID, worker, TASK_AMOUNT);
+        escrow.fundTask(TASK_ID, TASK_AMOUNT);
 
         vm.prank(funder);
         vm.expectRevert(TaskEscrow.TaskAlreadyExists.selector);
-        escrow.fundTask(TASK_ID, worker, TASK_AMOUNT);
-    }
-
-    function test_fundTask_zeroWorker() public {
-        vm.prank(funder);
-        vm.expectRevert(TaskEscrow.ZeroAddress.selector);
-        escrow.fundTask(TASK_ID, address(0), TASK_AMOUNT);
+        escrow.fundTask(TASK_ID, TASK_AMOUNT);
     }
 
     function test_fundTask_zeroAmount() public {
         vm.prank(funder);
         vm.expectRevert(TaskEscrow.ZeroAmount.selector);
-        escrow.fundTask(TASK_ID, worker, 0);
+        escrow.fundTask(TASK_ID, 0);
     }
 
     // ─── release ───────────────────────────────────────────────────────────────
 
     function test_release_correctSplit() public {
         vm.prank(funder);
-        escrow.fundTask(TASK_ID, worker, TASK_AMOUNT);
+        escrow.fundTask(TASK_ID, TASK_AMOUNT);
 
         uint256 workerBalanceBefore = token.balanceOf(worker);
         uint256 treasuryBalanceBefore = token.balanceOf(treasury);
@@ -129,7 +123,7 @@ contract TaskEscrowTest is Test {
 
     function test_release_unauthorized() public {
         vm.prank(funder);
-        escrow.fundTask(TASK_ID, worker, TASK_AMOUNT);
+        escrow.fundTask(TASK_ID, TASK_AMOUNT);
 
         vm.prank(funder);
         vm.expectRevert(TaskEscrow.Unauthorized.selector);
@@ -138,18 +132,100 @@ contract TaskEscrowTest is Test {
 
     function test_release_zeroWorker() public {
         vm.prank(funder);
-        escrow.fundTask(TASK_ID, worker, TASK_AMOUNT);
+        escrow.fundTask(TASK_ID, TASK_AMOUNT);
 
         vm.prank(operator);
         vm.expectRevert(TaskEscrow.ZeroAddress.selector);
         escrow.release(TASK_ID, address(0));
     }
 
+    // ─── setWorker ─────────────────────────────────────────────────────────────
+
+    function test_setWorker_assignsCorrectly() public {
+        vm.prank(funder);
+        escrow.fundTask(TASK_ID, TASK_AMOUNT);
+
+        vm.prank(operator);
+        escrow.setWorker(TASK_ID, worker);
+
+        (, , address workerAddr, , , , ) = escrow.tasks(TASK_ID);
+        assertEq(workerAddr, worker);
+    }
+
+    function test_setWorker_notFunded() public {
+        vm.prank(operator);
+        vm.expectRevert(TaskEscrow.TaskNotFunded.selector);
+        escrow.setWorker(TASK_ID, worker);
+    }
+
+    function test_setWorker_unauthorized() public {
+        vm.prank(funder);
+        escrow.fundTask(TASK_ID, TASK_AMOUNT);
+
+        vm.prank(funder);
+        vm.expectRevert(TaskEscrow.Unauthorized.selector);
+        escrow.setWorker(TASK_ID, worker);
+    }
+
+    function test_setWorker_zeroAddress() public {
+        vm.prank(funder);
+        escrow.fundTask(TASK_ID, TASK_AMOUNT);
+
+        vm.prank(operator);
+        vm.expectRevert(TaskEscrow.ZeroAddress.selector);
+        escrow.setWorker(TASK_ID, address(0));
+    }
+
+    function test_release_withSetWorker_matchingSucceeds() public {
+        address worker2 = address(0xC0DE);
+
+        vm.prank(funder);
+        escrow.fundTask(TASK_ID, TASK_AMOUNT);
+
+        vm.prank(operator);
+        escrow.setWorker(TASK_ID, worker2);
+
+        uint256 workerBalanceBefore = token.balanceOf(worker2);
+
+        vm.prank(operator);
+        escrow.release(TASK_ID, worker2);
+
+        uint256 workerBalanceAfter = token.balanceOf(worker2);
+        assertEq(workerBalanceAfter - workerBalanceBefore, (TASK_AMOUNT * 8100) / 10_000);
+    }
+
+    function test_release_withSetWorker_wrongWorkerReverts() public {
+        address worker2 = address(0xC0DE);
+
+        vm.prank(funder);
+        escrow.fundTask(TASK_ID, TASK_AMOUNT);
+
+        vm.prank(operator);
+        escrow.setWorker(TASK_ID, worker2);
+
+        vm.prank(operator);
+        vm.expectRevert(TaskEscrow.WorkerMismatch.selector);
+        escrow.release(TASK_ID, worker); // Try to release to different worker
+    }
+
+    function test_release_withoutSetWorker_usesPassedParam() public {
+        vm.prank(funder);
+        escrow.fundTask(TASK_ID, TASK_AMOUNT);
+
+        uint256 workerBalanceBefore = token.balanceOf(worker);
+
+        vm.prank(operator);
+        escrow.release(TASK_ID, worker); // No setWorker called, should use passed param
+
+        uint256 workerBalanceAfter = token.balanceOf(worker);
+        assertEq(workerBalanceAfter - workerBalanceBefore, (TASK_AMOUNT * 8100) / 10_000);
+    }
+
     // ─── refund ───────────────────────────────────────────────────────────────
 
     function test_refund_afterWindow() public {
         vm.prank(funder);
-        escrow.fundTask(TASK_ID, worker, TASK_AMOUNT);
+        escrow.fundTask(TASK_ID, TASK_AMOUNT);
 
         uint256 funderBalanceBefore = token.balanceOf(funder);
 
@@ -165,7 +241,7 @@ contract TaskEscrowTest is Test {
 
     function test_refund_beforeWindow() public {
         vm.prank(funder);
-        escrow.fundTask(TASK_ID, worker, TASK_AMOUNT);
+        escrow.fundTask(TASK_ID, TASK_AMOUNT);
 
         vm.prank(funder);
         vm.expectRevert(TaskEscrow.RefundWindowNotElapsed.selector);
@@ -174,7 +250,7 @@ contract TaskEscrowTest is Test {
 
     function test_refund_ownerCanForce() public {
         vm.prank(funder);
-        escrow.fundTask(TASK_ID, worker, TASK_AMOUNT);
+        escrow.fundTask(TASK_ID, TASK_AMOUNT);
 
         uint256 funderBalanceBefore = token.balanceOf(funder);
 
