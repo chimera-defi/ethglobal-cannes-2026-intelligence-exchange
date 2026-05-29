@@ -8,10 +8,28 @@ import { httpError } from '../services/errors';
 
 export const adminRouter = new Hono();
 
+// Security: Admin API key validation on startup
+if (!process.env.ADMIN_API_KEY || process.env.ADMIN_API_KEY.length < 32) {
+  console.warn('[security:admin] ADMIN_API_KEY not set or too short. Admin endpoints are unprotected.');
+}
+
+// Security: In-memory rate limiter for failed auth attempts (prevents brute force)
+const failedAttempts = new Map<string, number[]>();
+
 // Simple Bearer token auth middleware
 function requireAdminAuth(c: { req: { header: (name: string) => string | undefined } }) {
   const authHeader = c.req.header('Authorization');
+  const ip = c.req.header('x-forwarded-for') ?? 'unknown';
+
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    // Rate limit on failed auth
+    const now = Date.now();
+    const attempts = (failedAttempts.get(ip) ?? []).filter(t => now - t < 60000);
+    attempts.push(now);
+    failedAttempts.set(ip, attempts);
+    if (attempts.length > 5) {
+      throw httpError('Too many failed attempts', 429, 'RATE_LIMIT_EXCEEDED');
+    }
     throw httpError('Missing or invalid Authorization header', 401, 'UNAUTHORIZED');
   }
 
@@ -23,8 +41,19 @@ function requireAdminAuth(c: { req: { header: (name: string) => string | undefin
   }
 
   if (token !== expectedToken) {
+    // Rate limit on failed auth
+    const now = Date.now();
+    const attempts = (failedAttempts.get(ip) ?? []).filter(t => now - t < 60000);
+    attempts.push(now);
+    failedAttempts.set(ip, attempts);
+    if (attempts.length > 5) {
+      throw httpError('Too many failed attempts', 429, 'RATE_LIMIT_EXCEEDED');
+    }
     throw httpError('Invalid admin token', 403, 'FORBIDDEN');
   }
+
+  // Clear failed attempts on successful auth
+  failedAttempts.delete(ip);
 }
 
 // Helper function to create wallet client
@@ -86,6 +115,9 @@ adminRouter.post(
     requireAdminAuth(c);
     const req = c.req.valid('json') as { epoch: number; workers: string[]; aiuScores: number[] };
 
+    // Audit logging
+    console.log('[admin:audit] action=submit-scores ip=' + (c.req.header('x-forwarded-for') ?? 'unknown') + ' at=' + new Date().toISOString());
+
     const contractAddress = process.env.EPOCH_REWARD_DISTRIBUTOR_ADDRESS;
     if (!contractAddress || contractAddress.trim() === '') {
       return c.json({ error: 'EPOCH_REWARD_DISTRIBUTOR_ADDRESS not configured', configured: false }, 500);
@@ -133,6 +165,9 @@ adminRouter.post(
     requireAdminAuth(c);
     const req = c.req.valid('json') as { epoch: number };
 
+    // Audit logging
+    console.log('[admin:audit] action=distribute ip=' + (c.req.header('x-forwarded-for') ?? 'unknown') + ' at=' + new Date().toISOString());
+
     const contractAddress = process.env.EPOCH_REWARD_DISTRIBUTOR_ADDRESS;
     if (!contractAddress || contractAddress.trim() === '') {
       return c.json({ error: 'EPOCH_REWARD_DISTRIBUTOR_ADDRESS not configured' }, 500);
@@ -170,6 +205,9 @@ adminRouter.post(
 // POST /admin/buyback
 adminRouter.post('/buyback', async (c) => {
   requireAdminAuth(c);
+
+  // Audit logging
+  console.log('[admin:audit] action=buyback ip=' + (c.req.header('x-forwarded-for') ?? 'unknown') + ' at=' + new Date().toISOString());
 
   const contractAddress = process.env.BUYBACK_BURN_ADDRESS;
   if (!contractAddress || contractAddress.trim() === '') {
@@ -211,6 +249,9 @@ adminRouter.post(
   async (c) => {
     requireAdminAuth(c);
     const req = c.req.valid('json') as { settledVolumeEth: number };
+
+    // Audit logging
+    console.log('[admin:audit] action=mint-cap-update ip=' + (c.req.header('x-forwarded-for') ?? 'unknown') + ' at=' + new Date().toISOString());
 
     const contractAddress = process.env.INTEL_MINT_CONTROLLER_ADDRESS;
     if (!contractAddress || contractAddress.trim() === '') {
@@ -258,6 +299,9 @@ adminRouter.post(
     const { address } = c.req.param();
     const req = c.req.valid('json') as { slashCount: number };
 
+    // Audit logging
+    console.log('[admin:audit] action=evaluate-tier ip=' + (c.req.header('x-forwarded-for') ?? 'unknown') + ' at=' + new Date().toISOString());
+
     if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
       return c.json({ error: 'Invalid reviewer address' }, 400);
     }
@@ -301,6 +345,9 @@ adminRouter.post(
 adminRouter.post('/reviewer/:address/mint-credential', async (c) => {
   requireAdminAuth(c);
   const { address } = c.req.param();
+
+  // Audit logging
+  console.log('[admin:audit] action=mint-credential ip=' + (c.req.header('x-forwarded-for') ?? 'unknown') + ' at=' + new Date().toISOString());
 
   if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
     return c.json({ error: 'Invalid reviewer address' }, 400);

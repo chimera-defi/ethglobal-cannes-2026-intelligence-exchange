@@ -527,7 +527,152 @@ export async function checkWorkerStake(workerAddress: string, taskValueWei: bigi
   }
 }
 
+// ─── ReviewerQueue Integration ──────────────────────────────────────────────────
+
+export async function checkReviewerAssignment(taskId: string, reviewerAddress: string): Promise<boolean> {
+  const contractAddress = process.env.REVIEWER_QUEUE_ADDRESS;
+  if (!contractAddress || contractAddress.trim() === '') {
+    console.warn('[chain:checkReviewerAssignment] REVIEWER_QUEUE_ADDRESS not set — allowing assignment without check (off-chain-only mode)');
+    return true;
+  }
+
+  const rpcUrl = process.env.WORLDCHAIN_RPC_URL;
+  if (!rpcUrl) {
+    console.warn('[chain:checkReviewerAssignment] WORLDCHAIN_RPC_URL not set — allowing assignment without check (off-chain-only mode)');
+    return true;
+  }
+
+  try {
+    const publicClient = createPublicClient({
+      transport: http(rpcUrl, {
+        timeout: 10000,
+        retryCount: 2,
+      }),
+    });
+
+    const taskIdHash = keccak256(toBytes(taskId));
+
+    const isAssigned = await publicClient.readContract({
+      address: contractAddress as `0x${string}`,
+      abi: [
+        {
+          type: 'function',
+          name: 'isAssignedReviewer',
+          stateMutability: 'view',
+          inputs: [
+            { name: 'taskId', type: 'bytes32' },
+            { name: 'reviewer', type: 'address' },
+          ],
+          outputs: [{ name: '', type: 'bool' }],
+        },
+      ],
+      functionName: 'isAssignedReviewer',
+      args: [taskIdHash, reviewerAddress as `0x${string}`],
+    });
+
+    return isAssigned as boolean;
+  } catch (err) {
+    console.error('[chain:checkReviewerAssignment] Failed to check reviewer assignment:', err);
+    // Degrade gracefully — allow assignment to proceed if contract call fails
+    return true;
+  }
+}
+
 // ─── ReviewerStakeManager Integration ───────────────────────────────────────────
+
+export async function depositReviewerFees(amountIntel: number): Promise<void> {
+  const contractAddress = process.env.REVIEWER_STAKE_MANAGER_ADDRESS;
+  if (!contractAddress || contractAddress.trim() === '') {
+    console.warn('[chain:depositReviewerFees] REVIEWER_STAKE_MANAGER_ADDRESS not set — skipping on-chain fee deposit (off-chain-only mode)');
+    return;
+  }
+
+  const privateKey = process.env.BROKER_ATTESTOR_PRIVATE_KEY;
+  if (!privateKey) {
+    console.error('[chain:depositReviewerFees] BROKER_ATTESTOR_PRIVATE_KEY not set — cannot deposit reviewer fees');
+    return;
+  }
+
+  const rpcUrl = process.env.WORLDCHAIN_RPC_URL;
+  const chainId = process.env.WORLDCHAIN_CHAIN_ID;
+  if (!rpcUrl || !chainId) {
+    console.error('[chain:depositReviewerFees] WORLDCHAIN_RPC_URL or WORLDCHAIN_CHAIN_ID not set — cannot deposit reviewer fees');
+    return;
+  }
+
+  const intelTokenAddress = process.env.INTEL_TOKEN_CONTRACT_ADDRESS;
+  if (!intelTokenAddress || intelTokenAddress.trim() === '') {
+    console.error('[chain:depositReviewerFees] INTEL_TOKEN_CONTRACT_ADDRESS not set — cannot deposit reviewer fees');
+    return;
+  }
+
+  try {
+    const account = privateKeyToAccount(privateKey as `0x${string}`);
+
+    // Define minimal chain configuration for viem
+    const chain = {
+      id: Number(chainId),
+      name: 'Worldchain Sepolia',
+      nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+      rpcUrls: {
+        default: { http: [rpcUrl] },
+        public: { http: [rpcUrl] },
+      },
+    } as const;
+
+    const walletClient = createWalletClient({
+      account,
+      chain,
+      transport: http(),
+    });
+
+    // Convert INTEL amount to wei (18 decimals)
+    const amountWei = BigInt(Math.floor(amountIntel * 1e18));
+
+    // First approve the ReviewerStakeManager contract to spend INTEL
+    const approveHash = await walletClient.writeContract({
+      address: intelTokenAddress as `0x${string}`,
+      abi: [
+        {
+          type: 'function',
+          name: 'approve',
+          stateMutability: 'nonpayable',
+          inputs: [
+            { name: 'spender', type: 'address' },
+            { name: 'amount', type: 'uint256' },
+          ],
+          outputs: [{ name: 'success', type: 'bool' }],
+        },
+      ],
+      functionName: 'approve',
+      args: [contractAddress as `0x${string}`, amountWei],
+    });
+
+    console.log(`[chain:depositReviewerFees] Approved ReviewerStakeManager to spend ${amountIntel} INTEL txHash=${approveHash}`);
+
+    // Then deposit the fees
+    const depositHash = await walletClient.writeContract({
+      address: contractAddress as `0x${string}`,
+      abi: [
+        {
+          type: 'function',
+          name: 'depositFees',
+          stateMutability: 'nonpayable',
+          inputs: [
+            { name: 'amount', type: 'uint256' },
+          ],
+        },
+      ],
+      functionName: 'depositFees',
+      args: [amountWei],
+    });
+
+    console.log(`[chain:depositReviewerFees] Deposited ${amountIntel} INTEL reviewer fees txHash=${depositHash}`);
+  } catch (err) {
+    console.error('[chain:depositReviewerFees] Failed to deposit reviewer fees:', err);
+    // Do not throw — deposit failure must not block the settlement flow
+  }
+}
 
 export async function recordReviewerReview(reviewerAddress: string, taskValueIntel: bigint): Promise<{ success: boolean; error?: string }> {
   const contractAddress = process.env.REVIEWER_STAKE_MANAGER_ADDRESS;

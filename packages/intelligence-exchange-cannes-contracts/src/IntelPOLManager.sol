@@ -90,7 +90,7 @@ contract IntelPOLManager {
         intel              = _intel;
         positionManager    = _positionManager;
         weth               = _weth;
-        twapWindow         = 1800; // 30 minutes default
+        twapWindow         = 3600; // 1 hour default (increased from 30 min for stronger manipulation resistance)
         _reentrancyStatus  = _NOT_ENTERED;
 
         emit OwnershipTransferred(address(0), _owner);
