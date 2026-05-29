@@ -25,6 +25,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { GitHubRepoPicker } from '@/components/GitHubRepoPicker';
 import {
   createIdea,
   fundIdea,
@@ -64,6 +65,8 @@ interface IdeaForm {
   prompt: string;
   budgetUsdMax: number;
   taskType: 'coding' | 'analysis' | 'research' | 'summarization';
+  repoFullName: string;
+  repoUrl: string;
 }
 
 type RetryStep = 'fund' | 'plan';
@@ -194,6 +197,8 @@ export function IdeaSubmission() {
     prompt: '',
     budgetUsdMax: 10,
     taskType: 'coding',
+    repoFullName: '',
+    repoUrl: '',
   });
 
   const { data: integrations, isLoading: integrationsLoading } = useQuery({
@@ -324,10 +329,15 @@ export function IdeaSubmission() {
       let nextIdeaId = ideaId;
 
       if (!nextIdeaId) {
+        let prompt = form.prompt;
+        if (form.repoFullName && form.repoUrl) {
+          prompt += `\nGitHub repo: ${form.repoFullName} (${form.repoUrl})\nExpected output: Pull Request on the linked repo.`;
+        }
+
         const idea = await createIdea({
           taskType: form.taskType,
           title: form.title,
-          prompt: form.prompt,
+          prompt,
           budgetUsdMax: amountUsd,
           ...(demoPosterMode
             ? {
@@ -566,7 +576,7 @@ export function IdeaSubmission() {
                   setReservationSynced(false);
                   setRetryStep('fund');
                   setWalletFundingStatus('idle');
-                  setForm({ title: '', prompt: '', budgetUsdMax: 10, taskType: 'coding' });
+                  setForm({ title: '', prompt: '', budgetUsdMax: 10, taskType: 'coding', repoFullName: '', repoUrl: '' });
                 }}
               >
                 Submit Another
@@ -829,6 +839,12 @@ export function IdeaSubmission() {
                     onChange={e => setForm(f => ({ ...f, prompt: e.target.value }))}
                     required
                     minLength={10}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <GitHubRepoPicker
+                    onRepoSelected={(repo) => setForm(f => ({ ...f, repoFullName: repo.fullName, repoUrl: repo.url }))}
                   />
                 </div>
 

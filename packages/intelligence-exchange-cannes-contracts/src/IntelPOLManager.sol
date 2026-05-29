@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {INonfungiblePositionManager, IWETH9} from "./interfaces/IUniswapV3.sol";
+import {INonfungiblePositionManager, IWETH9, IUniswapV3Pool} from "./interfaces/IUniswapV3.sol";
 
 /// @title IntelPOLManager
 /// @notice Protocol-Owned Liquidity treasury for Intelligence Exchange.
@@ -15,6 +15,7 @@ contract IntelPOLManager {
     error TransferFailed();
     error InsufficientBalance(uint256 available, uint256 requested);
     error NoPosition();
+    error InvalidParam();
 
     // ─── Events ───────────────────────────────────────────────────────────
 
@@ -23,6 +24,8 @@ contract IntelPOLManager {
     event IntelWithdrawn(address indexed to, uint256 amount);
     event UniV3Deployed(address indexed pool, uint256 intelAmount, uint256 ethAmount, int24 tickLower, int24 tickUpper, uint256 tokenId, uint128 liquidity);
     event FeesCollected(uint256 amount0, uint256 amount1);
+    event TwapPoolUpdated(address indexed oldPool, address indexed newPool);
+    event TwapWindowUpdated(uint32 oldWindow, uint32 newWindow);
     event OwnershipTransferStarted(address indexed previousOwner, address indexed newOwner);
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
@@ -45,6 +48,12 @@ contract IntelPOLManager {
 
     /// @notice NFT token ID for the Uniswap V3 position
     uint256 public positionTokenId;
+
+    /// @notice Uniswap V3 pool address for TWAP observations
+    address public twapPool;
+
+    /// @notice TWAP observation window in seconds (default 1800 = 30 min)
+    uint32 public twapWindow;
 
     /// @notice Tracks total ETH received (informational — ETH balance is source of truth)
     uint256 public totalEthReceived;
@@ -81,6 +90,7 @@ contract IntelPOLManager {
         intel              = _intel;
         positionManager    = _positionManager;
         weth               = _weth;
+        twapWindow         = 3600; // 1 hour default (increased from 30 min for stronger manipulation resistance)
         _reentrancyStatus  = _NOT_ENTERED;
 
         emit OwnershipTransferred(address(0), _owner);
@@ -219,6 +229,49 @@ contract IntelPOLManager {
         emit FeesCollected(amount0, amount1);
     }
 
+    // ─── TWAP Configuration ─────────────────────────────────────────────────
+
+    /// @notice Set the Uniswap V3 pool address for TWAP observations.
+    /// @custom:access owner
+    function setTwapPool(address _twapPool) external onlyOwner {
+        if (_twapPool == address(0)) revert ZeroAddress();
+        address old = twapPool;
+        twapPool = _twapPool;
+        emit TwapPoolUpdated(old, _twapPool);
+    }
+
+    /// @notice Set the TWAP observation window in seconds.
+    /// @custom:access owner
+    function setTwapWindow(uint32 _twapWindow) external onlyOwner {
+        if (_twapWindow < 60) revert InvalidParam();
+        uint32 old = twapWindow;
+        twapWindow = _twapWindow;
+        emit TwapWindowUpdated(old, _twapWindow);
+    }
+
+    /// @notice Pull current TWAP from the configured Uniswap V3 pool.
+    ///         Returns the time-weighted average price as ETH per 1e18 INTEL.
+    /// @return twapPrice The current TWAP price (scaled to 1e18)
+    function pullTWAP() external view returns (uint256 twapPrice) {
+        if (twapPool == address(0)) revert ZeroAddress();
+
+        uint32[] memory secondsAgos = new uint32[](2);
+        secondsAgos[0] = twapWindow;
+        secondsAgos[1] = 0;
+
+        (int56[] memory tickCumulatives,) = IUniswapV3Pool(twapPool).observe(secondsAgos);
+
+        // Average tick over the window
+        int56 delta = tickCumulatives[1] - tickCumulatives[0];
+        int24 avgTick = int24(delta / int56(int32(twapWindow)));
+
+        // Determine token order
+        bool intelIsToken0 = intel < weth;
+
+        // Convert tick to price (ETH per 1e18 INTEL, scaled to 1e18)
+        twapPrice = _tickToPrice(avgTick, intelIsToken0);
+    }
+
     // ─── Views ────────────────────────────────────────────────────────────
 
     /// @notice Current ETH balance held by this contract.
@@ -267,6 +320,51 @@ contract IntelPOLManager {
     function _approveToken(address token, address spender, uint256 amount) internal {
         (bool ok,) = token.call(abi.encodeWithSignature('approve(address,uint256)', spender, amount));
         if (!ok) revert TransferFailed();
+    }
+
+    /// @notice Convert tick to price (ETH per 1e18 INTEL, scaled to 1e18).
+    function _tickToPrice(int24 tick, bool intelIsToken0) internal pure returns (uint256) {
+        uint160 sqrtPriceX96 = _getSqrtRatioAtTick(tick);
+        uint256 priceX96 = uint256(sqrtPriceX96) * uint256(sqrtPriceX96);
+        priceX96 = priceX96 >> 96;
+
+        if (intelIsToken0) {
+            // INTEL is token0, price is INTEL per WETH, need to invert
+            return (1e18 << 96) / priceX96;
+        } else {
+            // INTEL is token1, price is WETH per INTEL
+            return (priceX96 * 1e18) >> 96;
+        }
+    }
+
+    /// @notice Calculate sqrt(1.0001^tick) * 2^96.
+    function _getSqrtRatioAtTick(int24 tick) internal pure returns (uint160) {
+        uint256 absTick = tick < 0 ? uint256(-int256(tick)) : uint256(int256(tick));
+
+        uint256 ratio = absTick & 0x1 != 0 ? 0xfffcb933bd6fad37aa2d162d1a594001 : 0x100000000000000000000000000000000;
+        if (absTick & 0x2 != 0) ratio = (ratio * 0xfff97272373d413259a46990580e213a) >> 128;
+        if (absTick & 0x4 != 0) ratio = (ratio * 0xfff2e50f5f656932ef12357cf3c7fdcc) >> 128;
+        if (absTick & 0x8 != 0) ratio = (ratio * 0xffe5caca7e10e4e61c3624eaa0941cd0) >> 128;
+        if (absTick & 0x10 != 0) ratio = (ratio * 0xffcb9843d60f6159c9db58835c926644) >> 128;
+        if (absTick & 0x20 != 0) ratio = (ratio * 0xff973b41fa98c081472e6896dfb254c0) >> 128;
+        if (absTick & 0x40 != 0) ratio = (ratio * 0xff2ea16466c96a3843ec78b326b52861) >> 128;
+        if (absTick & 0x80 != 0) ratio = (ratio * 0xfe5dee046a99a2a811c461f1969c3053) >> 128;
+        if (absTick & 0x100 != 0) ratio = (ratio * 0xfcbe86c7900a88aedcffc83b479aa3a4) >> 128;
+        if (absTick & 0x200 != 0) ratio = (ratio * 0xf987a7253ac413176f2b074cf7815e54) >> 128;
+        if (absTick & 0x400 != 0) ratio = (ratio * 0xf3392b0822b70005940c7a398e4b70f3) >> 128;
+        if (absTick & 0x800 != 0) ratio = (ratio * 0xe7159475a2c29b7443b29c7fa6e889d9) >> 128;
+        if (absTick & 0x1000 != 0) ratio = (ratio * 0xd097f3bdfd2022b8845ad8f792aa5825) >> 128;
+        if (absTick & 0x2000 != 0) ratio = (ratio * 0xa9f746462d870fdf8a65dc1f90e061e5) >> 128;
+        if (absTick & 0x4000 != 0) ratio = (ratio * 0x70d869a156d2a1b890bb3df62baf32f7) >> 128;
+        if (absTick & 0x8000 != 0) ratio = (ratio * 0x31be135f97d08fd981231505542fcfa6) >> 128;
+        if (absTick & 0x10000 != 0) ratio = (ratio * 0x9aa508b5b7a84e1c677de54f3e99bc9) >> 128;
+        if (absTick & 0x20000 != 0) ratio = (ratio * 0x5d6af8dedb81196699c329225ee604) >> 128;
+        if (absTick & 0x40000 != 0) ratio = (ratio * 0x2216e584f5fa1ea926041bedfe98) >> 128;
+        if (absTick & 0x80000 != 0) ratio = (ratio * 0x48a170391f7dc42444e8fa2) >> 128;
+
+        if (tick > 0) ratio = type(uint256).max / ratio;
+
+        return uint160((ratio >> 32) + (ratio % (1 << 32) == 0 ? 0 : 1));
     }
 
     // ─── Receive ETH ─────────────────────────────────────────────────────

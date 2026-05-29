@@ -2,6 +2,20 @@ packages:
   - 'apps/*'
   - 'packages/*'
   - 'products/*'
+allowBuilds:
+  bufferutil: true
+  es5-ext: true
+  esbuild: true
+  keccak: true
+  msgpackr-extract: true
+  utf-8-validate: true
+onlyBuiltDependencies:
+  - bufferutil
+  - es5-ext
+  - esbuild
+  - keccak
+  - msgpackr-extract
+  - utf-8-validate
 overrides:
   '@hono/node-server@<1.19.13': '>=1.19.13'
   axios@<0.30.0: '>=0.30.0'

@@ -7,8 +7,9 @@ import {
   RejectJobRequestSchema,
 } from 'intelligence-exchange-cannes-shared';
 import { z } from 'zod';
+import { encodeFunctionData, keccak256, toBytes } from 'viem';
 import { db } from '../db/client';
-import { briefs, ideas, jobs } from '../db/schema';
+import { briefs, ideaTokenReserves, ideas, jobs } from '../db/schema';
 import { syncIdeaFunding, syncMilestoneReservation } from '../services/chainService';
 import {
   getSessionAccountAddress,
@@ -23,6 +24,7 @@ import { createIdea, generateBrief, acceptJob, rejectJob } from '../services/job
 import { getWorldConfig } from '../services/sponsorConfig';
 import { mintAndReserveIdeaCredits } from '../services/tokenomicsService';
 import { readWorldVerificationToken } from '../services/worldId';
+import { recordAccept, recordError } from '../services/circuitBreakerService';
 
 export const ideasRouter = new Hono();
 type CreateIdeaRequest = z.infer<typeof JobCreateRequestSchema>;
@@ -182,6 +184,10 @@ ideasRouter.post('/:ideaId/accept', zValidator('json', AcceptJobRequestSchema), 
   const { jobId } = c.req.valid('json');
   const worldConfig = getWorldConfig();
 
+  if (!recordAccept('accept')) {
+    return c.json({ error: { code: 'CIRCUIT_BREAKER_OPEN', message: 'Accept rate limit exceeded — possible exploit in progress' } }, 503);
+  }
+
   const [idea] = await db.select().from(ideas).where(eq(ideas.ideaId, ideaId));
   if (!idea) return c.json({ error: { code: 'NOT_FOUND', message: 'Idea not found' } }, 404);
 
@@ -202,6 +208,8 @@ ideasRouter.post('/:ideaId/accept', zValidator('json', AcceptJobRequestSchema), 
     return c.json(result);
   } catch (err: unknown) {
     const status = (err as { status?: number }).status ?? 500;
+    const is5xx = status >= 500 && status < 600;
+    recordError('accept', is5xx);
     const code = (err as { code?: string }).code ?? 'ACCEPT_FAILED';
     return c.json({ error: { code, message: String(err) } }, status as 401 | 403 | 404 | 409 | 500);
   }
@@ -265,4 +273,51 @@ ideasRouter.post('/:ideaId/reject', zValidator('json', RejectJobRequestSchema), 
     const code = (err as { code?: string }).code ?? 'REJECT_FAILED';
     return c.json({ error: { code, message: String(err) } }, status as 401 | 403 | 404 | 409 | 500);
   }
+});
+
+ideasRouter.get('/:ideaId/escrow-funding-params', async (c) => {
+  const { ideaId } = c.req.param();
+
+  const taskEscrowAddress = process.env.TASK_ESCROW_ADDRESS;
+  if (!taskEscrowAddress || taskEscrowAddress.trim() === '') {
+    return c.json({ error: 'On-chain escrow not configured', configured: false }, 200);
+  }
+
+  const [ideaReserve] = await db.select().from(ideaTokenReserves).where(eq(ideaTokenReserves.ideaId, ideaId));
+  if (!ideaReserve) {
+    return c.json({ error: { code: 'NOT_FOUND', message: 'Idea token reserves not found' } }, 404);
+  }
+
+  const intelReserved = Number(ideaReserve.intelReserved);
+  const amountWei = BigInt(Math.floor(intelReserved * 1e18));
+  const taskIdBytes32 = keccak256(toBytes(ideaId));
+
+  const intelTokenAddress = process.env.INTEL_TOKEN_CONTRACT_ADDRESS;
+
+  const erc20ApproveAbi = [{ type: 'function' as const, name: 'approve', inputs: [{name:'spender',type:'address'},{name:'amount',type:'uint256'}], outputs: [{type:'bool'}], stateMutability:'nonpayable' as const }];
+  const taskEscrowAbi = [{ type: 'function' as const, name: 'fundTask', inputs: [{name:'taskId',type:'bytes32'},{name:'amount',type:'uint256'}], outputs: [], stateMutability:'nonpayable' as const }];
+
+  const approveCalldata = encodeFunctionData({
+    abi: erc20ApproveAbi,
+    functionName: 'approve',
+    args: [taskEscrowAddress as `0x${string}`, amountWei],
+  });
+
+  const fundTaskCalldata = encodeFunctionData({
+    abi: taskEscrowAbi,
+    functionName: 'fundTask',
+    args: [taskIdBytes32, amountWei],
+  });
+
+  return c.json({
+    taskEscrowAddress,
+    intelTokenAddress: intelTokenAddress ?? null,
+    taskIdBytes32,
+    amountWei: amountWei.toString(),
+    approveCalldata,
+    fundTaskCalldata,
+    instructions: 'Broadcast approve tx from your buyer wallet, then fundTask tx. Both must use the same wallet that funded this idea.',
+    deprecated: true,
+    deprecationMessage: 'Use GET /jobs/:jobId/escrow-funding-params instead for job-level escrow funding with consistent taskId hashing',
+  });
 });

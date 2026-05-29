@@ -107,6 +107,12 @@ const BuyerHistory = React.lazy(() =>
 const AgentsPage = React.lazy(() =>
   import('./pages/AgentsPage').then(m => ({ default: m.AgentsPage }))
 );
+const EscrowStatusPanel = React.lazy(() =>
+  import('./pages/EscrowStatusPanel').then(m => ({ default: m.EscrowStatusPanel }))
+);
+const DossierPanel = React.lazy(() =>
+  import('./pages/DossierPanel').then(m => ({ default: m.DossierPanel }))
+);
 const LandingPage = React.lazy(() =>
   import('./pages/LandingPage').then(m => ({ default: m.LandingPage }))
 );
@@ -118,6 +124,9 @@ const IntelMintPage = React.lazy(() =>
 );
 const ProtocolDocsPage = React.lazy(() =>
   import('./pages/ProtocolDocsPage').then(m => ({ default: m.ProtocolDocsPage }))
+);
+const ArchitecturePage = React.lazy(() =>
+  import('./pages/ArchitecturePage').then(m => ({ default: m.ArchitecturePage }))
 );
 
 function PageFallback() {
@@ -144,6 +153,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Nav />
             <Suspense fallback={<PageFallback />}>
               <Routes>
+                <Route path="/escrow/:ideaId" element={<EscrowStatusPanel />} />
+                <Route path="/dossier/:ideaId" element={<DossierPanel />} />
                 <Route path="/" element={<LandingPage />} />
                 <Route path="/submit" element={<IdeaSubmission />} />
                 <Route path="/ideas" element={<IdeasList />} />
@@ -157,6 +168,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                 <Route path="/staking" element={<StakingPage />} />
                 <Route path="/mint" element={<IntelMintPage />} />
                 <Route path="/docs" element={<ProtocolDocsPage />} />
+                <Route path="/architecture" element={<ArchitecturePage />} />
               </Routes>
             </Suspense>
           </BrowserRouter>

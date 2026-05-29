@@ -7,12 +7,14 @@ import { arcRouter } from './routes/arc';
 import { authRouter } from './routes/auth';
 import { agentsRouter } from './routes/agents';
 import { chainRouter } from './routes/chain';
+import { githubRouter } from './routes/github';
 import { ideasRouter } from './routes/ideas';
 import { integrationsRouter } from './routes/integrations';
 import { jobsRouter } from './routes/jobs';
 import { tokenomicsRouter } from './routes/tokenomics';
 import { worldRouter } from './routes/world';
 import { workersRouter } from './routes/workers';
+import { adminRouter } from './routes/admin';
 import { migrate } from './db/migrate';
 import { setupLeaseExpiryRequeue } from './queue/milestoneQueue';
 import { STALLED_JOB_INTERVAL_MS } from 'intelligence-exchange-cannes-shared';
@@ -77,6 +79,7 @@ app.route('/v1/cannes/world', worldRouter);
 app.route('/v1/cannes/integrations', integrationsRouter);
 app.route('/v1/cannes/agents', agentsRouter);
 app.route('/v1/cannes/agentkit', agentkitRouter);
+app.route('/v1/cannes/github', githubRouter);
 app.route('/v1/cannes/arc', arcRouter);
 app.route('/v1/cannes/chain', chainRouter);
 app.route('/v1/cannes/ideas', ideasRouter);
@@ -85,6 +88,7 @@ app.route('/v1/cannes/jobs', jobsRouter);
 app.route('/v1/cannes/tokenomics', tokenomicsRouter);
 app.route('/v1/cannes/aiu', aiuRouter);
 app.route('/v1/cannes/workers', workersRouter);
+app.route('/v1/cannes/admin', adminRouter);
 
 // Error handler
 app.onError((err, c) => {

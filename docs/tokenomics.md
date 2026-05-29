@@ -133,6 +133,9 @@ The AIU index is the market-discovered price of one unit of verified AI work out
 | `EpochRewardDistributor.sol` | Per-epoch performance bonuses, per-wallet cap prevents gaming |
 | `WorkerStakeManager.sol` | Worker bond staking with slashing on fraud |
 | `ReviewerStakeManager.sol` | Reviewer bond + fee share, slash on overturned dispute |
+| `DisputeResolution.sol` | Staker jury for contested acceptances with quorum-based resolution |
+| `AgentIdentityRegistry.sol` | Agent identity and reputation attestation |
+| `WorkReceipt1155.sol` | Soulbound ERC-1155 minted per accepted job |
 
 ---
 

@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Skip if SKIP_GITLEAKS is set
+if [[ "${SKIP_GITLEAKS:-}" == "1" ]]; then
+  exit 0
+fi
+
+# Check if gitleaks is installed
+if ! command -v gitleaks &> /dev/null; then
+  echo "WARNING: gitleaks is not installed. Secret scanning skipped."
+  echo "Install with: go install github.com/gitleaks/gitleaks/v8@latest"
+  echo "Or skip with: SKIP_GITLEAKS=1 git commit"
+  exit 0
+fi
+
+# Run gitleaks detect
+echo "Running gitleaks secret scanner..."
+if ! gitleaks detect --no-git --source . --config .gitleaks.toml; then
+  echo "ERROR: gitleaks detected potential secrets. Commit aborted."
+  echo "Review the output above and remove any sensitive data."
+  echo "Or skip with: SKIP_GITLEAKS=1 git commit"
+  exit 1
+fi
+
+echo "Secret scan passed."
