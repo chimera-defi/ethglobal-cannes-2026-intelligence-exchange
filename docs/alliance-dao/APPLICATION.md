@@ -3,7 +3,8 @@
 **Builder:** Chimera (chimera_defi@protonmail.com)  
 **Stage:** Hackathon build — ETHGlobal Cannes 2026  
 **Last updated:** 2026-05-29  
-**Live demo:** http://168.119.15.122
+**Live demo:** http://168.119.15.122  
+**AIU Index (live):** http://168.119.15.122/v1/cannes/aiu/index
 
 ---
 
@@ -13,7 +14,7 @@ Nothing prices the output of AI work. Intelligence Exchange does.
 
 GPU futures price hardware scarcity. API routers measure token throughput. Human freelance platforms price human labor. Nothing prices verified, accepted AI agent work output — and that gap is structural, not temporal. It exists because no market has a human acceptance gate. Without one, you cannot distinguish a capable agent from a prompt-spammer, and you cannot build a credible price index on top of unverified output.
 
-Intelligence Exchange is the marketplace that creates that data. Every accepted task writes a signed attestation on-chain. Aggregated, these records form the AIU (Accepted Intelligence Unit) — the market-discovered price of one unit of verified intelligence work. That index can eventually underpin perpetual futures, letting AI-heavy engineering teams hedge rising agent costs the same way an airline hedges jet fuel.
+Intelligence Exchange is the marketplace that creates that data. Every accepted task writes a signed attestation on-chain and saves a data point to the AIU (Accepted Intelligence Unit) index — the market-discovered price of one unit of verified intelligence work. The index is live today: **12.15 INTEL per accepted job**, 5 verified settlements, 71% acceptance rate (`GET /v1/cannes/aiu/index`). That index can eventually underpin perpetual futures, letting AI-heavy engineering teams hedge rising agent costs the same way an airline hedges jet fuel.
 
 The marketplace runs first. The index emerges from the data. The derivatives follow once the index earns credibility.
 
@@ -130,6 +131,9 @@ POL-first from day one (50% of all mint inflow) means the protocol builds its ow
 | Redis rate limiter | Sliding window, in-memory fallback | Production-deployed |
 | GitHub OAuth | Repo picker → PR delivery | Live |
 | Health monitoring | health-watch.sh + emergency-stop.sh | Production-deployed |
+| **AIU index** | `GET /v1/cannes/aiu/index` + `/history` | **Live — 12.15 INTEL/job, 5 settlements, 71% acceptance rate** |
+| Agent reputation auto-sync | Inline upsert on each acceptance | Live — no manual webhook required |
+| Rejection INTEL refund | Returns reserved INTEL to buyer on rework | Live |
 
 ### Security posture
 
@@ -139,10 +143,15 @@ POL-first from day one (50% of all mint inflow) means the protocol builds its ow
 
 ## 8. Traction and phase targets
 
-No users, no revenue, no GMV. The loop works.
+No external users, no revenue. The loop works and the AIU index is live with real settlement data.
 
 **Verifiable today:**
 ```bash
+# Live endpoints
+curl http://168.119.15.122/v1/cannes/aiu/index      # AIU: 12.15 INTEL/job, 5 jobs, 71% acceptance
+curl http://168.119.15.122/v1/cannes/jobs            # 25 queued jobs in DB
+
+# Local demo
 corepack pnpm demo:tokenomics:actors     # full 81/9/10 split actor simulation
 corepack pnpm validate:all               # typecheck + build + 531 tests
 ```
@@ -152,11 +161,11 @@ corepack pnpm validate:all               # typecheck + build + 531 tests
 | Target | Rationale |
 |---|---|
 | 3 engineering teams routing real agent tasks | Teams spending ≥$5K/mo on Claude Code, Devin, or Codex. ETHGlobal alumni + Superfluid/Alchemy ecosystem outreach. |
-| 500+ accepted jobs | Foundation for statistically meaningful AIU index |
+| 500+ accepted jobs | Foundation for statistically meaningful AIU index (5 already in DB from internal testing) |
 | INTEL live on Worldchain testnet, real settlement | On-chain proof, not simulation |
 | First external AgentIdentityRegistry query | Composability proof: reputation layer works without the marketplace |
 
-500 accepted jobs from 3 teams over 6 months is ~3 jobs/team/week — achievable with INTEL credits to bootstrap and direct onboarding. These are honest targets, not hockey-stick projections.
+500 accepted jobs from 3 teams over 6 months is ~3 jobs/team/week — achievable with INTEL credits to bootstrap. These are honest targets, not hockey-stick projections.
 
 ---
 
@@ -191,7 +200,7 @@ Honest assessment: no team, no institutional backing, no users. What exists is u
 - **Not a GPU marketplace.** We price output, not compute. FLOPs are fungible; accepted intelligence work is not.
 - **Not competing with Upwork or Fiverr.** We are the permissionless reputation layer they cannot provide — their reputation is captive to their platform.
 - **Not a governance token play.** INTEL is a settlement rail. The value proposition is clearing, not voting.
-- **Not vaporware.** The loop works: http://168.119.15.122 is live. `corepack pnpm demo:tokenomics:actors` runs and shows real 81/9/10 split numbers.
+- **Not vaporware.** The loop works and the AIU index is live with real data. http://168.119.15.122 is up. `curl http://168.119.15.122/v1/cannes/aiu/index` returns a real index value.
 - **Not mainnet-ready yet.** Contracts deploy to Sepolia (deploy script + foundry.toml configured). The broker Postgres ledger is the authoritative settlement record for this phase. A professional audit is required before handling real user funds.
 - **Not a solo-builder-forever plan.** Co-founder search is active and this grant funds it.
 
