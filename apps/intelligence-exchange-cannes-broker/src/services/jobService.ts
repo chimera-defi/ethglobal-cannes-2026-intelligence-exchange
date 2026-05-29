@@ -1,6 +1,6 @@
 import { eq, and } from 'drizzle-orm';
 import { db } from '../db/client';
-import { jobs, claims, submissions, ideas, briefs, milestones, agentSpendEvents } from '../db/schema';
+import { jobs, claims, submissions, ideas, briefs, milestones, agentSpendEvents, ideaTokenReserves } from '../db/schema';
 import { scoreSubmission } from '../scoring/scorer';
 import {
   MILESTONE_ORDER,
@@ -10,7 +10,7 @@ import {
 } from 'intelligence-exchange-cannes-shared';
 import { randomUUID } from 'crypto';
 import { httpError } from './errors';
-import { issueAcceptedSubmissionAttestation, mintWorkReceipt, recordReviewerReview } from './chainService';
+import { issueAcceptedSubmissionAttestation, mintWorkReceipt, recordReviewerReview, fundTaskEscrow } from './chainService';
 import { logJobEvent } from './jobEvents';
 import { settleAcceptedJobCredits } from './tokenomicsService';
 
@@ -148,6 +148,26 @@ export async function claimJob(jobId: string, accountAddress: string, agentFinge
     agentFingerprint,
   });
   console.log(`[job:claimed] jobId=${jobId} worker=${accountAddress} expires=${expiresAt.toISOString()}`);
+
+  // Fund task escrow on-chain via TaskEscrow.fundTask()
+  // This is fire-and-forget: if it fails, we log and continue (off-chain-only mode for demo)
+  const budgetUsd = Number.parseFloat(job.budgetUsd);
+  if (budgetUsd > 0) {
+    // Get the idea's average mint price to convert USD to INTEL
+    const [idea] = await db.select().from(ideas).where(eq(ideas.ideaId, job.ideaId));
+    if (idea) {
+      const [reserve] = await db.select().from(ideaTokenReserves).where(eq(ideaTokenReserves.ideaId, job.ideaId));
+      if (reserve) {
+        const avgMintPriceUsdPerIntel = Math.max(0.00000001, Number.parseFloat(reserve.avgMintPriceUsdPerIntel) || 1);
+        const amountIntel = Math.round(budgetUsd / avgMintPriceUsdPerIntel * 1e8) / 1e8; // Round to 8 decimals
+
+        const fundTx = await fundTaskEscrow(jobId, accountAddress, amountIntel);
+        if (fundTx) {
+          console.log(`[claimJob] TaskEscrow.fundTask called, tx: ${fundTx}`);
+        }
+      }
+    }
+  }
 
   return { claimId, expiresAt };
 }

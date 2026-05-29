@@ -11,7 +11,7 @@ import { db } from '../db/client';
 import { ideaTokenReserves, tokenAccounts, tokenLedgerEntries } from '../db/schema';
 import { httpError } from './errors';
 import { normalizeAccountAddress } from './identityService';
-import { depositStakerYield } from './chainService';
+import { depositStakerYield, releaseTaskEscrow } from './chainService';
 
 function parseBoolean(value: string | undefined, fallback = false) {
   if (value === undefined) return fallback;
@@ -342,6 +342,13 @@ export async function settleAcceptedJobCredits(input: {
   // This is non-blocking: if it fails, we log and continue (off-chain-only mode for demo)
   if (split.stakerYieldIntel > 0) {
     await depositStakerYield(split.stakerYieldIntel);
+  }
+
+  // Release task escrow on-chain via TaskEscrow.release()
+  // This is fire-and-forget: if it fails, we log and continue (off-chain-only mode for demo)
+  const releaseTx = await releaseTaskEscrow(input.jobId);
+  if (releaseTx) {
+    console.log(`[settlement] TaskEscrow.release called, tx: ${releaseTx}`);
   }
 
   return {
