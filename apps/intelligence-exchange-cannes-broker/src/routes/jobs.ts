@@ -1,8 +1,9 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
+import { z } from 'zod';
 import { desc, eq, inArray } from 'drizzle-orm';
 import { db } from '../db/client';
-import { acceptedAttestations, agentSpendEvents, briefs, claims, ideas, jobs, milestones, submissions } from '../db/schema';
+import { acceptedAttestations, agentSpendEvents, briefs, claims, ideas, ideaTokenReserves, jobs, milestones, submissions } from '../db/schema';
 import { claimJob, recordSpendEvent, submitJob, unclaimJob } from '../services/jobService';
 import {
   JobClaimRequestSchema,
@@ -16,11 +17,12 @@ import {
 import { MILESTONE_ORDER } from 'intelligence-exchange-cannes-shared';
 import { getSessionAccountAddress, requireAgentAuthorization, requireWorldRoleIfStrict } from '../services/accessService';
 import { consumeChallenge } from '../services/authService';
-import { hydrateAcceptedSubmissionAttestation } from '../services/chainService';
+import { hydrateAcceptedSubmissionAttestation, checkWorkerStake } from '../services/chainService';
 import { computeAgentFingerprint, normalizeAccountAddress } from '../services/identityService';
 import { httpError } from '../services/errors';
 import { getWorldConfig } from '../services/sponsorConfig';
-import { keccak256, toBytes } from 'viem';
+import { keccak256, toBytes, createWalletClient, createPublicClient, http, encodeFunctionData } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
 
 export const jobsRouter = new Hono();
 
@@ -398,6 +400,59 @@ jobsRouter.get('/:jobId/skill.md', async (c) => {
   return result.response;
 });
 
+// GET /v1/cannes/jobs/:jobId/escrow-funding-params — get escrow funding params for a specific job
+jobsRouter.get('/:jobId/escrow-funding-params', async (c) => {
+  const { jobId } = c.req.param();
+
+  const taskEscrowAddress = process.env.TASK_ESCROW_ADDRESS;
+  if (!taskEscrowAddress || taskEscrowAddress.trim() === '') {
+    return c.json({ error: 'On-chain escrow not configured', configured: false }, 200);
+  }
+
+  const [job] = await db.select().from(jobs).where(eq(jobs.jobId, jobId));
+  if (!job) {
+    return c.json({ error: { code: 'NOT_FOUND', message: 'Job not found' } }, 404);
+  }
+
+  const [ideaReserve] = await db.select().from(ideaTokenReserves).where(eq(ideaTokenReserves.ideaId, job.ideaId));
+  if (!ideaReserve) {
+    return c.json({ error: { code: 'NOT_FOUND', message: 'Idea token reserves not found' } }, 404);
+  }
+
+  const budgetUsd = Number.parseFloat(job.budgetUsd);
+  const avgMintPriceUsdPerIntel = Number.parseFloat(ideaReserve.avgMintPriceUsdPerIntel);
+  const amountIntel = budgetUsd / avgMintPriceUsdPerIntel;
+  const amountWei = BigInt(Math.floor(amountIntel * 1e18));
+  const taskIdBytes32 = keccak256(toBytes(jobId)); // Uses jobId, matches broker setWorker/release calls
+
+  const intelTokenAddress = process.env.INTEL_TOKEN_CONTRACT_ADDRESS;
+
+  const erc20ApproveAbi = [{ type: 'function' as const, name: 'approve', inputs: [{name:'spender',type:'address'},{name:'amount',type:'uint256'}], outputs: [{type:'bool'}], stateMutability:'nonpayable' as const }];
+  const taskEscrowAbi = [{ type: 'function' as const, name: 'fundTask', inputs: [{name:'taskId',type:'bytes32'},{name:'amount',type:'uint256'}], outputs: [], stateMutability:'nonpayable' as const }];
+
+  const approveCalldata = encodeFunctionData({
+    abi: erc20ApproveAbi,
+    functionName: 'approve',
+    args: [taskEscrowAddress as `0x${string}`, amountWei],
+  });
+
+  const fundTaskCalldata = encodeFunctionData({
+    abi: taskEscrowAbi,
+    functionName: 'fundTask',
+    args: [taskIdBytes32, amountWei],
+  });
+
+  return c.json({
+    taskEscrowAddress,
+    intelTokenAddress: intelTokenAddress ?? null,
+    taskIdBytes32,
+    amountWei: amountWei.toString(),
+    approveCalldata,
+    fundTaskCalldata,
+    instructions: 'Broadcast approve tx from your buyer wallet, then fundTask tx. Both must use the same wallet that funded this job.',
+  });
+});
+
 // POST /v1/cannes/jobs/:jobId/claim — agent claims a milestone
 jobsRouter.post('/:jobId/claim', zValidator('json', JobClaimRequestSchema), async (c) => {
   const { jobId } = c.req.param();
@@ -406,6 +461,7 @@ jobsRouter.post('/:jobId/claim', zValidator('json', JobClaimRequestSchema), asyn
 
   try {
     let result: Awaited<ReturnType<typeof claimJob>>;
+    let workerAddress: string;
 
     if (isSignedClaimRequest(req)) {
       await consumeChallenge({
@@ -427,12 +483,40 @@ jobsRouter.post('/:jobId/claim', zValidator('json', JobClaimRequestSchema), asyn
         requiredPermissions: ['claim_jobs'],
       });
 
-      result = await claimJob(jobId, req.signedAction.accountAddress, req.signedAction.agentFingerprint);
+      workerAddress = req.signedAction.accountAddress;
     } else {
       if (getWorldConfig().strict) {
         throw httpError('Signed worker claim required when WORLD_ID_STRICT is enabled', 401, 'AUTH_REQUIRED');
       }
 
+      const demoIdentity = buildDemoAgentIdentity(req);
+      workerAddress = demoIdentity.accountAddress;
+    }
+
+    // Worker stake check for high-value tasks
+    const [job] = await db.select().from(jobs).where(eq(jobs.jobId, jobId));
+    if (job) {
+      const budgetUsd = Number.parseFloat(job.budgetUsd);
+      // Convert USD to ETH wei (approximate: 1 ETH = $3000)
+      const ethPriceUsd = 3000;
+      const taskValueWei = BigInt(Math.floor((budgetUsd / ethPriceUsd) * 1e18));
+      
+      const stakeCheck = await checkWorkerStake(workerAddress, taskValueWei);
+      if (!stakeCheck.canClaim) {
+        console.warn(`[jobs:claim] Worker stake check failed for worker=${workerAddress} jobId=${jobId} budgetUsd=${budgetUsd}`);
+        return c.json({ 
+          error: { 
+            code: 'INSUFFICIENT_STAKE', 
+            message: 'Worker stake insufficient for high-value task. Stake INTEL at WorkerStakeManager to claim tasks above threshold.' 
+          } 
+        }, 403);
+      }
+    }
+
+    // Proceed with claim after stake check passes
+    if (isSignedClaimRequest(req)) {
+      result = await claimJob(jobId, req.signedAction.accountAddress, req.signedAction.agentFingerprint);
+    } else {
       const demoIdentity = buildDemoAgentIdentity(req);
       result = await claimJob(jobId, demoIdentity.accountAddress, demoIdentity.fingerprint);
     }
@@ -577,6 +661,143 @@ jobsRouter.post('/:jobId/spend', zValidator('json', JobSpendCreateRequestSchema)
   } catch (err: unknown) {
     const status = (err as { status?: number }).status ?? 500;
     const code = (err as { code?: string }).code ?? 'SPEND_FAILED';
+    return c.json({ error: { code, message: String(err) } }, status as 401 | 403 | 404 | 409 | 500);
+  }
+});
+
+// POST /v1/cannes/jobs/:jobId/dispute — open a dispute for a job
+jobsRouter.post(
+  '/:jobId/dispute',
+  zValidator('json', z.object({
+    workerAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+    reviewerAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
+  })),
+  async (c) => {
+    const { jobId } = c.req.param();
+    const req = c.req.valid('json') as { workerAddress: string; reviewerAddress: string };
+
+    try {
+      const sessionAccountAddress = await getSessionAccountAddress(c);
+      if (!sessionAccountAddress && getWorldConfig().strict) {
+        throw httpError('Authenticated session required to open dispute', 401, 'AUTH_REQUIRED');
+      }
+
+      const contractAddress = process.env.DISPUTE_RESOLUTION_ADDRESS;
+      if (!contractAddress || contractAddress.trim() === '') {
+        return c.json({ error: 'DISPUTE_RESOLUTION_ADDRESS not configured' }, 500);
+      }
+
+      const privateKey = process.env.BROKER_ATTESTOR_PRIVATE_KEY;
+      const rpcUrl = process.env.WORLDCHAIN_RPC_URL;
+      const chainId = process.env.WORLDCHAIN_CHAIN_ID;
+
+      if (!privateKey || !rpcUrl || !chainId) {
+        return c.json({ error: 'Broker chain configuration not set' }, 500);
+      }
+
+      const account = privateKeyToAccount(privateKey as `0x${string}`);
+
+      const chain = {
+        id: Number(chainId),
+        name: 'Worldchain Sepolia',
+        nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+        rpcUrls: {
+          default: { http: [rpcUrl] },
+          public: { http: [rpcUrl] },
+        },
+      } as const;
+
+      const walletClient = createWalletClient({
+        account,
+        chain,
+        transport: http(),
+      });
+
+      const taskIdBytes32 = keccak256(toBytes(jobId));
+
+      const hash = await walletClient.writeContract({
+        address: contractAddress as `0x${string}`,
+        abi: [
+          {
+            type: 'function',
+            name: 'openDispute',
+            stateMutability: 'nonpayable',
+            inputs: [
+              { name: 'taskId', type: 'bytes32' },
+              { name: 'worker', type: 'address' },
+              { name: 'reviewer', type: 'address' },
+            ],
+            outputs: [],
+          },
+        ],
+        functionName: 'openDispute',
+        args: [taskIdBytes32, req.workerAddress as `0x${string}`, req.reviewerAddress as `0x${string}`],
+      });
+
+      console.log(`[jobs:dispute] Opened dispute for jobId=${jobId} worker=${req.workerAddress} reviewer=${req.reviewerAddress} txHash=${hash}`);
+      return c.json({ txHash: hash, message: 'Dispute opened. Post INTEL bond via disputeBond amount.' });
+    } catch (err: unknown) {
+      console.error('[jobs:dispute] Failed to open dispute:', err);
+      const status = (err as { status?: number }).status ?? 500;
+      const code = (err as { code?: string }).code ?? 'DISPUTE_FAILED';
+      return c.json({ error: { code, message: String(err) } }, status as 401 | 403 | 404 | 409 | 500);
+    }
+  }
+);
+
+// GET /v1/cannes/jobs/:jobId/dispute — get dispute state for a job
+jobsRouter.get('/:jobId/dispute', async (c) => {
+  const { jobId } = c.req.param();
+
+  try {
+    const contractAddress = process.env.DISPUTE_RESOLUTION_ADDRESS;
+    if (!contractAddress || contractAddress.trim() === '') {
+      return c.json({ error: 'DISPUTE_RESOLUTION_ADDRESS not configured' }, 500);
+    }
+
+    const rpcUrl = process.env.WORLDCHAIN_RPC_URL;
+    if (!rpcUrl) {
+      return c.json({ error: 'WORLDCHAIN_RPC_URL not set' }, 500);
+    }
+
+    const publicClient = createPublicClient({
+      transport: http(rpcUrl, {
+        timeout: 10000,
+        retryCount: 2,
+      }),
+    });
+
+    const taskIdBytes32 = keccak256(toBytes(jobId));
+
+    const dispute = await publicClient.readContract({
+      address: contractAddress as `0x${string}`,
+      abi: [
+        {
+          type: 'function',
+          name: 'disputes',
+          stateMutability: 'view',
+          inputs: [
+            { name: '', type: 'uint256' },
+          ],
+          outputs: [
+            { name: 'taskId', type: 'bytes32' },
+            { name: 'worker', type: 'address' },
+            { name: 'reviewer', type: 'address' },
+            { name: 'isOpen', type: 'bool' },
+            { name: 'resolvedInFavorOfWorker', type: 'bool' },
+          ],
+        },
+      ],
+      functionName: 'disputes',
+      args: [BigInt(taskIdBytes32)],
+    });
+
+    console.log(`[jobs:dispute] Retrieved dispute state for jobId=${jobId}`);
+    return c.json({ dispute });
+  } catch (err: unknown) {
+    console.error('[jobs:dispute] Failed to get dispute state:', err);
+    const status = (err as { status?: number }).status ?? 500;
+    const code = (err as { code?: string }).code ?? 'DISPUTE_QUERY_FAILED';
     return c.json({ error: { code, message: String(err) } }, status as 401 | 403 | 404 | 409 | 500);
   }
 });

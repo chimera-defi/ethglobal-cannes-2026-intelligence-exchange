@@ -179,6 +179,18 @@ packages/
 3. **Reputation**: Broker-signed attestations prevent fake reputation
 4. **Settlement**: Multi-sig style - reviewer approval + attestation required
 
+## Economic Security Layer
+
+The protocol implements a three-layer economic security stack on top of the core settlement flow:
+
+1. **WorkerStakeManager**: Workers must stake INTEL to claim high-value tasks, with slashing on fraud detection. This creates economic alignment between workers and output quality.
+
+2. **ReviewerStakeManager**: Reviewers post INTEL bonds that are slashed if their decisions are overturned, ensuring careful review. Reviewers also earn a share of protocol fees for correct decisions.
+
+3. **DisputeResolution**: Contested acceptances go to a staker jury system with quorum-based resolution. INTEL stakers vote on disputes, with incentives for correct outcomes and penalties for malicious voting.
+
+Together, these layers create slashable economic guarantees that reinforce the human review gate and provide on-chain enforcement mechanisms for quality control.
+
 ## Notes
 
 - The broker is the control plane - all state changes flow through it
