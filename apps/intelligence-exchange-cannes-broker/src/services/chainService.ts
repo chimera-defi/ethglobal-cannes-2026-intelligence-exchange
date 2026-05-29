@@ -595,6 +595,279 @@ export async function recordReviewerReview(reviewerAddress: string, taskValueInt
   }
 }
 
+// ─── TaskEscrow Integration ───────────────────────────────────────────────────
+
+export async function setWorkerOnEscrow(taskId: string, workerAddress: string): Promise<string | null> {
+  const contractAddress = process.env.TASK_ESCROW_ADDRESS;
+  if (!contractAddress || contractAddress.trim() === '') {
+    console.warn('[chain:setWorkerOnEscrow] TASK_ESCROW_ADDRESS not set — skipping on-chain setWorker (off-chain-only mode)');
+    return null;
+  }
+
+  const privateKey = process.env.BROKER_ATTESTOR_PRIVATE_KEY;
+  if (!privateKey) {
+    console.error('[chain:setWorkerOnEscrow] BROKER_ATTESTOR_PRIVATE_KEY not set — cannot set worker');
+    return null;
+  }
+
+  const rpcUrl = process.env.WORLDCHAIN_RPC_URL;
+  const chainId = process.env.WORLDCHAIN_CHAIN_ID;
+  if (!rpcUrl || !chainId) {
+    console.error('[chain:setWorkerOnEscrow] WORLDCHAIN_RPC_URL or WORLDCHAIN_CHAIN_ID not set — cannot set worker');
+    return null;
+  }
+
+  try {
+    const account = privateKeyToAccount(privateKey as `0x${string}`);
+
+    const chain = {
+      id: Number(chainId),
+      name: 'Worldchain Sepolia',
+      nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+      rpcUrls: {
+        default: { http: [rpcUrl] },
+        public: { http: [rpcUrl] },
+      },
+    } as const;
+
+    const walletClient = createWalletClient({
+      account,
+      chain,
+      transport: http(),
+    });
+
+    const taskIdBytes32 = keccak256(toBytes(taskId));
+
+    const hash = await walletClient.writeContract({
+      address: contractAddress as `0x${string}`,
+      abi: [
+        {
+          type: 'function',
+          name: 'setWorker',
+          stateMutability: 'nonpayable',
+          inputs: [
+            { name: 'taskId', type: 'bytes32' },
+            { name: 'worker', type: 'address' },
+          ],
+          outputs: [],
+        },
+      ],
+      functionName: 'setWorker',
+      args: [taskIdBytes32, workerAddress as `0x${string}`],
+    });
+
+    console.log(`[chain:setWorkerOnEscrow] Set worker=${workerAddress} for taskId=${taskId} txHash=${hash}`);
+    return hash;
+  } catch (err) {
+    console.error('[chain:setWorkerOnEscrow] Failed to set worker:', err);
+    return null;
+  }
+}
+
+// ─── CategoryRegistry Integration ─────────────────────────────────────────────
+
+export async function recordCategoryCompletion(agentAddress: string, category: number, aiuScore: number): Promise<void> {
+  const contractAddress = process.env.CATEGORY_REGISTRY_ADDRESS;
+  if (!contractAddress || contractAddress.trim() === '') {
+    console.warn('[chain:recordCategoryCompletion] CATEGORY_REGISTRY_ADDRESS not set — skipping on-chain record (off-chain-only mode)');
+    return;
+  }
+
+  const privateKey = process.env.BROKER_ATTESTOR_PRIVATE_KEY;
+  if (!privateKey) {
+    console.error('[chain:recordCategoryCompletion] BROKER_ATTESTOR_PRIVATE_KEY not set — cannot record category completion');
+    return;
+  }
+
+  const rpcUrl = process.env.WORLDCHAIN_RPC_URL;
+  const chainId = process.env.WORLDCHAIN_CHAIN_ID;
+  if (!rpcUrl || !chainId) {
+    console.error('[chain:recordCategoryCompletion] WORLDCHAIN_RPC_URL or WORLDCHAIN_CHAIN_ID not set — cannot record category completion');
+    return;
+  }
+
+  try {
+    const account = privateKeyToAccount(privateKey as `0x${string}`);
+
+    const chain = {
+      id: Number(chainId),
+      name: 'Worldchain Sepolia',
+      nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+      rpcUrls: {
+        default: { http: [rpcUrl] },
+        public: { http: [rpcUrl] },
+      },
+    } as const;
+
+    const walletClient = createWalletClient({
+      account,
+      chain,
+      transport: http(),
+    });
+
+    const aiuScoreWei = BigInt(Math.floor(aiuScore * 1e18));
+
+    const hash = await walletClient.writeContract({
+      address: contractAddress as `0x${string}`,
+      abi: [
+        {
+          type: 'function',
+          name: 'recordCategoryCompletion',
+          stateMutability: 'nonpayable',
+          inputs: [
+            { name: 'agent', type: 'address' },
+            { name: 'category', type: 'uint256' },
+            { name: 'aiuScore', type: 'uint256' },
+          ],
+          outputs: [],
+        },
+      ],
+      functionName: 'recordCategoryCompletion',
+      args: [agentAddress as `0x${string}`, BigInt(category), aiuScoreWei],
+    });
+
+    console.log(`[chain:recordCategoryCompletion] Recorded category=${category} aiuScore=${aiuScore} for agent=${agentAddress} txHash=${hash}`);
+  } catch (err) {
+    console.error('[chain:recordCategoryCompletion] Failed to record category completion:', err);
+    // Fire-and-forget — never block the acceptance flow
+  }
+}
+
+// ─── EpochRewardDistributor Integration ───────────────────────────────────────
+
+export async function submitAiuScore(epoch: number, workers: string[], scores: number[]): Promise<void> {
+  const contractAddress = process.env.EPOCH_REWARD_DISTRIBUTOR_ADDRESS;
+  if (!contractAddress || contractAddress.trim() === '') {
+    console.warn('[chain:submitAiuScore] EPOCH_REWARD_DISTRIBUTOR_ADDRESS not set — skipping on-chain submit (off-chain-only mode)');
+    return;
+  }
+
+  const privateKey = process.env.BROKER_ATTESTOR_PRIVATE_KEY;
+  if (!privateKey) {
+    console.error('[chain:submitAiuScore] BROKER_ATTESTOR_PRIVATE_KEY not set — cannot submit AIU score');
+    return;
+  }
+
+  const rpcUrl = process.env.WORLDCHAIN_RPC_URL;
+  const chainId = process.env.WORLDCHAIN_CHAIN_ID;
+  if (!rpcUrl || !chainId) {
+    console.error('[chain:submitAiuScore] WORLDCHAIN_RPC_URL or WORLDCHAIN_CHAIN_ID not set — cannot submit AIU score');
+    return;
+  }
+
+  try {
+    const account = privateKeyToAccount(privateKey as `0x${string}`);
+
+    const chain = {
+      id: Number(chainId),
+      name: 'Worldchain Sepolia',
+      nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+      rpcUrls: {
+        default: { http: [rpcUrl] },
+        public: { http: [rpcUrl] },
+      },
+    } as const;
+
+    const walletClient = createWalletClient({
+      account,
+      chain,
+      transport: http(),
+    });
+
+    const scoresWei = scores.map(score => BigInt(Math.floor(score * 1e18)));
+
+    const hash = await walletClient.writeContract({
+      address: contractAddress as `0x${string}`,
+      abi: [
+        {
+          type: 'function',
+          name: 'submitEpochScores',
+          stateMutability: 'nonpayable',
+          inputs: [
+            { name: 'epoch', type: 'uint256' },
+            { name: 'workers', type: 'address[]' },
+            { name: 'aiuScores', type: 'uint256[]' },
+          ],
+          outputs: [],
+        },
+      ],
+      functionName: 'submitEpochScores',
+      args: [BigInt(epoch), workers as any, scoresWei],
+    });
+
+    console.log(`[chain:submitAiuScore] Submitted AIU scores for epoch=${epoch} workerCount=${workers.length} txHash=${hash}`);
+  } catch (err) {
+    console.error('[chain:submitAiuScore] Failed to submit AIU scores:', err);
+    // Fire-and-forget — never block the acceptance flow
+  }
+}
+
+// ─── ReviewerCredential Integration ───────────────────────────────────────────
+
+export async function evaluateReviewerTier(reviewerAddress: string, slashCount: number): Promise<void> {
+  const contractAddress = process.env.REVIEWER_CREDENTIAL_ADDRESS;
+  if (!contractAddress || contractAddress.trim() === '') {
+    console.warn('[chain:evaluateReviewerTier] REVIEWER_CREDENTIAL_ADDRESS not set — skipping on-chain evaluation (off-chain-only mode)');
+    return;
+  }
+
+  const privateKey = process.env.BROKER_ATTESTOR_PRIVATE_KEY;
+  if (!privateKey) {
+    console.error('[chain:evaluateReviewerTier] BROKER_ATTESTOR_PRIVATE_KEY not set — cannot evaluate reviewer tier');
+    return;
+  }
+
+  const rpcUrl = process.env.WORLDCHAIN_RPC_URL;
+  const chainId = process.env.WORLDCHAIN_CHAIN_ID;
+  if (!rpcUrl || !chainId) {
+    console.error('[chain:evaluateReviewerTier] WORLDCHAIN_RPC_URL or WORLDCHAIN_CHAIN_ID not set — cannot evaluate reviewer tier');
+    return;
+  }
+
+  try {
+    const account = privateKeyToAccount(privateKey as `0x${string}`);
+
+    const chain = {
+      id: Number(chainId),
+      name: 'Worldchain Sepolia',
+      nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+      rpcUrls: {
+        default: { http: [rpcUrl] },
+        public: { http: [rpcUrl] },
+      },
+    } as const;
+
+    const walletClient = createWalletClient({
+      account,
+      chain,
+      transport: http(),
+    });
+
+    const hash = await walletClient.writeContract({
+      address: contractAddress as `0x${string}`,
+      abi: [
+        {
+          type: 'function',
+          name: 'evaluateAndUpdateTier',
+          stateMutability: 'nonpayable',
+          inputs: [
+            { name: 'reviewer', type: 'address' },
+            { name: 'slashCount', type: 'uint256' },
+          ],
+          outputs: [],
+        },
+      ],
+      functionName: 'evaluateAndUpdateTier',
+      args: [reviewerAddress as `0x${string}`, BigInt(slashCount)],
+    });
+
+    console.log(`[chain:evaluateReviewerTier] Evaluated tier for reviewer=${reviewerAddress} slashCount=${slashCount} txHash=${hash}`);
+  } catch (err) {
+    console.error('[chain:evaluateReviewerTier] Failed to evaluate reviewer tier:', err);
+    // Fire-and-forget — never block the acceptance flow
+  }
+}
+
 // ─── TaskEscrow Integration ─────────────────────────────────────────────────────
 
 export async function fundTaskEscrow(taskId: string, workerAddress: string, amountIntel: number): Promise<string | null> {

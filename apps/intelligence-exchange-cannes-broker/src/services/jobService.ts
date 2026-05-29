@@ -10,7 +10,7 @@ import {
 } from 'intelligence-exchange-cannes-shared';
 import { randomUUID } from 'crypto';
 import { httpError } from './errors';
-import { issueAcceptedSubmissionAttestation, mintWorkReceipt, recordReviewerReview, fundTaskEscrow } from './chainService';
+import { issueAcceptedSubmissionAttestation, mintWorkReceipt, recordReviewerReview, setWorkerOnEscrow, recordCategoryCompletion, submitAiuScore, evaluateReviewerTier } from './chainService';
 import { logJobEvent } from './jobEvents';
 import { settleAcceptedJobCredits } from './tokenomicsService';
 
@@ -149,25 +149,8 @@ export async function claimJob(jobId: string, accountAddress: string, agentFinge
   });
   console.log(`[job:claimed] jobId=${jobId} worker=${accountAddress} expires=${expiresAt.toISOString()}`);
 
-  // Fund task escrow on-chain via TaskEscrow.fundTask()
-  // This is fire-and-forget: if it fails, we log and continue (off-chain-only mode for demo)
-  const budgetUsd = Number.parseFloat(job.budgetUsd);
-  if (budgetUsd > 0) {
-    // Get the idea's average mint price to convert USD to INTEL
-    const [idea] = await db.select().from(ideas).where(eq(ideas.ideaId, job.ideaId));
-    if (idea) {
-      const [reserve] = await db.select().from(ideaTokenReserves).where(eq(ideaTokenReserves.ideaId, job.ideaId));
-      if (reserve) {
-        const avgMintPriceUsdPerIntel = Math.max(0.00000001, Number.parseFloat(reserve.avgMintPriceUsdPerIntel) || 1);
-        const amountIntel = Math.round(budgetUsd / avgMintPriceUsdPerIntel * 1e8) / 1e8; // Round to 8 decimals
-
-        const fundTx = await fundTaskEscrow(jobId, accountAddress, amountIntel);
-        if (fundTx) {
-          console.log(`[claimJob] TaskEscrow.fundTask called, tx: ${fundTx}`);
-        }
-      }
-    }
-  }
+  // Set worker on TaskEscrow after successful claim
+  setWorkerOnEscrow(jobId, accountAddress).catch(err => console.error('[claimJob] setWorkerOnEscrow failed:', err));
 
   return { claimId, expiresAt };
 }
@@ -346,6 +329,24 @@ export async function acceptJob(jobId: string, reviewerId: string) {
   
   recordReviewerReview(reviewerId, taskValueIntel).catch((err) => {
     console.error(`[job:accept] Failed to record review for reviewer=${reviewerId}:`, err);
+  });
+
+  // Fire-and-forget economic security layer calls
+  const workerAddress = job.activeClaimWorkerId ?? sub.workerId;
+  const category = 0; // Default to General (0) - category mapping can be added later
+  const aiuScore = score ?? 1;
+  const epoch = Math.floor(Date.now() / (7 * 24 * 3600 * 1000)); // Current epoch (weekly)
+
+  recordCategoryCompletion(workerAddress, category, aiuScore).catch((err) => {
+    console.error(`[job:accept] Failed to record category completion:`, err);
+  });
+
+  submitAiuScore(epoch, [workerAddress], [aiuScore]).catch((err) => {
+    console.error(`[job:accept] Failed to submit AIU score:`, err);
+  });
+
+  evaluateReviewerTier(reviewerId, 0).catch((err) => {
+    console.error(`[job:accept] Failed to evaluate reviewer tier:`, err);
   });
 
   return { accepted: true, attestation, settlement };
