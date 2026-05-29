@@ -14,6 +14,7 @@ contract AgentIdentityRegistry {
     error OperatorNotVerified(address operator);
     error InvalidSignature();
     error JobAlreadyAttested(bytes32 jobId);
+    error InvalidTier();
 
     event AgentRegistered(
         bytes32 indexed fingerprint,
@@ -26,6 +27,8 @@ contract AgentIdentityRegistry {
     event SubmissionRecorded(bytes32 indexed fingerprint, bytes32 indexed jobId, uint256 score, uint256 newAcceptedCount);
     event ReputationUpdated(bytes32 indexed fingerprint, uint256 acceptedCount, uint256 avgScore);
     event AttestorUpdated(address indexed attestor);
+    event TierReputationSet(uint256 indexed tier, uint256 minJobs);
+    event ReputationGatingToggled(bool enabled);
 
     struct AgentIdentity {
         uint256 tokenId;
@@ -49,6 +52,10 @@ contract AgentIdentityRegistry {
     address public attestor;
     address public owner;
 
+    // Reputation gating for task claiming
+    mapping(uint256 => uint256) public tierMinReputation; // tier => min accepted jobs required
+    bool public reputationGatingEnabled;
+
     bytes32 public constant POSTER_ROLE = keccak256("poster");
     bytes32 public constant WORKER_ROLE = keccak256("worker");
 
@@ -58,6 +65,14 @@ contract AgentIdentityRegistry {
         identityGate = IdentityGate(_identityGate);
         attestor = _attestor;
         owner = msg.sender;
+
+        // Default tier reputation requirements
+        tierMinReputation[0] = 0;   // Open tier
+        tierMinReputation[1] = 5;   // Standard tier
+        tierMinReputation[2] = 25;  // Expert tier
+        tierMinReputation[3] = 100; // Elite tier
+
+        reputationGatingEnabled = false; // Default to open access
     }
 
     modifier onlyOwner() {
@@ -151,6 +166,60 @@ contract AgentIdentityRegistry {
     function setIdentityGate(address _identityGate) external onlyOwner {
         if (_identityGate == address(0)) revert Unauthorized();
         identityGate = IdentityGate(_identityGate);
+    }
+
+    // ─── Reputation Gating Functions ───────────────────────────────────────
+
+    /// @notice Check if an agent meets the reputation requirement for a tier.
+    /// @param agent Agent address to check.
+    /// @param tier Task tier to check against.
+    /// @return True if agent meets the reputation requirement or gating is disabled.
+    function meetsReputationRequirement(address agent, uint256 tier) external view returns (bool) {
+        if (!reputationGatingEnabled) return true;
+
+        // Find the agent's fingerprint by operator address
+        bytes32 fingerprint = _findFingerprintByOperator(agent);
+        if (fingerprint == bytes32(0)) return false;
+
+        AgentIdentity storage identity = agents[fingerprint];
+        if (!identity.registered) return false;
+
+        return identity.acceptedCount >= tierMinReputation[tier];
+    }
+
+    /// @notice Set the minimum reputation required for a tier.
+    /// @custom:access owner
+    /// @param tier Tier level (0-3).
+    /// @param minJobs Minimum accepted jobs required.
+    function setTierMinReputation(uint256 tier, uint256 minJobs) external onlyOwner {
+        if (tier > 3) revert InvalidTier();
+        tierMinReputation[tier] = minJobs;
+        emit TierReputationSet(tier, minJobs);
+    }
+
+    /// @notice Enable or disable reputation gating.
+    /// @custom:access owner
+    /// @param enabled True to enable reputation gating, false to disable.
+    function setReputationGatingEnabled(bool enabled) external onlyOwner {
+        reputationGatingEnabled = enabled;
+        emit ReputationGatingToggled(enabled);
+    }
+
+    // ─── Internal Helpers ───────────────────────────────────────────────────
+
+    /// @notice Find an agent's fingerprint by operator address.
+    /// @param operator Operator address to search for.
+    /// @return Fingerprint if found, bytes32(0) otherwise.
+    function _findFingerprintByOperator(address operator) internal view returns (bytes32) {
+        // This is a simple linear search - in production, consider adding a reverse mapping
+        // for better performance if this becomes a bottleneck
+        for (uint256 i = 1; i < nextTokenId; i++) {
+            bytes32 fingerprint = tokenToFingerprint[i];
+            if (agents[fingerprint].operatorAddress == operator && agents[fingerprint].registered) {
+                return fingerprint;
+            }
+        }
+        return bytes32(0);
     }
 
     function getAttestationDigest(

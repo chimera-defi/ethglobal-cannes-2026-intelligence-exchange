@@ -653,6 +653,146 @@ contract IntelMintControllerTest is Test {
         controller.pullTWAP(address(mockPool), 30, true);
     }
 
+    // ─── Activity-based dynamic epoch cap tests ───────────────────────────────
+
+    /// @dev updateEpochCapFromActivity with activity at target expects 1x cap.
+    function test_updateEpochCapFromActivity_at_target() public {
+        // Enable activity cap
+        controller.setActivityCapEnabled(true);
+
+        // Default target is 100e18, so settled volume of 100e18 should give 1x cap
+        uint256 settledVolume = 100e18;
+        uint256 expectedCap = 500_000e18; // BASE_EPOCH_CAP * 1x
+
+        vm.prank(operator);
+        controller.updateEpochCapFromActivity(settledVolume);
+
+        assertEq(controller.epochMintCap(), expectedCap);
+        assertEq(controller.lastSettledVolume(), settledVolume);
+    }
+
+    /// @dev updateEpochCapFromActivity below target expects floor-clamped cap.
+    function test_updateEpochCapFromActivity_below_target() public {
+        controller.setActivityCapEnabled(true);
+
+        // Settled volume at 10% of target (10e18 vs 100e18 target)
+        // Should be clamped to floor of 20% (2000 bps)
+        uint256 settledVolume = 10e18;
+        uint256 expectedCap = (500_000e18 * 2000) / 10000; // 20% of BASE_EPOCH_CAP = 100_000e18
+
+        vm.prank(operator);
+        controller.updateEpochCapFromActivity(settledVolume);
+
+        assertEq(controller.epochMintCap(), expectedCap);
+        assertEq(controller.lastSettledVolume(), settledVolume);
+    }
+
+    /// @dev updateEpochCapFromActivity above target expects ceiling-clamped cap.
+    function test_updateEpochCapFromActivity_above_target() public {
+        controller.setActivityCapEnabled(true);
+
+        // Settled volume at 500% of target (500e18 vs 100e18 target)
+        // Should be clamped to ceiling of 2x (20000 bps)
+        uint256 settledVolume = 500e18;
+        uint256 expectedCap = (500_000e18 * 20000) / 10000; // 2x of BASE_EPOCH_CAP = 1_000_000e18
+
+        vm.prank(operator);
+        controller.updateEpochCapFromActivity(settledVolume);
+
+        assertEq(controller.epochMintCap(), expectedCap);
+        assertEq(controller.lastSettledVolume(), settledVolume);
+    }
+
+    /// @dev updateEpochCapFromActivity reverts with feature disabled.
+    function test_updateEpochCapFromActivity_reverts_when_disabled() public {
+        // Feature is disabled by default
+        uint256 settledVolume = 100e18;
+
+        vm.prank(operator);
+        vm.expectRevert(IntelMintController.FeatureDisabled.selector);
+        controller.updateEpochCapFromActivity(settledVolume);
+    }
+
+    /// @dev Only operator can call updateEpochCapFromActivity.
+    function test_updateEpochCapFromActivity_only_operator() public {
+        controller.setActivityCapEnabled(true);
+
+        vm.prank(alice);
+        vm.expectRevert(IntelMintController.Unauthorized.selector);
+        controller.updateEpochCapFromActivity(100e18);
+    }
+
+    /// @dev setTargetSettledVolume updates the target volume.
+    function test_setTargetSettledVolume() public {
+        uint256 newTarget = 200e18;
+        controller.setTargetSettledVolume(newTarget);
+        assertEq(controller.targetSettledVolumePerEpoch(), newTarget);
+    }
+
+    /// @dev setTargetSettledVolume reverts with zero.
+    function test_setTargetSettledVolume_reverts_zero() public {
+        vm.expectRevert(IntelMintController.ZeroAmount.selector);
+        controller.setTargetSettledVolume(0);
+    }
+
+    /// @dev setTargetSettledVolume only owner.
+    function test_setTargetSettledVolume_only_owner() public {
+        vm.prank(alice);
+        vm.expectRevert(IntelMintController.Unauthorized.selector);
+        controller.setTargetSettledVolume(200e18);
+    }
+
+    /// @dev setActivityCapBounds updates floor and ceiling.
+    function test_setActivityCapBounds() public {
+        controller.setActivityCapBounds(1500, 15000); // 15% floor, 1.5x ceiling
+        assertEq(controller.activityCapFloorBps(), 1500);
+        assertEq(controller.activityCapCeilingBps(), 15000);
+    }
+
+    /// @dev setActivityCapBounds reverts when floor >= ceiling.
+    function test_setActivityCapBounds_reverts_floor_ge_ceiling() public {
+        vm.expectRevert(IntelMintController.InvalidParam.selector);
+        controller.setActivityCapBounds(2000, 2000); // floor == ceiling
+    }
+
+    /// @dev setActivityCapBounds reverts when ceiling > 50000.
+    function test_setActivityCapBounds_reverts_ceiling_too_high() public {
+        vm.expectRevert(IntelMintController.InvalidParam.selector);
+        controller.setActivityCapBounds(1000, 60000); // 6x > 5x max
+    }
+
+    /// @dev setActivityCapBounds only owner.
+    function test_setActivityCapBounds_only_owner() public {
+        vm.prank(alice);
+        vm.expectRevert(IntelMintController.Unauthorized.selector);
+        controller.setActivityCapBounds(1500, 15000);
+    }
+
+    /// @dev setActivityCapEnabled toggles the feature.
+    function test_setActivityCapEnabled() public {
+        assertFalse(controller.activityCapEnabled());
+        controller.setActivityCapEnabled(true);
+        assertTrue(controller.activityCapEnabled());
+        controller.setActivityCapEnabled(false);
+        assertFalse(controller.activityCapEnabled());
+    }
+
+    /// @dev setActivityCapEnabled only owner.
+    function test_setActivityCapEnabled_only_owner() public {
+        vm.prank(alice);
+        vm.expectRevert(IntelMintController.Unauthorized.selector);
+        controller.setActivityCapEnabled(true);
+    }
+
+    /// @dev When activity cap is disabled, existing setEpochMintCap still works.
+    function test_setEpochMintCap_still_works_when_activity_disabled() public {
+        // Activity cap is disabled by default
+        uint256 newCap = 1_000_000e18;
+        controller.setEpochMintCap(0); // disable first
+        controller.setEpochMintCap(newCap);
+        assertEq(controller.epochMintCap(), newCap);
+    }
+
     receive() external payable {}
 }
 

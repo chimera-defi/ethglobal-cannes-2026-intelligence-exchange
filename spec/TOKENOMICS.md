@@ -61,6 +61,11 @@ treasury = stableInflow * 0.05
 - Staking locks
 - Buyback-and-burn policy
 
+### Sinks (updated)
+
+- **BuybackBurn**: Epoch-triggered operator buys INTEL from UniV3 POL and burns, creating programmatic pressure
+- **Dynamic mint caps**: `epochMintCap` is now dynamically adjustable via `activityCapEnabled` in `IntelMintController` (disabled by default)
+
 ## Blind Spots and Controls
 
 1. Reflexive mint loop.

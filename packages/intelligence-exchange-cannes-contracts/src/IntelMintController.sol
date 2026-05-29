@@ -38,6 +38,7 @@ contract IntelMintController {
     error SlippageExceeded(uint256 price, uint256 maxPrice);
     error MintingPaused();
     error EpochMintCapExceeded(uint256 requested, uint256 remaining);
+    error FeatureDisabled();
 
     // ─── Constants ────────────────────────────────────────────────────────────
 
@@ -67,6 +68,7 @@ contract IntelMintController {
     event MintPaused(address indexed by);
     event MintUnpaused(address indexed by);
     event EpochMintCapChanged(uint256 oldCap, uint256 newCap);
+    event EpochCapUpdated(uint256 oldCap, uint256 newCap, uint256 settledVolume);
 
     // ─── Storage ──────────────────────────────────────────────────────────────
 
@@ -113,6 +115,26 @@ contract IntelMintController {
 
     /// @notice The staking epoch number when epochMinted was last reset.
     uint256 public lastCapEpoch;
+
+    // ─── Activity-based dynamic epoch cap (appended to storage) ───────────────
+
+    /// @notice Base epoch cap constant (500k INTEL) used for activity-based calculations.
+    uint256 public constant BASE_EPOCH_CAP = 500_000e18;
+
+    /// @notice Target settled volume per epoch for activity cap adjustment (default 100 ETH).
+    uint256 public targetSettledVolumePerEpoch;
+
+    /// @notice Minimum cap as % of BASE_EPOCH_CAP (default 2000 = 20%).
+    uint256 public activityCapFloorBps;
+
+    /// @notice Maximum cap as % of BASE_EPOCH_CAP (default 20000 = 2x).
+    uint256 public activityCapCeilingBps;
+
+    /// @notice Last recorded settled volume for the epoch.
+    uint256 public lastSettledVolume;
+
+    /// @notice Whether activity-based cap adjustment is enabled (default false).
+    bool public activityCapEnabled;
 
     // ─── Reentrancy guard ─────────────────────────────────────────────────────
 
@@ -178,6 +200,12 @@ contract IntelMintController {
         // Owner can raise this at any time via setEpochMintCap().
         epochMintCap = 500_000e18;
         lastCapEpoch = staking.epoch();
+
+        // Initialize activity-based cap parameters (disabled by default)
+        targetSettledVolumePerEpoch = 100e18; // 100 ETH worth of tasks
+        activityCapFloorBps = 2000;          // 20% of BASE_EPOCH_CAP
+        activityCapCeilingBps = 20000;        // 2x of BASE_EPOCH_CAP
+        activityCapEnabled = false;           // Disabled by default to preserve existing behavior
     }
 
     // ─── Price View ───────────────────────────────────────────────────────────
@@ -464,6 +492,66 @@ contract IntelMintController {
         require(newCap == 0 || newCap >= epochMintCap, "CannotDecreaseCap");
         emit EpochMintCapChanged(epochMintCap, newCap);
         epochMintCap = newCap;
+    }
+
+    // ─── Activity-based dynamic epoch cap ──────────────────────────────────────
+
+    /// @notice Update epoch cap based on settled volume activity.
+    /// @custom:access operator or owner
+    /// @dev    Adjusts epochMintCap dynamically based on marketplace activity:
+    ///         - ratio = (settledVolume * BPS) / targetSettledVolumePerEpoch
+    ///         - ratio clamped to [activityCapFloorBps, activityCapCeilingBps]
+    ///         - newCap = (BASE_EPOCH_CAP * ratio) / BPS
+    ///         This adds supply-side adjustment parallel to the demand-side
+    ///         utilizationMultiplier pricing adjustment.
+    /// @param  settledVolumeThisEpoch Total settled volume in the current epoch.
+    function updateEpochCapFromActivity(uint256 settledVolumeThisEpoch) external onlyOperator {
+        if (!activityCapEnabled) revert FeatureDisabled();
+
+        lastSettledVolume = settledVolumeThisEpoch;
+
+        // Calculate activity ratio as percentage of target
+        uint256 ratio = (settledVolumeThisEpoch * BPS) / targetSettledVolumePerEpoch;
+
+        // Clamp ratio to [floor, ceiling] bounds
+        if (ratio < activityCapFloorBps) ratio = activityCapFloorBps;
+        if (ratio > activityCapCeilingBps) ratio = activityCapCeilingBps;
+
+        // Calculate new cap based on clamped ratio
+        uint256 oldCap = epochMintCap;
+        uint256 newCap = (BASE_EPOCH_CAP * ratio) / BPS;
+
+        epochMintCap = newCap;
+        emit EpochCapUpdated(oldCap, newCap, settledVolumeThisEpoch);
+    }
+
+    /// @notice Set the target settled volume per epoch for activity cap adjustment.
+    /// @custom:access owner
+    /// @param  _targetSettledVolume New target volume in payment token units.
+    function setTargetSettledVolume(uint256 _targetSettledVolume) external onlyOwner {
+        if (_targetSettledVolume == 0) revert ZeroAmount();
+        targetSettledVolumePerEpoch = _targetSettledVolume;
+    }
+
+    /// @notice Set the activity cap bounds (floor and ceiling as % of BASE_EPOCH_CAP).
+    /// @custom:access owner
+    /// @dev    Validates that floor < ceiling and ceiling <= 50000 (5x max).
+    /// @param  floorBps   Minimum cap as % of BASE_EPOCH_CAP (e.g., 2000 = 20%).
+    /// @param  ceilingBps Maximum cap as % of BASE_EPOCH_CAP (e.g., 20000 = 2x).
+    function setActivityCapBounds(uint256 floorBps, uint256 ceilingBps) external onlyOwner {
+        if (floorBps == 0 || ceilingBps == 0) revert InvalidParam();
+        if (floorBps >= ceilingBps) revert InvalidParam();
+        if (ceilingBps > 50000) revert InvalidParam(); // Max 5x
+        activityCapFloorBps = floorBps;
+        activityCapCeilingBps = ceilingBps;
+    }
+
+    /// @notice Enable or disable activity-based epoch cap adjustment.
+    /// @custom:access owner
+    /// @dev    When disabled, the contract behaves exactly as before this change.
+    /// @param  _enabled True to enable, false to disable.
+    function setActivityCapEnabled(bool _enabled) external onlyOwner {
+        activityCapEnabled = _enabled;
     }
 
     // ─── Ownable2Step ─────────────────────────────────────────────────────────
