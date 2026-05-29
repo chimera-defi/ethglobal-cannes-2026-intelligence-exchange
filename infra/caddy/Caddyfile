@@ -1,48 +1,32 @@
 {
 	admin off
 	auto_https off
-	# PRODUCTION NOTE: To enable Caddy-level rate limiting, install the
-	# caddy-ratelimit plugin (https://github.com/mholt/caddy-ratelimit) and
-	# add a rate_limit directive inside the site block below.
-	# Example (requires plugin):
-	#   rate_limit {
-	#       zone dynamic {
-	#           key    {http.request.header.X-Forwarded-For}
-	#           events 100
-	#           window 1m
-	#       }
-	#   }
-	# The broker already applies in-process rate limiting (60 req/min global,
-	# 20 req/min per wallet), but Caddy-level limiting protects earlier in
-	# the stack before Bun/Node overhead is incurred.
 }
 
-http://168.119.15.122 {
+:80 {
 	header {
 		X-Frame-Options "DENY"
 		X-Content-Type-Options "nosniff"
-		X-XSS-Protection "1; mode=block"
 		Referrer-Policy "strict-origin-when-cross-origin"
-		Permissions-Policy "geolocation=(), microphone=(), camera=()"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
 		-Server
 	}
 
-	# Block sensitive paths FIRST (route ensures ordering)
-	route {
-		@sensitive path /.env /.git* /package.json /package-lock.json /.npmrc
-		handle @sensitive {
-			respond 403
-		}
+	@blocked path /.env /.git* /package.json /pnpm-lock.yaml
+	respond @blocked 404
 
-		handle /v1/* {
-			reverse_proxy localhost:3001
-		}
-		handle /api/* {
-			uri strip_prefix /api
-			reverse_proxy localhost:3001
-		}
-		handle {
-			reverse_proxy localhost:3100
-		}
+	handle /v1/* {
+		reverse_proxy localhost:3100
+	}
+
+	handle {
+		root * /home/agents/workspace/ethglobal-cannes-2026-intelligence-exchange/apps/intelligence-exchange-cannes-web/dist
+		try_files {path} /index.html
+		file_server
+	}
+
+	log {
+		output file /var/log/caddy/access.log
+		format json
 	}
 }
