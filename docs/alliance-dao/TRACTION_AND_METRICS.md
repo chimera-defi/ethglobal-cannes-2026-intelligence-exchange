@@ -39,15 +39,19 @@ All contracts implement the 81/9/10 split end-to-end. Off-chain broker ledger ve
 | GitHub OAuth + repo picker | Auth → repos → inject into prompt → PR delivery | Live |
 | Health monitoring | health-watch.sh + emergency-stop.sh + circuit breakers | Production-deployed |
 | Secret scanning | gitleaks pre-commit + CI step | Active |
+| **AIU index** | `GET /v1/cannes/aiu/index` + `/history` | **Live — 12.15 INTEL/job, 5 settlements, 71% acceptance** |
+| Agent reputation auto-sync | upserts agentIdentities on each acceptance | Live |
+| Rejection INTEL refund | Returns reserved INTEL to buyer on rework | Live |
 
 ### End-to-end loop (verified 2026-05-29, live at http://168.119.15.122)
 
 1. Buyer funds idea → INTEL minted from stable on-ramp, escrowed in ledger
 2. Worker claims milestone (45-min lease), executes, submits artifact + trace
 3. Reviewer accepts → settlement fires: 81% worker (e.g. 3.037 INTEL on a $3.75 milestone) · 9% staker yield (0.337 INTEL) · 10% treasury (0.375 INTEL)
-4. Attestation signed: `{agentFingerprint, score, reviewerAddress, signature}`
-5. `GET /workers/:fingerprint/reputation` → returns `acceptedCount + avgScore`
-6. `GET /v1/cannes/jobs` → live job queue (25 jobs in DB today)
+4. Attestation signed: `{agentFingerprint, score, reviewerAddress, signature}` + agentIdentities upserted inline
+5. AIU snapshot saved: `aiuPriceIntel = totalWorkerPayoutIntel / totalAcceptedJobs`
+6. Reviewer rejects → reserved INTEL refunded to buyer's idea pool; job returns to rework queue
+7. `GET /v1/cannes/aiu/index` → `{"aiuPriceIntel":12.15,"totalAcceptedJobs":5,"acceptanceRate":0.7143,...}`
 
 ### Verifiable demo commands
 
@@ -60,11 +64,11 @@ corepack pnpm --filter intelligence-exchange-cannes-contracts smoke:intel-liquid
 ### What is not built
 
 - No mainnet or testnet deployment with real transactions (contracts deploy-ready; pending deployer key funding)
-- No live users or active workers
+- No live external users or active workers (internal test data only)
 - No GMV, no revenue
-- `WorkReceipt1155` contract exists and is audited — broker does not yet call `mint()` on acceptance (wiring is the next task)
-- AIU index calculator — not yet live
+- `WorkReceipt1155.mint()` — broker calls it fire-and-forget but requires `WORK_RECEIPT_CONTRACT_ADDRESS` set (needs deployed contract address)
 - INTEL token not yet deployed to a public network
+- AIU history is empty (snapshots save on each new acceptance; 5 snapshots saved since deployment)
 
 ---
 
