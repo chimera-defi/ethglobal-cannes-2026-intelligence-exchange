@@ -20,7 +20,7 @@ import {CategoryRegistry} from "../src/CategoryRegistry.sol";
 import {ReviewerQueue} from "../src/ReviewerQueue.sol";
 import {ReviewerCredential} from "../src/ReviewerCredential.sol";
 import {TaskEscrow} from "../src/TaskEscrow.sol";
-import {INonfungiblePositionManager} from "../src/interfaces/IUniswapV3.sol";
+import {INonfungiblePositionManager, IUniswapV3Factory} from "../src/interfaces/IUniswapV3.sol";
 
 /// @title ForkDeploy
 /// @notice Deployment script for Assay Protocol mainnet fork demo
@@ -315,31 +315,28 @@ contract ForkDeploy is Script {
         result.intelToken.approve(POSITION_MANAGER, polAmount);
         vm.deal(result.deployer, 2000e18);
 
-        // Create pool and mint position
-        // Note: createAndInitializePoolIfNecessary not available in interface, skipping pool creation
-        // try POSITION_MANAGER.createAndInitializePoolIfNecessary(
-        //     address(result.intelToken),
-        //     WETH9,
-        //     3000,
-        //     sqrtPriceX96
-        // ) {
-        //     console2.log("INTEL/WETH pool created");
-        // } catch {
-        //     console2.log("Pool may already exist");
-        // }
-
-        // try POSITION_MANAGER.mint(params) {
-        //     console2.log("INTEL/WETH liquidity position minted");
-        // } catch {
-        //     console2.log("Position mint failed (pool may exist with different params)");
-        // }
-        console2.log("Pool creation skipped (interface limitation)");
+        // Create INTEL/WETH pool via UniV3 Factory
+        IUniswapV3Factory uniFactory = IUniswapV3Factory(FACTORY);
+        address poolAddress = uniFactory.getPool(address(result.intelToken), WETH9, 3000);
+        if (poolAddress == address(0)) {
+            poolAddress = uniFactory.createPool(address(result.intelToken), WETH9, 3000);
+            // Initialize pool price: initialize(sqrtPriceX96) — call via low-level since
+            // IUniswapV3Pool is not imported here; sqrtPriceX96 ≈ 0.001 ETH per INTEL
+            (bool ok,) = poolAddress.call(abi.encodeWithSignature("initialize(uint160)", sqrtPriceX96));
+            if (ok) {
+                console2.log("INTEL/WETH pool created and initialized:", poolAddress);
+            } else {
+                console2.log("Pool initialization failed (may need different price):", poolAddress);
+            }
+        } else {
+            console2.log("INTEL/WETH pool already exists:", poolAddress);
+        }
 
         // ── Set TWAP pool for IntelPOLManager ─────────────────────────────
-        // TODO: Once pool creation is enabled, capture the pool address and call:
-        // address poolAddress = <pool address from creation>;
-        // result.polManager.setTwapPool(poolAddress);
-        // console2.log("IntelPOLManager.setTwapPool:", poolAddress);
+        if (poolAddress != address(0)) {
+            result.polManager.setTwapPool(poolAddress);
+            console2.log("IntelPOLManager.setTwapPool:", poolAddress);
+        }
 
         vm.stopBroadcast();
 
