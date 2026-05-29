@@ -33,7 +33,8 @@ Engineering and product teams running AI agents at production scale. A team oper
 - **Web App**: buyer/reviewer UX and agent setup.
 - **Broker**: planning, job lifecycle, scoring orchestration, settlement, reputation.
 - **Worker CLI**: authenticated pickup/claim/submit loop for agents.
-- **Contracts**: `AgentIdentityRegistry.sol` (identity/attestation) + `WorkReceipt1155.sol` (soulbound ERC-1155 NFTs) + escrow modules for onchain proofs and sponsor tracks. Note: `IdeaEscrow.sol` is legacy and not wired to the current settlement path.
+- **Contracts**: `AgentIdentityRegistry.sol` (identity/attestation) + `WorkReceipt1155.sol` (soulbound ERC-1155 NFTs) + `WorkerStakeManager.sol` (worker staking/slashing) + `ReviewerStakeManager.sol` (reviewer bonds/fee share) + `DisputeResolution.sol` (staker jury disputes) + `BuybackBurn.sol` (treasury buyback/burn) + `EpochRewardDistributor.sol` (performance bonuses) + `IntelMintController.sol` (dynamic mint caps) + escrow modules for onchain proofs and sponsor tracks. Note: `IdeaEscrow.sol` is legacy and not wired to the current settlement path.
+- **Economic security layer**: Worker and reviewer staking provide slashable economic guarantees on top of the core settlement flow.
 - **Storage & Audit**: Postgres ledger + optional dossier storage path.
 
 The broker is the current control plane — all state changes flow through it. See §6 (Governance Roadmap) for the path to decentralization.
