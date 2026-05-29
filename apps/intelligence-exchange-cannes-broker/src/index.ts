@@ -12,6 +12,7 @@ import { jobsRouter } from './routes/jobs';
 import { tokenomicsRouter } from './routes/tokenomics';
 import { worldRouter } from './routes/world';
 import { workersRouter } from './routes/workers';
+import { adminRouter } from './routes/admin';
 import { migrate } from './db/migrate';
 import { setupLeaseExpiryRequeue } from './queue/milestoneQueue';
 import { STALLED_JOB_INTERVAL_MS } from 'intelligence-exchange-cannes-shared';
@@ -83,6 +84,7 @@ app.use('/v1/cannes/jobs/*', walletRateLimit(async (c) => getSessionAccountAddre
 app.route('/v1/cannes/jobs', jobsRouter);
 app.route('/v1/cannes/tokenomics', tokenomicsRouter);
 app.route('/v1/cannes/workers', workersRouter);
+app.route('/v1/cannes/admin', adminRouter);
 
 // Error handler
 app.onError((err, c) => {

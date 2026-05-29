@@ -1,6 +1,6 @@
 import { eq, and } from 'drizzle-orm';
 import { db } from '../db/client';
-import { jobs, claims, submissions, ideas, briefs, milestones, agentSpendEvents } from '../db/schema';
+import { jobs, claims, submissions, ideas, briefs, milestones, agentSpendEvents, ideaTokenReserves } from '../db/schema';
 import { scoreSubmission } from '../scoring/scorer';
 import {
   MILESTONE_ORDER,
@@ -10,7 +10,7 @@ import {
 } from 'intelligence-exchange-cannes-shared';
 import { randomUUID } from 'crypto';
 import { httpError } from './errors';
-import { issueAcceptedSubmissionAttestation, mintWorkReceipt } from './chainService';
+import { issueAcceptedSubmissionAttestation, mintWorkReceipt, recordReviewerReview, setWorkerOnEscrow, clearWorkerOnEscrow, recordCategoryCompletion, evaluateReviewerTier, checkReviewerAssignment } from './chainService';
 import { logJobEvent } from './jobEvents';
 import { settleAcceptedJobCredits } from './tokenomicsService';
 
@@ -149,6 +149,9 @@ export async function claimJob(jobId: string, accountAddress: string, agentFinge
   });
   console.log(`[job:claimed] jobId=${jobId} worker=${accountAddress} expires=${expiresAt.toISOString()}`);
 
+  // Set worker on TaskEscrow after successful claim
+  setWorkerOnEscrow(jobId, accountAddress).catch(err => console.error('[claimJob] setWorkerOnEscrow failed:', err));
+
   return { claimId, expiresAt };
 }
 
@@ -190,6 +193,9 @@ export async function unclaimJob(jobId: string, accountAddress: string, agentFin
     agentFingerprint: agentFingerprint ?? null,
   });
   console.log(`[job:unclaimed] jobId=${jobId} worker=${accountAddress}`);
+
+  // Clear worker on TaskEscrow after successful unclaim
+  clearWorkerOnEscrow(jobId).catch(err => console.error('[unclaimJob] clearWorkerOnEscrow failed:', err));
 
   return { unclaimed: true, status: 'queued' as const };
 }
@@ -276,6 +282,12 @@ export async function acceptJob(jobId: string, reviewerId: string) {
     throw httpError(`Job not in submitted state: ${job.status}`, 409, 'JOB_NOT_REVIEWABLE');
   }
 
+  // ReviewerQueue enforcement check (soft enforcement — logs warning but proceeds)
+  const isAssigned = await checkReviewerAssignment(jobId, reviewerId).catch(() => true);
+  if (!isAssigned) {
+    console.warn('[job:accept] Reviewer not assigned via ReviewerQueue — proceeding (soft enforcement)');
+  }
+
   const [sub] = await db.select().from(submissions)
     .where(and(eq(submissions.jobId, jobId), eq(submissions.workerId, job.activeClaimWorkerId ?? '')));
   if (!sub?.agentFingerprint) {
@@ -317,6 +329,30 @@ export async function acceptJob(jobId: string, reviewerId: string) {
     sub.agentFingerprint,
     score,
   ).catch((err) => console.error('[job:accept] Failed to mint WorkReceipt:', err));
+
+  // Fire-and-forget ReviewerStakeManager.recordReview call
+  const budgetUsd = Number.parseFloat(job.budgetUsd);
+  // Convert USD to INTEL (approximate: 1 INTEL = $1)
+  const intelPriceUsd = 1;
+  const taskValueIntel = BigInt(Math.floor(budgetUsd / intelPriceUsd * 1e18));
+  
+  recordReviewerReview(reviewerId, taskValueIntel).catch((err) => {
+    console.error(`[job:accept] Failed to record review for reviewer=${reviewerId}:`, err);
+  });
+
+  // Fire-and-forget economic security layer calls
+  const workerAddress = job.activeClaimWorkerId ?? sub.workerId;
+  const category = 0; // Default to General (0) - category mapping can be added later
+  const aiuScore = score ?? 1;
+  const epoch = Math.floor(Date.now() / (7 * 24 * 3600 * 1000)); // Current epoch (weekly)
+
+  recordCategoryCompletion(workerAddress, category, aiuScore).catch((err) => {
+    console.error(`[job:accept] Failed to record category completion:`, err);
+  });
+
+  evaluateReviewerTier(reviewerId, 0).catch((err) => {
+    console.error(`[job:accept] Failed to evaluate reviewer tier:`, err);
+  });
 
   return { accepted: true, attestation, settlement };
 }
