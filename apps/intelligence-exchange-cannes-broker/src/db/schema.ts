@@ -110,6 +110,7 @@ export const jobs = pgTable('jobs', {
   leaseExpiry: timestamp('lease_expiry', { withTimezone: true }),
   activeClaimId: text('active_claim_id'),
   activeClaimWorkerId: text('active_claim_worker_id'),
+  onChainSettled: boolean('on_chain_settled').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });

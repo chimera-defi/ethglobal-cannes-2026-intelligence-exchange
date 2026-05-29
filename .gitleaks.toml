@@ -1,0 +1,42 @@
+title = "gitleaks config"
+
+[extend]
+useDefault = true
+
+# Allowlist for safe patterns
+[allowlist]
+description = "Allowlist for test fixtures and example files"
+paths = [
+    '''\.env\.example$''',
+    '''\.env\.test$''',
+    '''\.env\.local$''',
+    '''test/.*\.fixture\..*$''',
+    '''tests/.*\.fixture\..*$''',
+    '''__tests__/.*\.fixture\..*$''',
+    '''\.github/workflows/.*\.yml$''',
+]
+
+# Custom rules for Ethereum and common secrets
+[[rules]]
+description = "Ethereum private key (0x + 64 hex chars)"
+id = "ethereum-private-key"
+regex = '''0x[a-fA-F0-9]{64}'''
+keywords = ["0x"]
+
+[[rules]]
+description = "Generic API key pattern"
+id = "generic-api-key"
+regex = '''(?i)(api[_-]?key|apikey|secret[_-]?key|access[_-]?token|private[_-]?key|auth[_-]?token)['"''\s]*[:=]['"''\s]*[a-zA-Z0-9_\-]{20,}'''
+keywords = ["api", "key", "secret", "token", "private"]
+
+[[rules]]
+description = "AWS Access Key ID"
+id = "aws-access-key"
+regex = '''AKIA[0-9A-Z]{16}'''
+keywords = ["AKIA"]
+
+[[rules]]
+description = "AWS Secret Key"
+id = "aws-secret-key"
+regex = '''(?i)aws[_\.-]?secret[_\.-]?key['"''\s]*[:=]['"''\s]*[a-zA-Z0-9/+=]{40}'''
+keywords = ["aws", "secret", "key"]

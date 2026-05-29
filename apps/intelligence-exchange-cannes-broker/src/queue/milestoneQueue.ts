@@ -15,11 +15,16 @@ import { logJobEvent } from '../services/jobEvents';
  */
 const REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6379';
 
-// Parse redis connection from URL
+// Parse redis connection from URL, preserving auth and db
 function parseRedisConnection(url: string) {
   try {
     const u = new URL(url);
-    return { host: u.hostname, port: parseInt(u.port || '6379', 10) };
+    const result: Record<string, unknown> = { host: u.hostname, port: parseInt(u.port || '6379', 10) };
+    if (u.password) result.password = decodeURIComponent(u.password);
+    if (u.username) result.username = decodeURIComponent(u.username);
+    const dbMatch = u.pathname.match(/^\/(\d+)$/);
+    if (dbMatch) result.db = parseInt(dbMatch[1], 10);
+    return result;
   } catch {
     return { host: 'localhost', port: 6379 };
   }

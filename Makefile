@@ -7,16 +7,18 @@ export
 
 POSTGRES_PORT ?= 5432
 REDIS_PORT ?= 6379
+POSTGRES_PASSWORD ?= iex_local_dev_only_change_me
+REDIS_PASSWORD ?= iex_redis_local_dev_only_change_me
 # PORT in .env is the broker port; fall back to 3001
 BROKER_PORT ?= $(or $(PORT),3001)
 WEB_PORT ?= 3100
-DATABASE_URL ?= postgres://iex:iex@localhost:$(POSTGRES_PORT)/iex_cannes
-REDIS_URL ?= redis://localhost:$(REDIS_PORT)
+DATABASE_URL ?= postgres://iex:$(POSTGRES_PASSWORD)@localhost:$(POSTGRES_PORT)/iex_cannes
+REDIS_URL ?= redis://:$(REDIS_PASSWORD)@localhost:$(REDIS_PORT)
 BROKER_URL ?= http://localhost:$(BROKER_PORT)
 VITE_DEV_PROXY_TARGET ?= $(BROKER_URL)
 COMPOSE ?= ./scripts/tooling/docker-compose.sh
 
-.PHONY: help install setup dev dev-broker dev-web seed stop clean test validate tunnel fork-mainnet deploy-intel-liquidity fork-mainnet-smoke tokenomics-demo
+.PHONY: help install setup dev dev-broker dev-web seed stop clean test validate tunnel fork-mainnet deploy-intel-liquidity fork-mainnet-smoke tokenomics-demo demo-fork
 
 # Default command
 help:
@@ -51,10 +53,12 @@ help:
 	@echo "  make deploy-intel-liquidity  Deploy INTEL + WETH pool to local fork"
 	@echo "  make fork-mainnet-smoke      Full fork + liquidity smoke test"
 	@echo "  make tokenomics-demo         Run LP/staker/holder tokenomics actor simulation"
+	@echo "  make demo-fork               Run full Assay Protocol demo on local mainnet fork"
 
 # Setup commands
 install:
 	corepack pnpm install
+	corepack pnpm hooks:install
 
 setup: install
 	corepack pnpm tooling:install
@@ -62,17 +66,17 @@ setup: install
 
 # Infrastructure
 infra-up:
-	POSTGRES_PORT=$(POSTGRES_PORT) REDIS_PORT=$(REDIS_PORT) $(COMPOSE) up -d
+	POSTGRES_PORT=$(POSTGRES_PORT) REDIS_PORT=$(REDIS_PORT) POSTGRES_PASSWORD=$(POSTGRES_PASSWORD) REDIS_PASSWORD=$(REDIS_PASSWORD) $(COMPOSE) up -d
 	@echo "Waiting for Postgres and Redis to be ready..."
 	@sleep 3
 	@echo "Infrastructure ready!"
 
 infra-down:
-	POSTGRES_PORT=$(POSTGRES_PORT) REDIS_PORT=$(REDIS_PORT) $(COMPOSE) down
+	POSTGRES_PORT=$(POSTGRES_PORT) REDIS_PORT=$(REDIS_PORT) POSTGRES_PASSWORD=$(POSTGRES_PASSWORD) REDIS_PASSWORD=$(REDIS_PASSWORD) $(COMPOSE) down --remove-orphans
 
 infra-reset:
-	POSTGRES_PORT=$(POSTGRES_PORT) REDIS_PORT=$(REDIS_PORT) $(COMPOSE) down -v
-	POSTGRES_PORT=$(POSTGRES_PORT) REDIS_PORT=$(REDIS_PORT) $(COMPOSE) up -d
+	POSTGRES_PORT=$(POSTGRES_PORT) REDIS_PORT=$(REDIS_PORT) POSTGRES_PASSWORD=$(POSTGRES_PASSWORD) REDIS_PASSWORD=$(REDIS_PASSWORD) $(COMPOSE) down -v --remove-orphans
+	POSTGRES_PORT=$(POSTGRES_PORT) REDIS_PORT=$(REDIS_PORT) POSTGRES_PASSWORD=$(POSTGRES_PASSWORD) REDIS_PASSWORD=$(REDIS_PASSWORD) $(COMPOSE) up -d
 	@echo "Infrastructure reset (data wiped)"
 
 # Development - Full stack
@@ -156,3 +160,14 @@ tokenomics-demo:
 # Quick start for demos
 demo: setup
 	@$(MAKE) dev
+
+# Full demo on mainnet fork
+demo-fork:
+	@echo '=== Starting mainnet fork ==='
+	@cd packages/intelligence-exchange-cannes-contracts && bash script/fork_mainnet.sh &
+	@sleep 3
+	@echo '=== Deploying Assay Protocol stack ==='
+	@cd packages/intelligence-exchange-cannes-contracts && forge script script/ForkDeploy.s.sol --rpc-url http://127.0.0.1:8545 --broadcast --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+	@echo '=== Running integration tests ==='
+	@cd packages/intelligence-exchange-cannes-contracts && forge test --match-contract ForkIntegration --fork-url http://127.0.0.1:8545 -vv
+	@echo '=== Demo complete ==='

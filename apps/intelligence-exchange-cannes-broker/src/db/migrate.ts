@@ -120,6 +120,7 @@ export async function migrate() {
       lease_expiry TIMESTAMPTZ,
       active_claim_id TEXT,
       active_claim_worker_id TEXT,
+      on_chain_settled BOOLEAN NOT NULL DEFAULT FALSE,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
@@ -308,6 +309,12 @@ export async function migrate() {
     )
   `;
 
+  // Replay protection: one release row per milestone per job (Opus audit finding)
+  await sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS escrow_releases_milestone_job_idx
+    ON escrow_releases(milestone_id, job_id)
+  `;
+
   await sql`
     CREATE TABLE IF NOT EXISTS chain_syncs (
       sync_id UUID PRIMARY KEY,
@@ -374,6 +381,8 @@ export async function migrate() {
 
   await sql`ALTER TABLE submissions ADD COLUMN IF NOT EXISTS account_address TEXT`;
   await sql`ALTER TABLE submissions ADD COLUMN IF NOT EXISTS agent_fingerprint TEXT`;
+
+  await sql`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS on_chain_settled BOOLEAN NOT NULL DEFAULT FALSE`;
 
   await sql`ALTER TABLE agent_identities ADD COLUMN IF NOT EXISTS account_address TEXT`;
   await sql`ALTER TABLE agent_identities ADD COLUMN IF NOT EXISTS role TEXT`;

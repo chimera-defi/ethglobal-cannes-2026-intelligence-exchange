@@ -148,6 +148,13 @@ corepack pnpm --filter intelligence-exchange-cannes-contracts test   # 531+ forg
 - [spec/TOKENOMICS.md](spec/TOKENOMICS.md) — tokenomics detail
 - [docs/HOW_ITS_MADE.md](docs/HOW_ITS_MADE.md) — how it was built
 
+## Post-Cannes Expansion
+
+Future markets built on the same settlement primitives:
+
+- **Compute Pool** — Spot/preemptible GPU/CPU marketplace. [products/compute-pool/ARCHITECTURE.md](products/compute-pool/ARCHITECTURE.md)
+- **Inference Market** — Model inference routing with LLM-as-judge scoring. [products/inference-market/ARCHITECTURE.md](products/inference-market/ARCHITECTURE.md)
+
 ---
 
 ## Contact
