@@ -27,10 +27,11 @@ contract TaskEscrow {
     error TaskNotFunded();
     error RefundWindowNotElapsed();
     error InvalidSplit();
+    error WorkerMismatch();
 
     // ─── Events ───────────────────────────────────────────────────────────────
 
-    event TaskFunded(bytes32 indexed taskId, address indexed funder, address indexed worker, uint256 amount);
+    event TaskFunded(bytes32 indexed taskId, address indexed funder, uint256 amount);
     event TaskReleased(
         bytes32 indexed taskId,
         address indexed worker,
@@ -43,6 +44,7 @@ contract TaskEscrow {
     event TreasuryUpdated(address indexed treasury);
     event OperatorSet(address indexed op, bool approved);
     event RefundWindowUpdated(uint256 window);
+    event WorkerAssigned(bytes32 indexed taskId, address indexed worker);
     event OwnershipTransferStarted(address indexed previous, address indexed next);
     event OwnershipTransferred(address indexed previous, address indexed next);
 
@@ -137,10 +139,8 @@ contract TaskEscrow {
 
     /// @notice Fund a task with INTEL. Tokens are transferred from caller and held in escrow.
     /// @param taskId  Unique task identifier (bytes32).
-    /// @param worker  Address of the worker who will receive the funds on acceptance.
     /// @param amount  INTEL amount to escrow (in wei, 18 decimals).
-    function fundTask(bytes32 taskId, address worker, uint256 amount) external nonReentrant {
-        if (worker == address(0)) revert ZeroAddress();
+    function fundTask(bytes32 taskId, uint256 amount) external nonReentrant {
         if (amount == 0) revert ZeroAmount();
 
         Task storage task = tasks[taskId];
@@ -152,12 +152,26 @@ contract TaskEscrow {
 
         task.taskId = taskId;
         task.funder = msg.sender;
-        task.worker = worker;
+        task.worker = address(0); // Worker unknown at funding time
         task.amount = amount;
         task.state = TaskState.Funded;
         task.fundedAt = block.timestamp;
 
-        emit TaskFunded(taskId, msg.sender, worker, amount);
+        emit TaskFunded(taskId, msg.sender, amount);
+    }
+
+    /// @notice Assign a worker to a funded task. Called by operator when worker claims the task.
+    /// @custom:access operator only
+    /// @param taskId  Task identifier to assign worker to.
+    /// @param worker  Address of the worker claiming the task.
+    function setWorker(bytes32 taskId, address worker) external onlyOperator {
+        if (worker == address(0)) revert ZeroAddress();
+
+        Task storage task = tasks[taskId];
+        if (task.state != TaskState.Funded) revert TaskNotFunded();
+
+        task.worker = worker;
+        emit WorkerAssigned(taskId, worker);
     }
 
     /// @notice Release escrowed INTEL to worker, staker yield pool, and treasury.
@@ -169,6 +183,9 @@ contract TaskEscrow {
 
         Task storage task = tasks[taskId];
         if (task.state != TaskState.Funded) revert TaskNotFunded();
+
+        // Validate worker matches assignment if setWorker was called
+        if (task.worker != address(0) && task.worker != worker) revert WorkerMismatch();
 
         uint256 workerShare = (task.amount * workerBps) / BPS;
         uint256 stakerShare = (task.amount * stakerBps) / BPS;
