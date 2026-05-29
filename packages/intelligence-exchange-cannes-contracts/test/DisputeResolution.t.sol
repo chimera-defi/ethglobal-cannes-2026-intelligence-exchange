@@ -64,6 +64,10 @@ contract DisputeResolutionTest is Test {
         disputeResolution.setReviewerStakeManager(address(reviewerStakeManager));
         disputeResolution.setWorkerStakeManager(address(workerStakeManager));
 
+        // Set dispute resolution as operator in stake managers so it can call slash
+        reviewerStakeManager.setOperator(address(disputeResolution), true);
+        workerStakeManager.setOperator(address(disputeResolution), true);
+
         // Mint tokens to all participants
         intel.mint(disputer, 10_000e18);
         intel.mint(worker, 10_000e18);
@@ -294,11 +298,9 @@ contract DisputeResolutionTest is Test {
 
         assertEq(uint256(state), uint256(DisputeResolution.DisputeState.UpheldWorkerFault));
 
-        // Disputer should get bond back
-        assertEq(intel.balanceOf(disputer), disputerBalanceBefore + DISPUTE_BOND);
-
-        // Note: Worker slash is attempted but may fail silently due to try-catch
-        // The contract attempts to slash but doesn't revert if it fails
+        // Disputer should get bond back + reporter share of worker slash (50% of DISPUTE_BOND)
+        uint256 expectedReporterShare = DISPUTE_BOND / 2; // 50% to reporter
+        assertEq(intel.balanceOf(disputer), disputerBalanceBefore + DISPUTE_BOND + expectedReporterShare);
     }
 
     // ─── Happy path: resolveDispute rejected (bond slashed) ───────────────────
