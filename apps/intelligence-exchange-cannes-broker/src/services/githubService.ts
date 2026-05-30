@@ -1,4 +1,40 @@
+import { Redis } from 'ioredis';
+
 export const GITHUB_ENABLED = Boolean(process.env.GITHUB_CLIENT_ID);
+
+// Lazy Redis client singleton for GitHub token storage
+let redisClient: Redis | null = null;
+let redisAvailable = true;
+
+function getRedis(): Redis | null {
+  if (!redisAvailable) return null;
+
+  if (redisClient) return redisClient;
+
+  try {
+    const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+    redisClient = new Redis(redisUrl, {
+      maxRetriesPerRequest: 3,
+      retryStrategy: (times) => {
+        if (times > 3) {
+          redisAvailable = false;
+          console.warn('[githubService] Redis unavailable, falling back to in-memory storage');
+          return null;
+        }
+        return Math.min(times * 100, 3000);
+      },
+    });
+    redisClient.on('error', () => {
+      redisAvailable = false;
+      console.warn('[githubService] Redis error, falling back to in-memory storage');
+    });
+    return redisClient;
+  } catch (err) {
+    redisAvailable = false;
+    console.warn('[githubService] Redis initialization failed, falling back to in-memory storage:', err);
+    return null;
+  }
+}
 
 interface GitHubRepo {
   name: string;
@@ -87,6 +123,11 @@ export async function getRepoContext(token: string, fullName: string): Promise<{
   readme?: string;
   topFiles: string[];
 }> {
+  // SSRF protection: validate repo name format
+  if (!/^[a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+$/.test(fullName)) {
+    throw new Error('Invalid repo name format');
+  }
+
   const [readmeResponse, contentsResponse] = await Promise.all([
     fetch(`https://api.github.com/repos/${fullName}/readme`, {
       headers: {
@@ -154,33 +195,67 @@ export async function createPR(
   };
 }
 
-// Simple in-memory session store (for development; use Redis in production)
-const githubSessions = new Map<string, { token: string; username: string; createdAt: number }>();
-const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+// GitHub session storage with Redis backend (1-hour TTL) and in-memory fallback
+const SESSION_TTL_SECONDS = 3600; // 1 hour
 
-export function createGitHubSession(token: string, username: string): string {
+// In-memory fallback store
+const githubSessionsFallback = new Map<string, { token: string; username: string; createdAt: number }>();
+
+export async function createGitHubSession(token: string, username: string): Promise<string> {
   const sessionToken = Math.random().toString(36).substring(2) + Date.now().toString(36);
-  githubSessions.set(sessionToken, {
-    token,
-    username,
-    createdAt: Date.now(),
-  });
+  const redis = getRedis();
+
+  if (redis) {
+    try {
+      await redis.setex(`github_token:${sessionToken}`, SESSION_TTL_SECONDS, JSON.stringify({ token, username }));
+    } catch (err) {
+      console.warn('[githubService] Redis set failed, using in-memory fallback:', err);
+      githubSessionsFallback.set(sessionToken, { token, username, createdAt: Date.now() });
+    }
+  } else {
+    githubSessionsFallback.set(sessionToken, { token, username, createdAt: Date.now() });
+  }
+
   return sessionToken;
 }
 
-export function getGitHubSession(sessionToken: string): { token: string; username: string } | null {
-  const session = githubSessions.get(sessionToken);
+export async function getGitHubSession(sessionToken: string): Promise<{ token: string; username: string } | null> {
+  const redis = getRedis();
+
+  if (redis) {
+    try {
+      const data = await redis.get(`github_token:${sessionToken}`);
+      if (data) {
+        return JSON.parse(data);
+      }
+    } catch (err) {
+      console.warn('[githubService] Redis get failed, checking in-memory fallback:', err);
+    }
+  }
+
+  // In-memory fallback
+  const session = githubSessionsFallback.get(sessionToken);
   if (!session) return null;
-  
-  // Check expiration
-  if (Date.now() - session.createdAt > SESSION_TTL_MS) {
-    githubSessions.delete(sessionToken);
+
+  // Check expiration (1 hour)
+  if (Date.now() - session.createdAt > SESSION_TTL_SECONDS * 1000) {
+    githubSessionsFallback.delete(sessionToken);
     return null;
   }
-  
+
   return { token: session.token, username: session.username };
 }
 
-export function deleteGitHubSession(sessionToken: string): void {
-  githubSessions.delete(sessionToken);
+export async function deleteGitHubSession(sessionToken: string): Promise<void> {
+  const redis = getRedis();
+
+  if (redis) {
+    try {
+      await redis.del(`github_token:${sessionToken}`);
+    } catch (err) {
+      console.warn('[githubService] Redis del failed, using in-memory fallback:', err);
+    }
+  }
+
+  githubSessionsFallback.delete(sessionToken);
 }
