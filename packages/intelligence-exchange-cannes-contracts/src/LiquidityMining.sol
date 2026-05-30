@@ -36,8 +36,6 @@ contract LiquidityMining {
     mapping(address => bool) public operators;
 
     uint256 public rewardRate;
-    uint256 public pendingRewardRate;
-    uint256 public rateChangeAvailableAt;
     uint256 public rewardEndTime;
     uint256 public accRewardPerShare;
     uint256 public lastUpdateTime;
@@ -152,30 +150,9 @@ contract LiquidityMining {
 
     function setRewardRate(uint256 rate) external onlyOwner {
         _updatePool();
-        
-        if (rewardEndTime > 0 && block.timestamp < rewardEndTime) {
-            // Active mining period - queue change with 2-day timelock
-            pendingRewardRate = rate;
-            rateChangeAvailableAt = block.timestamp + 2 days;
-        } else {
-            // Not active or ended - apply immediately
-            require(rate > 0 || rewardEndTime == 0, 'rate cannot be zero during active period');
-            uint256 oldRate = rewardRate;
-            rewardRate = rate;
-            emit RewardRateUpdated(oldRate, rate);
-        }
-    }
-
-    function commitRewardRate() external onlyOwner {
-        if (pendingRewardRate == 0) revert ZeroAmount();
-        if (block.timestamp < rateChangeAvailableAt) revert Unauthorized();
-        
         uint256 oldRate = rewardRate;
-        rewardRate = pendingRewardRate;
-        pendingRewardRate = 0;
-        rateChangeAvailableAt = 0;
-        
-        emit RewardRateUpdated(oldRate, rewardRate);
+        rewardRate = rate;
+        emit RewardRateUpdated(oldRate, rate);
     }
 
     function emergencyWithdraw() external nonReentrant {
