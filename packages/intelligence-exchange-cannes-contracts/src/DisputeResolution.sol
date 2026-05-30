@@ -225,7 +225,7 @@ contract DisputeResolution {
         for (uint256 i = 0; i < jurors.length; i++) {
             if (jurors[i] == address(0)) revert ZeroAddress();
             // Check juror has staked INTEL > 0
-            (uint256 staked,,,,,,,) = staking.stakers(jurors[i]);
+            (uint256 staked,,,,,,,,,) = staking.stakers(jurors[i]);
             if (staked == 0) revert InvalidJuror();
         }
 
@@ -352,6 +352,11 @@ contract DisputeResolution {
             }
         }
 
+        // Clear task lock if dispute was rejected/expired — allow re-dispute
+        if (dispute.state == DisputeState.Rejected || dispute.state == DisputeState.Expired) {
+            taskDisputeId[dispute.taskId] = 0;
+        }
+
         emit DisputeResolved(disputeId, dispute.state, workerSlashed, reviewerSlashed);
     }
 
@@ -364,6 +369,9 @@ contract DisputeResolution {
 
         dispute.state = DisputeState.Expired;
         _returnBond(disputeId, dispute.disputer, dispute.bond);
+
+        // Clear task lock — allow re-dispute
+        taskDisputeId[dispute.taskId] = 0;
 
         emit DisputeExpired(disputeId);
     }
