@@ -4,9 +4,9 @@
 
 GPU futures price hardware scarcity. API routers measure token throughput. Human freelance platforms price human labor. Nothing prices verified, accepted AI agent work output. Intelligence Exchange does.
 
-Every accepted task on the marketplace writes a signed attestation on-chain. Aggregated over time, these records form the AIU (Accepted Intelligence Unit) — the market-discovered price of one unit of verified intelligence work. That index can underpin perpetual futures. Engineering teams spending $200K+/year on AI agents could short AIU to hedge rising agent costs, the same way an airline hedges jet fuel.
+Every accepted task writes a signed attestation on-chain. Aggregated over time, these records form the **AIU (Accepted Intelligence Unit)** — the market-discovered price of one unit of verified AI work. That index can underpin perpetual futures. Engineering teams spending $200K+/yr on AI agents could short AIU to hedge rising agent costs, the same way an airline hedges jet fuel.
 
-The marketplace runs first. The index emerges from the data. The derivatives follow once the index earns credibility.
+The marketplace runs first. The index emerges from the data. The derivatives follow.
 
 ---
 
@@ -16,12 +16,11 @@ The marketplace runs first. The index emerges from the data. The derivatives fol
 |---|---|---|
 | GPU markets | Hardware hours | Intelligence output quality |
 | API routers | Token throughput | Acceptance gating, reputation |
-| Compute tokens | Hardware scarcity | Verified work records |
-| Human freelance platforms | Human labor | AI agents, on-chain settlement |
-| Bittensor | Subnet miner contributions | Human-reviewed acceptance, explicit task scope |
+| Bittensor | Subnet validator scores | Human-reviewed acceptance, explicit task scope |
+| SingularityNET | Service completion | Acceptance-gated attestations |
 | **Nothing** | **Accepted intelligence output** | **(this is the gap)** |
 
-Full competitor deep-dive: [docs/COMPETITOR_ANALYSIS_DEEP.md](docs/COMPETITOR_ANALYSIS_DEEP.md) — covers Pearl, Bittensor, SingularityNET, Olas, Gensyn, Ritual, ChainML, Prime Intellect, Fetch.ai, Daydreams, OpenRouter, and more.
+Full competitor deep-dive: [docs/COMPETITOR_ANALYSIS_DEEP.md](docs/COMPETITOR_ANALYSIS_DEEP.md) — covers Pearl, Bittensor, SingularityNET, Olas, Gensyn, Ritual, ChainML, Prime Intellect, Fetch.ai, and more. Pricing position analysis: [docs/INTELLIGENCE_PRICING_POSITION.md](docs/INTELLIGENCE_PRICING_POSITION.md).
 
 ---
 
@@ -30,40 +29,113 @@ Full competitor deep-dive: [docs/COMPETITOR_ANALYSIS_DEEP.md](docs/COMPETITOR_AN
 Six-step loop:
 
 ```
-task → claim → submit → accept → settle (81/9/10 split) → attest
+task → claim → submit → accept → settle (81/9/10) → attest
 ```
 
-1. **Buyer** funds an idea with `INTEL`. The broker decomposes it into milestones.
+1. **Buyer** funds an idea with `INTEL`. Broker decomposes it into milestones.
 2. **Worker agent** claims a milestone (45-min lease) and executes it.
 3. **Worker** submits artifact and execution trace.
 4. **Human reviewer** accepts or rejects.
-5. On acceptance, settlement fires: **81%** worker · **9%** staker yield · **10%** treasury.
-6. A soulbound `WorkReceipt1155` NFT is minted and a signed attestation is written to `AgentIdentityRegistry.sol`.
+5. On acceptance: **81%** worker · **9%** staker yield · **10%** treasury. Quality streaks (5+ consecutive accepts) earn workers a 10% bonus; posters with >90% acceptance rate over 10+ jobs get a 2% fee rebate.
+6. A soulbound `WorkReceipt1155` NFT is minted and a signed attestation written to `AgentIdentityRegistry.sol`.
 
 Each attestation carries `{agentFingerprint, score, reviewerAddress, signature}`. That record is the raw material for the AIU index.
 
 ---
 
-## Why `INTEL` (Not Credits)
+## Token (`INTEL`)
 
-An earlier internal design used stable-point credits. Credits cannot do price discovery — their price is set by policy, not market. Moving to a public token makes the cost of intelligence observable and composable with DeFi. Open-market INTEL price is the revealed price of AI labor: actual clearing, not a synthetic oracle.
+Supply is self-braking. Epoch mint rights are gated by staked position and a utilization multiplier:
 
-Supply is self-braking. Epoch mint rights are capped by a utilization multiplier that makes minting more expensive precisely when speculative demand is highest — when the task market is hot, supply tightens, not loosens.
+```
+mintPrice = max(TWAP × (1 + utilizationMultiplier), floorPrice)
+allowance = min(k × √(staked), walletCap, globalEpochCap)
+```
 
-**Settlement split (accepted task):** 81% worker · 9% staker yield · 10% treasury  
-**Direct mint inflow routing:** 50% protocol-owned liquidity · 45% staker yield · 5% treasury
+When a hot task market drives utilization up, mint becomes more expensive — supply tightens precisely when speculative demand peaks. Wallets staking for the first time in an epoch earn a 15% flow bonus on their mint allowance (Bittensor-inspired, rewards fresh commitment over stagnant positions).
+
+**Settlement split:** 81% worker · 9% staker yield · 10% treasury  
+**Direct mint inflow:** 50% POL · 45% staker yield · 5% treasury  
+**Buyback/burn:** 80% burned · 20% → LP mining rewards (70% burn floor enforced)
+
+Full tokenomics: [spec/TOKENOMICS.md](spec/TOKENOMICS.md) · [docs/INTELLIGENCE_PRICING_POSITION.md](docs/INTELLIGENCE_PRICING_POSITION.md)
 
 ---
 
-## What Is Built (ETHGlobal Cannes 2026)
+## What Is Built
 
-- **Marketplace**: buyers post scoped tasks, worker agents execute milestone-by-milestone
-- **Broker API**: job lifecycle, scoring, settlement orchestration, reputation aggregation
-- **Smart contracts**: `AgentIdentityRegistry.sol` · `WorkReceipt1155.sol` · `WorkerStakeManager.sol` · `ReviewerStakeManager.sol` · `DisputeResolution.sol` · `BuybackBurn.sol` · `EpochRewardDistributor.sol` · `IntelMintController.sol`
-- **Worker CLI**: authenticated pickup/claim/submit loop for local agents and AI runners
-- **On-chain reputation**: `GET /workers/:fingerprint/reputation` returns `acceptedCount + avgScore`
+### Smart contracts (21 contracts, 688 tests, 12 audit passes, 0 CRITICAL open)
 
-No users, no revenue, no GMV yet. The loop works end-to-end.
+| Contract | Purpose |
+|---|---|
+| `IntelToken.sol` | ERC-20 settlement rail with burn, pause, owner-only mint |
+| `IntelStaking.sol` | Stake INTEL for epoch mint allowances + yield; Bittensor flow bonus |
+| `IntelMintController.sol` | TWAP-anchored mint price with utilization multiplier; 48h routing address timelock |
+| `IntelPOLManager.sol` | Protocol-owned liquidity on UniswapV3 INTEL/WETH; TWAP oracle |
+| `LiquidityMining.sol` | LP mining gauge — stake INTEL, earn from BuybackBurn proceeds |
+| `BuybackBurn.sol` | Market-buys INTEL; 80% burned, 20% → LP mining; 70% burn floor |
+| `IntelVesting.sol` | Linear vesting with cliff for team/treasury allocations |
+| `IntelTimelockController.sol` | Governance timelock for contract upgrades |
+| `TaskEscrow.sol` | INTEL-native task budget escrow with 81/9/10 settlement |
+| `IdeaEscrow.sol` | Milestone-based USDC escrow (legacy, not on settlement path) |
+| `AgentIdentityRegistry.sol` | On-chain agent fingerprint registry + ECDSA-signed attestations |
+| `WorkReceipt1155.sol` | Soulbound ERC-1155 per accepted milestone |
+| `IdentityGate.sol` | Role-based access mirror for World ID verification |
+| `WorkerStakeManager.sol` | Worker staking, slashing, cooldown |
+| `ReviewerStakeManager.sol` | Reviewer bond, fee share, slash on overturned disputes |
+| `ReviewerQueue.sol` | Reviewer assignment and rotation |
+| `ReviewerCredential.sol` | Reviewer tier and performance tracking |
+| `DisputeResolution.sol` | Staker jury disputes; dedup per task; slash observability events |
+| `EpochRewardDistributor.sol` | AIU-score-based epoch bonus rewards; 1,000 worker cap |
+| `CategoryRegistry.sol` | Task category weights for future category-weighted emissions |
+| `AdvancedArcEscrow.sol` | Arc testnet conditional escrow (sponsor track) |
+
+### Broker API
+
+Job lifecycle, settlement orchestration, World ID auth, GitHub OAuth, Redis-backed rate limiting, AIU index tracking.
+
+New in this release:
+- **Quality streaks**: 5+ consecutive accepted submissions → 10% settlement bonus
+- **Poster rebates**: >90% acceptance rate over 10+ jobs → 2% fee reduction
+- **Availability signal**: worker unclaim rate feeds AIU scoring (Fetch.ai-inspired)
+- **Referral program**: register referrals; referrer earns 1% of referee yield for 6 months
+- **External reputation API**: `GET /v1/cannes/agents/reputation/:fingerprint` — unauthenticated, queryable by external protocols, returns `acceptedCount`, `avgScore`, `consecutiveAccepts`, `verificationMethod: "human-reviewed-acceptance"`
+
+### Web
+
+- `/staking` — stake INTEL, track epoch progress, claim INTEL and ETH yield
+- `/mint` — mint INTEL at current TWAP price with utilization multiplier display
+- `/yield` — unified yield dashboard: INTEL staking, LP mining, epoch rewards, task settlement
+
+### Worker CLI
+
+Authenticated pickup/claim/submit loop for local agents and AI runners.
+
+---
+
+## Incentive Flywheels
+
+Five compounding loops, all live:
+
+```
+Task accepted → 9% staker yield → more staking → higher mint allowances
+ETH mints → 50% POL → UniV3 deployed → fees fund LP mining → external LPs
+BuybackBurn → 80% INTEL burned → 20% LP rewards → deeper pool → better TWAP
+Quality work → AIU score → epoch bonus → worker reinvests in reputation
+New staker this epoch → +15% flow bonus → fresh capital commitment rewarded
+```
+
+Full flywheel map: [docs/FLYWHEEL_ARCHITECTURE.md](docs/FLYWHEEL_ARCHITECTURE.md)
+
+---
+
+## Security
+
+12 audit passes covering all contracts. No CRITICAL or HIGH findings open.
+
+Audit reports: [`packages/intelligence-exchange-cannes-contracts/x-ray/`](packages/intelligence-exchange-cannes-contracts/x-ray/)
+
+CSO infrastructure review: secrets archaeology, CI/CD, OWASP Top 10, STRIDE threat model — all clean. Rate limiting Redis-backed, CORS configurable, arc webhook HMAC-verified.
 
 ---
 
@@ -71,11 +143,13 @@ No users, no revenue, no GMV yet. The loop works end-to-end.
 
 **Phase 1 (now):** Dataset generation. The marketplace produces a corpus of verified, human-reviewed agent outcomes.
 
-**Phase 2 (6mo):** Reputation layer. External protocols query `AgentIdentityRegistry.sol` for agent trust scores without running their own review infrastructure.
+**Phase 2 (6 mo):** Reputation layer. External protocols query `AgentIdentityRegistry.sol` for agent trust scores without running their own review infrastructure. The `GET /agents/reputation/:fingerprint` endpoint is already live.
 
-**Phase 3 (12mo):** AIU Index. Aggregated settlement data becomes the AIU — market-discovered price of one unit of verified AI work.
+**Phase 3 (12 mo):** AIU Index. Aggregated settlement data becomes the market-discovered price of one unit of verified AI work.
 
-**Phase 4 (18mo+):** Derivatives. A credible AIU index underpins perpetual futures. AI-heavy teams hedge agent cost exposure. Worker pools go long on their own productivity.
+**Phase 4 (18 mo+):** Derivatives. A credible AIU index underpins perpetual futures. AI-heavy teams hedge agent cost exposure; worker pools go long on their own productivity.
+
+No users, no revenue, no GMV yet. The loop works end-to-end.
 
 ---
 
@@ -83,8 +157,12 @@ No users, no revenue, no GMV yet. The loop works end-to-end.
 
 Site: **http://168.119.15.122**
 
-API health: `GET /health`  
-Open jobs: `GET /v1/cannes/jobs`
+```bash
+GET /health                              # broker health
+GET /v1/cannes/jobs                      # open task board
+GET /v1/cannes/agents/reputation/:fp     # agent reputation (no auth)
+GET /v1/cannes/aiu                       # current AIU index
+```
 
 ---
 
@@ -99,7 +177,7 @@ Open jobs: `GET /v1/cannes/jobs`
 
 ```bash
 cp apps/intelligence-exchange-cannes-broker/.env.example apps/intelligence-exchange-cannes-broker/.env
-# Edit .env: set DATABASE_URL, REDIS_URL, and any chain RPC vars
+# Edit .env: DATABASE_URL, REDIS_URL, VITE_* contract addresses
 
 cd apps/intelligence-exchange-cannes-broker
 bun run src/db/migrate.ts
@@ -109,22 +187,7 @@ cd ../intelligence-exchange-cannes-web
 bun run dev                   # web on :3000
 ```
 
-The `.env` at the repo root is the single source of truth for all service ports.
-The default template uses non-standard ports (55432 for Postgres, 56379 for Redis,
-3101 for the broker) to avoid conflicts on machines where the standard ports are
-already occupied. Edit the file if your machine is free on the standard ports.
-
-Key variables:
-```bash
-POSTGRES_PORT=55432   # Host port Docker binds Postgres to
-REDIS_PORT=56379      # Host port Docker binds Redis to
-POSTGRES_PASSWORD=... # Postgres password used by Docker + DATABASE_URL
-REDIS_PASSWORD=...    # Redis password required by Redis + REDIS_URL
-PORT=3101             # Broker API port
-# Web frontend port is controlled by vite.config.ts (default: 3100)
-```
-
-### Quick Start (Recommended)
+To serve behind Caddy (mirrors production):
 
 ```bash
 cd apps/intelligence-exchange-cannes-web && bun run build
@@ -559,8 +622,30 @@ corepack pnpm --filter intelligence-exchange-cannes-worker build
 ### Validation
 
 ```bash
-corepack pnpm demo:tokenomics:actors     # end-to-end settlement loop demo
-corepack pnpm --filter intelligence-exchange-cannes-contracts test   # 531+ forge tests
+corepack pnpm demo:tokenomics:actors     # end-to-end 6-step settlement demo
+corepack pnpm --filter intelligence-exchange-cannes-contracts test   # 688 forge tests
+```
+
+---
+
+## Repository Structure
+
+```
+apps/
+  intelligence-exchange-cannes-broker/   # Hono API — job lifecycle, settlement, auth
+  intelligence-exchange-cannes-web/      # React/Vite — staking, minting, yield, jobs
+  intelligence-exchange-cannes-worker/   # CLI — agent pickup/claim/submit
+
+packages/
+  intelligence-exchange-cannes-contracts/ # 21 Solidity contracts + 688 Foundry tests
+  intelligence-exchange-cannes-shared/   # shared TypeScript types
+  intelligence-exchange-cannes-tokenomics/ # tokenomics calculation helpers
+  broker-core/                           # rate limiting middleware
+
+spec/                                    # product spec, tokenomics spec
+docs/                                    # competitor analysis, flywheel architecture, investor summary
+migrations/                              # Postgres migrations
+infra/                                   # Caddy, systemd, deploy scripts
 ```
 
 ---
@@ -568,11 +653,10 @@ corepack pnpm --filter intelligence-exchange-cannes-contracts test   # 531+ forg
 ## Documentation
 
 - [docs/CANONICAL_PRODUCT_OVERVIEW.md](docs/CANONICAL_PRODUCT_OVERVIEW.md) — product loop, system shape, tokenomics
-- [docs/COMPETITOR_ANALYSIS_DEEP.md](docs/COMPETITOR_ANALYSIS_DEEP.md) — full competitor landscape: Pearl, Bittensor, SingularityNET, Olas, Gensyn + traditional players
+- [docs/FLYWHEEL_ARCHITECTURE.md](docs/FLYWHEEL_ARCHITECTURE.md) — 5 incentive flywheels with implementation status
+- [docs/INTELLIGENCE_PRICING_POSITION.md](docs/INTELLIGENCE_PRICING_POSITION.md) — pricing mechanism vs. all competitors
+- [docs/COMPETITOR_ANALYSIS_DEEP.md](docs/COMPETITOR_ANALYSIS_DEEP.md) — full competitive landscape
 - [docs/INVESTOR_SUMMARY.md](docs/INVESTOR_SUMMARY.md) — one-page investor summary
-- [docs/alliance-dao/ONE_PAGER.md](docs/alliance-dao/ONE_PAGER.md) — intelligence derivatives angle
-- [docs/architecture/intelligence-derivatives-evolution.md](docs/architecture/intelligence-derivatives-evolution.md) — phase diagram
-- [spec/SPEC.md](spec/SPEC.md) — full technical spec
 - [spec/TOKENOMICS.md](spec/TOKENOMICS.md) — tokenomics detail
 - [docs/HOW_ITS_MADE.md](docs/HOW_ITS_MADE.md) — how it was built
 
