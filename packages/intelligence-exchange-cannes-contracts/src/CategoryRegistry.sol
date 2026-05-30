@@ -230,6 +230,13 @@ contract CategoryRegistry {
             }
         }
 
+        // Validate that all category weights sum to BPS_TOTAL
+        uint256 totalWeight = 0;
+        for (uint256 i = 0; i < 6; i++) {
+            totalWeight += categories[i].rewardWeightBps;
+        }
+        if (totalWeight != BPS_TOTAL) revert WeightSumInvalid();
+
         emit CategoryWeightUpdated(category, oldWeight, newWeightBps);
     }
 

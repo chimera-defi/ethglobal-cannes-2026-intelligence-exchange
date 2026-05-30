@@ -54,6 +54,19 @@ contract IntelVesting {
     /// @notice Whether this schedule has been revoked
     bool public revoked;
 
+    // ─── Reentrancy guard ─────────────────────────────────────────────────
+
+    uint256 private constant _NOT_ENTERED = 1;
+    uint256 private constant _ENTERED     = 2;
+    uint256 private _reentrancyStatus;
+
+    modifier nonReentrant() {
+        require(_reentrancyStatus != _ENTERED, "ReentrancyGuard: reentrant call");
+        _reentrancyStatus = _ENTERED;
+        _;
+        _reentrancyStatus = _NOT_ENTERED;
+    }
+
     // ─── Constructor ──────────────────────────────────────────────────────
 
     /// @param _token       INTEL token address
@@ -75,7 +88,7 @@ contract IntelVesting {
         if (_token == address(0))       revert ZeroAddress();
         if (_beneficiary == address(0)) revert ZeroAddress();
         if (_treasury == address(0))    revert ZeroAddress();
-        if (_duration == 0)             revert InvalidDuration();
+        if (_duration < 30 days)        revert InvalidDuration(); // minimum 30-day vesting prevents near-instant cliff bypass
 
         token           = _token;
         beneficiary     = _beneficiary;
@@ -83,6 +96,7 @@ contract IntelVesting {
         cliff           = _start + _cliffDelay;
         duration        = _duration;
         totalAllocation = _allocation;
+        _reentrancyStatus = _NOT_ENTERED;
     }
 
     // ─── Views ────────────────────────────────────────────────────────────
@@ -113,7 +127,7 @@ contract IntelVesting {
 
     /// @notice Release all currently releasable tokens to beneficiary.
     ///         Anyone may call this (no access restriction — permissionless release).
-    function release() external {
+    function release() external nonReentrant {
         uint256 amount = releasable();
         if (amount == 0) revert NothingToRelease();
 
@@ -134,7 +148,8 @@ contract IntelVesting {
     function revoke() external {
         if (msg.sender != treasury) revert Unauthorized();
         if (revoked)                revert AlreadyRevoked();
-        if (block.timestamp >= cliff) revert RevocationLockedAfterCliff();
+        uint256 blackoutStart = cliff > 1 hours ? cliff - 1 hours : 0;
+        if (block.timestamp >= blackoutStart) revert RevocationLockedAfterCliff();
 
         revoked = true;
 
