@@ -10,6 +10,7 @@ services:
       - '127.0.0.1:${POSTGRES_PORT:-5432}:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./infra/ssl:/var/lib/postgresql/ssl:ro
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U iex -d iex_cannes']
       interval: 5s
@@ -24,16 +25,30 @@ services:
     networks:
       - backend
     restart: unless-stopped
+    command:
+      - postgres
+      - -c
+      - ssl=on
+      - -c
+      - ssl_cert_file=/var/lib/postgresql/ssl/postgres-cert.pem
+      - -c
+      - ssl_key_file=/var/lib/postgresql/ssl/postgres-key.pem
+      - -c
+      - ssl_ca_file=/var/lib/postgresql/ssl/ca-cert.pem
+      - -c
+      - ssl_min_protocol_version=TLSv1.2
 
   redis:
     image: redis:7-alpine
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD}
-    command: ['sh', '-c', 'exec redis-server --requirepass "$$REDIS_PASSWORD" --maxmemory 256mb --maxmemory-policy allkeys-lru --bind 0.0.0.0 --protected-mode yes']
+    command: ['sh', '-c', 'exec redis-server --requirepass "$$REDIS_PASSWORD" --maxmemory 256mb --maxmemory-policy allkeys-lru --bind 0.0.0.0 --protected-mode yes --tls-port 6379 --port 0 --tls-cert-file /redis/tls/server.crt --tls-key-file /redis/tls/server.key --tls-ca-cert-file /redis/tls/ca.crt']
     ports:
       - '127.0.0.1:${REDIS_PORT:-6379}:6379'
+    volumes:
+      - ./infra/ssl:/redis/tls:ro
     healthcheck:
-      test: ['CMD-SHELL', 'redis-cli -a "$$REDIS_PASSWORD" ping']
+      test: ['CMD-SHELL', 'redis-cli --tls -a "$$REDIS_PASSWORD" ping']
       interval: 5s
       timeout: 3s
       retries: 5
