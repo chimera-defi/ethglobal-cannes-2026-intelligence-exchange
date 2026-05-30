@@ -95,7 +95,7 @@ agentkitRouter.get('/jobs', zValidator('query', z.object({
   } catch (err: unknown) {
     const status = (err as { status?: number }).status ?? 500;
     const code = (err as { code?: string }).code ?? 'AGENTKIT_ACCESS_FAILED';
-    return c.json({ error: { code, message: String(err) } }, status as 401 | 403 | 429 | 500 | 503);
+    return c.json({ error: { code, message: err instanceof Error ? err.message : String(err) } }, status as 401 | 403 | 429 | 500 | 503);
   }
 });
 
@@ -110,7 +110,7 @@ agentkitRouter.get('/jobs/:jobId', async (c) => {
   } catch (err: unknown) {
     const status = (err as { status?: number }).status ?? 500;
     const code = (err as { code?: string }).code ?? 'AGENTKIT_ACCESS_FAILED';
-    return c.json({ error: { code, message: String(err) } }, status as 401 | 403 | 429 | 500 | 503);
+    return c.json({ error: { code, message: err instanceof Error ? err.message : String(err) } }, status as 401 | 403 | 429 | 500 | 503);
   }
 });
 
@@ -125,6 +125,6 @@ agentkitRouter.get('/jobs/:jobId/skill.md', async (c) => {
   } catch (err: unknown) {
     const status = (err as { status?: number }).status ?? 500;
     const code = (err as { code?: string }).code ?? 'AGENTKIT_ACCESS_FAILED';
-    return c.json({ error: { code, message: String(err) } }, status as 401 | 403 | 429 | 500 | 503);
+    return c.json({ error: { code, message: err instanceof Error ? err.message : String(err) } }, status as 401 | 403 | 429 | 500 | 503);
   }
 });

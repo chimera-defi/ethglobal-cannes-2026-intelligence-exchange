@@ -19,34 +19,41 @@ const RegisterSchema = z.object({
 
 // POST /v1/cannes/workers/register — register agent capability profile
 workersRouter.post('/register', zValidator('json', RegisterSchema), async (c) => {
-  const { accountAddress } = await requireSessionWorldRole(c, 'worker');
-  const { workerId, capabilities, agentMetadata } = c.req.valid('json');
+  try {
+    const { accountAddress } = await requireSessionWorldRole(c, 'worker');
+    const { workerId, capabilities, agentMetadata } = c.req.valid('json');
 
-  const fingerprint = computeAgentFingerprint(
-    agentMetadata.agentType,
-    agentMetadata.agentVersion ?? '0.0.0',
-    agentMetadata.operatorAddress ?? accountAddress
-  );
+    const fingerprint = computeAgentFingerprint(
+      agentMetadata.agentType,
+      agentMetadata.agentVersion ?? '0.0.0',
+      agentMetadata.operatorAddress ?? accountAddress
+    );
 
-  if (fingerprint !== agentMetadata.fingerprint && agentMetadata.fingerprint) {
-    throw httpError('Provided fingerprint does not match broker-computed fingerprint', 409, 'FINGERPRINT_MISMATCH');
+    if (fingerprint !== agentMetadata.fingerprint && agentMetadata.fingerprint) {
+      throw httpError('Provided fingerprint does not match broker-computed fingerprint', 409, 'FINGERPRINT_MISMATCH');
+    }
+
+    await requireAgentAuthorization({
+      accountAddress,
+      fingerprint,
+      role: 'worker',
+      requiredPermissions: ['claim_jobs', 'submit_results'],
+    });
+
+    const [existing] = await db.select().from(agentIdentities).where(eq(agentIdentities.fingerprint, fingerprint));
+
+    if (!existing) {
+      throw httpError('On-chain synced agent identity required before worker registration', 409, 'AGENT_IDENTITY_REQUIRED');
+    }
+
+    console.log(`[worker:registered] workerId=${workerId} fingerprint=${fingerprint}`);
+    return c.json({ workerId, fingerprint, capabilities, registered: true, accountAddress }, 201);
+  } catch (err: unknown) {
+    const status = (err as { status?: number }).status ?? 500;
+    const code = (err as { code?: string }).code ?? 'REGISTER_FAILED';
+    console.error('[worker:register] error', { code, err });
+    return c.json({ error: { code, message: err instanceof Error ? err.message : String(err) } }, status as 401 | 403 | 409 | 500);
   }
-
-  await requireAgentAuthorization({
-    accountAddress,
-    fingerprint,
-    role: 'worker',
-    requiredPermissions: ['claim_jobs', 'submit_results'],
-  });
-
-  const [existing] = await db.select().from(agentIdentities).where(eq(agentIdentities.fingerprint, fingerprint));
-
-  if (!existing) {
-    throw httpError('On-chain synced agent identity required before worker registration', 409, 'AGENT_IDENTITY_REQUIRED');
-  }
-
-  console.log(`[worker:registered] workerId=${workerId} fingerprint=${fingerprint}`);
-  return c.json({ workerId, fingerprint, capabilities, registered: true, accountAddress }, 201);
 });
 
 // POST /v1/cannes/workers/heartbeat — keep-alive
@@ -61,15 +68,21 @@ workersRouter.post('/heartbeat', zValidator('json', z.object({
 // GET /v1/cannes/workers/:fingerprint/reputation — query on-chain reputation mirror
 workersRouter.get('/:fingerprint/reputation', async (c) => {
   const { fingerprint } = c.req.param();
-  const [agent] = await db.select().from(agentIdentities).where(eq(agentIdentities.fingerprint, fingerprint));
-  if (!agent) return c.json({ error: { code: 'NOT_FOUND', message: 'Agent not found' } }, 404);
 
-  return c.json({
-    fingerprint,
-    agentType: agent.agentType,
-    acceptedCount: agent.acceptedCount,
-    avgScore: agent.avgScore,
-    onChainTokenId: agent.onChainTokenId,
-    registeredAt: agent.registeredAt,
-  });
+  try {
+    const [agent] = await db.select().from(agentIdentities).where(eq(agentIdentities.fingerprint, fingerprint));
+    if (!agent) return c.json({ error: { code: 'NOT_FOUND', message: 'Agent not found' } }, 404);
+
+    return c.json({
+      fingerprint,
+      agentType: agent.agentType,
+      acceptedCount: agent.acceptedCount,
+      avgScore: agent.avgScore,
+      onChainTokenId: agent.onChainTokenId,
+      registeredAt: agent.registeredAt,
+    });
+  } catch (err: unknown) {
+    console.error('[worker:reputation] error', { fingerprint, err });
+    return c.json({ error: { code: 'REPUTATION_FAILED', message: err instanceof Error ? err.message : String(err) } }, 500);
+  }
 });

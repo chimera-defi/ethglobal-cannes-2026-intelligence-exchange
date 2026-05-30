@@ -20,7 +20,7 @@ integrationsRouter.post('/world/rp-signature', zValidator('json', z.object({
     return c.json(signature);
   } catch (err: unknown) {
     const status = (err as { status?: number }).status ?? 500;
-    return c.json({ error: { code: 'WORLD_RP_SIGNATURE_FAILED', message: String(err) } }, status as 400 | 403 | 422 | 500 | 503);
+    return c.json({ error: { code: 'WORLD_RP_SIGNATURE_FAILED', message: err instanceof Error ? err.message : String(err) } }, status as 400 | 403 | 422 | 500 | 503);
   }
 });
 
@@ -38,7 +38,7 @@ integrationsRouter.post('/world/verify', zValidator('json', z.object({
     return c.json({
       error: {
         code: 'WORLD_VERIFY_FAILED',
-        message: String(err),
+        message: err instanceof Error ? err.message : String(err),
         details,
       },
     }, status as 400 | 403 | 422 | 500 | 503);
