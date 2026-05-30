@@ -71,6 +71,24 @@ export async function computeAIUIndex() {
     ? round(totalAcceptedJobs / totalReviewed, 4)
     : null;
 
+  // Fetch.ai-inspired availability signal: workers with low unclaim rates earn up to +20% on AIU contribution
+  const availabilityRows = await db.execute(sql`
+    SELECT
+      claimed_by AS worker,
+      COUNT(*) AS total_claimed,
+      SUM(CASE WHEN status = 'open' AND claimed_by IS NOT NULL THEN 1 ELSE 0 END) AS unclaimed
+    FROM jobs
+    WHERE claimed_by IS NOT NULL
+    GROUP BY claimed_by
+  `);
+  const workerAvailability = new Map<string, number>();
+  for (const row of availabilityRows.rows as Array<{ worker: string; total_claimed: string; unclaimed: string }>) {
+    const total = Number(row.total_claimed);
+    const unclaimed = Number(row.unclaimed);
+    const rate = total > 0 ? unclaimed / total : 0;
+    workerAvailability.set(row.worker, rate < 0.10 ? 1.0 : rate < 0.30 ? 0.8 : 0.5);
+  }
+
   return {
     tokenSymbol: config.symbol,
     totalAcceptedJobs,
@@ -79,6 +97,7 @@ export async function computeAIUIndex() {
     weeklyAcceptedJobs,
     weeklyIntelPaidOut,
     acceptanceRate,
+    workerAvailability: Object.fromEntries(workerAvailability),
     computedAt: new Date().toISOString(),
   };
 }
