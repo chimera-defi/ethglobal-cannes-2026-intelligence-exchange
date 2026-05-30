@@ -373,84 +373,105 @@ jobsRouter.get('/', async (c) => {
   const statusFilter = c.req.query('status') ?? 'queued';
   const view = c.req.query('view');
 
-  if (view === 'grouped') {
-    return c.json(await buildGroupedJobBoard(statusFilter));
+  try {
+    if (view === 'grouped') {
+      return c.json(await buildGroupedJobBoard(statusFilter));
+    }
+    return c.json(await getFlatJobs(statusFilter));
+  } catch (err: unknown) {
+    console.error('[jobs:list] error', { statusFilter, view, err });
+    return c.json({ error: { code: 'LIST_FAILED', message: err instanceof Error ? err.message : String(err) } }, 500);
   }
-
-  return c.json(await getFlatJobs(statusFilter));
 });
 
 // GET /v1/cannes/jobs/:jobId — get job details
 jobsRouter.get('/:jobId', async (c) => {
   const { jobId } = c.req.param();
   if (!jobId || !jobId.trim()) return c.json({ error: { code: 'INVALID_PARAM', message: 'jobId is required' } }, 400);
-  const detail = await getJobDetail(jobId);
-  if (!detail) return c.json({ error: { code: 'NOT_FOUND', message: 'Job not found' } }, 404);
-  return c.json(detail);
+
+  try {
+    const detail = await getJobDetail(jobId);
+    if (!detail) return c.json({ error: { code: 'NOT_FOUND', message: 'Job not found' } }, 404);
+    return c.json(detail);
+  } catch (err: unknown) {
+    console.error('[jobs:detail] error', { jobId, err });
+    return c.json({ error: { code: 'DETAIL_FAILED', message: err instanceof Error ? err.message : String(err) } }, 500);
+  }
 });
 
 // GET /v1/cannes/jobs/:jobId/skill.md — serve skill.md task file for agents
 jobsRouter.get('/:jobId/skill.md', async (c) => {
   const { jobId } = c.req.param();
   if (!jobId || !jobId.trim()) return c.json({ error: { code: 'INVALID_PARAM', message: 'jobId is required' } }, 400);
-  const result = await buildSkillMdResponse(jobId);
-  if ('error' in result) {
-    return c.json({ error: result.error }, result.status);
+
+  try {
+    const result = await buildSkillMdResponse(jobId);
+    if ('error' in result) {
+      return c.json({ error: result.error }, result.status);
+    }
+    return result.response;
+  } catch (err: unknown) {
+    console.error('[jobs:skill.md] error', { jobId, err });
+    return c.json({ error: { code: 'SKILL_MD_FAILED', message: err instanceof Error ? err.message : String(err) } }, 500);
   }
-  return result.response;
 });
 
 // GET /v1/cannes/jobs/:jobId/escrow-funding-params — get escrow funding params for a specific job
 jobsRouter.get('/:jobId/escrow-funding-params', async (c) => {
   const { jobId } = c.req.param();
 
-  const taskEscrowAddress = process.env.TASK_ESCROW_ADDRESS;
-  if (!taskEscrowAddress || taskEscrowAddress.trim() === '') {
-    return c.json({ error: 'On-chain escrow not configured', configured: false }, 200);
+  try {
+    const taskEscrowAddress = process.env.TASK_ESCROW_ADDRESS;
+    if (!taskEscrowAddress || taskEscrowAddress.trim() === '') {
+      return c.json({ error: 'On-chain escrow not configured', configured: false }, 200);
+    }
+
+    const [job] = await db.select().from(jobs).where(eq(jobs.jobId, jobId));
+    if (!job) {
+      return c.json({ error: { code: 'NOT_FOUND', message: 'Job not found' } }, 404);
+    }
+
+    const [ideaReserve] = await db.select().from(ideaTokenReserves).where(eq(ideaTokenReserves.ideaId, job.ideaId));
+    if (!ideaReserve) {
+      return c.json({ error: { code: 'NOT_FOUND', message: 'Idea token reserves not found' } }, 404);
+    }
+
+    const budgetUsd = Number.parseFloat(job.budgetUsd);
+    const avgMintPriceUsdPerIntel = Number.parseFloat(ideaReserve.avgMintPriceUsdPerIntel);
+    const amountIntel = budgetUsd / avgMintPriceUsdPerIntel;
+    const amountWei = BigInt(Math.floor(amountIntel * 1e18));
+    const taskIdBytes32 = keccak256(toBytes(jobId)); // Uses jobId, matches broker setWorker/release calls
+
+    const intelTokenAddress = process.env.INTEL_TOKEN_CONTRACT_ADDRESS;
+
+    const erc20ApproveAbi = [{ type: 'function' as const, name: 'approve', inputs: [{name:'spender',type:'address'},{name:'amount',type:'uint256'}], outputs: [{type:'bool'}], stateMutability:'nonpayable' as const }];
+    const taskEscrowAbi = [{ type: 'function' as const, name: 'fundTask', inputs: [{name:'taskId',type:'bytes32'},{name:'amount',type:'uint256'}], outputs: [], stateMutability:'nonpayable' as const }];
+
+    const approveCalldata = encodeFunctionData({
+      abi: erc20ApproveAbi,
+      functionName: 'approve',
+      args: [taskEscrowAddress as `0x${string}`, amountWei],
+    });
+
+    const fundTaskCalldata = encodeFunctionData({
+      abi: taskEscrowAbi,
+      functionName: 'fundTask',
+      args: [taskIdBytes32, amountWei],
+    });
+
+    return c.json({
+      taskEscrowAddress,
+      intelTokenAddress: intelTokenAddress ?? null,
+      taskIdBytes32,
+      amountWei: amountWei.toString(),
+      approveCalldata,
+      fundTaskCalldata,
+      instructions: 'Broadcast approve tx from your buyer wallet, then fundTask tx. Both must use the same wallet that funded this job.',
+    });
+  } catch (err: unknown) {
+    console.error('[jobs:escrow-funding-params] error', { jobId, err });
+    return c.json({ error: { code: 'ESCROW_PARAMS_FAILED', message: err instanceof Error ? err.message : String(err) } }, 500);
   }
-
-  const [job] = await db.select().from(jobs).where(eq(jobs.jobId, jobId));
-  if (!job) {
-    return c.json({ error: { code: 'NOT_FOUND', message: 'Job not found' } }, 404);
-  }
-
-  const [ideaReserve] = await db.select().from(ideaTokenReserves).where(eq(ideaTokenReserves.ideaId, job.ideaId));
-  if (!ideaReserve) {
-    return c.json({ error: { code: 'NOT_FOUND', message: 'Idea token reserves not found' } }, 404);
-  }
-
-  const budgetUsd = Number.parseFloat(job.budgetUsd);
-  const avgMintPriceUsdPerIntel = Number.parseFloat(ideaReserve.avgMintPriceUsdPerIntel);
-  const amountIntel = budgetUsd / avgMintPriceUsdPerIntel;
-  const amountWei = BigInt(Math.floor(amountIntel * 1e18));
-  const taskIdBytes32 = keccak256(toBytes(jobId)); // Uses jobId, matches broker setWorker/release calls
-
-  const intelTokenAddress = process.env.INTEL_TOKEN_CONTRACT_ADDRESS;
-
-  const erc20ApproveAbi = [{ type: 'function' as const, name: 'approve', inputs: [{name:'spender',type:'address'},{name:'amount',type:'uint256'}], outputs: [{type:'bool'}], stateMutability:'nonpayable' as const }];
-  const taskEscrowAbi = [{ type: 'function' as const, name: 'fundTask', inputs: [{name:'taskId',type:'bytes32'},{name:'amount',type:'uint256'}], outputs: [], stateMutability:'nonpayable' as const }];
-
-  const approveCalldata = encodeFunctionData({
-    abi: erc20ApproveAbi,
-    functionName: 'approve',
-    args: [taskEscrowAddress as `0x${string}`, amountWei],
-  });
-
-  const fundTaskCalldata = encodeFunctionData({
-    abi: taskEscrowAbi,
-    functionName: 'fundTask',
-    args: [taskIdBytes32, amountWei],
-  });
-
-  return c.json({
-    taskEscrowAddress,
-    intelTokenAddress: intelTokenAddress ?? null,
-    taskIdBytes32,
-    amountWei: amountWei.toString(),
-    approveCalldata,
-    fundTaskCalldata,
-    instructions: 'Broadcast approve tx from your buyer wallet, then fundTask tx. Both must use the same wallet that funded this job.',
-  });
 });
 
 // POST /v1/cannes/jobs/:jobId/claim — agent claims a milestone
@@ -521,11 +542,13 @@ jobsRouter.post('/:jobId/claim', zValidator('json', JobClaimRequestSchema), asyn
       result = await claimJob(jobId, demoIdentity.accountAddress, demoIdentity.fingerprint);
     }
 
+    console.log('[jobs:claim] success', { jobId, worker: workerAddress });
     return c.json({ ...result, jobId, skillMdUrl: `/v1/cannes/jobs/${jobId}/skill.md` });
   } catch (err: unknown) {
     const status = (err as { status?: number }).status ?? 500;
     const code = (err as { code?: string }).code ?? 'CLAIM_FAILED';
-    return c.json({ error: { code, message: String(err) } }, status as 401 | 403 | 404 | 409 | 500);
+    console.error('[jobs:claim] error', { jobId, code, err });
+    return c.json({ error: { code, message: err instanceof Error ? err.message : String(err) } }, status as 401 | 403 | 404 | 409 | 500);
   }
 });
 
@@ -567,11 +590,13 @@ jobsRouter.post('/:jobId/unclaim', zValidator('json', JobUnclaimRequestSchema), 
       result = await unclaimJob(jobId, demoIdentity.accountAddress, demoIdentity.fingerprint);
     }
 
+    console.log('[jobs:unclaim] success', { jobId });
     return c.json({ ...result, jobId, skillMdUrl: `/v1/cannes/jobs/${jobId}/skill.md` });
   } catch (err: unknown) {
     const status = (err as { status?: number }).status ?? 500;
     const code = (err as { code?: string }).code ?? 'UNCLAIM_FAILED';
-    return c.json({ error: { code, message: String(err) } }, status as 401 | 403 | 404 | 409 | 500);
+    console.error('[jobs:unclaim] error', { jobId, code, err });
+    return c.json({ error: { code, message: err instanceof Error ? err.message : String(err) } }, status as 401 | 403 | 404 | 409 | 500);
   }
 });
 
@@ -623,11 +648,13 @@ jobsRouter.post('/:jobId/submit', zValidator('json', JobResultSubmitRequestSchem
       );
     }
 
+    console.log('[jobs:submit] success', { jobId });
     return c.json(result);
   } catch (err: unknown) {
     const status = (err as { status?: number }).status ?? 500;
     const code = (err as { code?: string }).code ?? 'SUBMIT_FAILED';
-    return c.json({ error: { code, message: String(err) } }, status as 401 | 403 | 404 | 409 | 500);
+    console.error('[jobs:submit] error', { jobId, code, err });
+    return c.json({ error: { code, message: err instanceof Error ? err.message : String(err) } }, status as 401 | 403 | 404 | 409 | 500);
   }
 });
 
@@ -657,11 +684,13 @@ jobsRouter.post('/:jobId/spend', zValidator('json', JobSpendCreateRequestSchema)
       txHash: req.txHash,
     });
 
+    console.log('[jobs:spend] recorded', { jobId, vendor: req.vendor, amountUsd: req.amountUsd });
     return c.json(result, 201);
   } catch (err: unknown) {
     const status = (err as { status?: number }).status ?? 500;
     const code = (err as { code?: string }).code ?? 'SPEND_FAILED';
-    return c.json({ error: { code, message: String(err) } }, status as 401 | 403 | 404 | 409 | 500);
+    console.error('[jobs:spend] error', { jobId, code, err });
+    return c.json({ error: { code, message: err instanceof Error ? err.message : String(err) } }, status as 401 | 403 | 404 | 409 | 500);
   }
 });
 
@@ -740,7 +769,7 @@ jobsRouter.post(
       console.error('[jobs:dispute] Failed to open dispute:', err);
       const status = (err as { status?: number }).status ?? 500;
       const code = (err as { code?: string }).code ?? 'DISPUTE_FAILED';
-      return c.json({ error: { code, message: String(err) } }, status as 401 | 403 | 404 | 409 | 500);
+      return c.json({ error: { code, message: err instanceof Error ? err.message : String(err) } }, status as 401 | 403 | 404 | 409 | 500);
     }
   }
 );
@@ -798,6 +827,6 @@ jobsRouter.get('/:jobId/dispute', async (c) => {
     console.error('[jobs:dispute] Failed to get dispute state:', err);
     const status = (err as { status?: number }).status ?? 500;
     const code = (err as { code?: string }).code ?? 'DISPUTE_QUERY_FAILED';
-    return c.json({ error: { code, message: String(err) } }, status as 401 | 403 | 404 | 409 | 500);
+    return c.json({ error: { code, message: err instanceof Error ? err.message : String(err) } }, status as 401 | 403 | 404 | 409 | 500);
   }
 });

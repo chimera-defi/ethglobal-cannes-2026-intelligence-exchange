@@ -151,7 +151,7 @@ adminRouter.post(
       return c.json({ txHash: hash });
     } catch (err: unknown) {
       console.error('[admin:epoch/submit-scores] Failed to submit scores:', err);
-      return c.json({ error: String(err) }, 500);
+      return c.json({ error: { code: "INTERNAL_ERROR", message: err instanceof Error ? err.message : String(err) } }, 500);
     }
   }
 );
@@ -198,7 +198,7 @@ adminRouter.post(
       return c.json({ txHash: hash });
     } catch (err: unknown) {
       console.error('[admin:epoch/distribute] Failed to distribute rewards:', err);
-      return c.json({ error: String(err) }, 500);
+      return c.json({ error: { code: "INTERNAL_ERROR", message: err instanceof Error ? err.message : String(err) } }, 500);
     }
   }
 );
@@ -237,7 +237,7 @@ adminRouter.post('/buyback', async (c) => {
     return c.json({ txHash: hash });
   } catch (err: unknown) {
     console.error('[admin:buyback] Failed to execute buyback:', err);
-    return c.json({ error: String(err) }, 500);
+    return c.json({ error: { code: "INTERNAL_ERROR", message: err instanceof Error ? err.message : String(err) } }, 500);
   }
 });
 
@@ -284,7 +284,7 @@ adminRouter.post(
       return c.json({ txHash: hash });
     } catch (err: unknown) {
       console.error('[admin:mint-cap/update] Failed to update mint cap:', err);
-      return c.json({ error: String(err) }, 500);
+      return c.json({ error: { code: "INTERNAL_ERROR", message: err instanceof Error ? err.message : String(err) } }, 500);
     }
   }
 );
@@ -337,7 +337,7 @@ adminRouter.post(
       return c.json({ txHash: hash });
     } catch (err: unknown) {
       console.error('[admin:reviewer/evaluate-tier] Failed to evaluate tier:', err);
-      return c.json({ error: String(err) }, 500);
+      return c.json({ error: { code: "INTERNAL_ERROR", message: err instanceof Error ? err.message : String(err) } }, 500);
     }
   }
 );
@@ -383,7 +383,7 @@ adminRouter.post('/reviewer/:address/mint-credential', async (c) => {
     return c.json({ txHash: hash });
   } catch (err: unknown) {
     console.error('[admin:reviewer/mint-credential] Failed to mint credential:', err);
-    return c.json({ error: String(err) }, 500);
+    return c.json({ error: { code: "INTERNAL_ERROR", message: err instanceof Error ? err.message : String(err) } }, 500);
   }
 });
 

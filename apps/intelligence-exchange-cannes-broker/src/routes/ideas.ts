@@ -84,7 +84,7 @@ ideasRouter.post('/', zValidator('json', JobCreateRequestSchema), async (c) => {
     console.error('[ideas:create] error', err);
     const status = (err as { status?: number }).status ?? 500;
     const code = (err as { code?: string }).code ?? 'CREATE_FAILED';
-    return c.json({ error: { code, message: String(err) } }, status as 400 | 401 | 403 | 409 | 500);
+    return c.json({ error: { code, message: err instanceof Error ? err.message : String(err) } }, status as 400 | 401 | 403 | 409 | 500);
   }
 });
 
@@ -136,7 +136,7 @@ ideasRouter.post('/:ideaId/plan', async (c) => {
   } catch (err: unknown) {
     const status = (err as { status?: number }).status ?? 500;
     const code = (err as { code?: string }).code ?? 'PLAN_FAILED';
-    return c.json({ error: { code, message: String(err) } }, status as 401 | 403 | 404 | 409 | 500);
+    return c.json({ error: { code, message: err instanceof Error ? err.message : String(err) } }, status as 401 | 403 | 404 | 409 | 500);
   }
 });
 
@@ -211,7 +211,7 @@ ideasRouter.post('/:ideaId/accept', zValidator('json', AcceptJobRequestSchema), 
     const is5xx = status >= 500 && status < 600;
     recordError('accept', is5xx);
     const code = (err as { code?: string }).code ?? 'ACCEPT_FAILED';
-    return c.json({ error: { code, message: String(err) } }, status as 401 | 403 | 404 | 409 | 500);
+    return c.json({ error: { code, message: err instanceof Error ? err.message : String(err) } }, status as 401 | 403 | 404 | 409 | 500);
   }
 });
 
@@ -271,7 +271,7 @@ ideasRouter.post('/:ideaId/reject', zValidator('json', RejectJobRequestSchema), 
   } catch (err: unknown) {
     const status = (err as { status?: number }).status ?? 500;
     const code = (err as { code?: string }).code ?? 'REJECT_FAILED';
-    return c.json({ error: { code, message: String(err) } }, status as 401 | 403 | 404 | 409 | 500);
+    return c.json({ error: { code, message: err instanceof Error ? err.message : String(err) } }, status as 401 | 403 | 404 | 409 | 500);
   }
 });
 
