@@ -124,6 +124,9 @@ export async function getRepoContext(token: string, fullName: string): Promise<{
   topFiles: string[];
 }> {
   // SSRF protection: validate repo name format
+  if (fullName.length > 200 || fullName.includes('%')) {
+    throw new Error('Invalid repo name format');
+  }
   if (!/^[a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+$/.test(fullName)) {
     throw new Error('Invalid repo name format');
   }

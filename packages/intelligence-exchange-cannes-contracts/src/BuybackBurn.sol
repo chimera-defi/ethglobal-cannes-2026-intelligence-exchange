@@ -185,7 +185,12 @@ contract BuybackBurn {
             miningShare = (intelReceived * lpMiningBps) / BPS;
             if (miningShare > 0) {
                 intel.approve(lpMiningAddress, miningShare);
-                ILiquidityMining(lpMiningAddress).depositRewards(miningShare);
+                try ILiquidityMining(lpMiningAddress).depositRewards(miningShare) {
+                    // Deposit succeeded
+                } catch {
+                    // Zero leftover approval on failure to prevent approval leak
+                    intel.approve(lpMiningAddress, 0);
+                }
             }
         }
         _burnIntel(intelReceived - miningShare);
@@ -250,6 +255,7 @@ contract BuybackBurn {
     /// @param _lpMiningBps     BPS of each buyback routed to LP mining (max 5000 = 50%).
     function setLpMining(address _lpMiningAddress, uint256 _lpMiningBps) external onlyOwner {
         if (_lpMiningBps > 3000) revert InvalidParam(); // 70% burn floor (Gensyn model)
+        if (_lpMiningAddress != address(0) && _lpMiningAddress.code.length == 0) revert InvalidParam(); // Must be a contract
         lpMiningAddress = _lpMiningAddress;
         lpMiningBps = _lpMiningBps;
         emit LpMiningUpdated(_lpMiningAddress, _lpMiningBps);
