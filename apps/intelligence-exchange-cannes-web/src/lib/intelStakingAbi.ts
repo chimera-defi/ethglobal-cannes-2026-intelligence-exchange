@@ -21,6 +21,8 @@ export const intelStakingAbi = parseAbi([
   'function currentEpoch() view returns (uint256)',
   'function epochLength() view returns (uint256)',
   'function cooldown() view returns (uint256)',
+  'function globalCapRemaining() view returns (uint256)',
+  'function epochStartTime() view returns (uint256)',
   'function stakers(address) view returns (uint256 staked, uint256 stakedAt, uint256 pendingUnstake, uint256 unstakeAvailableAt, uint256 yieldDebt, uint256 ethYieldDebt, uint256 epochAllowanceUsed, uint256 lastEpoch)',
   'function depositEthYield() payable',
   'function claimEthYield() returns (uint256 claimed)',

@@ -40,6 +40,8 @@ contract IntelMintController {
     error EpochMintCapExceeded(uint256 requested, uint256 remaining);
     error FeatureDisabled();
     error TwapDeviationTooLarge(uint256 twap, uint256 floor);
+    error TimelockNotExpired(uint256 readyAt);
+    error NoPendingChange();
 
     // ─── Constants ────────────────────────────────────────────────────────────
 
@@ -66,6 +68,8 @@ contract IntelMintController {
     event OwnershipTransferStarted(address indexed previous, address indexed next);
     event OwnershipTransferred(address indexed previous, address indexed next);
     event RoutingAddressesUpdated(address pol, address treasury);
+    event RoutingAddressPending(address indexed pendingPol, address indexed pendingTreasury, uint256 readyAt);
+    event RoutingAddressCancelled();
     event MintPaused(address indexed by);
     event MintUnpaused(address indexed by);
     event EpochMintCapChanged(uint256 oldCap, uint256 newCap);
@@ -148,6 +152,20 @@ contract IntelMintController {
     /// @notice Whether TWAP deviation check is enabled (default false).
     ///         Feature flag for gradual rollout.
     bool public twapDeviationPauseEnabled;
+
+    // ─── Routing address timelock (appended to storage) ───────────────────────
+
+    /// @notice Pending POL address awaiting timelock.
+    address public pendingPolAddress;
+
+    /// @notice Pending treasury address awaiting timelock.
+    address public pendingTreasuryAddress;
+
+    /// @notice Timestamp when pending routing address change becomes effective.
+    uint256 public routingChangeReadyAt;
+
+    /// @notice Timelock duration for routing address changes (48 hours).
+    uint256 public constant ROUTING_TIMELOCK = 48 hours;
 
     // ─── Reentrancy guard ─────────────────────────────────────────────────────
 
@@ -492,15 +510,38 @@ contract IntelMintController {
         emit OperatorSet(op, approved);
     }
 
-    /// @notice Update the POL and treasury routing addresses.
+    /// @notice Propose new POL and treasury routing addresses (48-hour timelock).
     /// @custom:access owner
     /// @param _pol      New POL address (non-zero).
     /// @param _treasury New treasury address (non-zero).
-    function setRoutingAddresses(address _pol, address _treasury) external onlyOwner {
+    function proposeRoutingAddresses(address _pol, address _treasury) external onlyOwner {
         if (_pol == address(0) || _treasury == address(0)) revert ZeroAddress();
-        polAddress = _pol;
-        treasuryAddress = _treasury;
-        emit RoutingAddressesUpdated(_pol, _treasury);
+        pendingPolAddress = _pol;
+        pendingTreasuryAddress = _treasury;
+        routingChangeReadyAt = block.timestamp + ROUTING_TIMELOCK;
+        emit RoutingAddressPending(_pol, _treasury, routingChangeReadyAt);
+    }
+
+    /// @notice Apply pending routing address changes after 48-hour timelock.
+    /// @custom:access owner
+    function applyRoutingAddresses() external onlyOwner {
+        if (routingChangeReadyAt == 0 || pendingPolAddress == address(0)) revert NoPendingChange();
+        if (block.timestamp < routingChangeReadyAt) revert TimelockNotExpired(routingChangeReadyAt);
+        polAddress = pendingPolAddress;
+        treasuryAddress = pendingTreasuryAddress;
+        pendingPolAddress = address(0);
+        pendingTreasuryAddress = address(0);
+        routingChangeReadyAt = 0;
+        emit RoutingAddressesUpdated(polAddress, treasuryAddress);
+    }
+
+    /// @notice Cancel pending routing address changes.
+    /// @custom:access owner
+    function cancelRoutingAddresses() external onlyOwner {
+        pendingPolAddress = address(0);
+        pendingTreasuryAddress = address(0);
+        routingChangeReadyAt = 0;
+        emit RoutingAddressCancelled();
     }
 
     /// @notice Pause all minting operations. Emergency circuit breaker.
