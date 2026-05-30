@@ -6,7 +6,6 @@ const defaultPostgresPassword = encodeURIComponent(process.env.POSTGRES_PASSWORD
 const defaultPostgresPort = process.env.POSTGRES_PORT ?? '5432';
 const connectionString = process.env.DATABASE_URL
   ?? `postgres://iex:${defaultPostgresPassword}@localhost:${defaultPostgresPort}/iex_cannes`;
-
 /*
  * PRODUCTION SECURITY: Postgres must not be exposed to the public internet.
  *   - Ensure DATABASE_URL always points to 127.0.0.1 / localhost / a private network.

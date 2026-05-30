@@ -13,20 +13,39 @@ import { logJobEvent } from '../services/jobEvents';
  *   3. No pub/sub channels expose sensitive data — the milestone-jobs queue
  *      carries only job IDs and milestone types (no PII, no keys).
  */
-const REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6379';
+const REDIS_URL = process.env.REDIS_URL
+  ?? `redis://:${process.env.REDIS_PASSWORD ?? 'iex_redis_local_dev_only_change_me'}@localhost:6379`;
 
 // Parse redis connection from URL, preserving auth and db
 function parseRedisConnection(url: string) {
   try {
     const u = new URL(url);
-    const result: Record<string, unknown> = { host: u.hostname, port: parseInt(u.port || '6379', 10) };
-    if (u.password) result.password = decodeURIComponent(u.password);
-    if (u.username) result.username = decodeURIComponent(u.username);
-    const dbMatch = u.pathname.match(/^\/(\d+)$/);
-    if (dbMatch) result.db = parseInt(dbMatch[1], 10);
-    return result;
+    const connection: {
+      host: string;
+      port: number;
+      username?: string;
+      password?: string;
+      db?: number;
+    } = {
+      host: u.hostname,
+      port: parseInt(u.port || '6379', 10),
+    };
+
+    if (u.username) connection.username = decodeURIComponent(u.username);
+    if (u.password) connection.password = decodeURIComponent(u.password);
+
+    if (u.pathname && u.pathname !== '/') {
+      const db = parseInt(u.pathname.slice(1), 10);
+      if (!Number.isNaN(db)) connection.db = db;
+    }
+
+    return connection;
   } catch {
-    return { host: 'localhost', port: 6379 };
+    return {
+      host: 'localhost',
+      port: 6379,
+      password: process.env.REDIS_PASSWORD || undefined,
+    };
   }
 }
 
