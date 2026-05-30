@@ -150,7 +150,6 @@ contract LiquidityMining {
 
     function setRewardRate(uint256 rate) external onlyOwner {
         _updatePool();
-        require(rate > 0 || rewardEndTime == 0, 'rate cannot be zero during active period');
         uint256 oldRate = rewardRate;
         rewardRate = rate;
         emit RewardRateUpdated(oldRate, rate);
