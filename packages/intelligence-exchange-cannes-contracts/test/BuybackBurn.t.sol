@@ -406,4 +406,31 @@ contract BuybackBurnTest is Test {
         
         assertEq(address(buybackBurn).balance, preBalance + 1 ether);
     }
+
+    // ─── LP Mining Config Tests ───────────────────────────────────────────────
+
+    function test_setLpMining_ownerCanSet() public {
+        // setLpMining requires a contract address (code.length > 0); use intel (already deployed)
+        address lpMiningAddr = address(intel);
+        buybackBurn.setLpMining(lpMiningAddr, 2000);
+        assertEq(buybackBurn.lpMiningAddress(), lpMiningAddr);
+        assertEq(buybackBurn.lpMiningBps(), 2000);
+    }
+
+    function test_setLpMining_rejectsAbove30pct() public {
+        address lpMiningAddr = address(0x1234);
+        vm.expectRevert(BuybackBurn.InvalidParam.selector);
+        buybackBurn.setLpMining(lpMiningAddr, 3001);
+    }
+
+    function test_setLpMining_requiresContract() public {
+        vm.expectRevert(BuybackBurn.InvalidParam.selector);
+        buybackBurn.setLpMining(address(0xDEAD), 2000);
+    }
+
+    function test_setLpMining_zeroAddressDisablesRouting() public {
+        buybackBurn.setLpMining(address(0), 0);
+        assertEq(buybackBurn.lpMiningAddress(), address(0));
+        assertEq(buybackBurn.lpMiningBps(), 0);
+    }
 }
