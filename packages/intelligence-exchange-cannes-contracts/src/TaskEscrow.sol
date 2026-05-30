@@ -72,10 +72,14 @@ contract TaskEscrow {
         bytes32 taskId;
         address funder;
         address worker;
-        uint256 amount;       // INTEL escrowed
+        uint256 amount;          // INTEL escrowed
         TaskState state;
         uint256 fundedAt;
         uint256 releasedAt;
+        // Split snapshot captured at funding time — insulates worker from mid-task BPS changes (H1 fix)
+        uint256 snapshotWorkerBps;
+        uint256 snapshotStakerBps;
+        uint256 snapshotTreasuryBps;
     }
 
     mapping(bytes32 => Task) public tasks;
@@ -158,6 +162,10 @@ contract TaskEscrow {
         task.amount = amount;
         task.state = TaskState.Funded;
         task.fundedAt = block.timestamp;
+        // Snapshot current split at funding time so later setSplitBps() calls don't affect this task
+        task.snapshotWorkerBps = workerBps;
+        task.snapshotStakerBps = stakerBps;
+        task.snapshotTreasuryBps = treasuryBps;
 
         emit TaskFunded(taskId, msg.sender, amount);
     }
@@ -201,20 +209,28 @@ contract TaskEscrow {
         // Validate worker matches assignment if setWorker was called
         if (task.worker != address(0) && task.worker != worker) revert WorkerMismatch();
 
-        uint256 workerShare = (task.amount * workerBps) / BPS;
-        uint256 stakerShare = (task.amount * stakerBps) / BPS;
+        // Use snapshot BPS captured at funding time — prevents owner from changing split mid-task
+        uint256 workerShare = (task.amount * task.snapshotWorkerBps) / BPS;
+        uint256 stakerShare = (task.amount * task.snapshotStakerBps) / BPS;
         uint256 treasuryShare = task.amount - workerShare - stakerShare; // remainder avoids rounding dust
 
-        // Transfer worker share to the actual worker (not task.worker)
+        // Transfer worker share first (most important — must not be blocked by staking failure)
         bool workerOk = intel.transfer(worker, workerShare);
         require(workerOk, "TaskEscrow: release worker transfer failed");
 
-        // Approve and transfer staker share to IntelStaking
+        // Attempt staker yield deposit — on failure, route staker share to treasury (C1 fix)
         bool approveOk = intel.approve(address(staking), stakerShare);
         require(approveOk, "TaskEscrow: release approve failed");
-        staking.depositYield(stakerShare);
+        try staking.depositYield(stakerShare) {
+            // yield deposited successfully
+        } catch {
+            // Staking unavailable — zero approval and add staker share to treasury
+            intel.approve(address(staking), 0);
+            treasuryShare += stakerShare;
+            stakerShare = 0;
+        }
 
-        // Transfer treasury share
+        // Transfer treasury share (includes staker fallback if depositYield failed)
         bool treasuryOk = intel.transfer(treasury, treasuryShare);
         require(treasuryOk, "TaskEscrow: release treasury transfer failed");
 
