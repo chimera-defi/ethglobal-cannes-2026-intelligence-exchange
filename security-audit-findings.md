@@ -71,7 +71,7 @@ export function getBrokerAttestorAccount() {
 - Zod schema validation for inputs ✅
 
 **Potential Issues:**
-- Demo mode bypasses authentication ⚠️
+- Demo mode allows operation without World ID verification (acceptable - World ID is optional dependency)
 - No request rate limiting on non-admin endpoints
 - No security headers (Helmet.js)
 - No session timeout policies
@@ -105,11 +105,13 @@ export function getBrokerAttestorAccount() {
 
 ### Production Deployment Requirements 🔴
 1. 🔴 Generate SSL certificates from trusted CA (not self-signed)
-2. 🔴 Set WORLD_ID_STRICT=true in production
-3. 🔴 Use docker-compose.ssl.yml for production
-4. 🔴 Configure proper secrets management
-5. 🔴 Set up firewall rules and DDoS protection
-6. 🔴 Implement security monitoring and alerting
+2. 🔴 Use docker-compose.ssl.yml for production
+3. 🔴 Configure proper secrets management
+4. 🔴 Set up firewall rules and DDoS protection
+5. 🔴 Implement security monitoring and alerting
+
+### Optional Configuration
+- World ID verification: Set WORLD_ID_STRICT=true if you want to require World ID (optional dependency)
 
 ### Optional Enhancements ⚠️
 1. ⚠️ Add Redis ACLs for fine-grained command control
