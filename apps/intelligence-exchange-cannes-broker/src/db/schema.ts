@@ -225,6 +225,7 @@ export const agentIdentities = pgTable('agent_identities', {
   agentbookRegisteredAt: timestamp('agentbook_registered_at', { withTimezone: true }),
   acceptedCount: integer('accepted_count').notNull().default(0),
   avgScore: numeric('avg_score', { precision: 5, scale: 2 }).notNull().default('0'),
+  consecutiveAccepts: integer('consecutive_accepts').notNull().default(0),
   registeredAt: timestamp('registered_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });

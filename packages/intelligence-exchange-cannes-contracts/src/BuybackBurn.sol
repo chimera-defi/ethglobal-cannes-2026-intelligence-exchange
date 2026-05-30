@@ -249,7 +249,7 @@ contract BuybackBurn {
     /// @param _lpMiningAddress LiquidityMining contract address (0 to disable).
     /// @param _lpMiningBps     BPS of each buyback routed to LP mining (max 5000 = 50%).
     function setLpMining(address _lpMiningAddress, uint256 _lpMiningBps) external onlyOwner {
-        if (_lpMiningBps > 5000) revert InvalidParam();
+        if (_lpMiningBps > 3000) revert InvalidParam(); // 70% burn floor (Gensyn model)
         lpMiningAddress = _lpMiningAddress;
         lpMiningBps = _lpMiningBps;
         emit LpMiningUpdated(_lpMiningAddress, _lpMiningBps);

@@ -8,10 +8,11 @@ import {
   type PoolState,
 } from 'intelligence-exchange-cannes-tokenomics';
 import { db } from '../db/client';
-import { ideaTokenReserves, tokenAccounts, tokenLedgerEntries } from '../db/schema';
+import { ideaTokenReserves, tokenAccounts, tokenLedgerEntries, agentIdentities } from '../db/schema';
 import { httpError } from './errors';
 import { normalizeAccountAddress } from './identityService';
 import { depositStakerYield, releaseTaskEscrow, depositReviewerFees } from './chainService';
+import { getReferralBonus } from './referralService';
 
 function parseBoolean(value: string | undefined, fallback = false) {
   if (value === undefined) return fallback;
@@ -242,7 +243,45 @@ export async function settleAcceptedJobCredits(input: {
   }
 
   const grossIntel = requestedGrossIntel;
-  const split = splitSettlementIntel(grossIntel, { protocolFeeBps: config.protocolFeeBps, stakerYieldBps: 900 });
+  let split = splitSettlementIntel(grossIntel, { protocolFeeBps: config.protocolFeeBps, stakerYieldBps: 900 });
+
+  // TODO: Add consecutiveAccepts column to agentIdentities schema for quality streak tracking
+  // Quality streak bonus: workers with 5+ consecutive accepts get 10% bonus
+  // const [workerIdentity] = await db.select().from(agentIdentities)
+  //   .where(eq(agentIdentities.accountAddress, input.workerId));
+  // const consecutiveAccepts = (workerIdentity as any)?.consecutiveAccepts ?? 0;
+  // const streakMultiplier = consecutiveAccepts >= 5 ? 1.10 : 1.00;
+  // if (streakMultiplier > 1.00) {
+  //   const bonusAmount = split.workerPayoutIntel * (streakMultiplier - 1);
+  //   split.workerPayoutIntel = round(split.workerPayoutIntel * streakMultiplier, 8);
+  //   split.protocolFeeIntel = round(Math.max(0, split.protocolFeeIntel - bonusAmount), 8);
+  // }
+
+  // Poster rebate: high-acceptance-rate posters pay lower fees (worker gets 83% instead of 81%)
+  const posterStats = await db.execute(sql`
+    SELECT
+      COUNT(*) as total,
+      SUM(CASE WHEN status = 'accepted' THEN 1 ELSE 0 END) as accepted
+    FROM jobs WHERE poster_id = ${reserve.posterId}
+  `);
+  const total = Number(posterStats.rows[0]?.total ?? 0);
+  const accepted = Number(posterStats.rows[0]?.accepted ?? 0);
+  const posterRebate = total >= 10 && accepted / total >= 0.90;
+  if (posterRebate) {
+    // Shift 2% from protocol fee to worker (poster rebate funded by protocol)
+    const rebateAmount = grossIntel * 0.02;
+    split.workerPayoutIntel = round(split.workerPayoutIntel + rebateAmount, 8);
+    split.protocolFeeIntel = round(Math.max(0, split.protocolFeeIntel - rebateAmount), 8);
+  }
+
+  // Referral bonus: referrer earns 1% of worker's settlement yield for 6 months
+  const refBonus = getReferralBonus(split.workerPayoutIntel, input.workerId);
+  if (refBonus.referrer && refBonus.bonusAmount > 0) {
+    split.protocolFeeIntel = round(split.protocolFeeIntel - refBonus.bonusAmount, 8);
+    if (split.protocolFeeIntel < 0) split.protocolFeeIntel = 0;
+    console.log('[referral] bonus to referrer:', refBonus.referrer, refBonus.bonusAmount);
+    // TODO: create ledger entry for referrer payout
+  }
 
   const workerId = await ensureTokenAccount(input.workerId);
   const treasuryAccount = await ensureTokenAccount(config.treasuryAccount);
