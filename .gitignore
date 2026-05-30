@@ -50,6 +50,9 @@ playwright-report/
 test-results/
 artifacts/
 
+# E2E test output
+output/
+
 # Temp
 *.tmp
 *.temp
