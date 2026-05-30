@@ -50,6 +50,8 @@ export function StakingPage() {
       { address: INTEL_STAKING_ADDRESS, abi: intelStakingAbi, functionName: 'currentEpoch' },
       { address: INTEL_STAKING_ADDRESS, abi: intelStakingAbi, functionName: 'epochLength' },
       { address: INTEL_STAKING_ADDRESS, abi: intelStakingAbi, functionName: 'cooldown' },
+      { address: INTEL_STAKING_ADDRESS, abi: intelStakingAbi, functionName: 'globalCapRemaining' },
+      { address: INTEL_STAKING_ADDRESS, abi: intelStakingAbi, functionName: 'epochStartTime' },
     ],
     query: { enabled: contractsDeployed },
   });
@@ -70,6 +72,8 @@ export function StakingPage() {
   const currentEpoch = globalData?.[1]?.result as bigint | undefined;
   const epochLength = globalData?.[2]?.result as bigint | undefined;
   const cooldownSeconds = globalData?.[3]?.result as bigint | undefined;
+  const globalCapRemaining = globalData?.[4]?.result as bigint | undefined;
+  const epochStartTime = globalData?.[5]?.result as bigint | undefined;
 
   const intelBalance = walletData?.[0]?.result as bigint | undefined;
   const allowance = walletData?.[1]?.result as bigint | undefined;
@@ -206,12 +210,14 @@ export function StakingPage() {
         )}
 
         {/* Global stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
           {[
             { label: 'Total Staked', value: fmt(totalStaked) + ' INTEL' },
             { label: 'Current Epoch', value: currentEpoch?.toString() ?? '—' },
             { label: 'Epoch Length', value: epochLength ? secondsToDuration(epochLength) : '—' },
             { label: 'Unstake Cooldown', value: cooldownSeconds ? secondsToDuration(cooldownSeconds) : '—' },
+            { label: 'Global Cap Left', value: fmt(globalCapRemaining) + ' INTEL' },
+            { label: 'Epoch Ends', value: epochStartTime && epochLength ? secondsToDuration((epochStartTime + epochLength) - BigInt(Math.floor(Date.now() / 1000))) : '—' },
           ].map(({ label, value }) => (
             <div key={label} className="rounded-md border border-slate-800 bg-[#0D1625] p-3">
               <p className="text-xs text-slate-500">{label}</p>
@@ -219,6 +225,18 @@ export function StakingPage() {
             </div>
           ))}
         </div>
+
+        {/* Epoch progress bar */}
+        {epochStartTime && epochLength && (
+          <div className="space-y-1">
+            <div className="h-1 bg-slate-800 rounded-full w-full">
+              <div 
+                style={{ width: `${Math.min(100, Math.max(0, Number((BigInt(Math.floor(Date.now() / 1000)) - epochStartTime) * 100n / epochLength)))}%` }}
+                className="h-1 bg-blue-500 rounded-full"
+              />
+            </div>
+          </div>
+        )}
 
         {isConnected && address && (
           <>
