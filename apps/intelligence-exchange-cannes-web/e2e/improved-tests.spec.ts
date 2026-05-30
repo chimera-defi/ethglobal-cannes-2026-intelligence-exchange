@@ -119,13 +119,11 @@ test.describe('Missing Routes Coverage', () => {
       if (isVisible) {
         const text = await page.textContent('body');
         expect(text?.length).toBeGreaterThan(500); // Page should have content
-      } else {
-        // Body hidden is acceptable (may require auth)
-        expect(true).toBeTruthy();
       }
+      // Body hidden is acceptable (may require auth) - no assertion needed
     } else {
-      // Redirected is acceptable (may require auth)
-      expect(true).toBeTruthy();
+      // Redirected is acceptable (may require auth) - verify we have a valid URL
+      expect(currentUrl.length).toBeGreaterThan(0);
     }
 
     await page.screenshot({ path: 'test-results/missing-routes/dossier-panel.png' });
