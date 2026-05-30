@@ -62,7 +62,7 @@ contract TaskEscrowTest is Test {
         vm.prank(funder);
         escrow.fundTask(TASK_ID, TASK_AMOUNT);
 
-        (bytes32 taskId, address funderAddr, address workerAddr, uint256 amount, , uint256 fundedAt, ) = escrow.tasks(TASK_ID);
+        (bytes32 taskId, address funderAddr, address workerAddr, uint256 amount, , uint256 fundedAt, , , , ) = escrow.tasks(TASK_ID);
 
         assertEq(taskId, TASK_ID);
         assertEq(funderAddr, funder);
@@ -148,7 +148,7 @@ contract TaskEscrowTest is Test {
         vm.prank(operator);
         escrow.setWorker(TASK_ID, worker);
 
-        (, , address workerAddr, , , , ) = escrow.tasks(TASK_ID);
+        (, , address workerAddr, , , , , , , ) = escrow.tasks(TASK_ID);
         assertEq(workerAddr, worker);
     }
 
