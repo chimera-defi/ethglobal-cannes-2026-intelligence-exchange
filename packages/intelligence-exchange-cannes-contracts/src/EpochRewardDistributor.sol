@@ -36,6 +36,7 @@ contract EpochRewardDistributor {
     // ─── Constants ────────────────────────────────────────────────────────────
 
     uint256 public constant BPS = 10_000;
+    uint256 public constant MAX_WORKERS_PER_EPOCH = 1_000;
 
     // ─── Events ───────────────────────────────────────────────────────────────
 
@@ -141,6 +142,7 @@ contract EpochRewardDistributor {
         uint256[] calldata aiuScores
     ) external onlyOperator {
         if (workers.length != aiuScores.length) revert ArrayLengthMismatch();
+        if (workers.length > MAX_WORKERS_PER_EPOCH) revert InvalidParam();
 
         EpochReward storage reward = epochRewards[epoch];
         reward.epoch = epoch;
@@ -183,6 +185,8 @@ contract EpochRewardDistributor {
         if (totalAiu == 0) revert ZeroAmount();
 
         uint256 pool = epochRewardPool;
+        // Note: IntelToken is a standard OZ ERC20 that reverts on failure.
+        // No bool check here; the revert is handled by the token itself on failure.
         intel.transferFrom(treasury, address(this), pool);
         reward.totalPool = pool;
 
@@ -228,6 +232,8 @@ contract EpochRewardDistributor {
         uint256 amount = reward.rewardEarned[msg.sender];
         reward.claimed[msg.sender] = true;
 
+        // Note: IntelToken is a standard OZ ERC20 that reverts on failure.
+        // No bool check here; the revert is handled by the token itself on failure.
         intel.transfer(msg.sender, amount);
 
         emit RewardClaimed(epoch, msg.sender, amount);
@@ -238,6 +244,8 @@ contract EpochRewardDistributor {
     function depositRewardPool(uint256 amount) external {
         if (amount == 0) revert ZeroAmount();
 
+        // Note: IntelToken is a standard OZ ERC20 that reverts on failure.
+        // No bool check here; the revert is handled by the token itself on failure.
         intel.transferFrom(msg.sender, address(this), amount);
 
         uint256 newBalance = intel.balanceOf(address(this));

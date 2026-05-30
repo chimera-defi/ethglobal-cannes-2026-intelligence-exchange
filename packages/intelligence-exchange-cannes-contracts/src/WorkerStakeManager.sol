@@ -130,6 +130,8 @@ contract WorkerStakeManager {
         if (amount == 0) revert ZeroAmount();
 
         // Transfer tokens from worker
+        // Note: IntelToken is a standard OZ ERC20 that reverts on failure.
+        // The bool check is defensive; the require ensures execution stops on false return.
         bool stakeOk = intel.transferFrom(msg.sender, address(this), amount);
         require(stakeOk, "WorkerStakeManager: stake transferFrom failed");
 
@@ -168,6 +170,8 @@ contract WorkerStakeManager {
         unstakeAvailableAt[msg.sender] = 0;
 
         // Transfer tokens back to worker
+        // Note: IntelToken is a standard OZ ERC20 that reverts on failure.
+        // The bool check is defensive; the require ensures execution stops on false return.
         bool unstakeOk = intel.transfer(msg.sender, pending);
         require(unstakeOk, "WorkerStakeManager: finalizeUnstake transfer failed");
 
@@ -225,11 +229,15 @@ contract WorkerStakeManager {
 
         // Transfer shares
         if (treasuryShare > 0) {
+            // Note: IntelToken is a standard OZ ERC20 that reverts on failure.
+            // The bool check is defensive; the require ensures execution stops on false return.
             bool treasuryOk = intel.transfer(treasuryAddress, treasuryShare);
             require(treasuryOk, "WorkerStakeManager: slash treasury transfer failed");
         }
 
         if (reporterShare > 0) {
+            // Note: IntelToken is a standard OZ ERC20 that reverts on failure.
+            // The bool check is defensive; the require ensures execution stops on false return.
             bool reporterOk = intel.transfer(reporter, reporterShare);
             require(reporterOk, "WorkerStakeManager: slash reporter transfer failed");
         }

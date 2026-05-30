@@ -198,6 +198,8 @@ contract DisputeResolution {
         dispute.state = DisputeState.Pending;
 
         // Transfer bond from disputer
+        // Note: IntelToken is a standard OZ ERC20 that reverts on failure.
+        // The bool check is defensive; the require ensures execution stops on false return.
         bool bondOk = intel.transferFrom(msg.sender, address(this), disputeBond);
         require(bondOk, "DisputeResolution: bond transferFrom failed");
 
@@ -356,12 +358,16 @@ contract DisputeResolution {
     // ─── Internal Helpers ─────────────────────────────────────────────────────
 
     function _returnBond(uint256 disputeId, address recipient, uint256 amount) private {
+        // Note: IntelToken is a standard OZ ERC20 that reverts on failure.
+        // The bool check is defensive; the require ensures execution stops on false return.
         bool transferOk = intel.transfer(recipient, amount);
         require(transferOk, "DisputeResolution: bond return transfer failed");
         emit BondReturned(disputeId, recipient, amount);
     }
 
     function _slashBond(uint256 disputeId, address slashed, uint256 amount) private {
+        // Note: IntelToken is a standard OZ ERC20 that reverts on failure.
+        // The bool check is defensive; the require ensures execution stops on false return.
         bool transferOk = intel.transfer(treasury, amount);
         require(transferOk, "DisputeResolution: bond slash transfer failed");
         emit BondSlashed(disputeId, slashed, amount);
@@ -387,6 +393,8 @@ contract DisputeResolution {
             }
             
             if (votedCorrectly) {
+                // Note: IntelToken is a standard OZ ERC20 that reverts on failure.
+                // The bool check is defensive; the conditional emit handles false return gracefully.
                 bool transferOk = intel.transfer(juror, rewardPerJuror);
                 if (transferOk) {
                     emit JurorRewarded(disputeId, juror, rewardPerJuror);
