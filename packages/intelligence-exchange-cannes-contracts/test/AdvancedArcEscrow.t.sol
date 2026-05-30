@@ -392,11 +392,11 @@ contract AdvancedArcEscrowTest is Test {
         vm.warp(block.timestamp + 15 days);
         
         assertTrue(escrow.canAutoResolve(milestoneId));
-        
+
         uint256 workerBalanceBefore = IERC20(USDC).balanceOf(worker);
-        
-        // Anyone can trigger auto-resolve
-        vm.prank(attacker);
+
+        // Resolver triggers auto-resolve (access-gated post security fix)
+        vm.prank(disputeResolver);
         escrow.autoResolveDispute(milestoneId);
         
         // Should be 50/50 split of workerPool (810e6 after 19% fees)
