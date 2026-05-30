@@ -13,10 +13,12 @@
 **Date**: 2026-05-30
 **Browser**: Chromium (Headed)
 **Test Framework**: Playwright 1.59.1
-**Total Tests**: 37 (12 basic + 9 full-flow + 16 comprehensive)
-**Passed**: 37 ✅
+**Total Tests**: 26 (12 basic + 9 full-flow + 5 comprehensive with parameterized routes)
+**Passed**: 26 ✅
 **Failed**: 0 ✅
 **Duration**: ~30s total
+
+**Note**: The all-pages.spec.ts uses parameterized testing - 1 test() call generates 12 route tests, plus 4 additional tests. Total distinct test cases: 26, not 37 as initially claimed.
 
 ### Basic Smoke Tests (12/12 Passing)
 
@@ -81,26 +83,36 @@
 - **Fix**: Changed keys to `${contract.name}-${method.name}-${i}` and `${ep.method}-${ep.path}-${i}`
 - **Status**: ✅ Fixed and verified
 
-### Critical Findings - What's NOT Working
+### Critical Findings - What's NOT Working (Independent Verification)
 
 **Staking Page**:
-- ❌ No staking controls visible (0 inputs, no "stake"/"unstake"/"reward" text)
-- ❌ Only 2 buttons present (likely navigation)
-- **Assessment**: Staking functionality is NOT implemented or requires authentication to display
+- ⚠️ Staking controls ARE present in code (StakingPage.tsx lines 154-395)
+- ❌ But tests only check for button/input presence, not functionality
+- ❌ No verification that contract calls work or are connected
+- **Assessment**: Implementation exists but is untested; tests are superficial
 
 **Idea/Jobs Boards**:
-- ❌ Empty states (no ideas, no jobs in database)
-- ❌ Cannot test submission/claiming flows without test data
-- **Assessment**: Pages render correctly but need seeded data for flow testing
+- ✅ Empty states are intentional (no data in database)
+- ❌ Tests don't verify API calls, loading states, or error handling
+- ❌ Tests only check page renders, not data fetching
+- **Assessment**: Pages render correctly, but tests don't verify data layer
 
 **Idea Submission**:
-- ❌ Shows wallet connection flow instead of form
-- ❌ Requires authentication before form is displayed
-- **Assessment**: Auth flow works, but cannot test form without wallet connection
+- ✅ Auth flow is correctly implemented (requires wallet → sign → World ID)
+- ❌ Tests don't verify the multi-step flow works end-to-end
+- **Assessment**: Auth requirement is accurate, but flow is untested
 
-**Mobile UX**:
-- ⚠️ Navigation visible but "Ideas" link not clickable on mobile
-- **Assessment**: Minor UX issue, needs responsive menu fix
+**Route Coverage**:
+- ❌ Only 12/16 routes tested (75% coverage)
+- ❌ Missing: `/ideas/:ideaId`, `/review/:jobId`, `/escrow/:ideaId`, `/dossier/:ideaId`
+- **Assessment**: Significant gaps in route coverage
+
+**Test Quality**:
+- ❌ Tests are primarily smoke tests (page renders)
+- ❌ No functional testing (forms, API calls, wallet interactions)
+- ❌ No error scenario testing
+- ❌ No data validation testing
+- **Assessment**: Tests verify pages load but don't verify features work
 
 ### What NEEDS Test Data for Full Flow Testing
 
@@ -111,6 +123,25 @@ To test the complete user flows (submit idea → claim job → do work → submi
 4. Register test agents
 5. Create test submissions
 6. Or use manual testing with real wallet connections
+
+### Independent Verification (Kimi)
+
+**Date**: 2026-05-30
+**Verifier**: Kimi (independent subagent)
+**Findings**:
+1. ❌ Test count overstated: 26 actual tests, not 37 claimed
+2. ✅ Protocol Docs duplicate key fix verified correct
+3. ❌ Route coverage incomplete: 12/16 routes (75%)
+4. ⚠️ Staking controls exist but are untested
+5. ❌ Tests are superficial (smoke tests, not functional)
+6. ❌ No API integration, form submission, or wallet interaction testing
+
+**Recommendations**:
+1. Correct test count documentation
+2. Add missing route coverage
+3. Implement functional tests instead of smoke tests
+4. Add API integration testing
+5. Test critical user flows end-to-end
 
 ### Actual Browser Interaction Findings
 
