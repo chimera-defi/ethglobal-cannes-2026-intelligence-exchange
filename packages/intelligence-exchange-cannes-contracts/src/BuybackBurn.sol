@@ -8,6 +8,10 @@ import {IntelPOLManager} from "./IntelPOLManager.sol";
 import {ISwapRouter} from "./interfaces/ISwapRouter.sol";
 import {IWETH9} from "./interfaces/IUniswapV3.sol";
 
+interface ILiquidityMining {
+    function depositRewards(uint256 amount) external;
+}
+
 /// @title BuybackBurn
 /// @notice Protocol buyback and burn mechanism for INTEL token.
 ///
@@ -31,7 +35,8 @@ contract BuybackBurn {
 
     // ─── Events ───────────────────────────────────────────────────────────────
 
-    event BuybackExecuted(uint256 ethSpent, uint256 intelBurned, uint256 twapAtExecution);
+    event BuybackExecuted(uint256 ethSpent, uint256 intelBurned, uint256 intelToMining, uint256 twapAtExecution);
+    event LpMiningUpdated(address indexed addr, uint256 bps);
     event EthDeposited(address indexed from, uint256 amount);
     event EthWithdrawn(address indexed to, uint256 amount);
     event ParamsUpdated(string param, uint256 oldValue, uint256 newValue);
@@ -59,6 +64,8 @@ contract BuybackBurn {
 
     uint256 public maxSlippageBps; // default 200 (2%)
     uint256 public minBuybackEth;  // minimum ETH to trigger buyback, default 0.1 ETH
+    address public lpMiningAddress; // receives lpMiningBps share of each buyback
+    uint256 public lpMiningBps;     // default 2000 (20%)
 
     // ─── Reentrancy guard ─────────────────────────────────────────────────────
 
@@ -172,10 +179,18 @@ contract BuybackBurn {
             revert SlippageExceeded(spotPrice, twap, maxSlippageBps);
         }
 
-        // Burn all received INTEL
-        _burnIntel(intelReceived);
+        // Route lpMiningBps share to LiquidityMining; burn the rest
+        uint256 miningShare = 0;
+        if (lpMiningAddress != address(0) && lpMiningBps > 0) {
+            miningShare = (intelReceived * lpMiningBps) / BPS;
+            if (miningShare > 0) {
+                intel.approve(lpMiningAddress, miningShare);
+                ILiquidityMining(lpMiningAddress).depositRewards(miningShare);
+            }
+        }
+        _burnIntel(intelReceived - miningShare);
 
-        emit BuybackExecuted(ethBalance, intelReceived, twap);
+        emit BuybackExecuted(ethBalance, intelReceived - miningShare, miningShare, twap);
     }
 
     /// @notice Deposit ETH to fund the next buyback. Anyone can call.
@@ -227,6 +242,17 @@ contract BuybackBurn {
         address old = treasury;
         treasury = _treasury;
         emit TreasuryUpdated(old, _treasury);
+    }
+
+    /// @notice Set the LP mining address and share. Pass address(0) to disable LP mining routing.
+    /// @custom:access owner
+    /// @param _lpMiningAddress LiquidityMining contract address (0 to disable).
+    /// @param _lpMiningBps     BPS of each buyback routed to LP mining (max 5000 = 50%).
+    function setLpMining(address _lpMiningAddress, uint256 _lpMiningBps) external onlyOwner {
+        if (_lpMiningBps > 5000) revert InvalidParam();
+        lpMiningAddress = _lpMiningAddress;
+        lpMiningBps = _lpMiningBps;
+        emit LpMiningUpdated(_lpMiningAddress, _lpMiningBps);
     }
 
     /// @notice Approve or revoke an operator address.
