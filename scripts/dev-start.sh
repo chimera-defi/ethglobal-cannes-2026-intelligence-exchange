@@ -50,14 +50,16 @@ echo ""
 # Environment setup — respects values loaded from .env above
 POSTGRES_PORT="${POSTGRES_PORT:-5432}"
 REDIS_PORT="${REDIS_PORT:-6379}"
+POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-iex_local_dev_only_change_me}"
+REDIS_PASSWORD="${REDIS_PASSWORD:-iex_redis_local_dev_only_change_me}"
 # PORT from .env is the broker port; fall back to auto-pick
 BROKER_PORT="${PORT:-${BROKER_PORT:-$("${PICK_PORT_BIN}" 3001 3101 3201)}}"
 WEB_PORT="${WEB_PORT:-$("${PICK_PORT_BIN}" 3000 3100 3200)}"
 CLEANED_UP=0
 INTERRUPTED=0
 
-export DATABASE_URL="${DATABASE_URL:-postgres://iex:iex@localhost:${POSTGRES_PORT}/iex_cannes}"
-export REDIS_URL="${REDIS_URL:-redis://localhost:${REDIS_PORT}}"
+export DATABASE_URL="${DATABASE_URL:-postgres://iex:${POSTGRES_PASSWORD}@localhost:${POSTGRES_PORT}/iex_cannes}"
+export REDIS_URL="${REDIS_URL:-redis://:${REDIS_PASSWORD}@localhost:${REDIS_PORT}}"
 export BROKER_URL="${BROKER_URL:-http://localhost:${BROKER_PORT}}"
 export VITE_DEV_PROXY_TARGET="${VITE_DEV_PROXY_TARGET:-${BROKER_URL}}"
 
@@ -104,7 +106,7 @@ trap handle_interrupt INT SIGTERM
 
 # Start infrastructure
 echo -e "${YELLOW}Starting Docker infrastructure...${NC}"
-POSTGRES_PORT="${POSTGRES_PORT}" REDIS_PORT="${REDIS_PORT}" "${COMPOSE_BIN}" up -d
+POSTGRES_PORT="${POSTGRES_PORT}" REDIS_PORT="${REDIS_PORT}" POSTGRES_PASSWORD="${POSTGRES_PASSWORD}" REDIS_PASSWORD="${REDIS_PASSWORD}" "${COMPOSE_BIN}" up -d
 
 # Wait for services to be ready
 echo -e "${YELLOW}Waiting for Postgres and Redis...${NC}"
