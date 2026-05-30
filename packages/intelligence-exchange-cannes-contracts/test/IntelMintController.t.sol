@@ -340,7 +340,25 @@ contract IntelMintControllerTest is Test {
 
     function test_setRoutingAddresses_zero_reverts() public {
         vm.expectRevert(IntelMintController.ZeroAddress.selector);
-        controller.setRoutingAddresses(address(0), treasury);
+        controller.proposeRoutingAddresses(address(0), treasury);
+    }
+
+    function test_proposeRoutingAddresses_timelock() public {
+        address newPol = address(0x1234567890123456789012345678901234567890);
+        controller.proposeRoutingAddresses(newPol, treasury);
+        // Should not take effect immediately — polAddress is the constructor-set pol value
+        assertNotEq(controller.polAddress(), newPol, "polAddress unchanged before timelock");
+        // Fast-forward 48h and apply
+        vm.warp(block.timestamp + 48 hours + 1);
+        controller.applyRoutingAddresses();
+        assertEq(controller.polAddress(), newPol, "polAddress updated after timelock");
+    }
+
+    function test_applyRoutingAddresses_before_timelock_reverts() public {
+        address newPol = address(0x1234567890123456789012345678901234567890);
+        controller.proposeRoutingAddresses(newPol, treasury);
+        vm.expectRevert();
+        controller.applyRoutingAddresses(); // too early
     }
 
     // Ownable2Step: transferOwnership starts the process, acceptOwnership completes it.
