@@ -20,12 +20,13 @@ const INTEL_DECIMALS = 18;
 const CONTRACT_CHAIN_ID = isArcEnabled() ? Number(import.meta.env.VITE_ARC_CHAIN_ID ?? '5042002') : 0;
 
 const liquidityMiningAbi = [
-  { name: 'stake', type: 'function', inputs: [{ type: 'uint256' }] },
-  { name: 'unstake', type: 'function', inputs: [{ type: 'uint256' }] },
-  { name: 'claimRewards', type: 'function', inputs: [] },
-  { name: 'totalStaked', type: 'function', outputs: [{ type: 'uint256' }] },
-  { name: 'rewardRate', type: 'function', outputs: [{ type: 'uint256' }] },
-  { name: 'pendingReward', type: 'function', inputs: [{ name: '', type: 'address' }], outputs: [{ type: 'uint256' }] },
+  { name: 'stake', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'amount', type: 'uint256' }], outputs: [] },
+  { name: 'unstake', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'amount', type: 'uint256' }], outputs: [] },
+  { name: 'claimRewards', type: 'function', stateMutability: 'nonpayable', inputs: [], outputs: [{ name: 'claimed', type: 'uint256' }] },
+  { name: 'totalStaked', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'uint256' }] },
+  { name: 'rewardRate', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'uint256' }] },
+  { name: 'pendingReward', type: 'function', stateMutability: 'view', inputs: [{ name: 'wallet', type: 'address' }], outputs: [{ name: '', type: 'uint256' }] },
+  { name: 'miningPool', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'uint256' }] },
 ] as const;
 
 function fmt(raw: bigint | undefined, decimals = 4): string {
