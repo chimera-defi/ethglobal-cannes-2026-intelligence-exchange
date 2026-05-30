@@ -207,6 +207,13 @@ export async function submitJob(jobId: string, req: JobResultSubmitRequest, acco
   const [job] = await db.select().from(jobs).where(eq(jobs.jobId, jobId));
   if (!job) throw httpError('Job not found', 404, 'JOB_NOT_FOUND');
 
+  // Agent fingerprint verification: cross-check against registered fingerprint
+  const [registeredIdentity] = await db.select().from(agentIdentities)
+    .where(eq(agentIdentities.accountAddress, accountAddress));
+  if (registeredIdentity && registeredIdentity.fingerprint !== agentFingerprint) {
+    throw httpError('Agent fingerprint mismatch', 403, 'FINGERPRINT_MISMATCH');
+  }
+
   // Claim ownership check: reject if submitter doesn't own the active claim
   if (job.activeClaimWorkerId && job.activeClaimWorkerId !== accountAddress) {
     throw httpError(
