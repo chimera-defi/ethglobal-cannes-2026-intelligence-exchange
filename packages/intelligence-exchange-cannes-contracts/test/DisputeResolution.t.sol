@@ -579,4 +579,101 @@ contract DisputeResolutionTest is Test {
         vm.expectRevert(DisputeResolution.QuorumTooHigh.selector);
         disputeResolution.setReviewerSlashBps(11000);
     }
+
+    // ─── Dispute Deduplication Tests ───────────────────────────────────────────
+
+    function test_openDispute_taskAlreadyDisputed_reverts() public {
+        bytes32 taskId = bytes32(uint256(1));
+
+        // Open first dispute
+        vm.prank(disputer);
+        disputeResolution.openDispute(taskId, worker, reviewer);
+
+        // Try to open second dispute on same taskId
+        vm.prank(disputer);
+        vm.expectRevert(abi.encodeWithSelector(DisputeResolution.TaskAlreadyDisputed.selector, taskId));
+        disputeResolution.openDispute(taskId, worker, reviewer);
+    }
+
+    function test_openDispute_canReopenAfterRejection() public {
+        bytes32 taskId = bytes32(uint256(1));
+
+        // Open dispute
+        vm.prank(disputer);
+        disputeResolution.openDispute(taskId, worker, reviewer);
+
+        address[] memory jurors = new address[](5);
+        jurors[0] = juror1;
+        jurors[1] = juror2;
+        jurors[2] = juror3;
+        jurors[3] = juror4;
+        jurors[4] = juror5;
+
+        vm.prank(operator);
+        disputeResolution.selectJury(0, jurors);
+
+        // Vote to reject (not enough uphold votes)
+        vm.prank(juror1);
+        disputeResolution.castVote(0, true);
+        vm.prank(juror2);
+        disputeResolution.castVote(0, true);
+        vm.prank(juror3);
+        disputeResolution.castVote(0, false);
+
+        // Fast forward past voting deadline
+        vm.warp(block.timestamp + 49 hours);
+
+        // Resolve as rejected
+        disputeResolution.resolveDispute(0, false);
+
+        // taskDisputeId should be cleared after rejection
+        assertEq(disputeResolution.taskDisputeId(taskId), 0);
+
+        // Should be possible to open a new dispute on the same taskId
+        vm.prank(disputer);
+        disputeResolution.openDispute(taskId, worker, reviewer);
+
+        // Verify new dispute was created
+        assertEq(disputeResolution.taskDisputeId(taskId), 2); // disputeId 1 + 1
+    }
+
+    function test_openDispute_permanentLockAfterUpheld() public {
+        bytes32 taskId = bytes32(uint256(1));
+
+        // Open dispute
+        vm.prank(disputer);
+        disputeResolution.openDispute(taskId, worker, reviewer);
+
+        address[] memory jurors = new address[](5);
+        jurors[0] = juror1;
+        jurors[1] = juror2;
+        jurors[2] = juror3;
+        jurors[3] = juror4;
+        jurors[4] = juror5;
+
+        vm.prank(operator);
+        disputeResolution.selectJury(0, jurors);
+
+        // Vote to uphold (60% quorum)
+        vm.prank(juror1);
+        disputeResolution.castVote(0, true);
+        vm.prank(juror2);
+        disputeResolution.castVote(0, true);
+        vm.prank(juror3);
+        disputeResolution.castVote(0, true);
+
+        // Fast forward past voting deadline
+        vm.warp(block.timestamp + 49 hours);
+
+        // Resolve as upheld (worker fault)
+        disputeResolution.resolveDispute(0, false);
+
+        // taskDisputeId should remain non-zero after upheld
+        assertEq(disputeResolution.taskDisputeId(taskId), 1); // disputeId 0 + 1
+
+        // Second openDispute on same taskId should revert
+        vm.prank(disputer);
+        vm.expectRevert(abi.encodeWithSelector(DisputeResolution.TaskAlreadyDisputed.selector, taskId));
+        disputeResolution.openDispute(taskId, worker, reviewer);
+    }
 }
