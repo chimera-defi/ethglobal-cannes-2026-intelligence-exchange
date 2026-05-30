@@ -35,6 +35,7 @@ contract DisputeResolution {
     error DisputeNotPending();
     error InvalidJuror();
     error QuorumTooHigh();
+    error TaskAlreadyDisputed(bytes32 taskId);
 
     // ─── Events ───────────────────────────────────────────────────────────────
 
@@ -68,6 +69,7 @@ contract DisputeResolution {
     event VotingWindowUpdated(uint256 oldWindow, uint256 newWindow);
     event DisputeBondUpdated(uint256 oldBond, uint256 newBond);
     event ReviewerSlashBpsUpdated(uint256 oldBps, uint256 newBps);
+    event SlashFailed(uint256 indexed disputeId, address indexed target, bytes reason);
     event ReviewerStakeManagerUpdated(address indexed oldManager, address indexed newManager);
     event WorkerStakeManagerUpdated(address indexed oldManager, address indexed newManager);
 
@@ -110,6 +112,7 @@ contract DisputeResolution {
     mapping(uint256 => Dispute) public disputes;
     uint256 public nextDisputeId;
     mapping(address => uint256[]) public activeJuryDuty; // juror => disputeIds
+    mapping(bytes32 => uint256) public taskDisputeId; // taskId => disputeId+1 (0 = no dispute)
 
     // Ownership
     address public owner;
@@ -184,6 +187,7 @@ contract DisputeResolution {
     ) external nonReentrant {
         if (worker == address(0)) revert ZeroAddress();
         if (reviewer == address(0)) revert ZeroAddress();
+        if (taskDisputeId[taskId] != 0) revert TaskAlreadyDisputed(taskId);
 
         uint256 disputeId = nextDisputeId++;
         Dispute storage dispute = disputes[disputeId];
@@ -203,6 +207,7 @@ contract DisputeResolution {
         bool bondOk = intel.transferFrom(msg.sender, address(this), disputeBond);
         require(bondOk, "DisputeResolution: bond transferFrom failed");
 
+        taskDisputeId[taskId] = disputeId + 1; // +1 so 0 means no dispute
         emit DisputeOpened(disputeId, taskId, msg.sender, worker, reviewer, disputeBond);
     }
 
@@ -299,9 +304,13 @@ contract DisputeResolution {
                                 try reviewerStakeManager.slash(dispute.reviewer, slashAmount) {
                                     reviewerSlashed = true;
                                     emit BondSlashed(disputeId, dispute.reviewer, slashAmount);
-                                } catch {}
+                                } catch (bytes memory reason) {
+                                    emit SlashFailed(disputeId, dispute.reviewer, reason);
+                                }
                             }
-                        } catch {}
+                        } catch (bytes memory reason) {
+                            emit SlashFailed(disputeId, dispute.reviewer, reason);
+                        }
                     }
 
                     // Return bond to disputer
@@ -315,7 +324,9 @@ contract DisputeResolution {
                         try workerStakeManager.slash(dispute.worker, dispute.bond, dispute.disputer) {
                             workerSlashed = true;
                             emit BondSlashed(disputeId, dispute.worker, dispute.bond);
-                        } catch {}
+                        } catch (bytes memory reason) {
+                            emit SlashFailed(disputeId, dispute.worker, reason);
+                        }
                     }
 
                     // Slash reviewer
@@ -323,7 +334,9 @@ contract DisputeResolution {
                         try reviewerStakeManager.slash(dispute.reviewer, dispute.bond) {
                             reviewerSlashed = true;
                             emit BondSlashed(disputeId, dispute.reviewer, dispute.bond);
-                        } catch {}
+                        } catch (bytes memory reason) {
+                            emit SlashFailed(disputeId, dispute.reviewer, reason);
+                        }
                     }
 
                     // Return bond to disputer with bonus
