@@ -1,5 +1,8 @@
 import { Hono } from 'hono';
 import { computeAIUIndex, getAIUHistory } from '../services/aiuService';
+import { createLogger } from '../lib/logger';
+
+const log = createLogger('aiu');
 
 export const aiuRouter = new Hono();
 
@@ -18,8 +21,13 @@ export const aiuRouter = new Hono();
  *   acceptanceRate — fraction of reviewed jobs accepted (0–1)
  */
 aiuRouter.get('/index', async (c) => {
-  const index = await computeAIUIndex();
-  return c.json(index);
+  try {
+    const index = await computeAIUIndex();
+    return c.json(index);
+  } catch (err) {
+    log.error('Failed to compute AIU index', { error: String(err) });
+    throw err;
+  }
 });
 
 /**
@@ -31,6 +39,11 @@ aiuRouter.get('/index', async (c) => {
 aiuRouter.get('/history', async (c) => {
   const daysParam = c.req.query('days');
   const days = daysParam ? Math.min(365, Math.max(1, Number.parseInt(daysParam, 10) || 30)) : 30;
-  const history = await getAIUHistory(days);
-  return c.json({ days, count: history.length, history });
+  try {
+    const history = await getAIUHistory(days);
+    return c.json({ days, count: history.length, history });
+  } catch (err) {
+    log.error('Failed to fetch AIU history', { days, error: String(err) });
+    throw err;
+  }
 });
