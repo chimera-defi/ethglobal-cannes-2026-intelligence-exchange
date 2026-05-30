@@ -78,6 +78,11 @@ contract IntelVestingTest is Test {
         new IntelVesting(address(token), beneficiary, treasury, startTime, CLIFF_DELAY, 0, TOTAL);
     }
 
+    function test_reverts_on_duration_below_30_days() public {
+        vm.expectRevert(IntelVesting.InvalidDuration.selector);
+        new IntelVesting(address(token), beneficiary, treasury, startTime, CLIFF_DELAY, 29 days, TOTAL);
+    }
+
     // ─── vestedAmount ─────────────────────────────────────────────────────
 
     function test_vested_before_cliff_is_zero() public view {
@@ -219,6 +224,13 @@ contract IntelVestingTest is Test {
         vesting.revoke();
     }
 
+    function test_revoke_during_blackout_before_cliff_reverts() public {
+        vm.warp(startTime + CLIFF_DELAY - 1800); // 30 minutes before cliff (within 1-hour blackout)
+        vm.prank(treasury);
+        vm.expectRevert(IntelVesting.RevocationLockedAfterCliff.selector);
+        vesting.revoke();
+    }
+
     function test_revoke_twice_reverts() public {
         vm.prank(treasury);
         vesting.revoke();
@@ -229,7 +241,7 @@ contract IntelVestingTest is Test {
     }
 
     function test_release_after_revoke_reverts() public {
-        vm.warp(startTime + CLIFF_DELAY - 1);
+        vm.warp(startTime + CLIFF_DELAY - 7200); // 2 hours before cliff — outside 1-hour blackout window
         vm.prank(treasury);
         vesting.revoke();
 
