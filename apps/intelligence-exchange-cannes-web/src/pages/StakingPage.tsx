@@ -79,7 +79,7 @@ export function StakingPage() {
   const allowance = walletData?.[1]?.result as bigint | undefined;
   const pendingYield = walletData?.[2]?.result as bigint | undefined;
   const mintAllowance = walletData?.[3]?.result as bigint | undefined;
-  const stakerInfo = walletData?.[4]?.result as readonly [bigint, bigint, bigint, bigint, bigint, bigint, bigint, bigint] | undefined;
+  const stakerInfo = walletData?.[4]?.result as readonly [bigint, bigint, bigint, bigint, bigint, bigint, bigint, bigint, bigint, bigint] | undefined;
   const pendingEthYield = walletData?.[5]?.result as bigint | undefined;
 
   const stakedAmount = stakerInfo?.[0];
