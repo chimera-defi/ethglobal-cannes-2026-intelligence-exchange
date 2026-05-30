@@ -56,7 +56,10 @@ test.describe('Intelligence Exchange E2E Tests', () => {
     const errors: string[] = [];
     page.on('console', (msg) => {
       if (msg.type() === 'error') {
-        errors.push(msg.text());
+        // Ignore 429 rate limiting errors (expected when running tests in parallel)
+        if (!msg.text().includes('429') && !msg.text().includes('Too Many Requests')) {
+          errors.push(msg.text());
+        }
       }
     });
     await page.goto(BASE_URL);
@@ -73,7 +76,10 @@ test.describe('Intelligence Exchange E2E Tests', () => {
     const errors: string[] = [];
     page.on('console', (msg) => {
       if (msg.type() === 'error') {
-        errors.push(msg.text());
+        // Ignore 429 rate limiting errors (expected when running tests in parallel)
+        if (!msg.text().includes('429') && !msg.text().includes('Too Many Requests')) {
+          errors.push(msg.text());
+        }
       }
     });
     await page.goto(`${BASE_URL}/ideas`);
