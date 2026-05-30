@@ -212,13 +212,6 @@ contract TaskEscrow {
         // Validate worker matches assignment if setWorker was called
         if (task.worker != address(0) && task.worker != worker) revert WorkerMismatch();
 
-        _releaseTask(taskId, worker);
-    }
-
-    /// @notice Internal release logic — shared between release() and autoRelease()
-    function _releaseTask(bytes32 taskId, address worker) internal {
-        Task storage task = tasks[taskId];
-
         // Use snapshot BPS captured at funding time — prevents owner from changing split mid-task
         uint256 workerShare = (task.amount * task.snapshotWorkerBps) / BPS;
         uint256 stakerShare = (task.amount * task.snapshotStakerBps) / BPS;
