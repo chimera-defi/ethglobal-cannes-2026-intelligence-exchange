@@ -73,17 +73,10 @@ infra-up:
 	@echo "Infrastructure ready!"
 
 infra-down:
-<<<<<<< HEAD
 	POSTGRES_PORT=$(POSTGRES_PORT) REDIS_PORT=$(REDIS_PORT) POSTGRES_PASSWORD=$(POSTGRES_PASSWORD) REDIS_PASSWORD=$(REDIS_PASSWORD) $(COMPOSE) down --remove-orphans
 
 infra-reset:
 	POSTGRES_PORT=$(POSTGRES_PORT) REDIS_PORT=$(REDIS_PORT) POSTGRES_PASSWORD=$(POSTGRES_PASSWORD) REDIS_PASSWORD=$(REDIS_PASSWORD) $(COMPOSE) down -v --remove-orphans
-=======
-	POSTGRES_PORT=$(POSTGRES_PORT) REDIS_PORT=$(REDIS_PORT) POSTGRES_PASSWORD=$(POSTGRES_PASSWORD) REDIS_PASSWORD=$(REDIS_PASSWORD) $(COMPOSE) down
-
-infra-reset:
-	POSTGRES_PORT=$(POSTGRES_PORT) REDIS_PORT=$(REDIS_PORT) POSTGRES_PASSWORD=$(POSTGRES_PASSWORD) REDIS_PASSWORD=$(REDIS_PASSWORD) $(COMPOSE) down -v
->>>>>>> origin/fix/redis-infra-hardening
 	POSTGRES_PORT=$(POSTGRES_PORT) REDIS_PORT=$(REDIS_PORT) POSTGRES_PASSWORD=$(POSTGRES_PASSWORD) REDIS_PASSWORD=$(REDIS_PASSWORD) $(COMPOSE) up -d
 	@echo "Infrastructure reset (data wiped)"
 
@@ -116,15 +109,11 @@ db-reset: infra-reset
 test:
 	corepack pnpm test
 
-<<<<<<< HEAD
-test-acceptance:
-=======
 test-infra-security:
 	@echo "Running infra hardening regression checks..."
 	corepack pnpm test:infra-security
 
 test-acceptance: infra-up
->>>>>>> origin/fix/redis-infra-hardening
 	@echo "Running acceptance tests..."
 	@DATABASE_URL=$(DATABASE_URL) REDIS_URL=$(REDIS_URL) BROKER_URL=$(BROKER_URL) \
 	corepack pnpm test:acceptance
