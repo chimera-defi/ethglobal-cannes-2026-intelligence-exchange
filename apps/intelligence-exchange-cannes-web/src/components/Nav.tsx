@@ -39,6 +39,7 @@ export function Nav() {
     { to: '/submit', label: 'Post Idea' },
     { to: '/jobs', label: 'Jobs' },
     { to: '/staking', label: 'Staking' },
+    { to: '/yield', label: 'Yield' },
     { to: '/mint', label: 'Mint INTEL' },
     { to: '/agents', label: 'Agents' },
     { to: '/ideas', label: 'My Ideas' },
