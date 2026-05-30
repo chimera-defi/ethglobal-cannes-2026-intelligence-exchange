@@ -54,17 +54,18 @@ test.describe('Comprehensive Page Coverage - All Routes', () => {
     await page.goto(`${BASE_URL}/staking`);
     await page.waitForLoadState('networkidle');
 
-    console.log('🔍 Testing staking page controls...');
+    // Verify page renders
+    const body = page.locator('body');
+    await expect(body).toBeVisible();
 
-    // Look for staking-related elements
-    const buttons = await page.locator('button').count();
-    const inputs = await page.locator('input').count();
+    // Verify page has content
     const text = await page.textContent('body');
+    expect(text?.length).toBeGreaterThan(500); // Page should have content
 
-    console.log(`📊 Staking page: ${buttons} buttons, ${inputs} inputs`);
-    console.log(`📝 Contains "stake": ${text?.toLowerCase().includes('stake')}`);
-    console.log(`📝 Contains "unstake": ${text?.toLowerCase().includes('unstake')}`);
-    console.log(`📝 Contains "reward": ${text?.toLowerCase().includes('reward')}`);
+    // Verify page contains staking-related text OR requires wallet
+    const hasStakingContent = text?.toLowerCase().includes('stake') ||
+                             text?.toLowerCase().includes('connect');
+    expect(hasStakingContent).toBeTruthy();
 
     await page.screenshot({ path: 'test-results/staking-detailed.png' });
   });
@@ -73,15 +74,18 @@ test.describe('Comprehensive Page Coverage - All Routes', () => {
     await page.goto(`${BASE_URL}/mint`);
     await page.waitForLoadState('networkidle');
 
-    console.log('🔍 Testing mint page controls...');
+    // Verify page renders
+    const body = page.locator('body');
+    await expect(body).toBeVisible();
 
-    const buttons = await page.locator('button').count();
-    const inputs = await page.locator('input').count();
+    // Verify page has content
     const text = await page.textContent('body');
+    expect(text?.length).toBeGreaterThan(500); // Page should have content
 
-    console.log(`📊 Mint page: ${buttons} buttons, ${inputs} inputs`);
-    console.log(`📝 Contains "mint": ${text?.toLowerCase().includes('mint')}`);
-    console.log(`📝 Contains "token": ${text?.toLowerCase().includes('token')}`);
+    // Verify page contains mint-related text
+    const hasMintContent = text?.toLowerCase().includes('mint') ||
+                          text?.toLowerCase().includes('token');
+    expect(hasMintContent).toBeTruthy();
 
     await page.screenshot({ path: 'test-results/mint-detailed.png' });
   });
@@ -93,12 +97,15 @@ test.describe('Comprehensive Page Coverage - All Routes', () => {
       await page.goto(`${BASE_URL}${route}`);
       await page.waitForLoadState('networkidle');
 
-      const buttons = await page.locator('button').count();
+      // Verify page renders
+      const body = page.locator('body');
+      await expect(body).toBeVisible();
+
+      // Verify page has content
       const text = await page.textContent('body');
+      expect(text?.length).toBeGreaterThan(500); // Page should have content
+
       const routeName = route.split('/').pop() || 'workspace';
-
-      console.log(`📊 ${routeName}: ${buttons} buttons, ${text?.length || 0} chars`);
-
       await page.screenshot({ path: `test-results/workspace/${routeName}.png` });
     }
   });
@@ -117,10 +124,8 @@ test.describe('Comprehensive Page Coverage - All Routes', () => {
       await page.waitForLoadState('networkidle');
     }
 
-    if (brokenLinks.length > 0) {
-      console.log('⚠️ Broken links found:', brokenLinks);
-    } else {
-      console.log('✅ No broken links found');
-    }
+    // Assert no broken links (except 429 rate limiting which is expected when running many tests)
+    const criticalBrokenLinks = brokenLinks.filter(link => !link.includes('429'));
+    expect(criticalBrokenLinks.length).toBe(0);
   });
 });
