@@ -208,6 +208,8 @@ contract IntelStaking {
         s.ethYieldDebt = (s.staked * accEthYieldPerShare) / PRECISION;
 
         // Pull tokens; IntelToken always returns true or reverts — check anyway for safety
+        // Note: IntelToken is a standard OZ ERC20 that reverts on failure.
+        // The bool check is defensive; the require ensures execution stops on false return.
         bool stakeOk = intel.transferFrom(msg.sender, address(this), amount);
         require(stakeOk, "IntelStaking: stake transferFrom failed");
 
@@ -256,6 +258,8 @@ contract IntelStaking {
         s.pendingUnstake = 0;
         s.unstakeAvailableAt = 0;
 
+        // Note: IntelToken is a standard OZ ERC20 that reverts on failure.
+        // The bool check is defensive; the require ensures execution stops on false return.
         bool unstakeOk = intel.transfer(msg.sender, amount);
         require(unstakeOk, "IntelStaking: unstake transfer failed");
 
@@ -268,13 +272,16 @@ contract IntelStaking {
     /// @dev    Caller must have approved this contract to transfer `amount` of INTEL.
     /// @custom:access operator only
     /// @param  amount INTEL yield amount to deposit (in wei).
-    function depositYield(uint256 amount) external onlyOperator {
+    function depositYield(uint256 amount) external onlyOperator nonReentrant {
         if (amount == 0) revert ZeroAmount();
+        // Note: IntelToken is a standard OZ ERC20 that reverts on failure.
+        // The bool check is defensive; the require ensures execution stops on false return.
         bool yieldOk = intel.transferFrom(msg.sender, address(this), amount);
         require(yieldOk, "IntelStaking: depositYield transferFrom failed");
 
         if (totalStaked > 0) {
             // Distribute immediately to current stakers
+            require(accYieldPerShare + (amount * PRECISION) / totalStaked <= type(uint128).max, 'accumulator overflow');
             accYieldPerShare += (amount * PRECISION) / totalStaked;
         } else {
             // No stakers yet — buffer for next distribution
@@ -389,9 +396,9 @@ contract IntelStaking {
 
     /// @notice Update staking parameters.
     /// @custom:access owner
-    /// @dev WARNING: calling mid-epoch resets globalCapRemaining to the full new cap,
-    ///      discarding how much allowance has already been consumed this epoch.
-    ///      Best practice: call only at epoch boundaries (right after advanceEpoch()).
+    /// @dev globalCapRemaining is NOT reset here — the new globalEpochCap takes effect at
+    ///      the next _advanceEpoch() boundary. This prevents bypassing the current-epoch
+    ///      mint cap via a mid-epoch setParams() call (audit H4 fix).
     /// @param _epochLength  New epoch length in seconds.
     /// @param _cooldown     New unstake cooldown in seconds.
     /// @param _k            New sqrt coefficient (1e18 scale).
@@ -409,7 +416,7 @@ contract IntelStaking {
         k = _k;
         walletCap = _walletCap;
         globalEpochCap = _globalEpochCap;
-        globalCapRemaining = _globalEpochCap; // resets epoch cap — see NatDoc warning
+        // globalCapRemaining intentionally not reset — takes effect at next epoch boundary
         emit ParamsUpdated(_epochLength, _cooldown, _k, _walletCap, _globalEpochCap);
     }
 

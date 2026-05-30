@@ -116,6 +116,8 @@ contract ReviewerStakeManager {
         uint256 oldBond = reviewerBond[msg.sender];
         
         // Transfer INTEL from caller to contract
+        // Note: IntelToken is a standard OZ ERC20 that reverts on failure.
+        // The bool check is defensive; the require ensures execution stops on false return.
         bool transferOk = intel.transferFrom(msg.sender, address(this), bondAmount);
         require(transferOk, "ReviewerStakeManager: bond transferFrom failed");
         
@@ -165,6 +167,8 @@ contract ReviewerStakeManager {
         pendingUnstake[msg.sender] = 0;
         unstakeAvailableAt[msg.sender] = 0;
         
+        // Note: IntelToken is a standard OZ ERC20 that reverts on failure.
+        // The bool check is defensive; the require ensures execution stops on false return.
         bool transferOk = intel.transfer(msg.sender, amount);
         require(transferOk, "ReviewerStakeManager: unstake transfer failed");
         
@@ -199,6 +203,8 @@ contract ReviewerStakeManager {
         
         reviewFeeEarned[msg.sender] = 0;
         
+        // Note: IntelToken is a standard OZ ERC20 that reverts on failure.
+        // The bool check is defensive; the require ensures execution stops on false return.
         bool transferOk = intel.transfer(msg.sender, fees);
         require(transferOk, "ReviewerStakeManager: fee claim transfer failed");
         
@@ -211,6 +217,8 @@ contract ReviewerStakeManager {
     function depositFees(uint256 amount) external onlyOperator {
         if (amount == 0) revert ZeroAmount();
         
+        // Note: IntelToken is a standard OZ ERC20 that reverts on failure.
+        // The bool check is defensive; the require ensures execution stops on false return.
         bool transferOk = intel.transferFrom(msg.sender, address(this), amount);
         require(transferOk, "ReviewerStakeManager: fee deposit transferFrom failed");
     }
@@ -236,6 +244,8 @@ contract ReviewerStakeManager {
         }
         
         // Transfer slashed amount to treasury
+        // Note: IntelToken is a standard OZ ERC20 that reverts on failure.
+        // The bool check is defensive; the require ensures execution stops on false return.
         bool transferOk = intel.transfer(treasury, amount);
         require(transferOk, "ReviewerStakeManager: slash transfer failed");
         
