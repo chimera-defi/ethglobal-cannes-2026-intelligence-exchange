@@ -92,6 +92,10 @@ contract IntelStakingTest is Test {
 
     function test_mintAllowance_global_cap_binds() public {
         staking.setParams(EPOCH, COOL, K, WALLET_CAP, 3e9); // globalCap < walletCap < rawAllowance
+        // H4 fix: setParams no longer resets globalCapRemaining mid-epoch.
+        // Advance to the next epoch so the new globalEpochCap (3e9) takes effect.
+        vm.warp(block.timestamp + EPOCH + 1);
+        staking.advanceEpoch();
 
         vm.prank(alice);
         staking.stake(100e18);
