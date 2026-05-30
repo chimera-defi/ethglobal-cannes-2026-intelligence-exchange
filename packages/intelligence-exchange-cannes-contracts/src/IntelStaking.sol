@@ -109,8 +109,7 @@ contract IntelStaking {
 
     uint256 private constant PRECISION = 1e36;
     uint256 private constant BPS = 10000; // Basis points for percentage calculations
-    uint256 public constant FLOW_BONUS_BPS = 1500;   // 15% mint allowance bonus for new stakers
-    uint256 public constant FLOW_BONUS_MIN_STAKE = 1e18; // 1 INTEL minimum new stake to qualify for flow bonus
+    uint256 public constant FLOW_BONUS_BPS = 1500; // 15% mint allowance bonus for new stakers
 
     // ─── Circuit breaker + deposit cap (appended to storage layout) ──────────
 
@@ -504,11 +503,9 @@ contract IntelStaking {
         // sqrt returns result in same units as input; we want allowance in token units
         uint256 rawAllowance = (k * _sqrt(s.staked)) / 1e18;
 
-        // Flow bonus: new stakers this epoch earn 15% extra allowance (Bittensor-inspired).
-        // Minimum 1 INTEL new stake required to prevent 1-wei griefing — a whale staking
-        // a dust amount every epoch would otherwise get the bonus on their entire position.
+        // Flow bonus: new stakers this epoch earn 15% extra allowance (Bittensor-inspired)
         // Applied BEFORE caps so wallet/global caps remain absolute ceilings.
-        if (s.epochNewStakeEpoch == currentEpoch && s.epochNewStake >= FLOW_BONUS_MIN_STAKE) {
+        if (s.epochNewStakeEpoch == currentEpoch && s.epochNewStake > 0) {
             rawAllowance += (rawAllowance * FLOW_BONUS_BPS) / BPS;
         }
         // Apply walletCap
