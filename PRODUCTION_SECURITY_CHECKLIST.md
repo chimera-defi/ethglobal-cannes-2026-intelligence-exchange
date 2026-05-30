@@ -34,10 +34,10 @@
 
 ### Application Security
 
-- [ ] **Set WORLD_ID_STRICT=true**
-  - Critical: Disables demo mode
-  - Prevents authentication bypass
-  - Required for production
+- [ ] **Set WORLD_ID_STRICT=true (OPTIONAL)**
+  - Optional: World ID is an optional dependency
+  - Set to true only if you want to require World ID verification
+  - System works correctly without World ID verification
 
 - [ ] **Set proper CORS origins**
   - Whitelist your production domains only
