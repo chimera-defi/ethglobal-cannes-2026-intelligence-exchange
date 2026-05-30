@@ -301,6 +301,11 @@ contract AdvancedArcEscrow {
         address _treasuryReceiver,
         address _disputeResolver
     ) {
+        if (_paymentToken == address(0)) revert ZeroAddress();
+        if (_identityGate == address(0)) revert ZeroAddress();
+        if (_stakerYieldReceiver == address(0)) revert ZeroAddress();
+        if (_treasuryReceiver == address(0)) revert ZeroAddress();
+        if (_disputeResolver == address(0)) revert ZeroAddress();
         paymentToken = _paymentToken;
         identityGate = IdentityGate(_identityGate);
         stakerYieldReceiver = _stakerYieldReceiver;
@@ -780,7 +785,7 @@ contract AdvancedArcEscrow {
 
     /// @notice Auto-resolve dispute after timeout (splits 50/50).
     /// @param milestoneId Disputed milestone
-    function autoResolveDispute(bytes32 milestoneId) external {
+    function autoResolveDispute(bytes32 milestoneId) external onlyResolver {
         Dispute storage d = disputes[milestoneId];
         if (d.raisedAt == 0) revert DisputeNotFound();
         if (d.resolved) revert InvalidDisputeResolution();
@@ -824,7 +829,7 @@ contract AdvancedArcEscrow {
     /// @notice Poster withdraws available funds (unreserved or refunded).
     /// @param ideaId Idea to withdraw from
     /// @param amount Amount to withdraw
-    function withdrawAvailable(bytes32 ideaId, uint256 amount) external onlyPoster(ideaId) {
+    function withdrawAvailable(bytes32 ideaId, uint256 amount) external onlyPoster(ideaId) nonReentrant {
         IdeaFund storage fund = ideas[ideaId];
         if (fund.available < amount) revert InsufficientBalance(ideaId, amount, fund.available);
 
