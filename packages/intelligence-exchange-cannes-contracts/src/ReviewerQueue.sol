@@ -43,6 +43,7 @@ contract ReviewerQueue {
     event OwnershipTransferStarted(address indexed previous, address indexed next);
     event OwnershipTransferred(address indexed previous, address indexed next);
     event IdentityGateUpdated(address newGate);
+    event ReviewerRemoved(address indexed reviewer);
 
     // ─── Storage ──────────────────────────────────────────────────────────────
 
@@ -255,6 +256,32 @@ contract ReviewerQueue {
     function setIdentityGate(address _identityGate) external onlyOwner {
         identityGate = IdentityGate(_identityGate);
         emit IdentityGateUpdated(_identityGate);
+    }
+
+    /// @notice Remove a reviewer from the queue, clearing all their active assignments.
+    /// @dev Called when a reviewer is slashed or becomes ineligible.
+    /// @custom:access operator only
+    /// @param reviewer Address of the reviewer to remove.
+    function removeEligibleReviewer(address reviewer) external onlyOperator nonReentrant {
+        if (reviewer == address(0)) revert ZeroAddress();
+
+        // Clear all active assignments for this reviewer
+        bytes32[] storage queue = reviewerQueue[reviewer];
+        for (uint256 i = 0; i < queue.length; i++) {
+            bytes32 taskId = queue[i];
+            ReviewAssignment storage assignment = assignments[taskId];
+            if (assignment.assignedReviewer == reviewer && !assignment.completed) {
+                // Mark as timed out so it can be reassigned
+                assignment.timedOut = true;
+            }
+            delete _queueTaskIndex[reviewer][taskId];
+        }
+
+        // Clear the queue and reset active count
+        delete reviewerQueue[reviewer];
+        reviewerActiveCount[reviewer] = 0;
+
+        emit ReviewerRemoved(reviewer);
     }
 
     /// @notice Begin ownership transfer. Nominee must call acceptOwnership().
