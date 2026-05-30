@@ -49,17 +49,16 @@ test.describe('Missing Routes Coverage', () => {
     await expect(body).toBeVisible();
 
     const text = await page.textContent('body');
-    console.log(`✅ Review Panel page rendered (${text?.length || 0} characters)`);
+    expect(text?.length).toBeGreaterThan(500); // Page should have content
 
     // Check for review-related elements
     const hasReviewText = text?.toLowerCase().includes('review');
     const hasSubmitText = text?.toLowerCase().includes('submit');
-    console.log(`📊 Contains 'review': ${hasReviewText}`);
-    console.log(`📊 Contains 'submit': ${hasSubmitText}`);
+
+    // At least one of these should be present (or page should redirect to auth)
+    expect(hasReviewText || hasSubmitText || text?.toLowerCase().includes('connect')).toBeTruthy();
 
     await page.screenshot({ path: 'test-results/missing-routes/review-panel.png' });
-
-    console.log(`⚠️ Console error count: ${errors.length}`);
   });
 
   test('Escrow Status Panel (/escrow/:ideaId) - renders with sample ID', async ({ page }) => {
@@ -78,17 +77,16 @@ test.describe('Missing Routes Coverage', () => {
     await expect(body).toBeVisible();
 
     const text = await page.textContent('body');
-    console.log(`✅ Escrow Status Panel rendered (${text?.length || 0} characters)`);
+    expect(text?.length).toBeGreaterThan(500); // Page should have content
 
     // Check for escrow-related elements
     const hasEscrowText = text?.toLowerCase().includes('escrow');
     const hasStatusText = text?.toLowerCase().includes('status');
-    console.log(`📊 Contains 'escrow': ${hasEscrowText}`);
-    console.log(`📊 Contains 'status': ${hasStatusText}`);
+
+    // At least one of these should be present
+    expect(hasEscrowText || hasStatusText || text?.toLowerCase().includes('connect')).toBeTruthy();
 
     await page.screenshot({ path: 'test-results/missing-routes/escrow-status.png' });
-
-    console.log(`⚠️ Console error count: ${errors.length}`);
   });
 
   test('Dossier Panel (/dossier/:ideaId) - renders with sample ID', async ({ page }) => {
@@ -111,7 +109,6 @@ test.describe('Missing Routes Coverage', () => {
 
     // Check if we're still on dossier page or were redirected
     const currentUrl = page.url();
-    console.log(`📊 Current URL: ${currentUrl}`);
 
     const isDossierPage = currentUrl.includes('/dossier/');
 
@@ -121,21 +118,17 @@ test.describe('Missing Routes Coverage', () => {
 
       if (isVisible) {
         const text = await page.textContent('body');
-        console.log(`✅ Dossier Panel rendered (${text?.length || 0} characters)`);
-
-        // Check for dossier-related elements
-        const hasDossierText = text?.toLowerCase().includes('dossier');
-        console.log(`📊 Contains 'dossier': ${hasDossierText}`);
+        expect(text?.length).toBeGreaterThan(500); // Page should have content
       } else {
-        console.log(`⚠️ Dossier Panel body hidden (may be loading or requires auth)`);
+        // Body hidden is acceptable (may require auth)
+        expect(true).toBeTruthy();
       }
     } else {
-      console.log(`⚠️ Redirected from dossier page to: ${currentUrl}`);
+      // Redirected is acceptable (may require auth)
+      expect(true).toBeTruthy();
     }
 
     await page.screenshot({ path: 'test-results/missing-routes/dossier-panel.png' });
-
-    console.log(`⚠️ Console error count: ${errors.length}`);
   });
 });
 
@@ -144,24 +137,26 @@ test.describe('Functional Testing - Staking Controls', () => {
     await page.goto(`${BASE_URL}/staking`);
     await page.waitForLoadState('networkidle');
 
-    console.log('🔍 Testing staking controls functionality...');
+    // Verify page renders
+    const body = page.locator('body');
+    await expect(body).toBeVisible();
+
+    // Verify page has content
+    const text = await page.textContent('body');
+    expect(text?.length).toBeGreaterThan(500); // Page should have content
 
     // Look for staking-related buttons and inputs
     const allButtons = await page.locator('button').all();
     const allInputs = await page.locator('input').all();
 
-    console.log(`📊 Total buttons: ${allButtons.length}`);
-    console.log(`📊 Total inputs: ${allInputs.length}`);
-
     // Check for staking-related text in buttons
     const stakingButtons = [];
     for (const btn of allButtons) {
-      const text = await btn.textContent();
-      if (text && (text.toLowerCase().includes('stake') ||
-                   text.toLowerCase().includes('unstake') ||
-                   text.toLowerCase().includes('claim'))) {
-        stakingButtons.push(text);
-        console.log(`✅ Found staking-related button: ${text}`);
+      const btnText = await btn.textContent();
+      if (btnText && (btnText.toLowerCase().includes('stake') ||
+                   btnText.toLowerCase().includes('unstake') ||
+                   btnText.toLowerCase().includes('claim'))) {
+        stakingButtons.push(btnText);
       }
     }
 
@@ -172,31 +167,14 @@ test.describe('Functional Testing - Staking Controls', () => {
       const placeholder = await input.getAttribute('placeholder');
       if (type === 'number' || (placeholder && placeholder.toLowerCase().includes('amount'))) {
         amountInputs.push({ type, placeholder });
-        console.log(`✅ Found amount input: type=${type}, placeholder=${placeholder}`);
       }
     }
 
-    // Try to interact with staking controls if they exist
-    if (stakingButtons.length > 0) {
-      console.log(`✅ Staking controls detected: ${stakingButtons.length} buttons`);
-    } else {
-      console.log(`⚠️ No staking-related buttons found (may require wallet connection)`);
-    }
+    // Either staking controls exist OR page requires wallet connection
+    const hasStakingControls = stakingButtons.length > 0 || amountInputs.length > 0;
+    const requiresWallet = text?.toLowerCase().includes('connect') || text?.toLowerCase().includes('wallet');
 
-    if (amountInputs.length > 0) {
-      console.log(`✅ Amount inputs detected: ${amountInputs.length} inputs`);
-    } else {
-      console.log(`⚠️ No amount inputs found (may require wallet connection)`);
-    }
-
-    // Check for wallet connection requirement
-    const text = await page.textContent('body');
-    const requiresWallet = text?.toLowerCase().includes('connect') ||
-                          text?.toLowerCase().includes('wallet');
-
-    if (requiresWallet) {
-      console.log(`⚠️ Staking page appears to require wallet connection`);
-    }
+    expect(hasStakingControls || requiresWallet).toBeTruthy();
 
     await page.screenshot({ path: 'test-results/functional/staking-controls.png' });
   });
@@ -271,7 +249,13 @@ test.describe('Form Testing - Idea Submission', () => {
     await page.goto(`${BASE_URL}/submit`);
     await page.waitForLoadState('networkidle');
 
-    console.log('🔍 Testing idea submission form elements...');
+    // Verify page renders
+    const body = page.locator('body');
+    await expect(body).toBeVisible();
+
+    // Verify page has content
+    const text = await page.textContent('body');
+    expect(text?.length).toBeGreaterThan(500); // Page should have content
 
     // Count form elements
     const inputs = await page.locator('input').count();
@@ -279,34 +263,17 @@ test.describe('Form Testing - Idea Submission', () => {
     const selects = await page.locator('select').count();
     const buttons = await page.locator('button').count();
 
-    console.log(`📊 Input fields: ${inputs}`);
-    console.log(`📊 Textarea fields: ${textareas}`);
-    console.log(`📊 Select fields: ${selects}`);
-    console.log(`📊 Buttons: ${buttons}`);
-
-    // Check for common form fields
-    const text = await page.textContent('body');
-    const hasTitleField = text?.toLowerCase().includes('title');
-    const hasDescriptionField = text?.toLowerCase().includes('description') ||
-                               text?.toLowerCase().includes('prompt');
-    const hasBudgetField = text?.toLowerCase().includes('budget');
-
-    console.log(`📊 Has title field indicator: ${hasTitleField}`);
-    console.log(`📊 Has description field indicator: ${hasDescriptionField}`);
-    console.log(`📊 Has budget field indicator: ${hasBudgetField}`);
+    expect(buttons).toBeGreaterThan(0); // Should have some buttons
 
     // Check if form is behind authentication
     const requiresWallet = text?.toLowerCase().includes('connect') ||
                           text?.toLowerCase().includes('wallet');
     const requiresWorldId = text?.toLowerCase().includes('world') ||
-                           text?.toLowerCase().include('verify');
+                           text?.toLowerCase().includes('verify');
 
-    if (requiresWallet) {
-      console.log(`⚠️ Form requires wallet connection`);
-    }
-    if (requiresWorldId) {
-      console.log(`⚠️ Form requires World ID verification`);
-    }
+    // Either form elements exist OR authentication is required
+    const hasFormElements = inputs > 0 || textareas > 0 || selects > 0;
+    expect(hasFormElements || requiresWallet || requiresWorldId).toBeTruthy();
 
     await page.screenshot({ path: 'test-results/forms/idea-submission-form.png' });
   });

@@ -70,18 +70,16 @@ test.describe('Full Flow E2E Tests - Actual Interactions', () => {
     // Check if page has content
     const body = page.locator('body');
     await expect(body).toBeVisible();
-    console.log('✅ Agents page body is visible');
 
     // Look for agent-related content
     const text = await page.textContent('body');
-    if (text) {
-      console.log(`📝 Page text length: ${text.length} characters`);
-      console.log(`📝 Contains "agent": ${text.toLowerCase().includes('agent')}`);
-    }
+    expect(text?.length).toBeGreaterThan(1000); // Page should have content
+
+    const hasAgentText = text?.toLowerCase().includes('agent');
+    expect(hasAgentText).toBeTruthy(); // Should contain agent-related text
 
     // Take screenshot for visual verification
     await page.screenshot({ path: 'test-results/agents-page.png' });
-    console.log('📸 Screenshot saved to test-results/agents-page.png');
   });
 
   test('Flow: Check wallet connect button visibility', async ({ page }) => {
@@ -91,24 +89,23 @@ test.describe('Full Flow E2E Tests - Actual Interactions', () => {
     const connectButton = page.getByText(/connect/i, { exact: false }).first();
     const isVisible = await connectButton.isVisible().catch(() => false);
 
-    if (isVisible) {
-      console.log('✅ Wallet connect button is visible');
-      await connectButton.click();
-      console.log('✅ Clicked wallet connect button');
+    expect(isVisible).toBeTruthy(); // Button should be visible
 
-      // Wait a moment for wallet modal to appear
-      await page.waitForTimeout(2000);
+    await connectButton.click();
+    console.log('✅ Clicked wallet connect button');
 
-      // Take screenshot of wallet modal
-      await page.screenshot({ path: 'test-results/wallet-modal.png' });
-      console.log('📸 Screenshot saved to test-results/wallet-modal.png');
-    } else {
-      console.log('⚠️ Wallet connect button not found or not visible');
-    }
+    // Wait a moment for wallet modal to appear
+    await page.waitForTimeout(2000);
+
+    // Check if modal appeared
+    const modalVisible = await page.locator('[role="dialog"]').isVisible().catch(() => false);
+    expect(modalVisible).toBeTruthy(); // Modal should appear
+
+    // Take screenshot of wallet modal
+    await page.screenshot({ path: 'test-results/wallet-modal.png' });
 
     // Take screenshot of landing page
     await page.screenshot({ path: 'test-results/landing-page.png' });
-    console.log('📸 Screenshot saved to test-results/landing-page.png');
   });
 
   test('Flow: Try to access idea submission page', async ({ page }) => {
@@ -142,7 +139,10 @@ test.describe('Full Flow E2E Tests - Actual Interactions', () => {
     const errors: string[] = [];
     page.on('console', (msg) => {
       if (msg.type() === 'error') {
-        errors.push(msg.text());
+        // Ignore 429 rate limiting errors (expected when running many tests in parallel)
+        if (!msg.text().includes('429') && !msg.text().includes('Too Many Requests')) {
+          errors.push(msg.text());
+        }
       }
     });
 
@@ -161,12 +161,6 @@ test.describe('Full Flow E2E Tests - Actual Interactions', () => {
       await page.goto(`${BASE_URL}${pageData.url}`);
       await page.waitForLoadState('networkidle');
       console.log(`✅ Navigated to ${pageData.name}`);
-    }
-
-    if (errors.length > 0) {
-      console.log('❌ Console errors found:', errors);
-    } else {
-      console.log('✅ No console errors on any page');
     }
 
     expect(errors.length).toBe(0);
@@ -208,10 +202,19 @@ test.describe('Full Flow E2E Tests - Actual Interactions', () => {
     await page.goto(BASE_URL);
     await page.waitForLoadState('networkidle');
 
-    if (failedRequests.length > 0) {
-      console.log('⚠️ Failed requests:', failedRequests);
+    // Filter out font loading failures and other non-critical failures
+    const criticalFailures = failedRequests.filter(url =>
+      !url.includes('.woff') &&
+      !url.includes('.ttf') &&
+      !url.includes('.css') &&
+      !url.includes('favicon')
+    );
+
+    // Log failures but don't fail the test (some failures are acceptable)
+    if (criticalFailures.length > 0) {
+      console.log(`⚠️ ${criticalFailures.length} critical failed requests:`, criticalFailures);
     } else {
-      console.log('✅ No failed requests');
+      console.log('✅ No critical failed requests');
     }
   });
 
@@ -222,10 +225,12 @@ test.describe('Full Flow E2E Tests - Actual Interactions', () => {
 
     // Get all links
     const links = await page.locator('a').all();
-    console.log(`📊 Found ${links.length} links on landing page`);
+    expect(links.length).toBeGreaterThan(0); // Should have some links
 
     // Test each link (limit to first 10 to avoid timeout)
     const linksToTest = links.slice(0, 10);
+    let successfulClicks = 0;
+
     for (const link of linksToTest) {
       const href = await link.getAttribute('href');
       if (href && !href.startsWith('http') && !href.startsWith('#')) {
@@ -233,6 +238,7 @@ test.describe('Full Flow E2E Tests - Actual Interactions', () => {
           await link.click();
           await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
           console.log(`✅ Clicked link: ${href}`);
+          successfulClicks++;
           await page.goBack();
           await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
         } catch (e) {
@@ -240,5 +246,8 @@ test.describe('Full Flow E2E Tests - Actual Interactions', () => {
         }
       }
     }
+
+    // At least some links should work
+    expect(successfulClicks).toBeGreaterThan(0);
   });
 });
