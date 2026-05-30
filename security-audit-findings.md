@@ -7,6 +7,7 @@
 **Current Configuration:**
 - Port binding: `127.0.0.1:5432:5432` ✅ (localhost only)
 - Default password: REMOVED ✅ (now requires explicit env var)
+- Default username: REMOVED ✅ (now requires explicit env var)
 - SSL/TLS encryption: ✅ AVAILABLE (docker-compose.ssl.yml)
 - Network isolation: ✅ ADDED (backend network with subnet)
 - Container security: ✅ ADDED (no-new-privileges, tmpfs)
@@ -102,6 +103,8 @@ export function getBrokerAttestorAccount() {
 5. ✅ Fixed dependency vulnerabilities (ws, uuid)
 6. ✅ Updated production security requirements
 7. ✅ Added container security options
+8. ✅ Removed default Postgres username (now requires explicit env var)
+9. ✅ Added automated security check script
 
 ### Production Deployment Requirements 🔴
 1. 🔴 Generate SSL certificates from trusted CA (not self-signed)
