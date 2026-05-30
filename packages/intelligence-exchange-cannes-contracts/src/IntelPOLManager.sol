@@ -243,7 +243,7 @@ contract IntelPOLManager {
     /// @notice Set the TWAP observation window in seconds.
     /// @custom:access owner
     function setTwapWindow(uint32 _twapWindow) external onlyOwner {
-        if (_twapWindow < 60) revert InvalidParam();
+        if (_twapWindow < 1800) revert InvalidParam(); // minimum 30 minutes for manipulation resistance
         uint32 old = twapWindow;
         twapWindow = _twapWindow;
         emit TwapWindowUpdated(old, _twapWindow);
