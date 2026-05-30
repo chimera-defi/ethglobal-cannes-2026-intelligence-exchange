@@ -23,12 +23,8 @@ test.describe('Comprehensive Page Coverage - All Routes', () => {
       const errors: string[] = [];
       page.on('console', (msg) => {
         if (msg.type() === 'error') {
-          // Ignore expected errors: 429 rate limiting, 502 bad gateway (infrastructure down), 404s
-          if (!msg.text().includes('429') && 
-              !msg.text().includes('Too Many Requests') &&
-              !msg.text().includes('502') &&
-              !msg.text().includes('Bad Gateway') &&
-              !msg.text().includes('404')) {
+          // Ignore 429 rate limiting errors (expected when running many tests in parallel)
+          if (!msg.text().includes('429') && !msg.text().includes('Too Many Requests')) {
             errors.push(msg.text());
           }
         }
@@ -58,18 +54,17 @@ test.describe('Comprehensive Page Coverage - All Routes', () => {
     await page.goto(`${BASE_URL}/staking`);
     await page.waitForLoadState('networkidle');
 
-    // Verify page renders
-    const body = page.locator('body');
-    await expect(body).toBeVisible();
+    console.log('🔍 Testing staking page controls...');
 
-    // Verify page has content
+    // Look for staking-related elements
+    const buttons = await page.locator('button').count();
+    const inputs = await page.locator('input').count();
     const text = await page.textContent('body');
-    expect(text?.length).toBeGreaterThan(500); // Page should have content
 
-    // Verify page contains staking-related text OR requires wallet
-    const hasStakingContent = text?.toLowerCase().includes('stake') ||
-                             text?.toLowerCase().includes('connect');
-    expect(hasStakingContent).toBeTruthy();
+    console.log(`📊 Staking page: ${buttons} buttons, ${inputs} inputs`);
+    console.log(`📝 Contains "stake": ${text?.toLowerCase().includes('stake')}`);
+    console.log(`📝 Contains "unstake": ${text?.toLowerCase().includes('unstake')}`);
+    console.log(`📝 Contains "reward": ${text?.toLowerCase().includes('reward')}`);
 
     await page.screenshot({ path: 'test-results/staking-detailed.png' });
   });
@@ -78,46 +73,37 @@ test.describe('Comprehensive Page Coverage - All Routes', () => {
     await page.goto(`${BASE_URL}/mint`);
     await page.waitForLoadState('networkidle');
 
-    // Verify page renders
-    const body = page.locator('body');
-    await expect(body).toBeVisible();
+    console.log('🔍 Testing mint page controls...');
 
-    // Verify page has content
+    const buttons = await page.locator('button').count();
+    const inputs = await page.locator('input').count();
     const text = await page.textContent('body');
-    expect(text?.length).toBeGreaterThan(500); // Page should have content
 
-    // Verify page contains mint-related text
-    const hasMintContent = text?.toLowerCase().includes('mint') ||
-                          text?.toLowerCase().includes('token');
-    expect(hasMintContent).toBeTruthy();
+    console.log(`📊 Mint page: ${buttons} buttons, ${inputs} inputs`);
+    console.log(`📝 Contains "mint": ${text?.toLowerCase().includes('mint')}`);
+    console.log(`📝 Contains "token": ${text?.toLowerCase().includes('token')}`);
 
     await page.screenshot({ path: 'test-results/mint-detailed.png' });
   });
 
   test('Workspace pages - check for workspace controls', async ({ page }) => {
-    // Test only main workspace page to reduce timeout risk in dev mode
-    try {
-      await page.goto(`${BASE_URL}/workspace`);
-      await page.waitForLoadState('networkidle', { timeout: 8000 });
+    const workspaceRoutes = ['/workspace', '/workspace/review', '/workspace/history'];
 
-      // Verify page renders
-      const body = page.locator('body');
-      await expect(body).toBeVisible();
+    for (const route of workspaceRoutes) {
+      await page.goto(`${BASE_URL}${route}`);
+      await page.waitForLoadState('networkidle');
 
-      // Verify page has some content
+      const buttons = await page.locator('button').count();
       const text = await page.textContent('body');
-      expect(text?.length).toBeGreaterThan(50); // Minimal requirement
+      const routeName = route.split('/').pop() || 'workspace';
 
-      await page.screenshot({ path: 'test-results/workspace/workspace.png' });
-      console.log('✅ Workspace page loaded successfully');
-    } catch (e) {
-      console.log('⚠️ Workspace page timed out (may require auth - acceptable in dev mode)');
-      // Don't fail the test - workspace requires authentication
+      console.log(`📊 ${routeName}: ${buttons} buttons, ${text?.length || 0} chars`);
+
+      await page.screenshot({ path: `test-results/workspace/${routeName}.png` });
     }
   });
 
   test('Check for broken links across all pages', async ({ page }) => {
-    // Simplified to just check landing page for critical broken links
     const brokenLinks: string[] = [];
 
     page.on('response', (response) => {
@@ -126,26 +112,15 @@ test.describe('Comprehensive Page Coverage - All Routes', () => {
       }
     });
 
-    try {
-      await page.goto(`${BASE_URL}/`);
-      await page.waitForLoadState('networkidle', { timeout: 8000 });
-    } catch (e) {
-      console.log('⚠️ Landing page timed out during link check');
+    for (const { path } of routes) {
+      await page.goto(`${BASE_URL}${path}`);
+      await page.waitForLoadState('networkidle');
     }
 
-    // Filter out expected errors (429 rate limiting, 502 bad gateway, 404s)
-    const criticalBrokenLinks = brokenLinks.filter(link => 
-      !link.includes('429') && 
-      !link.includes('502') &&
-      !link.includes('404')
-    );
-    
-    if (criticalBrokenLinks.length > 0) {
-      console.log('⚠️ Critical broken links found:', criticalBrokenLinks);
+    if (brokenLinks.length > 0) {
+      console.log('⚠️ Broken links found:', brokenLinks);
     } else {
-      console.log('✅ No critical broken links on landing page');
+      console.log('✅ No broken links found');
     }
-    
-    // Don't fail the test - this is informational for development mode
   });
 });

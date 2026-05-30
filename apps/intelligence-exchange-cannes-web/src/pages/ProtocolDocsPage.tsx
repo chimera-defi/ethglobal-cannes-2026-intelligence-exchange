@@ -674,7 +674,7 @@ mintPrice = base × utilizationMultiplierBps / 10000`}
                     </thead>
                     <tbody>
                       {contract.methods.map((method, i) => (
-                        <tr key={method.name} style={{ backgroundColor: i % 2 === 0 ? '#0D1625' : '#070D1A' }}>
+                        <tr key={`${contract.name}-${method.name}-${i}`} style={{ backgroundColor: i % 2 === 0 ? '#0D1625' : '#070D1A' }}>
                           <td className="px-4 py-2 text-xs text-slate-300 align-top"
                             style={{ fontFamily: 'JetBrains Mono, monospace' }}>
                             {method.name}
@@ -964,7 +964,7 @@ mintPrice = base × utilizationMultiplierBps / 10000`}
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                       <tbody>
                         {endpoints.map((ep, i) => (
-                          <tr key={ep.path} style={{ backgroundColor: i % 2 === 0 ? '#0D1625' : '#070D1A' }}>
+                          <tr key={`${ep.method}-${ep.path}-${i}`} style={{ backgroundColor: i % 2 === 0 ? '#0D1625' : '#070D1A' }}>
                             <td className="px-4 py-2.5 align-top w-16">
                               <span className={`inline-block px-1.5 py-0.5 rounded-sm text-xs font-bold ${METHOD_BADGE[ep.method] ?? ''}`}>
                                 {ep.method}
