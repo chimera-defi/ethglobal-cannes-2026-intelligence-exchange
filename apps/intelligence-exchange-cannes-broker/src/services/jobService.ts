@@ -201,6 +201,51 @@ export async function unclaimJob(jobId: string, accountAddress: string, agentFin
   return { unclaimed: true, status: 'queued' as const };
 }
 
+/**
+ * Compute worker availability scores based on unclaim rate.
+ * Workers who are reliably available earn higher availability scores.
+ * Availability score (0-1.0): unclaim rate < 10% → 1.0, 10-30% → 0.8, > 30% → 0.5
+ */
+export async function getWorkerAvailabilityScores(): Promise<Map<string, number>> {
+  const workerAvailability = await db.execute(sql`
+    SELECT
+      active_claim_worker_id as worker,
+      COUNT(*) as total_claimed,
+      SUM(CASE WHEN status = 'queued' AND active_claim_worker_id IS NOT NULL THEN 1 ELSE 0 END) as unclaimed
+    FROM jobs
+    WHERE active_claim_worker_id IS NOT NULL
+    GROUP BY active_claim_worker_id
+  `);
+
+  const availabilityMap = new Map<string, number>();
+
+  for (const row of workerAvailability.rows) {
+    const worker = row.worker as string;
+    const totalClaimed = Number(row.total_claimed ?? 0);
+    const unclaimed = Number(row.unclaimed ?? 0);
+
+    if (totalClaimed === 0) {
+      availabilityMap.set(worker, 1.0);
+      continue;
+    }
+
+    const unclaimRate = unclaimed / totalClaimed;
+    let availability: number;
+
+    if (unclaimRate < 0.10) {
+      availability = 1.0;
+    } else if (unclaimRate <= 0.30) {
+      availability = 0.8;
+    } else {
+      availability = 0.5;
+    }
+
+    availabilityMap.set(worker, availability);
+  }
+
+  return availabilityMap;
+}
+
 // ─── Job Submission ───────────────────────────────────────────────────────────
 
 export async function submitJob(jobId: string, req: JobResultSubmitRequest, accountAddress: string, agentFingerprint: string) {
@@ -382,6 +427,16 @@ export async function rejectJob(jobId: string, reviewerId: string, reason?: stri
   }
   await logJobEvent(jobId, 'rework', reviewerId, { reason });
 
+  // Reset streak on rejection
+  // TODO: Add consecutiveAccepts column to agentIdentities schema for quality streak tracking
+  const claimedFingerprint = job.activeClaimWorkerId ? await db.select().from(agentIdentities)
+    .where(eq(agentIdentities.accountAddress, job.activeClaimWorkerId)).then(rows => rows[0]?.fingerprint) : null;
+  if (claimedFingerprint) {
+    await db.update(agentIdentities)
+      .set({ /* consecutiveAccepts: 0, */ updatedAt: new Date() })
+      .where(eq(agentIdentities.fingerprint, claimedFingerprint));
+  }
+
   // Return the reserved INTEL to the buyer's idea pool so they can re-post the job.
   const refund = await refundRejectedJobCredits({
     ideaId: job.ideaId,
@@ -410,9 +465,13 @@ async function updateAgentReputation(fingerprint: string, score: number) {
   const cumulativeScore = (Number(identity.avgScore) * (identity.acceptedCount ?? 0)) + score;
   const nextAvgScore = nextAcceptedCount > 0 ? cumulativeScore / nextAcceptedCount : score;
 
+  // TODO: Add consecutiveAccepts column to agentIdentities schema for quality streak tracking
+  // const prevConsecutive = (identity as any).consecutiveAccepts ?? 0;
+  // const newConsecutive = prevConsecutive + 1;
   await db.update(agentIdentities).set({
     acceptedCount: nextAcceptedCount,
     avgScore: nextAvgScore.toFixed(2),
+    // consecutiveAccepts: newConsecutive,
   }).where(eq(agentIdentities.fingerprint, fingerprint));
 }
 
