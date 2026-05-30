@@ -56,14 +56,7 @@ test.describe('Intelligence Exchange E2E Tests', () => {
     const errors: string[] = [];
     page.on('console', (msg) => {
       if (msg.type() === 'error') {
-        // Ignore expected errors: 429 rate limiting, 502 bad gateway (infrastructure down), 404s
-        if (!msg.text().includes('429') && 
-            !msg.text().includes('Too Many Requests') &&
-            !msg.text().includes('502') &&
-            !msg.text().includes('Bad Gateway') &&
-            !msg.text().includes('404')) {
-          errors.push(msg.text());
-        }
+        errors.push(msg.text());
       }
     });
     await page.goto(BASE_URL);
@@ -80,14 +73,7 @@ test.describe('Intelligence Exchange E2E Tests', () => {
     const errors: string[] = [];
     page.on('console', (msg) => {
       if (msg.type() === 'error') {
-        // Ignore expected errors: 429 rate limiting, 502 bad gateway (infrastructure down), 404s
-        if (!msg.text().includes('429') && 
-            !msg.text().includes('Too Many Requests') &&
-            !msg.text().includes('502') &&
-            !msg.text().includes('Bad Gateway') &&
-            !msg.text().includes('404')) {
-          errors.push(msg.text());
-        }
+        errors.push(msg.text());
       }
     });
     await page.goto(`${BASE_URL}/ideas`);
@@ -104,14 +90,7 @@ test.describe('Intelligence Exchange E2E Tests', () => {
     const errors: string[] = [];
     page.on('console', (msg) => {
       if (msg.type() === 'error') {
-        // Ignore expected errors: 429 rate limiting, 502 bad gateway (infrastructure down), 404s
-        if (!msg.text().includes('429') && 
-            !msg.text().includes('Too Many Requests') &&
-            !msg.text().includes('502') &&
-            !msg.text().includes('Bad Gateway') &&
-            !msg.text().includes('404')) {
-          errors.push(msg.text());
-        }
+        errors.push(msg.text());
       }
     });
     await page.goto(`${BASE_URL}/jobs`);
@@ -128,14 +107,7 @@ test.describe('Intelligence Exchange E2E Tests', () => {
     const errors: string[] = [];
     page.on('console', (msg) => {
       if (msg.type() === 'error') {
-        // Ignore expected errors: 429 rate limiting, 502 bad gateway (infrastructure down), 404s
-        if (!msg.text().includes('429') && 
-            !msg.text().includes('Too Many Requests') &&
-            !msg.text().includes('502') &&
-            !msg.text().includes('Bad Gateway') &&
-            !msg.text().includes('404')) {
-          errors.push(msg.text());
-        }
+        errors.push(msg.text());
       }
     });
     await page.goto(`${BASE_URL}/agents`);
