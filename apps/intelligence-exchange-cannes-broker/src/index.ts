@@ -1,6 +1,8 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
+import { createLogger } from './lib/logger';
+import { requestIdMiddleware, type RequestIdVariables } from './middleware/requestId';
 import { aiuRouter } from './routes/aiu';
 import { agentkitRouter } from './routes/agentkit';
 import { arcRouter } from './routes/arc';
@@ -22,7 +24,7 @@ import { db } from './db/client';
 import { rateLimit, walletRateLimit } from './middleware/rateLimit';
 import { getSessionAccountAddress } from './services/accessService';
 
-export const app = new Hono();
+export const app = new Hono<{ Variables: RequestIdVariables }>();
 
 /*
  * CORS security:
@@ -67,6 +69,7 @@ app.use('*', cors({
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: corsConfig.credentials,
 }));
+app.use('*', requestIdMiddleware);
 app.use('*', logger());
 app.use('*', rateLimit());
 
@@ -90,11 +93,21 @@ app.route('/v1/cannes/aiu', aiuRouter);
 app.route('/v1/cannes/workers', workersRouter);
 app.route('/v1/cannes/admin', adminRouter);
 
+const brokerLog = createLogger('broker:error');
+
 // Error handler
 app.onError((err, c) => {
-  console.error('[broker:error]', err);
   const status = (err as { status?: number }).status ?? 500;
   const code = (err as { code?: string }).code ?? 'INTERNAL_ERROR';
+  const meta: Record<string, unknown> = {
+    requestId: c.get('requestId') ?? 'unknown',
+    method: c.req.method,
+    path: c.req.path,
+    status,
+    code,
+  };
+  if (process.env.NODE_ENV !== 'production') meta.stack = err.stack;
+  brokerLog.error(err.message, meta);
   return c.json({ error: { code, message: err.message } }, status as 400 | 401 | 403 | 404 | 409 | 429 | 500 | 503);
 });
 
@@ -127,14 +140,16 @@ export async function bootstrap() {
   return bootstrapPromise;
 }
 
+const startupLog = createLogger('broker:startup');
+
 if (import.meta.main) {
   bootstrap()
     .then(() => {
-      console.log(`✓ Lease expiry requeue active (${STALLED_JOB_INTERVAL_MS / 1000}s interval)`);
-      console.log(`✓ IEX Broker listening on port ${PORT}`);
+      startupLog.info('Lease expiry requeue active', { intervalSec: STALLED_JOB_INTERVAL_MS / 1000 });
+      startupLog.info('IEX Broker listening', { port: PORT });
     })
     .catch((err) => {
-      console.error('[startup:error]', err);
+      startupLog.error('Bootstrap failed', { error: String(err), stack: err?.stack });
       process.exit(1);
     });
 }

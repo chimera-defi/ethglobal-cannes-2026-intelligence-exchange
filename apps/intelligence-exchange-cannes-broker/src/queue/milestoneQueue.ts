@@ -2,6 +2,9 @@ import { Queue } from 'bullmq';
 import { STALLED_JOB_INTERVAL_MS } from 'intelligence-exchange-cannes-shared';
 import type { BrokerDb } from '../db/client';
 import { logJobEvent } from '../services/jobEvents';
+import { createLogger } from '../lib/logger';
+
+const log = createLogger('milestoneQueue');
 
 /*
  * PRODUCTION SECURITY: Redis must be hardened before exposing the stack publicly.
@@ -143,10 +146,10 @@ export async function setupLeaseExpiryRequeue(db: BrokerDb) {
           reason: 'lease_expired_auto_unclaim',
         });
 
-        console.log(`[job:requeued] jobId=${claim.jobId} claimId=${claim.claimId} lease expired (auto-unclaim)`);
+        log.info('job requeued after lease expiry', { jobId: claim.jobId, claimId: claim.claimId });
       }
     } catch (err) {
-      console.error('[milestoneQueue] lease expiry requeue failed:', err);
+      log.error('lease expiry requeue failed', { error: String(err) });
     }
   }, STALLED_JOB_INTERVAL_MS);
 }
