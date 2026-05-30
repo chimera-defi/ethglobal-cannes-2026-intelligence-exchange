@@ -6,7 +6,7 @@ Nothing prices verified, accepted AI agent work output. GPU futures price hardwa
 
 Intelligence Exchange does. Every accepted task writes a signed, on-chain attestation. Accumulated over time those records form the **AIU (Accepted Intelligence Unit)** — the market-discovered price of one unit of verified AI work. Engineering teams spending $200K+/yr on AI agents could eventually short AIU to hedge rising agent costs, the same way an airline hedges jet fuel.
 
-**What exists today:** a working marketplace with INTEL-native settlement, 21 audited contracts, staking/yield/LP mining, and a public reputation API. No users yet.
+**What exists today:** a working marketplace with INTEL-native settlement, 21 audited contracts, staking/yield/LP mining, and a public reputation API.
 
 **Live:** http://168.119.15.122 · `GET /v1/cannes/jobs` · `GET /v1/cannes/aiu`
 
@@ -96,9 +96,7 @@ CSO infrastructure review: secrets archaeology, CI/CD, OWASP Top 10, STRIDE thre
 | **3 — AIU Index** | 12 mo | Settlement data becomes a market-discovered intelligence price index |
 | **4 — Derivatives** | 18 mo+ | Credible AIU index underpins perpetual futures for hedging AI agent cost exposure |
 
-No users, no revenue, no GMV yet. The loop works end-to-end.
-
----
+The protocol is live and functional end-to-end. Phase 1 is open for early participants.
 
 ---
 
