@@ -8,7 +8,7 @@ import {
   type PoolState,
 } from 'intelligence-exchange-cannes-tokenomics';
 import { db } from '../db/client';
-import { ideaTokenReserves, tokenAccounts, tokenLedgerEntries, agentIdentities } from '../db/schema';
+import { ideaTokenReserves, tokenAccounts, tokenLedgerEntries, agentIdentities, jobs } from '../db/schema';
 import { httpError } from './errors';
 import { normalizeAccountAddress } from './identityService';
 import { depositStakerYield, releaseTaskEscrow, depositReviewerFees } from './chainService';
@@ -221,6 +221,13 @@ export async function settleAcceptedJobCredits(input: {
   const config = getTokenomicsConfig();
   if (!config.enabled) return null;
 
+  // Idempotency guard: check if job is already settled
+  const [job] = await db.select().from(jobs).where(eq(jobs.jobId, input.jobId));
+  if (job && (job.status === 'settled' || job.onChainSettled)) {
+    console.warn('[tokenomics] settlement already processed for job:', input.jobId);
+    return { alreadySettled: true };
+  }
+
   const [reserve] = await db.select().from(ideaTokenReserves).where(eq(ideaTokenReserves.ideaId, input.ideaId));
   if (!reserve) {
     return null;
@@ -261,7 +268,7 @@ export async function settleAcceptedJobCredits(input: {
   const posterStats = await db.execute(sql`
     SELECT
       COUNT(*) as total,
-      SUM(CASE WHEN status = 'accepted' THEN 1 ELSE 0 END) as accepted
+      SUM(CASE WHEN status IN ('accepted', 'settled', 'completed') THEN 1 ELSE 0 END) as accepted
     FROM jobs WHERE poster_id = ${reserve.posterId}
   `);
   const total = Number(posterStats.rows[0]?.total ?? 0);
