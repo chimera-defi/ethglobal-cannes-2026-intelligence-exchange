@@ -63,6 +63,8 @@ contract IntelStaking {
         uint256 ethYieldDebt;       // Tracks claimed portion of ETH yield (share model)
         uint256 epochAllowanceUsed; // Allowance consumed in current epoch
         uint256 lastEpoch;          // Epoch at which epochAllowanceUsed was reset
+        uint256 epochNewStake;      // INTEL staked in the current epoch (resets each epoch)
+        uint256 epochNewStakeEpoch; // Which epoch epochNewStake was last updated
     }
 
     struct EpochSnapshot {
@@ -106,6 +108,8 @@ contract IntelStaking {
     uint256 public globalCapRemaining;
 
     uint256 private constant PRECISION = 1e36;
+    uint256 private constant BPS = 10000; // Basis points for percentage calculations
+    uint256 public constant FLOW_BONUS_BPS = 1500; // 15% mint allowance bonus for new stakers
 
     // ─── Circuit breaker + deposit cap (appended to storage layout) ──────────
 
@@ -200,6 +204,13 @@ contract IntelStaking {
         s.staked += amount;
         s.stakedAt = block.timestamp;
         totalStaked += amount;
+
+        // Track new stake for flow bonus (resets per epoch)
+        if (s.epochNewStakeEpoch != currentEpoch) {
+            s.epochNewStake = 0;
+            s.epochNewStakeEpoch = currentEpoch;
+        }
+        s.epochNewStake += amount;
 
         // Sync yield debts to the current accumulators AFTER updating staked.
         // This prevents a new (or returning) staker from claiming yield that
@@ -492,6 +503,11 @@ contract IntelStaking {
         // sqrt returns result in same units as input; we want allowance in token units
         uint256 rawAllowance = (k * _sqrt(s.staked)) / 1e18;
 
+        // Flow bonus: new stakers this epoch earn 15% extra allowance (Bittensor-inspired)
+        // Applied BEFORE caps so wallet/global caps remain absolute ceilings.
+        if (s.epochNewStakeEpoch == currentEpoch && s.epochNewStake > 0) {
+            rawAllowance += (rawAllowance * FLOW_BONUS_BPS) / BPS;
+        }
         // Apply walletCap
         if (walletCap > 0 && rawAllowance > walletCap) {
             rawAllowance = walletCap;
