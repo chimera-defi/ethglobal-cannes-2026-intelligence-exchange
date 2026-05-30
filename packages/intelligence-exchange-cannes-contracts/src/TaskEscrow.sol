@@ -85,6 +85,7 @@ contract TaskEscrow {
     mapping(bytes32 => Task) public tasks;
 
     uint256 public taskRefundWindow; // seconds after funding before refund is allowed, default 7 days
+    uint256 public taskAutoReleaseWindow; // seconds after funding before auto-release is allowed, default 30 days
 
     // ─── Reentrancy guard ─────────────────────────────────────────────────────
 
@@ -136,6 +137,7 @@ contract TaskEscrow {
         treasuryBps = 1000; // 10%
 
         taskRefundWindow = 7 days;
+        taskAutoReleaseWindow = 30 days;
 
         _reentrancyStatus = _NOT_ENTERED;
     }
@@ -179,6 +181,7 @@ contract TaskEscrow {
 
         Task storage task = tasks[taskId];
         if (task.state != TaskState.Funded) revert TaskNotFunded();
+        if (task.worker != address(0)) revert TaskAlreadyExists();
 
         task.worker = worker;
         emit WorkerAssigned(taskId, worker);
@@ -209,6 +212,13 @@ contract TaskEscrow {
         // Validate worker matches assignment if setWorker was called
         if (task.worker != address(0) && task.worker != worker) revert WorkerMismatch();
 
+        _releaseTask(taskId, worker);
+    }
+
+    /// @notice Internal release logic — shared between release() and autoRelease()
+    function _releaseTask(bytes32 taskId, address worker) internal {
+        Task storage task = tasks[taskId];
+
         // Use snapshot BPS captured at funding time — prevents owner from changing split mid-task
         uint256 workerShare = (task.amount * task.snapshotWorkerBps) / BPS;
         uint256 stakerShare = (task.amount * task.snapshotStakerBps) / BPS;
@@ -238,6 +248,18 @@ contract TaskEscrow {
         task.releasedAt = block.timestamp;
 
         emit TaskReleased(taskId, worker, workerShare, stakerShare, treasuryShare);
+    }
+
+    /// @notice Anyone can trigger release after auto-release window if operator has been inactive.
+    /// @param taskId  Task identifier to auto-release.
+    /// @param worker  Address of the worker to receive funds.
+    function autoRelease(bytes32 taskId, address worker) external nonReentrant {
+        Task storage task = tasks[taskId];
+        if (task.state != TaskState.Funded) revert TaskNotFunded();
+        if (task.worker == address(0)) revert ZeroAddress();
+        if (block.timestamp < task.fundedAt + taskAutoReleaseWindow) revert RefundWindowNotElapsed();
+
+        _releaseTask(taskId, worker);
     }
 
     /// @notice Refund escrowed INTEL to funder. Allowed after refund window or by owner anytime.
@@ -299,6 +321,14 @@ contract TaskEscrow {
     function setRefundWindow(uint256 _window) external onlyOwner {
         taskRefundWindow = _window;
         emit RefundWindowUpdated(_window);
+    }
+
+    /// @notice Set the auto-release window duration.
+    /// @custom:access owner
+    /// @param _window New auto-release window in seconds (minimum 7 days).
+    function setTaskAutoReleaseWindow(uint256 _window) external onlyOwner {
+        require(_window >= 7 days, "TaskEscrow: auto-release window must be at least 7 days");
+        taskAutoReleaseWindow = _window;
     }
 
     // ─── Ownable2Step ─────────────────────────────────────────────────────────
