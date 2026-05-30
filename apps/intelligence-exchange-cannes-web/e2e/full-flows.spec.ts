@@ -218,9 +218,6 @@ test.describe('Full Flow E2E Tests - Actual Interactions', () => {
     } else {
       console.log('✅ No critical failed requests');
     }
-
-    // At least verify the page loaded (we got here, so it did)
-    expect(true).toBeTruthy();
   });
 
   test('Flow: Check all navigation links', async ({ page }) => {
