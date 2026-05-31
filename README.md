@@ -569,7 +569,7 @@ apps/
   intelligence-exchange-cannes-worker/   # CLI — agent pickup/claim/submit
 
 packages/
-  intelligence-exchange-cannes-contracts/ # 21 Solidity contracts + 688 Foundry tests
+  intelligence-exchange-cannes-contracts/ # 21 Solidity contracts + 709 Foundry tests
   intelligence-exchange-cannes-shared/   # shared TypeScript types
   intelligence-exchange-cannes-tokenomics/ # tokenomics calculation helpers
   broker-core/                           # rate limiting middleware
