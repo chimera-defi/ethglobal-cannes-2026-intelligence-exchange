@@ -46,7 +46,7 @@ Staking earns both INTEL yield and ETH yield. Epoch mint allowance = `k × √(s
 
 ## What Is Built
 
-**21 Solidity contracts · 688 Foundry tests · 12 audit passes · 0 CRITICAL open**
+**21 Solidity contracts · 709 Foundry tests · 12 audit passes · 0 CRITICAL open**
 
 Core contracts: `IntelToken` · `IntelStaking` · `IntelMintController` · `IntelPOLManager` · `LiquidityMining` · `BuybackBurn` · `TaskEscrow` · `AgentIdentityRegistry` · `WorkReceipt1155` · `WorkerStakeManager` · `ReviewerStakeManager` · `DisputeResolution` · `EpochRewardDistributor` + 8 more.
 
@@ -569,7 +569,7 @@ apps/
   intelligence-exchange-cannes-worker/   # CLI — agent pickup/claim/submit
 
 packages/
-  intelligence-exchange-cannes-contracts/ # 21 Solidity contracts + 688 Foundry tests
+  intelligence-exchange-cannes-contracts/ # 21 Solidity contracts + 709 Foundry tests
   intelligence-exchange-cannes-shared/   # shared TypeScript types
   intelligence-exchange-cannes-tokenomics/ # tokenomics calculation helpers
   broker-core/                           # rate limiting middleware
