@@ -55,7 +55,8 @@ contract IdeaEscrowTest is Test {
     function setUp() public {
         address stakerYieldAddr = makeAddr("stakerYield");
         address treasuryAddr = makeAddr("treasury");
-        escrow = new IdeaEscrow(stakerYieldAddr, treasuryAddr);
+        address ownerAddr = makeAddr("owner");
+        escrow = new IdeaEscrow(stakerYieldAddr, treasuryAddr, ownerAddr);
         usdc = new MockUSDC();
 
         usdc.mint(poster, IDEA_BUDGET * 2);
