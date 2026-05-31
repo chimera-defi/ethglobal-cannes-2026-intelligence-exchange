@@ -222,7 +222,7 @@ contract Deploy is Script {
         console2.log("AgentIdentityRegistry:", address(result.registry));
 
         // ── 3. IdeaEscrow (legacy) ───────────────────────────────────────
-        result.ideaEscrow = new IdeaEscrow(result.stakerYieldReceiver, result.platformWallet);
+        result.ideaEscrow = new IdeaEscrow(result.stakerYieldReceiver, result.platformWallet, result.deployer);
         console2.log("IdeaEscrow (legacy):", address(result.ideaEscrow));
 
         // ── 4. AdvancedArcEscrow ─────────────────────────────────────────

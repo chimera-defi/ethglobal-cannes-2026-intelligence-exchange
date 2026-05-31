@@ -217,7 +217,7 @@ contract CategoryRegistry {
                     distributedWeight += newCatWeight;
                 }
             }
-            
+
             // Allocate any rounding remainder to the last non-target category
             if (distributedWeight < remainingWeight) {
                 uint256 remainder = remainingWeight - distributedWeight;
@@ -227,6 +227,22 @@ contract CategoryRegistry {
                         break;
                     }
                 }
+            }
+        } else {
+            // When target category has ALL the weight (10000 bps), distribute evenly
+            uint256 distributedWeight;
+            uint256 evenShare = remainingWeight / 5; // 5 other categories
+            for (uint256 i = 0; i < 6; i++) {
+                if (i != category) {
+                    categories[i].rewardWeightBps = evenShare;
+                    distributedWeight += evenShare;
+                }
+            }
+            // Add remainder to first non-target category
+            if (distributedWeight < remainingWeight) {
+                uint256 remainder = remainingWeight - distributedWeight;
+                uint256 firstNonTarget = (category == 0) ? 1 : 0;
+                categories[firstNonTarget].rewardWeightBps += remainder;
             }
         }
 

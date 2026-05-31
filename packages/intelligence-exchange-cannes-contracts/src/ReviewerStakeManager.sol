@@ -46,6 +46,7 @@ contract ReviewerStakeManager {
     event ReviewerFeeShareUpdated(uint256 oldBps, uint256 newBps);
     event UnstakeCooldownUpdated(uint256 oldCooldown, uint256 newCooldown);
     event ReviewerQueueUpdated(address indexed oldQueue, address indexed newQueue);
+    event QueueRemovalFailed(address indexed reviewer);
 
     // ─── Storage ──────────────────────────────────────────────────────────────
 
@@ -252,7 +253,9 @@ contract ReviewerStakeManager {
 
             // Remove from ReviewerQueue if configured
             if (address(reviewerQueue) != address(0)) {
-                try reviewerQueue.removeEligibleReviewer(reviewer) {} catch {}
+                try reviewerQueue.removeEligibleReviewer(reviewer) {} catch {
+                    emit QueueRemovalFailed(reviewer);
+                }
             }
         }
 
