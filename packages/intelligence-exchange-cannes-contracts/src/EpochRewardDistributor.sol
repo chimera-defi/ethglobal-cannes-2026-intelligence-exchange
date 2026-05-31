@@ -185,6 +185,8 @@ contract EpochRewardDistributor {
         if (totalAiu == 0) revert ZeroAmount();
 
         uint256 pool = epochRewardPool;
+        require(pool > 0, 'EpochRewardDistributor: pool is zero');
+        require(intel.balanceOf(treasury) >= pool, 'EpochRewardDistributor: insufficient treasury balance');
         // Note: IntelToken is a standard OZ ERC20 that reverts on failure.
         // No bool check here; the revert is handled by the token itself on failure.
         intel.transferFrom(treasury, address(this), pool);

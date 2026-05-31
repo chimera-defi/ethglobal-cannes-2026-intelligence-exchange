@@ -44,6 +44,7 @@ contract BuybackBurn {
     event OperatorSet(address indexed op, bool approved);
     event OwnershipTransferStarted(address indexed previous, address indexed next);
     event OwnershipTransferred(address indexed previous, address indexed next);
+    event TrappedRewardsRecovered(uint256 amount);
 
     // ─── Constants ────────────────────────────────────────────────────────────
 
@@ -216,6 +217,26 @@ contract BuybackBurn {
         require(ok, "BuybackBurn: ETH withdrawal failed");
 
         emit EthWithdrawn(owner, amount);
+    }
+
+    /// @notice Recover trapped INTEL mining rewards by retrying deposit or sending to treasury.
+    /// @custom:access owner only
+    function recoverTrappedMiningRewards() external onlyOwner {
+        uint256 balance = intel.balanceOf(address(this));
+        if (balance == 0) return;
+
+        if (lpMiningAddress != address(0)) {
+            intel.approve(lpMiningAddress, balance);
+            try ILiquidityMining(lpMiningAddress).depositRewards(balance) {
+                intel.approve(lpMiningAddress, 0);
+                return;
+            } catch {
+                intel.approve(lpMiningAddress, 0);
+            }
+        }
+
+        intel.transfer(treasury, balance);
+        emit TrappedRewardsRecovered(balance);
     }
 
     // ─── Admin / Config ───────────────────────────────────────────────────────
