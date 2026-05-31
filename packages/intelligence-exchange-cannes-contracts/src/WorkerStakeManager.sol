@@ -71,6 +71,8 @@ contract WorkerStakeManager {
     mapping(address => uint256) public workerStake;
     mapping(address => uint256) public unstakeAvailableAt;
     mapping(address => uint256) public pendingUnstake;
+    mapping(address => uint256) public slashLockUntil;
+    uint256 public constant SLASH_LOCK_WINDOW = 1 hours;
 
     address public treasuryAddress;
 
@@ -153,6 +155,7 @@ contract WorkerStakeManager {
         workerStake[msg.sender] = currentStake - amount;
         pendingUnstake[msg.sender] += amount;
         unstakeAvailableAt[msg.sender] = block.timestamp + cooldown;
+        slashLockUntil[msg.sender] = block.timestamp + SLASH_LOCK_WINDOW;
 
         emit UnstakeRequested(msg.sender, amount, unstakeAvailableAt[msg.sender]);
     }
@@ -164,6 +167,7 @@ contract WorkerStakeManager {
         if (block.timestamp < unstakeAvailableAt[msg.sender]) {
             revert CooldownActive(unstakeAvailableAt[msg.sender]);
         }
+        require(block.timestamp >= slashLockUntil[msg.sender], "WorkerStakeManager: slash lock active");
 
         // Clear pending state
         pendingUnstake[msg.sender] = 0;
@@ -226,6 +230,8 @@ contract WorkerStakeManager {
             workerStake[worker] = 0;
             pendingUnstake[worker] -= stakedToSlash;
         }
+
+        slashLockUntil[worker] = block.timestamp + SLASH_LOCK_WINDOW;
 
         // Transfer shares
         if (treasuryShare > 0) {
