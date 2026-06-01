@@ -400,6 +400,139 @@ export async function mintWorkReceipt(workerAddress: string, ideaId: string, age
   }
 }
 
+export async function recordAcceptedSubmissionOnChain(input: {
+  fingerprint: string;
+  jobId: string;
+  score: number;
+  reviewerAddress: string;
+  payoutReleased: boolean;
+}) {
+  const contractAddress = process.env.AGENT_IDENTITY_REGISTRY_ADDRESS ?? process.env.IEX_AGENT_REGISTRY_ADDRESS;
+  if (!contractAddress || contractAddress.trim() === '') {
+    console.warn('[chain:recordAcceptedSubmissionOnChain] AGENT_IDENTITY_REGISTRY_ADDRESS not set — skipping on-chain attestation (off-chain-only mode)');
+    return;
+  }
+
+  const privateKey = process.env.BROKER_ATTESTOR_PRIVATE_KEY;
+  if (!privateKey) {
+    console.error('[chain:recordAcceptedSubmissionOnChain] BROKER_ATTESTOR_PRIVATE_KEY not set — cannot record accepted submission');
+    return;
+  }
+
+  const rpcUrl = process.env.WORLDCHAIN_RPC_URL;
+  const chainId = process.env.WORLDCHAIN_CHAIN_ID;
+  if (!rpcUrl || !chainId) {
+    console.error('[chain:recordAcceptedSubmissionOnChain] WORLDCHAIN_RPC_URL or WORLDCHAIN_CHAIN_ID not set — cannot record accepted submission');
+    return;
+  }
+
+  try {
+    const account = privateKeyToAccount(privateKey as `0x${string}`);
+
+    // Define minimal chain configuration for viem
+    const chain = {
+      id: Number(chainId),
+      name: 'Worldchain Sepolia',
+      nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+      rpcUrls: {
+        default: { http: [rpcUrl] },
+        public: { http: [rpcUrl] },
+      },
+    } as const;
+
+    const walletClient = createWalletClient({
+      account,
+      chain,
+      transport: http(),
+    });
+
+    const publicClient = createPublicClient({
+      transport: http(rpcUrl, {
+        timeout: 10000,
+        retryCount: 2,
+      }),
+    });
+
+    // Fetch current attestor nonce from contract
+    const attestorAddress = account.address;
+    const currentNonce = await publicClient.readContract({
+      address: contractAddress as `0x${string}`,
+      abi: [
+        {
+          type: 'function',
+          name: 'attestorNonces',
+          stateMutability: 'view',
+          inputs: [{ name: '', type: 'address' }],
+          outputs: [{ name: '', type: 'uint256' }],
+        },
+      ],
+      functionName: 'attestorNonces',
+      args: [attestorAddress],
+    }) as bigint;
+
+    const nextNonce = currentNonce + 1n;
+
+    // Compute attestation digest matching the contract's getAttestationDigest
+    // keccak256(abi.encodePacked(address(this), block.chainid, fingerprint, jobId, score, reviewer, payoutReleased, nonce))
+    const digest = keccak256(encodePacked(
+      ['address', 'uint256', 'bytes32', 'bytes32', 'uint256', 'address', 'bool', 'uint256'],
+      [
+        contractAddress as `0x${string}`,
+        BigInt(chainId),
+        input.fingerprint as `0x${string}`,
+        getJobIdHash(input.jobId),
+        BigInt(input.score),
+        input.reviewerAddress as `0x${string}`,
+        input.payoutReleased,
+        nextNonce,
+      ],
+    ));
+
+    const signature = await account.signMessage({
+      message: { raw: digest },
+    });
+
+    const fingerprintBytes = input.fingerprint as `0x${string}`;
+    const scoreUint256 = BigInt(Math.min(Math.max(input.score, 0), 100));
+
+    const hash = await withRetry(() => walletClient.writeContract({
+      address: contractAddress as `0x${string}`,
+      abi: [
+        {
+          type: 'function',
+          name: 'recordAcceptedSubmission',
+          stateMutability: 'nonpayable',
+          inputs: [
+            { name: 'fingerprint', type: 'bytes32' },
+            { name: 'jobId', type: 'bytes32' },
+            { name: 'score', type: 'uint256' },
+            { name: 'reviewer', type: 'address' },
+            { name: 'payoutReleased', type: 'bool' },
+            { name: 'nonce', type: 'uint256' },
+            { name: 'signature', type: 'bytes' },
+          ],
+          outputs: [],
+        },
+      ],
+      functionName: 'recordAcceptedSubmission',
+      args: [
+        fingerprintBytes,
+        getJobIdHash(input.jobId),
+        scoreUint256,
+        input.reviewerAddress as `0x${string}`,
+        input.payoutReleased,
+        nextNonce,
+        signature,
+      ],
+    }));
+
+    console.log(`[chain:recordAcceptedSubmissionOnChain] Recorded accepted submission on-chain fingerprint=${input.fingerprint} jobId=${input.jobId} txHash=${hash}`);
+  } catch (err) {
+    console.error('[chain:recordAcceptedSubmissionOnChain] Failed to record accepted submission:', err);
+    // Do not throw — on-chain failure must not block the acceptance flow
+  }
+}
+
 export async function depositStakerYield(amountIntel: number) {
   const contractAddress = process.env.INTEL_STAKING_CONTRACT_ADDRESS;
   if (!contractAddress || contractAddress.trim() === '') {
