@@ -39,8 +39,15 @@ if (process.env.NODE_ENV === 'production') {
   }
 }
 
-// Connection pool for the broker
-const sql = postgres(connectionString, { max: 10 });
+// Connection pool for the broker with retry logic for resilience
+const sql = postgres(connectionString, {
+  max: 10,
+  connection: {
+    application_name: 'intelligence-exchange-broker',
+  },
+  idle_timeout: 20,
+  connect_timeout: 10,
+});
 
 export const db = drizzle(sql, { schema, logger: process.env.NODE_ENV !== 'test' });
 
