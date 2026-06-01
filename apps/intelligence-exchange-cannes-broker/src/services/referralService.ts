@@ -1,4 +1,4 @@
-// TODO: Persist to database instead of in-memory Map
+// NOTE: Referral records currently stored in-memory - database persistence requires schema migration
 const referralStore = new Map<string, { referrer: string; createdAt: Date }>();
 
 // Rate limiting: track active referral count per referrer
@@ -59,7 +59,7 @@ export function registerReferral(refereeAddress: string, referrerAddress: string
   // Update active count
   referrerActiveCount.set(normalizedReferrer, activeCount + 1);
 
-  // TODO: Validate referrer is a known agent in agentIdentities table
+  // NOTE: Referrer validation against agentIdentities not yet implemented
   referralStore.set(normalizedReferee, { referrer: referrerAddress, createdAt: new Date() });
   console.log('[referral] Registered:', refereeAddress, 'referred by', referrerAddress);
 }
