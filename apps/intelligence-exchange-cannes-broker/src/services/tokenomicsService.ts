@@ -271,8 +271,8 @@ export async function settleAcceptedJobCredits(input: {
       SUM(CASE WHEN status IN ('accepted', 'settled', 'completed') THEN 1 ELSE 0 END) as accepted
     FROM jobs WHERE poster_id = ${reserve.posterId}
   `);
-  const total = Number(posterStats.rows[0]?.total ?? 0);
-  const accepted = Number(posterStats.rows[0]?.accepted ?? 0);
+  const total = Number(posterStats[0]?.total ?? 0);
+  const accepted = Number(posterStats[0]?.accepted ?? 0);
   const posterRebate = total >= 10 && accepted / total >= 0.90;
   if (posterRebate) {
     // Shift 2% from protocol fee to worker (poster rebate funded by protocol)

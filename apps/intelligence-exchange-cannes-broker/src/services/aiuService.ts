@@ -82,7 +82,7 @@ export async function computeAIUIndex() {
     GROUP BY claimed_by
   `);
   const workerAvailability = new Map<string, number>();
-  for (const row of availabilityRows.rows as Array<{ worker: string; total_claimed: string; unclaimed: string }>) {
+  for (const row of availabilityRows as unknown as Array<{ worker: string; total_claimed: string; unclaimed: string }>) {
     const total = Number(row.total_claimed);
     const unclaimed = Number(row.unclaimed);
     const rate = total > 0 ? unclaimed / total : 0;
