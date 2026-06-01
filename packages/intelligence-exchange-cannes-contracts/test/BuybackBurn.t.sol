@@ -16,8 +16,9 @@ contract MockSwapRouter is ISwapRouter {
     }
 
     function exactInputSingle(ExactInputSingleParams calldata params) external payable returns (uint256 amountOut) {
-        // Return fixed INTEL amount for testing
+        // Return fixed INTEL amount, enforcing amountOutMinimum to simulate Uniswap slippage protection
         amountOut = fixedIntelAmount;
+        require(amountOut >= params.amountOutMinimum, "Too little received");
     }
 }
 
@@ -469,7 +470,7 @@ contract BuybackBurnTest is Test {
         pol.setMockTWAP(0.001e18); // 0.001 ETH per INTEL
 
         vm.prank(operator);
-        vm.expectRevert(BuybackBurn.TwapTooLow.selector);
+        vm.expectRevert(abi.encodeWithSelector(BuybackBurn.TwapTooLow.selector, uint256(0.001e18), uint256(0.002e18)));
         buybackBurn.executeBuyback();
     }
 

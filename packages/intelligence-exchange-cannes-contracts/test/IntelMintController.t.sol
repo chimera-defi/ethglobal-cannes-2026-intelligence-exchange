@@ -95,10 +95,15 @@ contract IntelMintControllerTest is Test {
     // ─── Price ────────────────────────────────────────────────────────────────
 
     function test_mintPrice_floor_when_twap_below() public {
-        // TWAP=1e15 < floorPrice=1e15 — actually equal. Let's set TWAP below floor.
-        controller.updateTWAP(5e14); // below floor
-        // price = max(5e14 * 1, 1e15) * 1x = 1e15
-        assertEq(controller.mintPrice(), 1e15);
+        // updateTWAP() now rejects TWAP below 80% of floor (security fix P16A-3).
+        // Deploy a controller where initialTWAP < floorPrice via constructor (bypasses validation)
+        // to verify that mintPrice() still returns floor when TWAP < floor.
+        IntelMintController c2 = new IntelMintController(
+            address(intel), address(staking), pol, treasury,
+            1e15, 0, 5e14 // floor=1e15, initialTWAP=5e14 (below floor, constructor bypass)
+        );
+        // price = max(5e14 * 1, 1e15) * 1x = 1e15 (floor dominates)
+        assertEq(c2.mintPrice(), 1e15);
     }
 
     function test_mintPrice_twap_with_premium() public {
@@ -326,8 +331,10 @@ contract IntelMintControllerTest is Test {
     }
 
     function test_updateTWAP_updates_price() public {
-        controller.updateTWAP(2e16); // double the price
-        assertEq(controller.mintPrice(), 2e16);
+        // updateTWAP() now enforces max 50% deviation per update (P16A-3 fix).
+        // 40% increase (1e16 → 1.4e16) is within the 50% limit.
+        controller.updateTWAP(1.4e16);
+        assertEq(controller.mintPrice(), 1.4e16);
     }
 
     // ─── Admin ────────────────────────────────────────────────────────────────
@@ -581,6 +588,8 @@ contract IntelMintControllerTest is Test {
         // Advance staking epoch
         vm.warp(block.timestamp + 7 days + 1);
         staking.advanceEpoch();
+        // Refresh TWAP after warp — P16B-M1 fix blocks minting with stale TWAP (> 2h old)
+        controller.updateTWAP(INITIAL_TWAP);
 
         // Mint 80% again — allowance resets with new epoch in staking
         // so alice has full allowance again
@@ -886,12 +895,19 @@ contract IntelMintControllerTest is Test {
     }
 
     function test_updateTWAP_succeeds_above_80_percent_floor() public {
-        uint256 floorPrice = controller.floorPrice();
-        // Set TWAP to 81% of floorPrice (above 80% minimum)
-        uint256 newTWAP = (floorPrice * 8100) / 10000;
-
-        controller.updateTWAP(newTWAP);
-        assertEq(controller.twap(), newTWAP);
+        // The 50% per-update deviation limit and the 80% floor minimum are independent checks.
+        // To test the floor boundary, start with a TWAP already near floor by deploying
+        // a controller with initialTWAP = floorPrice (constructor bypasses validation).
+        IntelMintController c2 = new IntelMintController(
+            address(intel), address(staking), pol, treasury,
+            FLOOR_PRICE, 0, FLOOR_PRICE // initialTWAP == floorPrice
+        );
+        c2.setOperator(address(this), true);
+        // 81% of floor: 1e15 * 8100/10000 = 8.1e14
+        // Change from 1e15 to 8.1e14 = 19% reduction — within 50% deviation limit
+        uint256 newTWAP = (FLOOR_PRICE * 8100) / 10000;
+        c2.updateTWAP(newTWAP);
+        assertEq(c2.twap(), newTWAP);
     }
 
     receive() external payable {}
