@@ -9,8 +9,17 @@
     "include_git_context": true,
     "include_recent_history": true
   },
+  "project_hints": {
+    "forge_binary": "~/.foundry/bin/forge",
+    "forge_warnings_not_errors": "forge build may emit erc20-unchecked-transfer and other warnings — these are NOT compilation errors. Only lines starting with 'error[' are blocking. Always run tests even if warnings are present.",
+    "test_run_required": "Always run forge test after making contract changes. 'Syntactically correct' is NOT a substitute for passing tests. Report exact test count and failure list.",
+    "twap_staleness": "After vm.warp() > 2 hours in tests, call controller.updateTWAP(INITIAL_TWAP) before calling executeMint() — P16B-M1 fix blocks stale-TWAP minting.",
+    "error_selector_params": "For custom errors with parameters, tests must use abi.encodeWithSelector(Error.selector, param1, param2) not just Error.selector.",
+    "commit_format": "Commit title: feat(scope): summary [Agent: devin-delegate] / trailer: Co-authored-by: Chimera <chimera_defi@protonmail.com>"
+  },
   "_notes": {
     "kimi_quota": "Kimi quota exhausted 2026-05-28, switched fallback to claude",
-    "delegation_threshold": "Use devin for tasks >2 files or >100 lines; inline for <50 lines single-file"
+    "delegation_threshold": "Use devin for tasks >2 files or >100 lines; inline for <50 lines single-file",
+    "compliance_improvement": "2026-06-01: Added project_hints to prevent false 'compilation error' bailouts and enforce test runs"
   }
 }
