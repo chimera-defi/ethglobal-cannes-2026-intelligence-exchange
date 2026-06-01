@@ -18,7 +18,7 @@ import { adminRouter } from './routes/admin';
 import { migrate } from './db/migrate';
 import { setupLeaseExpiryRequeue } from './queue/milestoneQueue';
 import { STALLED_JOB_INTERVAL_MS } from 'intelligence-exchange-cannes-shared';
-import { db } from './db/client';
+import { db, sql } from './db/client';
 import { rateLimit, walletRateLimit } from './middleware/rateLimit';
 import { getSessionAccountAddress } from './services/accessService';
 
@@ -70,8 +70,17 @@ app.use('*', cors({
 app.use('*', logger());
 app.use('*', rateLimit());
 
-// Health check
-app.get('/health', (c) => c.json({ status: 'ok', ts: new Date().toISOString() }));
+// Health check with database connectivity verification
+app.get('/health', async (c) => {
+  try {
+    // Quick database connectivity check
+    await sql`SELECT 1`;
+    return c.json({ status: 'ok', database: 'connected', ts: new Date().toISOString() });
+  } catch (err) {
+    console.error('[health:check] Database connectivity check failed:', err);
+    return c.json({ status: 'degraded', database: 'disconnected', ts: new Date().toISOString() }, 503);
+  }
+});
 
 // API routes — apply wallet rate limiting on mutation endpoints
 app.route('/v1/cannes/auth', authRouter);
@@ -118,9 +127,16 @@ export async function bootstrap() {
       }
     }
 
-    await migrate();
-    if (process.env.NODE_ENV !== 'test' && process.env.DISABLE_LEASE_REQUEUE !== '1') {
-      await setupLeaseExpiryRequeue(db);
+    try {
+      await migrate();
+      if (process.env.NODE_ENV !== 'test' && process.env.DISABLE_LEASE_REQUEUE !== '1') {
+        await setupLeaseExpiryRequeue(db);
+      }
+    } catch (err) {
+      console.error('[startup:error] Database initialization failed:', err);
+      console.error('[startup:error] Ensure DATABASE_URL and REDIS_URL are set correctly and services are running.');
+      console.error('[startup:error] Run "make infra-up" to start required infrastructure.');
+      throw err;
     }
   })();
 
