@@ -41,9 +41,10 @@ contract AgentIdentityRegistryTest is Test {
         uint256 score,
         address reviewerAddress,
         bool payoutReleased,
+        uint256 nonce,
         uint256 signerPk
     ) internal returns (bytes memory) {
-        bytes32 digest = registry.getAttestationDigest(fingerprint, jobId, score, reviewerAddress, payoutReleased);
+        bytes32 digest = registry.getAttestationDigest(fingerprint, jobId, score, reviewerAddress, payoutReleased, nonce);
         bytes32 ethSignedDigest = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", digest));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPk, ethSignedDigest);
         return abi.encodePacked(r, s, v);
@@ -99,9 +100,9 @@ contract AgentIdentityRegistryTest is Test {
 
     function test_recordAcceptedSubmission_updatesReputation() public {
         (bytes32 fingerprint,) = _registerWorker();
-        bytes memory signature = _signAttestation(fingerprint, jobId1, 85, reviewer, false, attestorPk);
+        bytes memory signature = _signAttestation(fingerprint, jobId1, 85, reviewer, false, 1, attestorPk);
 
-        registry.recordAcceptedSubmission(fingerprint, jobId1, 85, reviewer, false, signature);
+        registry.recordAcceptedSubmission(fingerprint, jobId1, 85, reviewer, false, 1, signature);
 
         (uint256 count, uint256 avgScore) = registry.getReputation(fingerprint);
         assertEq(count, 1);
@@ -110,11 +111,11 @@ contract AgentIdentityRegistryTest is Test {
 
     function test_recordAcceptedSubmission_updatesAverageOverMultipleAcceptedJobs() public {
         (bytes32 fingerprint,) = _registerWorker();
-        bytes memory signature1 = _signAttestation(fingerprint, jobId1, 80, reviewer, false, attestorPk);
-        bytes memory signature2 = _signAttestation(fingerprint, jobId2, 100, reviewer, true, attestorPk);
+        bytes memory signature1 = _signAttestation(fingerprint, jobId1, 80, reviewer, false, 1, attestorPk);
+        bytes memory signature2 = _signAttestation(fingerprint, jobId2, 100, reviewer, true, 2, attestorPk);
 
-        registry.recordAcceptedSubmission(fingerprint, jobId1, 80, reviewer, false, signature1);
-        registry.recordAcceptedSubmission(fingerprint, jobId2, 100, reviewer, true, signature2);
+        registry.recordAcceptedSubmission(fingerprint, jobId1, 80, reviewer, false, 1, signature1);
+        registry.recordAcceptedSubmission(fingerprint, jobId2, 100, reviewer, true, 2, signature2);
 
         (uint256 count, uint256 avgScore) = registry.getReputation(fingerprint);
         assertEq(count, 2);
@@ -123,47 +124,59 @@ contract AgentIdentityRegistryTest is Test {
 
     function test_recordAcceptedSubmission_emitsEvents() public {
         (bytes32 fingerprint,) = _registerWorker();
-        bytes memory signature = _signAttestation(fingerprint, jobId1, 92, reviewer, false, attestorPk);
+        bytes memory signature = _signAttestation(fingerprint, jobId1, 92, reviewer, false, 1, attestorPk);
 
         vm.expectEmit(true, true, false, true);
         emit AgentIdentityRegistry.SubmissionRecorded(fingerprint, jobId1, 92, 1);
         vm.expectEmit(true, false, false, true);
         emit AgentIdentityRegistry.ReputationUpdated(fingerprint, 1, 92);
 
-        registry.recordAcceptedSubmission(fingerprint, jobId1, 92, reviewer, false, signature);
+        registry.recordAcceptedSubmission(fingerprint, jobId1, 92, reviewer, false, 1, signature);
     }
 
     function test_recordAcceptedSubmission_revert_agentNotFound() public {
         bytes32 fingerprint = _expectedFingerprint();
-        bytes memory signature = _signAttestation(fingerprint, jobId1, 85, reviewer, false, attestorPk);
+        bytes memory signature = _signAttestation(fingerprint, jobId1, 85, reviewer, false, 1, attestorPk);
 
         vm.expectRevert(abi.encodeWithSelector(AgentIdentityRegistry.AgentNotFound.selector, fingerprint));
-        registry.recordAcceptedSubmission(fingerprint, jobId1, 85, reviewer, false, signature);
+        registry.recordAcceptedSubmission(fingerprint, jobId1, 85, reviewer, false, 1, signature);
     }
 
     function test_recordAcceptedSubmission_revert_invalidScore() public {
         (bytes32 fingerprint,) = _registerWorker();
-        bytes memory signature = _signAttestation(fingerprint, jobId1, 101, reviewer, false, attestorPk);
+        bytes memory signature = _signAttestation(fingerprint, jobId1, 101, reviewer, false, 1, attestorPk);
 
         vm.expectRevert(abi.encodeWithSelector(AgentIdentityRegistry.InvalidScore.selector, 101));
-        registry.recordAcceptedSubmission(fingerprint, jobId1, 101, reviewer, false, signature);
+        registry.recordAcceptedSubmission(fingerprint, jobId1, 101, reviewer, false, 1, signature);
     }
 
     function test_recordAcceptedSubmission_revert_invalidSignature() public {
         (bytes32 fingerprint,) = _registerWorker();
-        bytes memory signature = _signAttestation(fingerprint, jobId1, 85, reviewer, false, 0xBAD);
+        bytes memory signature = _signAttestation(fingerprint, jobId1, 85, reviewer, false, 1, 0xBAD);
 
         vm.expectRevert(AgentIdentityRegistry.InvalidSignature.selector);
-        registry.recordAcceptedSubmission(fingerprint, jobId1, 85, reviewer, false, signature);
+        registry.recordAcceptedSubmission(fingerprint, jobId1, 85, reviewer, false, 1, signature);
     }
 
     function test_recordAcceptedSubmission_revert_duplicateJobAttestation() public {
         (bytes32 fingerprint,) = _registerWorker();
-        bytes memory signature = _signAttestation(fingerprint, jobId1, 85, reviewer, false, attestorPk);
+        bytes memory signature = _signAttestation(fingerprint, jobId1, 85, reviewer, false, 1, attestorPk);
 
-        registry.recordAcceptedSubmission(fingerprint, jobId1, 85, reviewer, false, signature);
+        registry.recordAcceptedSubmission(fingerprint, jobId1, 85, reviewer, false, 1, signature);
 
         vm.expectRevert(abi.encodeWithSelector(AgentIdentityRegistry.JobAlreadyAttested.selector, jobId1));
-        registry.recordAcceptedSubmission(fingerprint, jobId1, 85, reviewer, false, signature);
+        registry.recordAcceptedSubmission(fingerprint, jobId1, 85, reviewer, false, 1, signature);
+    }
+
+    function test_recordAcceptedSubmission_revert_nonceReplay() public {
+        (bytes32 fingerprint,) = _registerWorker();
+        bytes memory signature = _signAttestation(fingerprint, jobId1, 85, reviewer, false, 1, attestorPk);
+
+        // First submission with nonce 1 succeeds
+        registry.recordAcceptedSubmission(fingerprint, jobId1, 85, reviewer, false, 1, signature);
+
+        // Attempt to reuse the same signature with the same nonce should revert
+        vm.expectRevert(abi.encodeWithSelector(AgentIdentityRegistry.InvalidNonce.selector, 1, 1));
+        registry.recordAcceptedSubmission(fingerprint, jobId2, 90, reviewer, true, 1, signature);
     }
 }

@@ -811,6 +811,89 @@ contract IntelMintControllerTest is Test {
         assertEq(controller.epochMintCap(), newCap);
     }
 
+    // ─── Security Fix Tests ───────────────────────────────────────────────────
+
+    function test_twapDeviationPauseEnabled_starts_true() public {
+        assertTrue(controller.twapDeviationPauseEnabled());
+    }
+
+    function test_executeMint_reverts_when_twap_stale() public {
+        _mintAndStakeAlice(100e18);
+
+        uint256 mintAmount = staking.mintAllowance(alice) / 2;
+        uint256 maxPrice = controller.mintPrice();
+        uint256 cost = controller.quoteMint(mintAmount);
+
+        // Advance time beyond TWAP_MAX_AGE (2 hours)
+        vm.warp(block.timestamp + 2 hours + 1);
+
+        vm.deal(operator, cost + 1 ether);
+        vm.prank(operator);
+        vm.expectRevert(IntelMintController.TwapStale.selector);
+        controller.executeMint{value: cost}(alice, mintAmount, maxPrice);
+    }
+
+    function test_selfMint_reverts_when_twap_stale() public {
+        _mintAndStakeAlice(10_000e18);
+
+        uint256 mintAmount = staking.mintAllowance(alice) / 2;
+        uint256 maxPrice = controller.mintPrice();
+        uint256 cost = controller.quoteMint(mintAmount);
+
+        // Advance time beyond TWAP_MAX_AGE (2 hours)
+        vm.warp(block.timestamp + 2 hours + 1);
+
+        vm.deal(alice, cost + 1 ether);
+        vm.prank(alice);
+        vm.expectRevert(IntelMintController.TwapStale.selector);
+        controller.selfMint{value: cost}(mintAmount, maxPrice);
+    }
+
+    function test_updateTWAP_reverts_on_large_increase() public {
+        uint256 currentTWAP = controller.twap();
+        // Try to increase by 51% (above 50% max)
+        uint256 newTWAP = (currentTWAP * 15100) / 10000;
+
+        vm.expectRevert(IntelMintController.InvalidParam.selector);
+        controller.updateTWAP(newTWAP);
+    }
+
+    function test_updateTWAP_reverts_on_large_decrease() public {
+        uint256 currentTWAP = controller.twap();
+        // Try to decrease by 51% (above 50% max)
+        uint256 newTWAP = (currentTWAP * 4900) / 10000;
+
+        vm.expectRevert(IntelMintController.InvalidParam.selector);
+        controller.updateTWAP(newTWAP);
+    }
+
+    function test_updateTWAP_succeeds_within_50_percent() public {
+        uint256 currentTWAP = controller.twap();
+        // Increase by 49% (within 50% max)
+        uint256 newTWAP = (currentTWAP * 14900) / 10000;
+
+        controller.updateTWAP(newTWAP);
+        assertEq(controller.twap(), newTWAP);
+    }
+
+    function test_updateTWAP_reverts_below_80_percent_floor() public {
+        uint256 floorPrice = controller.floorPrice();
+        // Try to set TWAP to 79% of floorPrice (below 80% minimum)
+        uint256 newTWAP = (floorPrice * 7900) / 10000;
+
+        vm.expectRevert(IntelMintController.InvalidParam.selector);
+        controller.updateTWAP(newTWAP);
+    }
+
+    function test_updateTWAP_succeeds_above_80_percent_floor() public {
+        uint256 floorPrice = controller.floorPrice();
+        // Set TWAP to 81% of floorPrice (above 80% minimum)
+        uint256 newTWAP = (floorPrice * 8100) / 10000;
+
+        controller.updateTWAP(newTWAP);
+        assertEq(controller.twap(), newTWAP);
+    }
+
     receive() external payable {}
 }
 

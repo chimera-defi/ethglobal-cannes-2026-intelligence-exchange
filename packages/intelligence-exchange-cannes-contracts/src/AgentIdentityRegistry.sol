@@ -15,6 +15,7 @@ contract AgentIdentityRegistry {
     error InvalidSignature();
     error JobAlreadyAttested(bytes32 jobId);
     error InvalidTier();
+    error InvalidNonce(uint256 current, uint256 provided);
 
     event AgentRegistered(
         bytes32 indexed fingerprint,
@@ -47,6 +48,7 @@ contract AgentIdentityRegistry {
     mapping(uint256 tokenId => bytes32) public tokenToFingerprint;
     mapping(bytes32 jobId => bool) public attestedJobs;
     mapping(address operator => bytes32 fingerprint) public operatorToFingerprint;
+    mapping(address attestor => uint256) public attestorNonces;
     uint256 public nextTokenId = 1;
 
     IdentityGate public identityGate;
@@ -119,6 +121,7 @@ contract AgentIdentityRegistry {
         uint256 score,
         address reviewer,
         bool payoutReleased,
+        uint256 nonce,
         bytes calldata signature
     ) external {
         if (score > 100) revert InvalidScore(score);
@@ -126,10 +129,14 @@ contract AgentIdentityRegistry {
         if (!agent.registered) revert AgentNotFound(fingerprint);
         if (attestedJobs[jobId]) revert JobAlreadyAttested(jobId);
 
-        bytes32 digest = getAttestationDigest(fingerprint, jobId, score, reviewer, payoutReleased);
+        // Validate nonce to prevent signature replay attacks
+        if (nonce <= attestorNonces[attestor]) revert InvalidNonce(attestorNonces[attestor], nonce);
+
+        bytes32 digest = getAttestationDigest(fingerprint, jobId, score, reviewer, payoutReleased, nonce);
         address recovered = recoverSigner(digest, signature);
         if (recovered != attestor) revert InvalidSignature();
 
+        attestorNonces[attestor] = nonce;
         agent.acceptedCount += 1;
         agent.cumulativeScore += score;
         attestedJobs[jobId] = true;
@@ -225,9 +232,10 @@ contract AgentIdentityRegistry {
         bytes32 jobId,
         uint256 score,
         address reviewer,
-        bool payoutReleased
+        bool payoutReleased,
+        uint256 nonce
     ) public view returns (bytes32) {
-        return keccak256(abi.encodePacked(address(this), block.chainid, fingerprint, jobId, score, reviewer, payoutReleased));
+        return keccak256(abi.encodePacked(address(this), block.chainid, fingerprint, jobId, score, reviewer, payoutReleased, nonce));
     }
 
     function recoverSigner(bytes32 digest, bytes calldata signature) public pure returns (address) {

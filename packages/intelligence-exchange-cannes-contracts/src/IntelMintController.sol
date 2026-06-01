@@ -42,6 +42,7 @@ contract IntelMintController {
     error TwapDeviationTooLarge(uint256 twap, uint256 floor);
     error TimelockNotExpired(uint256 readyAt);
     error NoPendingChange();
+    error TwapStale();
 
     // ─── Constants ────────────────────────────────────────────────────────────
 
@@ -238,9 +239,9 @@ contract IntelMintController {
         activityCapCeilingBps = 20000;        // 2x of BASE_EPOCH_CAP
         activityCapEnabled = false;           // Disabled by default to preserve existing behavior
 
-        // Initialize TWAP deviation circuit breaker (disabled by default)
+        // Initialize TWAP deviation circuit breaker (enabled by default for security)
         maxTwapDeviationBps = 3000;           // 30% max deviation
-        twapDeviationPauseEnabled = false;    // Disabled by default for gradual rollout
+        twapDeviationPauseEnabled = true;     // Enabled by default to prevent TWAP manipulation
     }
 
     // ─── Price View ───────────────────────────────────────────────────────────
@@ -373,6 +374,23 @@ contract IntelMintController {
     /// @param  newTWAP New TWAP value in payment units per 1e18 INTEL (must be > 0).
     function updateTWAP(uint256 newTWAP) external onlyOperator {
         if (newTWAP == 0) revert ZeroAmount();
+
+        // Validate deviation from floorPrice - prevent setting TWAP too low
+        if (floorPrice > 0 && newTWAP < (floorPrice * 8000) / BPS) {
+            revert InvalidParam(); // TWAP must be > 80% of floorPrice
+        }
+
+        // Validate max deviation from previous TWAP - prevent large jumps
+        if (twap > 0) {
+            uint256 deviation;
+            if (newTWAP > twap) {
+                deviation = ((newTWAP - twap) * BPS) / twap;
+            } else {
+                deviation = ((twap - newTWAP) * BPS) / twap;
+            }
+            if (deviation > 5000) revert InvalidParam(); // Max 50% change per update
+        }
+
         twap = newTWAP;
         twapUpdatedAt = block.timestamp;
         emit TWAPUpdated(newTWAP, block.timestamp);
@@ -685,6 +703,9 @@ contract IntelMintController {
     ///      and for any access-control modifiers.
     function _doMint(address to, uint256 intelAmount, uint256 maxPrice) internal {
         if (mintPaused) revert MintingPaused();
+
+        // Block minting when TWAP is stale - prevents cheap minting attacks
+        if (twapIsStale()) revert TwapStale();
 
         // Check TWAP deviation before computing price
         _checkTwapDeviation();
