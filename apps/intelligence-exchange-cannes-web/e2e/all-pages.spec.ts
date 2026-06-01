@@ -23,14 +23,10 @@ test.describe('Comprehensive Page Coverage - All Routes', () => {
       const errors: string[] = [];
       page.on('console', (msg) => {
         if (msg.type() === 'error') {
-<<<<<<< HEAD
           // Ignore 429 rate limiting errors (expected when running many tests in parallel)
           if (!msg.text().includes('429') && !msg.text().includes('Too Many Requests')) {
             errors.push(msg.text());
           }
-=======
-          errors.push(msg.text());
->>>>>>> origin/main
         }
       });
 
@@ -58,7 +54,6 @@ test.describe('Comprehensive Page Coverage - All Routes', () => {
     await page.goto(`${BASE_URL}/staking`);
     await page.waitForLoadState('networkidle');
 
-<<<<<<< HEAD
     // Verify page renders
     const body = page.locator('body');
     await expect(body).toBeVisible();
@@ -71,19 +66,6 @@ test.describe('Comprehensive Page Coverage - All Routes', () => {
     const hasStakingContent = text?.toLowerCase().includes('stake') ||
                              text?.toLowerCase().includes('connect');
     expect(hasStakingContent).toBeTruthy();
-=======
-    console.log('🔍 Testing staking page controls...');
-
-    // Look for staking-related elements
-    const buttons = await page.locator('button').count();
-    const inputs = await page.locator('input').count();
-    const text = await page.textContent('body');
-
-    console.log(`📊 Staking page: ${buttons} buttons, ${inputs} inputs`);
-    console.log(`📝 Contains "stake": ${text?.toLowerCase().includes('stake')}`);
-    console.log(`📝 Contains "unstake": ${text?.toLowerCase().includes('unstake')}`);
-    console.log(`📝 Contains "reward": ${text?.toLowerCase().includes('reward')}`);
->>>>>>> origin/main
 
     await page.screenshot({ path: 'test-results/staking-detailed.png' });
   });
@@ -92,7 +74,6 @@ test.describe('Comprehensive Page Coverage - All Routes', () => {
     await page.goto(`${BASE_URL}/mint`);
     await page.waitForLoadState('networkidle');
 
-<<<<<<< HEAD
     // Verify page renders
     const body = page.locator('body');
     await expect(body).toBeVisible();
@@ -105,17 +86,6 @@ test.describe('Comprehensive Page Coverage - All Routes', () => {
     const hasMintContent = text?.toLowerCase().includes('mint') ||
                           text?.toLowerCase().includes('token');
     expect(hasMintContent).toBeTruthy();
-=======
-    console.log('🔍 Testing mint page controls...');
-
-    const buttons = await page.locator('button').count();
-    const inputs = await page.locator('input').count();
-    const text = await page.textContent('body');
-
-    console.log(`📊 Mint page: ${buttons} buttons, ${inputs} inputs`);
-    console.log(`📝 Contains "mint": ${text?.toLowerCase().includes('mint')}`);
-    console.log(`📝 Contains "token": ${text?.toLowerCase().includes('token')}`);
->>>>>>> origin/main
 
     await page.screenshot({ path: 'test-results/mint-detailed.png' });
   });
@@ -127,7 +97,6 @@ test.describe('Comprehensive Page Coverage - All Routes', () => {
       await page.goto(`${BASE_URL}${route}`);
       await page.waitForLoadState('networkidle');
 
-<<<<<<< HEAD
       // Verify page renders
       const body = page.locator('body');
       await expect(body).toBeVisible();
@@ -137,14 +106,6 @@ test.describe('Comprehensive Page Coverage - All Routes', () => {
       expect(text?.length).toBeGreaterThan(500); // Page should have content
 
       const routeName = route.split('/').pop() || 'workspace';
-=======
-      const buttons = await page.locator('button').count();
-      const text = await page.textContent('body');
-      const routeName = route.split('/').pop() || 'workspace';
-
-      console.log(`📊 ${routeName}: ${buttons} buttons, ${text?.length || 0} chars`);
-
->>>>>>> origin/main
       await page.screenshot({ path: `test-results/workspace/${routeName}.png` });
     }
   });
@@ -163,16 +124,8 @@ test.describe('Comprehensive Page Coverage - All Routes', () => {
       await page.waitForLoadState('networkidle');
     }
 
-<<<<<<< HEAD
     // Assert no broken links (except 429 rate limiting which is expected when running many tests)
     const criticalBrokenLinks = brokenLinks.filter(link => !link.includes('429'));
     expect(criticalBrokenLinks.length).toBe(0);
-=======
-    if (brokenLinks.length > 0) {
-      console.log('⚠️ Broken links found:', brokenLinks);
-    } else {
-      console.log('✅ No broken links found');
-    }
->>>>>>> origin/main
   });
 });
