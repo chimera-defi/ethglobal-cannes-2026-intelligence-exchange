@@ -14,9 +14,9 @@
 **Browser**: Chromium (Headless) - Firefox and WebKit disabled for dev environment
 **Test Framework**: Playwright 1.59.1
 **Total Tests**: 57 (12 basic + 9 full-flow + 16 all-pages + 11 improved + 9 advanced)
-**Passed**: 28/28 (12 basic + 16 all-pages) ✅ | Remaining: Require infrastructure
+**Passed**: 37/37 (12 basic + 16 all-pages + 9 full-flow) ✅ | Remaining: Require infrastructure
 **Failed**: 0 ✅
-**Duration**: ~60s for basic tests, ~3min for all-pages | ~5-8min estimated (full suite with infrastructure)
+**Duration**: ~60s for basic tests, ~3min for all-pages, ~1.1min for full-flows | ~6-9min estimated (full suite with infrastructure)
 
 **Note**: The all-pages.spec.ts uses parameterized testing - 1 test() call generates 12 route tests, plus 4 additional tests. The advanced-flows.spec.ts adds comprehensive user journey testing. Firefox and WebKit browsers disabled in development environment (can be re-enabled for CI/CD).
 
@@ -175,10 +175,10 @@
 
 ## Latest Test Results (2026-06-01 Final)
 
-**E2E Test Status**: ✅ **28/28 tests passing** (Basic + All-Pages suites)
+**E2E Test Status**: ✅ **37/37 tests passing** (Basic + All-Pages + Full-Flow suites)
 - ✅ Basic Smoke Tests: 12/12 passing (57.2s)
 - ✅ All-Pages Coverage: 16/16 passing (3.0m)
-- ⏳ Full Flow Tests: Require infrastructure (broker + database)
+- ✅ Full-Flow Interactions: 9/9 passing (1.1m)
 - ⏳ Improved Tests: Require infrastructure (API calls)
 - ⏳ Advanced Flows: Require infrastructure (complex workflows)
 
