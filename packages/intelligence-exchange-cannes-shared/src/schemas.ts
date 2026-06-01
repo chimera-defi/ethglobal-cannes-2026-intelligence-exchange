@@ -310,11 +310,13 @@ export type JobCreateRequest = z.infer<typeof JobCreateRequestSchema>;
 export const DemoJobClaimRequestSchema = z.object({
   workerId: z.string(),
   agentMetadata: AgentMetadataSchema.optional(),
+  idempotencyKey: z.string().optional(),
 });
 export type DemoJobClaimRequest = z.infer<typeof DemoJobClaimRequestSchema>;
 
 export const SignedJobClaimRequestSchema = z.object({
   signedAction: SignedActionEnvelopeSchema,
+  idempotencyKey: z.string().optional(),
 });
 export type SignedJobClaimRequest = z.infer<typeof SignedJobClaimRequestSchema>;
 
@@ -357,12 +359,14 @@ const JobSubmissionFieldsSchema = z.object({
 
 export const SignedJobResultSubmitRequestSchema = JobSubmissionFieldsSchema.extend({
   signedAction: SignedActionEnvelopeSchema,
+  idempotencyKey: z.string().optional(),
 });
 export type SignedJobResultSubmitRequest = z.infer<typeof SignedJobResultSubmitRequestSchema>;
 
 export const DemoJobResultSubmitRequestSchema = JobSubmissionFieldsSchema.extend({
   workerId: z.string(),
   agentMetadata: AgentMetadataSchema.optional(),
+  idempotencyKey: z.string().optional(),
 });
 export type DemoJobResultSubmitRequest = z.infer<typeof DemoJobResultSubmitRequestSchema>;
 
