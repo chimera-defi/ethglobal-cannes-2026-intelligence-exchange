@@ -555,7 +555,7 @@ corepack pnpm --filter intelligence-exchange-cannes-worker build
 
 ```bash
 corepack pnpm demo:tokenomics:actors     # end-to-end 6-step settlement demo
-corepack pnpm --filter intelligence-exchange-cannes-contracts test   # 688 forge tests
+corepack pnpm --filter intelligence-exchange-cannes-contracts test   # 709 forge tests
 ```
 
 ---
