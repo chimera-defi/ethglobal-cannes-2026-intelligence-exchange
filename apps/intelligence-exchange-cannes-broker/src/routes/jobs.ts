@@ -19,6 +19,7 @@ import { getSessionAccountAddress, requireAgentAuthorization, requireWorldRoleIf
 import { consumeChallenge } from '../services/authService';
 import { hydrateAcceptedSubmissionAttestation, checkWorkerStake } from '../services/chainService';
 import { computeAgentFingerprint, normalizeAccountAddress } from '../services/identityService';
+import { getIdempotencyResult, setIdempotencyResult } from '../services/idempotencyStore';
 import { httpError } from '../services/errors';
 import { getWorldConfig } from '../services/sponsorConfig';
 import { keccak256, toBytes, createWalletClient, createPublicClient, http, encodeFunctionData } from 'viem';
@@ -75,14 +76,24 @@ function buildDemoAgentIdentity(input: {
   const operatorAddress = /^0x[a-fA-F0-9]{40}$/.test(input.agentMetadata?.operatorAddress ?? '')
     ? input.agentMetadata!.operatorAddress!
     : (`0x${keccak256(toBytes(accountAddress)).slice(2, 42)}` as `0x${string}`);
-  const fingerprint = input.agentMetadata?.fingerprint
-    ?? computeAgentFingerprint(
-      input.agentMetadata?.agentType ?? 'demo-worker',
-      input.agentMetadata?.agentVersion ?? '0.0.0',
-      operatorAddress,
-    );
 
-  return { accountAddress, fingerprint };
+  // Security hardening: always compute fingerprint deterministically from workerId
+  // Ignore any client-provided fingerprint to prevent spoofing
+  const computedFingerprint = computeAgentFingerprint(
+    input.agentMetadata?.agentType ?? 'demo-worker',
+    input.agentMetadata?.agentVersion ?? '0.0.0',
+    operatorAddress,
+  );
+
+  // Log warning if client provided a fingerprint that doesn't match the computed one
+  if (input.agentMetadata?.fingerprint && input.agentMetadata.fingerprint !== computedFingerprint) {
+    console.warn(
+      `[buildDemoAgentIdentity] Fingerprint spoofing attempt detected for workerId=${input.workerId}. ` +
+      `Provided: ${input.agentMetadata.fingerprint}, Computed: ${computedFingerprint}. Using computed fingerprint.`
+    );
+  }
+
+  return { accountAddress, fingerprint: computedFingerprint };
 }
 
 function isSignedClaimRequest(
@@ -459,6 +470,22 @@ jobsRouter.post('/:jobId/claim', zValidator('json', JobClaimRequestSchema), asyn
   if (!jobId || !jobId.trim()) return c.json({ error: { code: 'INVALID_PARAM', message: 'jobId is required' } }, 400);
   const req = c.req.valid('json');
 
+  // Extract idempotency key (if provided)
+  const idempotencyKey = isSignedClaimRequest(req)
+    ? (req.signedAction as { idempotencyKey?: string }).idempotencyKey
+    : (req as { idempotencyKey?: string }).idempotencyKey;
+
+  // Check idempotency store for cached result
+  if (idempotencyKey) {
+    const cached = getIdempotencyResult(idempotencyKey);
+    if (cached) {
+      console.log(`[jobs:claim] Idempotency cache hit for key=${idempotencyKey}`);
+      return c.json(cached);
+    }
+  } else {
+    console.warn(`[jobs:claim] No idempotency key provided for jobId=${jobId}`);
+  }
+
   try {
     let result: Awaited<ReturnType<typeof claimJob>>;
     let workerAddress: string;
@@ -521,7 +548,14 @@ jobsRouter.post('/:jobId/claim', zValidator('json', JobClaimRequestSchema), asyn
       result = await claimJob(jobId, demoIdentity.accountAddress, demoIdentity.fingerprint);
     }
 
-    return c.json({ ...result, jobId, skillMdUrl: `/v1/cannes/jobs/${jobId}/skill.md` });
+    const responseData = { ...result, jobId, skillMdUrl: `/v1/cannes/jobs/${jobId}/skill.md` };
+
+    // Store result in idempotency cache if key was provided
+    if (idempotencyKey && result.claimId) {
+      setIdempotencyResult(idempotencyKey, result.claimId, responseData);
+    }
+
+    return c.json(responseData);
   } catch (err: unknown) {
     const status = (err as { status?: number }).status ?? 500;
     const code = (err as { code?: string }).code ?? 'CLAIM_FAILED';
@@ -580,6 +614,22 @@ jobsRouter.post('/:jobId/submit', zValidator('json', JobResultSubmitRequestSchem
   const { jobId } = c.req.param();
   const req = c.req.valid('json');
 
+  // Extract idempotency key (if provided)
+  const idempotencyKey = isSignedSubmitRequest(req)
+    ? (req.signedAction as { idempotencyKey?: string }).idempotencyKey
+    : (req as { idempotencyKey?: string }).idempotencyKey;
+
+  // Check idempotency store for cached result
+  if (idempotencyKey) {
+    const cached = getIdempotencyResult(idempotencyKey);
+    if (cached) {
+      console.log(`[jobs:submit] Idempotency cache hit for key=${idempotencyKey}`);
+      return c.json(cached);
+    }
+  } else {
+    console.warn(`[jobs:submit] No idempotency key provided for jobId=${jobId}`);
+  }
+
   try {
     let result: Awaited<ReturnType<typeof submitJob>>;
 
@@ -621,6 +671,11 @@ jobsRouter.post('/:jobId/submit', zValidator('json', JobResultSubmitRequestSchem
         demoIdentity.accountAddress,
         demoIdentity.fingerprint,
       );
+    }
+
+    // Store result in idempotency cache if key was provided
+    if (idempotencyKey && result.submissionId) {
+      setIdempotencyResult(idempotencyKey, result.submissionId, result);
     }
 
     return c.json(result);
