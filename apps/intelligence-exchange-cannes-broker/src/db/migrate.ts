@@ -444,6 +444,32 @@ export async function migrate() {
     ON aiu_snapshots (computed_at DESC)
   `;
 
+  // Performance indexes for frequently queried columns
+  await sql`
+    CREATE INDEX IF NOT EXISTS jobs_status_idx
+    ON jobs (status)
+  `;
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS jobs_idea_id_idx
+    ON jobs (idea_id)
+  `;
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS jobs_active_claim_worker_id_idx
+    ON jobs (active_claim_worker_id)
+  `;
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS claims_job_id_idx
+    ON claims (job_id)
+  `;
+
+  await sql`
+    CREATE INDEX IF NOT EXISTS submissions_job_id_idx
+    ON submissions (job_id)
+  `;
+
   console.log('✓ Database schema ready');
 }
 
