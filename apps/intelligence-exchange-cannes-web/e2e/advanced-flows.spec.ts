@@ -7,11 +7,9 @@ test.describe('Advanced E2E Flows - Complex User Scenarios', () => {
     // Setup error filtering for all tests
     page.on('console', (msg) => {
       if (msg.type() === 'error') {
-        // Filter expected errors: 429 rate limiting, 502 bad gateway (infrastructure down), 404s
+        // Filter expected errors
         if (!msg.text().includes('429') && 
             !msg.text().includes('Too Many Requests') &&
-            !msg.text().includes('502') &&
-            !msg.text().includes('Bad Gateway') &&
             !msg.text().includes('404')) {
           // Log but don't fail - some errors are expected in dev mode
           console.log(`Console error: ${msg.text()}`);
@@ -68,7 +66,7 @@ test.describe('Advanced E2E Flows - Complex User Scenarios', () => {
 
     // Navigate to workspace
     await page.goto(`${BASE_URL}/workspace`);
-    await page.waitForLoadState('networkidle', { timeout: 10000 });
+    await page.waitForLoadState('networkidle');
     console.log('✅ Navigated to buyer workspace');
 
     // Check workspace content
@@ -76,29 +74,20 @@ test.describe('Advanced E2E Flows - Complex User Scenarios', () => {
     await expect(body).toBeVisible();
     
     const text = await page.textContent('body');
-    expect(text?.length).toBeGreaterThan(50); // Minimal requirement for dev mode
+    expect(text?.length).toBeGreaterThan(500);
     console.log('✅ Workspace content loaded');
 
-    // Navigate to review queue with timeout
-    try {
-      await page.goto(`${BASE_URL}/workspace/review`);
-      await page.waitForLoadState('networkidle', { timeout: 10000 });
-      console.log('✅ Navigated to review queue');
-    } catch (e) {
-      console.log('⚠️ Review queue navigation timed out (may require auth)');
-    }
+    // Navigate to review queue
+    await page.goto(`${BASE_URL}/workspace/review`);
+    await page.waitForLoadState('networkidle');
+    console.log('✅ Navigated to review queue');
 
-    // Navigate to history with timeout
-    try {
-      await page.goto(`${BASE_URL}/workspace/history`);
-      await page.waitForLoadState('networkidle', { timeout: 10000 });
-      console.log('✅ Navigated to workspace history');
-    } catch (e) {
-      console.log('⚠️ Workspace history navigation timed out (may require auth)');
-    }
+    // Navigate to history
+    await page.goto(`${BASE_URL}/workspace/history`);
+    await page.waitForLoadState('networkidle');
+    console.log('✅ Navigated to workspace history');
 
     await page.screenshot({ path: 'test-results/advanced-flows/workspace-navigation.png' });
-    console.log('✅ Workspace navigation test completed');
   });
 
   test('Flow: Protocol documentation access', async ({ page }) => {
@@ -151,7 +140,7 @@ test.describe('Advanced E2E Flows - Complex User Scenarios', () => {
   });
 
   test('Flow: Mobile responsive complete navigation', async ({ page }) => {
-    console.log('📱 Testing mobile responsive layout...');
+    console.log('📱 Testing mobile responsive navigation...');
 
     // Set mobile viewport
     await page.setViewportSize({ width: 375, height: 812 }); // iPhone X
@@ -159,42 +148,49 @@ test.describe('Advanced E2E Flows - Complex User Scenarios', () => {
     await page.waitForLoadState('networkidle');
     console.log('✅ Mobile viewport set');
 
-    // Verify mobile layout is responsive (page loads without errors)
-    const body = page.locator('body');
-    await expect(body).toBeVisible();
-    console.log('✅ Mobile layout is responsive');
-
-    // Verify content is accessible on mobile
-    const text = await page.textContent('body');
-    expect(text?.length).toBeGreaterThan(100);
-    console.log('✅ Mobile content is accessible');
-
-    // Note: Full mobile navigation testing requires mobile menu interaction
-    // which is beyond the scope of basic E2E testing
-    console.log('✅ Mobile responsive test completed (navigation requires mobile menu interaction)');
+    // Test navigation on mobile
+    const navLinks = ['Exchange', 'Ideas', 'Jobs', 'Agents'];
+    for (const link of navLinks) {
+      try {
+        await page.click(`text=${link}`, { timeout: 3000 });
+        await page.waitForLoadState('networkidle', { timeout: 3000 });
+        console.log(`✅ Mobile: Navigated to ${link}`);
+        
+        // Go back to home
+        await page.goto(BASE_URL);
+        await page.waitForLoadState('networkidle');
+      } catch (e) {
+        console.log(`⚠️ Mobile: Could not navigate to ${link} (may require menu)`);
+      }
+    }
 
     await page.screenshot({ path: 'test-results/advanced-flows/mobile-navigation.png' });
   });
 
   test('Flow: Error handling and edge cases', async ({ page }) => {
-    console.log('🔧 Testing error handling...');
+    console.log('🔧 Testing error handling and edge cases...');
 
-    // Test 404 handling (single test to reduce timeout risk)
-    try {
-      await page.goto(`${BASE_URL}/non-existent-page`);
-      await page.waitForLoadState('networkidle', { timeout: 8000 });
-      console.log('✅ 404 page handled gracefully');
-    } catch (e) {
-      console.log('⚠️ 404 page handling timed out (acceptable for dev mode)');
-    }
+    // Test 404 handling
+    await page.goto(`${BASE_URL}/non-existent-page`);
+    await page.waitForLoadState('networkidle');
+    console.log('✅ 404 page handled gracefully');
+
+    // Test invalid idea ID
+    await page.goto(`${BASE_URL}/ideas/invalid-id-99999`);
+    await page.waitForLoadState('networkidle');
+    console.log('✅ Invalid idea ID handled');
+
+    // Test invalid job ID
+    await page.goto(`${BASE_URL}/review/invalid-job-99999`);
+    await page.waitForLoadState('networkidle');
+    console.log('✅ Invalid job ID handled');
 
     // Return to valid page
     await page.goto(BASE_URL);
-    await page.waitForLoadState('networkidle', { timeout: 8000 });
-    console.log('✅ Returned to valid page');
+    await page.waitForLoadState('networkidle');
+    console.log('✅ Returned to valid page after edge cases');
 
     await page.screenshot({ path: 'test-results/advanced-flows/error-handling.png' });
-    console.log('✅ Error handling test completed');
   });
 
   test('Flow: Performance and loading states', async ({ page }) => {
