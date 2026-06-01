@@ -41,11 +41,11 @@ jobs:
       - name: Setup Bun
         # SECURITY: SHA-pinned to full 40-char SHA (v2). Update: gh api repos/oven-sh/setup-bun/git/ref/tags/v2 | jq .object.sha
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6  # v2
+        with:
+          bun-version: latest
 
       - name: Audit dependencies
         run: pnpm audit --audit-level high
-        with:
-          bun-version: latest
 
       - name: Enable Corepack
         run: corepack enable
