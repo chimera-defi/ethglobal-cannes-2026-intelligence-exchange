@@ -441,8 +441,12 @@ export async function rejectJob(jobId: string, reviewerId: string, reason?: stri
 
   // Reset streak on rejection
   // NOTE: Quality streak tracking requires schema migration to add consecutiveAccepts column
-  const claimedFingerprint = job.activeClaimWorkerId ? await db.select().from(agentIdentities)
-    .where(eq(agentIdentities.accountAddress, job.activeClaimWorkerId)).then(rows => rows[0]?.fingerprint) : null;
+  let claimedFingerprint = null;
+  if (job.activeClaimWorkerId) {
+    const [identity] = await db.select().from(agentIdentities)
+      .where(eq(agentIdentities.accountAddress, job.activeClaimWorkerId));
+    claimedFingerprint = identity?.fingerprint ?? null;
+  }
   if (claimedFingerprint) {
     await db.update(agentIdentities)
       .set({ /* consecutiveAccepts: 0 */ }) // updatedAt not in schema, removed
