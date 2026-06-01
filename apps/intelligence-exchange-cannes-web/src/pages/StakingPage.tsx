@@ -227,7 +227,7 @@ export function StakingPage() {
         </div>
 
         {/* Epoch progress bar */}
-        {epochStartTime && epochLength && (
+        {!!epochStartTime && !!epochLength && (
           <div className="space-y-1">
             <div className="h-1 bg-slate-800 rounded-full w-full">
               <div 
