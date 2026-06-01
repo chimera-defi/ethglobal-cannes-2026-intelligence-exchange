@@ -10,7 +10,7 @@ import {
 } from 'intelligence-exchange-cannes-shared';
 import { randomUUID } from 'crypto';
 import { httpError } from './errors';
-import { issueAcceptedSubmissionAttestation, mintWorkReceipt, recordReviewerReview, setWorkerOnEscrow, clearWorkerOnEscrow, recordCategoryCompletion, evaluateReviewerTier, checkReviewerAssignment, refundTaskEscrow } from './chainService';
+import { issueAcceptedSubmissionAttestation, mintWorkReceipt, recordAcceptedSubmissionOnChain, recordReviewerReview, setWorkerOnEscrow, clearWorkerOnEscrow, recordCategoryCompletion, evaluateReviewerTier, checkReviewerAssignment, refundTaskEscrow } from './chainService';
 import { logJobEvent } from './jobEvents';
 import { refundRejectedJobCredits, settleAcceptedJobCredits } from './tokenomicsService';
 import { saveAIUSnapshot } from './aiuService';
@@ -394,6 +394,15 @@ export async function acceptJob(jobId: string, reviewerId: string) {
     sub.agentFingerprint,
     score,
   ).catch((err) => console.error('[job:accept] Failed to mint WorkReceipt:', err));
+
+  // Fire-and-forget on-chain AgentIdentityRegistry attestation (must not block acceptance flow)
+  recordAcceptedSubmissionOnChain({
+    fingerprint: sub.agentFingerprint,
+    jobId,
+    score,
+    reviewerAddress: reviewerId,
+    payoutReleased: Boolean(settlement),
+  }).catch((err) => console.error('[job:accept] Failed to record accepted submission on-chain:', err));
 
   // Update agent reputation inline — increment acceptedCount + recalculate avgScore.
   // This replaces the manual chain/sync webhook dependency for off-chain reputation tracking.
