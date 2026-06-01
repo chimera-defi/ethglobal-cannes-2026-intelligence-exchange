@@ -219,7 +219,7 @@ export async function getWorkerAvailabilityScores(): Promise<Map<string, number>
 
   const availabilityMap = new Map<string, number>();
 
-  for (const row of workerAvailability.rows) {
+  for (const row of workerAvailability) {
     const worker = row.worker as string;
     const totalClaimed = Number(row.total_claimed ?? 0);
     const unclaimed = Number(row.unclaimed ?? 0);
@@ -433,7 +433,7 @@ export async function rejectJob(jobId: string, reviewerId: string, reason?: stri
     .where(eq(agentIdentities.accountAddress, job.activeClaimWorkerId)).then(rows => rows[0]?.fingerprint) : null;
   if (claimedFingerprint) {
     await db.update(agentIdentities)
-      .set({ /* consecutiveAccepts: 0, */ updatedAt: new Date() })
+      .set({ /* consecutiveAccepts: 0 */ }) // updatedAt not in schema, removed
       .where(eq(agentIdentities.fingerprint, claimedFingerprint));
   }
 
