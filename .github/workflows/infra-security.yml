@@ -32,5 +32,18 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Check Docker availability
+        id: docker-check
+        run: |
+          if docker info &>/dev/null 2>&1; then
+            echo "DOCKER_AVAILABLE=true" >> "$GITHUB_ENV"
+            echo "Docker is available"
+          else
+            echo "DOCKER_AVAILABLE=false" >> "$GITHUB_ENV"
+            echo "::notice::Docker not available in this runner — infra security checks skipped."
+            echo "Run \`pnpm test:infra-security:ci\` locally or in a Docker-enabled environment."
+          fi
+
       - name: Run infra hardening checks (requires Docker)
+        if: env.DOCKER_AVAILABLE == 'true'
         run: pnpm test:infra-security:ci
