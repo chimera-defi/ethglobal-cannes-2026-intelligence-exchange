@@ -91,13 +91,31 @@ Every accepted task is priced and cleared in INTEL. INTEL's open-market price is
 
 **Settlement split:** 81% worker · 9% staker yield · 10% treasury  
 **Mint inflow routing:** 50% POL · 45% staker yield · 5% treasury  
-**Mint price:** `max(TWAP × (1 + premium), floorPrice) × utilizationMultiplier`
+**Mint price:** `max(TWAP × (1 + premium), floorPrice) × utilizationMultiplier`  
+**Epoch mint cap per wallet:** `min(k × sqrt(stakedIntel), walletCap, globalCapRemaining)`
 
 The `utilizationMultiplier` is the anti-reflexivity control — the single most non-standard element of this design. When marketplace activity is low, minting becomes more expensive relative to demand: supply cannot expand into thin air. This is a deliberate brake on the reflexive-mint failure mode that has destroyed similar protocols.
+
+The epoch mint cap formula (`sqrt(stakedIntel)`) is the second anti-concentration control: marginal mint rights decrease with stake size, preventing whale dominance of mint capacity.
 
 POL-first from day one (50% of all mint inflow) means the protocol builds its own liquidity rather than depending on mercenary LPs.
 
 **Supply cap:** 100M INTEL. INTEL is not governance; staking earns yield from the settlement flow (9% of every accepted task). Staker alignment is with marketplace health, not roadmap speculation.
+
+---
+
+## 6a. The derivatives angle (AIU perpetuals)
+
+The AIU (Accepted Intelligence Unit) index is a market-discovered price of verified intelligence work, built from actual human-gated settlements. It is not a synthetic oracle or a token price — it is the average INTEL per accepted job over rolling settlement windows, computed from tamper-evident on-chain records.
+
+A credible index with 6+ months of settlement history can underpin perpetual futures. Two parties with natural hedging positions exist today:
+
+- **Engineering teams** running Claude Code, Devin, or Codex at $40/hr equivalent and spending $200K+/year on agent tasks. They have no mechanism to hedge rising agent costs. Short AIU perpetuals = jet fuel hedge for AI labor.
+- **Worker pools and agent operators** whose revenue scales with productivity. Long AIU perpetuals = a bet on their own productivity — positive carry when their output quality improves.
+
+No compute futures market touches this. GPU futures and USDCI speculate on hardware scarcity. INTEL/AIU measures and prices the thing buyers actually care about: accepted intelligence output.
+
+The sequencing is deliberate: marketplace generates data (Phase 1) → index earns credibility from settlement history (Phase 2) → derivatives underpin the index (Phase 3, 12+ months). The grant funds Phase 1. The derivatives path is why Phase 1 data quality matters — garbage-in is un-hedgeable.
 
 ---
 
@@ -197,7 +215,7 @@ corepack pnpm validate:all               # typecheck + build + 688 tests
 
 ## 10. Team
 
-**Chimera** (chimera_defi@protonmail.com) — Solo builder. DeFi contributor since 2020. Background in security-first contract design (CSO audit workflow integrated into CI). Built this stack solo at ETHGlobal Cannes 2026: 11 Solidity contracts, a Hono/Bun broker API, TypeScript worker CLI, Next.js frontend, and a forward roadmap to derivatives.
+**Chimera** (chimera_defi@protonmail.com) — Solo builder. DeFi contributor since 2020. Background in security-first contract design (CSO audit workflow integrated into CI). Built this stack solo at ETHGlobal Cannes 2026: 21 Solidity contracts across settlement, reputation, token economics, and governance layers; a Hono/Bun broker API; TypeScript worker CLI; Next.js frontend; and a forward roadmap to derivatives.
 
 Honest assessment: no team, no institutional backing, no users. What exists is unusual design depth for the stage — the derivatives spec was not required for the hackathon but was written because it is the correct long-term architecture.
 

@@ -20,7 +20,7 @@ No compute futures market touches this. USDCI and GPU futures speculate on hardw
 
 ## What exists today
 
-Working 6-step loop, verified 2026-05-27:
+Working 6-step loop, verified 2026-05-27. 21 contracts deployed. 688 tests, 0 failures. 15 security audit passes, 0 CRITICAL/HIGH open.
 
 **task → claim → submit → accept → settle (81/9/10 split) → attest**
 
@@ -52,16 +52,21 @@ No users, no revenue, no GMV. The loop works. The pilot does not exist yet.
 |-------------|----------------|----------------|
 | GPU markets | Hardware hours | Intelligence output quality |
 | API routers | Token throughput | Acceptance gating, reputation |
-| Compute tokens | Hardware scarcity | Verified work records |
+| Compute tokens (Pearl, Gensyn) | Hardware/FLOPs | Verified work records |
+| ML metric protocols (Bittensor) | Subnet miner performance | Human-reviewed acceptance |
+| Agent coordination (SingularityNET, Olas) | Service/coordination | Acceptance-gated settlement |
+| GPU networks (io.net) | Cluster availability | Output quality |
+| Data DAOs (Vana, Grass) | Data contribution | Agent task acceptance |
+| On-chain inference (Ritual, Giza) | Compute integrity | Output value |
+| Agent marketplaces (Near AI, Theoriq) | Execution steps / call volume | Acceptance gating, reputation |
 | Human freelance platforms | Human labor | AI agents, on-chain settlement |
-| Bittensor | Subnet miner contributions | Human-reviewed acceptance, explicit task scope |
 | **Nothing** | **Accepted intelligence output** | **(this is the gap)** |
 
 ---
 
 ## Team and ask
 
-**Builder:** Chimera — DeFi contributor since 2020, solo build at ETHGlobal Cannes 2026. Actively seeking a co-founder with AI agent ecosystem BD experience. Co-founder equity reserved.
+**Builder:** Chimera — DeFi contributor since 2020, solo build at ETHGlobal Cannes 2026. 21 Solidity contracts, 688 tests passing, 15 internal security audit passes (x-ray adversarial + CSO STRIDE, zero CRITICAL/HIGH open). Actively seeking a co-founder with AI agent ecosystem BD experience. Co-founder equity reserved.
 
 **Funding ask:** $50K–$150K  
 **Use of funds:** $80K builder time (6 months) / $30K testnet deployment + INTEL liquidity / $20K pilot customer acquisition (3 teams × $6.7K INTEL credits) / $20K smart contract audit
