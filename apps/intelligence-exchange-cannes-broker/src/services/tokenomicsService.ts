@@ -252,7 +252,7 @@ export async function settleAcceptedJobCredits(input: {
   const grossIntel = requestedGrossIntel;
   let split = splitSettlementIntel(grossIntel, { protocolFeeBps: config.protocolFeeBps, stakerYieldBps: 900 });
 
-  // TODO: Add consecutiveAccepts column to agentIdentities schema for quality streak tracking
+  // NOTE: Quality streak tracking requires schema migration to add consecutiveAccepts column
   // Quality streak bonus: workers with 5+ consecutive accepts get 10% bonus
   // const [workerIdentity] = await db.select().from(agentIdentities)
   //   .where(eq(agentIdentities.accountAddress, input.workerId));
@@ -287,7 +287,7 @@ export async function settleAcceptedJobCredits(input: {
     split.protocolFeeIntel = round(split.protocolFeeIntel - refBonus.bonusAmount, 8);
     if (split.protocolFeeIntel < 0) split.protocolFeeIntel = 0;
     console.log('[referral] bonus to referrer:', refBonus.referrer, refBonus.bonusAmount);
-    // TODO: create ledger entry for referrer payout
+    // NOTE: Referrer payout ledger entry not yet implemented - bonus calculated and logged but not persisted
   }
 
   const workerId = await ensureTokenAccount(input.workerId);
