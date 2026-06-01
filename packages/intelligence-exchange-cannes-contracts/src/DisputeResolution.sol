@@ -402,6 +402,8 @@ contract DisputeResolution {
         if (correctVotes == 0) return;
 
         uint256 rewardPerJuror = dispute.bond / correctVotes;
+        uint256 distributed = 0;
+        address lastRewardedJuror;
         
         for (uint256 i = 0; i < dispute.jury.length; i++) {
             address juror = dispute.jury[i];
@@ -418,8 +420,19 @@ contract DisputeResolution {
                 // The bool check is defensive; the conditional emit handles false return gracefully.
                 bool transferOk = intel.transfer(juror, rewardPerJuror);
                 if (transferOk) {
+                    distributed += rewardPerJuror;
+                    lastRewardedJuror = juror;
                     emit JurorRewarded(disputeId, juror, rewardPerJuror);
                 }
+            }
+        }
+        
+        // Give dust to last rewarded juror
+        if (distributed < dispute.bond && correctVotes > 0 && lastRewardedJuror != address(0)) {
+            uint256 dust = dispute.bond - distributed;
+            bool transferOk = intel.transfer(lastRewardedJuror, dust);
+            if (transferOk) {
+                emit JurorRewarded(disputeId, lastRewardedJuror, dust);
             }
         }
     }

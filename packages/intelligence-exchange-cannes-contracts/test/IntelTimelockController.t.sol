@@ -61,9 +61,9 @@ contract IntelTimelockControllerTest is Test {
     function test_constructor_revert_delay_too_short() public {
         address[] memory p = new address[](0);
         vm.expectRevert(
-            abi.encodeWithSelector(IntelTimelockController.DelayTooShort.selector, 60, 15 minutes)
+            abi.encodeWithSelector(IntelTimelockController.DelayTooShort.selector, 60, 2 days)
         );
-        new IntelTimelockController(admin, 60, p); // 60s < 15 min
+        new IntelTimelockController(admin, 60, p); // 60s < 2 days
     }
 
     // ─── hashOperation ─────────────────────────────────────────────────────
