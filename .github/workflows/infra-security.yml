@@ -12,26 +12,6 @@ jobs:
     timeout-minutes: 20
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.33.0
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: pnpm
-
-      - name: Enable corepack
-        run: corepack enable
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
       - name: Check Docker availability
         id: docker-check
         run: |
@@ -41,8 +21,33 @@ jobs:
           else
             echo "DOCKER_AVAILABLE=false" >> "$GITHUB_ENV"
             echo "::notice::Docker not available in this runner — infra security checks skipped."
-            echo "Run \`pnpm test:infra-security:ci\` locally or in a Docker-enabled environment."
+            echo "Run 'make test-infra-security' locally or in a Docker-enabled environment."
           fi
+
+      - name: Checkout
+        if: env.DOCKER_AVAILABLE == 'true'
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        if: env.DOCKER_AVAILABLE == 'true'
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Setup Node.js
+        if: env.DOCKER_AVAILABLE == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Enable corepack
+        if: env.DOCKER_AVAILABLE == 'true'
+        run: corepack enable
+
+      - name: Install dependencies
+        if: env.DOCKER_AVAILABLE == 'true'
+        run: pnpm install --frozen-lockfile
 
       - name: Run infra hardening checks (requires Docker)
         if: env.DOCKER_AVAILABLE == 'true'
