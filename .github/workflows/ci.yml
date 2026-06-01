@@ -1,7 +1,6 @@
 name: CI
 
 on:
-  pull_request:
   push:
     branches:
       - main
@@ -49,7 +48,6 @@ jobs:
 
       - name: Audit dependencies
         run: pnpm audit --audit-level high
-        continue-on-error: true
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
