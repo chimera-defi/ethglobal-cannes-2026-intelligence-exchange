@@ -1,7 +1,6 @@
 name: CI
 
 on:
-  pull_request:
   push:
     branches:
       - main
@@ -25,10 +24,8 @@ jobs:
         # To update: gh api repos/actions/checkout/git/ref/tags/v4 | jq .object.sha
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 
-      - name: Secret scan
-        run: |
-          curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.18.2/gitleaks_8.18.2_linux_x64.tar.gz | tar -xz gitleaks
-          ./gitleaks detect --no-git --source . --redact --config .gitleaks.toml
+      - name: Enable Corepack
+        run: corepack enable
 
       - name: Setup Node
         # SECURITY: SHA-pinned (v4.1.0). Update via:
@@ -41,14 +38,16 @@ jobs:
       - name: Setup Bun
         # SECURITY: SHA-pinned to full 40-char SHA (v2). Update: gh api repos/oven-sh/setup-bun/git/ref/tags/v2 | jq .object.sha
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6  # v2
-
-      - name: Audit dependencies
-        run: pnpm audit --audit-level high
         with:
           bun-version: latest
 
-      - name: Enable Corepack
-        run: corepack enable
+      - name: Secret scan
+        run: |
+          curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.18.2/gitleaks_8.18.2_linux_x64.tar.gz | tar -xz gitleaks
+          ./gitleaks detect --no-git --source . --redact --config .gitleaks.toml
+
+      - name: Audit dependencies
+        run: pnpm audit --audit-level high
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

@@ -35,6 +35,7 @@ contract DisputeResolution {
     error DisputeNotPending();
     error InvalidJuror();
     error QuorumTooHigh();
+    error TaskAlreadyDisputed(bytes32 taskId);
 
     // ─── Events ───────────────────────────────────────────────────────────────
 
@@ -68,6 +69,7 @@ contract DisputeResolution {
     event VotingWindowUpdated(uint256 oldWindow, uint256 newWindow);
     event DisputeBondUpdated(uint256 oldBond, uint256 newBond);
     event ReviewerSlashBpsUpdated(uint256 oldBps, uint256 newBps);
+    event SlashFailed(uint256 indexed disputeId, address indexed target, bytes reason);
     event ReviewerStakeManagerUpdated(address indexed oldManager, address indexed newManager);
     event WorkerStakeManagerUpdated(address indexed oldManager, address indexed newManager);
 
@@ -110,6 +112,7 @@ contract DisputeResolution {
     mapping(uint256 => Dispute) public disputes;
     uint256 public nextDisputeId;
     mapping(address => uint256[]) public activeJuryDuty; // juror => disputeIds
+    mapping(bytes32 => uint256) public taskDisputeId; // taskId => disputeId+1 (0 = no dispute)
 
     // Ownership
     address public owner;
@@ -184,6 +187,7 @@ contract DisputeResolution {
     ) external nonReentrant {
         if (worker == address(0)) revert ZeroAddress();
         if (reviewer == address(0)) revert ZeroAddress();
+        if (taskDisputeId[taskId] != 0) revert TaskAlreadyDisputed(taskId);
 
         uint256 disputeId = nextDisputeId++;
         Dispute storage dispute = disputes[disputeId];
@@ -198,9 +202,12 @@ contract DisputeResolution {
         dispute.state = DisputeState.Pending;
 
         // Transfer bond from disputer
+        // Note: IntelToken is a standard OZ ERC20 that reverts on failure.
+        // The bool check is defensive; the require ensures execution stops on false return.
         bool bondOk = intel.transferFrom(msg.sender, address(this), disputeBond);
         require(bondOk, "DisputeResolution: bond transferFrom failed");
 
+        taskDisputeId[taskId] = disputeId + 1; // +1 so 0 means no dispute
         emit DisputeOpened(disputeId, taskId, msg.sender, worker, reviewer, disputeBond);
     }
 
@@ -218,7 +225,7 @@ contract DisputeResolution {
         for (uint256 i = 0; i < jurors.length; i++) {
             if (jurors[i] == address(0)) revert ZeroAddress();
             // Check juror has staked INTEL > 0
-            (uint256 staked,,,,,,,) = staking.stakers(jurors[i]);
+            (uint256 staked,,,,,,,,,) = staking.stakers(jurors[i]);
             if (staked == 0) revert InvalidJuror();
         }
 
@@ -297,9 +304,13 @@ contract DisputeResolution {
                                 try reviewerStakeManager.slash(dispute.reviewer, slashAmount) {
                                     reviewerSlashed = true;
                                     emit BondSlashed(disputeId, dispute.reviewer, slashAmount);
-                                } catch {}
+                                } catch (bytes memory reason) {
+                                    emit SlashFailed(disputeId, dispute.reviewer, reason);
+                                }
                             }
-                        } catch {}
+                        } catch (bytes memory reason) {
+                            emit SlashFailed(disputeId, dispute.reviewer, reason);
+                        }
                     }
 
                     // Return bond to disputer
@@ -313,7 +324,9 @@ contract DisputeResolution {
                         try workerStakeManager.slash(dispute.worker, dispute.bond, dispute.disputer) {
                             workerSlashed = true;
                             emit BondSlashed(disputeId, dispute.worker, dispute.bond);
-                        } catch {}
+                        } catch (bytes memory reason) {
+                            emit SlashFailed(disputeId, dispute.worker, reason);
+                        }
                     }
 
                     // Slash reviewer
@@ -321,7 +334,9 @@ contract DisputeResolution {
                         try reviewerStakeManager.slash(dispute.reviewer, dispute.bond) {
                             reviewerSlashed = true;
                             emit BondSlashed(disputeId, dispute.reviewer, dispute.bond);
-                        } catch {}
+                        } catch (bytes memory reason) {
+                            emit SlashFailed(disputeId, dispute.reviewer, reason);
+                        }
                     }
 
                     // Return bond to disputer with bonus
@@ -337,6 +352,11 @@ contract DisputeResolution {
             }
         }
 
+        // Clear task lock if dispute was rejected/expired — allow re-dispute
+        if (dispute.state == DisputeState.Rejected || dispute.state == DisputeState.Expired) {
+            taskDisputeId[dispute.taskId] = 0;
+        }
+
         emit DisputeResolved(disputeId, dispute.state, workerSlashed, reviewerSlashed);
     }
 
@@ -350,18 +370,25 @@ contract DisputeResolution {
         dispute.state = DisputeState.Expired;
         _returnBond(disputeId, dispute.disputer, dispute.bond);
 
+        // Clear task lock — allow re-dispute
+        taskDisputeId[dispute.taskId] = 0;
+
         emit DisputeExpired(disputeId);
     }
 
     // ─── Internal Helpers ─────────────────────────────────────────────────────
 
     function _returnBond(uint256 disputeId, address recipient, uint256 amount) private {
+        // Note: IntelToken is a standard OZ ERC20 that reverts on failure.
+        // The bool check is defensive; the require ensures execution stops on false return.
         bool transferOk = intel.transfer(recipient, amount);
         require(transferOk, "DisputeResolution: bond return transfer failed");
         emit BondReturned(disputeId, recipient, amount);
     }
 
     function _slashBond(uint256 disputeId, address slashed, uint256 amount) private {
+        // Note: IntelToken is a standard OZ ERC20 that reverts on failure.
+        // The bool check is defensive; the require ensures execution stops on false return.
         bool transferOk = intel.transfer(treasury, amount);
         require(transferOk, "DisputeResolution: bond slash transfer failed");
         emit BondSlashed(disputeId, slashed, amount);
@@ -387,6 +414,8 @@ contract DisputeResolution {
             }
             
             if (votedCorrectly) {
+                // Note: IntelToken is a standard OZ ERC20 that reverts on failure.
+                // The bool check is defensive; the conditional emit handles false return gracefully.
                 bool transferOk = intel.transfer(juror, rewardPerJuror);
                 if (transferOk) {
                     emit JurorRewarded(disputeId, juror, rewardPerJuror);
