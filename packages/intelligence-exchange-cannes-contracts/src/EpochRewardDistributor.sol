@@ -241,6 +241,14 @@ contract EpochRewardDistributor {
         emit RewardClaimed(epoch, msg.sender, amount);
     }
 
+    /// @notice Get the reward earned by a worker for a specific epoch.
+    /// @param epoch The epoch number.
+    /// @param worker The worker address.
+    /// @return The reward amount earned by the worker.
+    function rewardEarned(uint256 epoch, address worker) external view returns (uint256) {
+        return epochRewards[epoch].rewardEarned[worker];
+    }
+
     /// @notice Deposit INTEL to the reward pool. Anyone can deposit.
     /// @param amount Amount of INTEL to deposit.
     function depositRewardPool(uint256 amount) external {
