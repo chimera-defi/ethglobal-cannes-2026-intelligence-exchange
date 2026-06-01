@@ -347,7 +347,7 @@ export async function acceptJob(jobId: string, reviewerId: string) {
   }
 
   // ReviewerQueue enforcement check (soft enforcement — logs warning but proceeds)
-  // TODO: Add monitoring counter in DB/log for ReviewerQueue bypasses to track potential collusion
+  // NOTE: ReviewerQueue bypass monitoring not yet implemented - consider adding DB counter for collusion tracking
   const isAssigned = await checkReviewerAssignment(jobId, reviewerId).catch(() => true);
   if (!isAssigned) {
     console.warn('[job:accept] Reviewer not assigned via ReviewerQueue — proceeding (soft enforcement)');
@@ -428,7 +428,7 @@ export async function rejectJob(jobId: string, reviewerId: string, reason?: stri
   await logJobEvent(jobId, 'rework', reviewerId, { reason });
 
   // Reset streak on rejection
-  // TODO: Add consecutiveAccepts column to agentIdentities schema for quality streak tracking
+  // NOTE: Quality streak tracking requires schema migration to add consecutiveAccepts column
   const claimedFingerprint = job.activeClaimWorkerId ? await db.select().from(agentIdentities)
     .where(eq(agentIdentities.accountAddress, job.activeClaimWorkerId)).then(rows => rows[0]?.fingerprint) : null;
   if (claimedFingerprint) {
@@ -465,7 +465,7 @@ async function updateAgentReputation(fingerprint: string, score: number) {
   const cumulativeScore = (Number(identity.avgScore) * (identity.acceptedCount ?? 0)) + score;
   const nextAvgScore = nextAcceptedCount > 0 ? cumulativeScore / nextAcceptedCount : score;
 
-  // TODO: Add consecutiveAccepts column to agentIdentities schema for quality streak tracking
+  // NOTE: Quality streak tracking requires schema migration to add consecutiveAccepts column
   // const prevConsecutive = (identity as any).consecutiveAccepts ?? 0;
   // const newConsecutive = prevConsecutive + 1;
   await db.update(agentIdentities).set({
