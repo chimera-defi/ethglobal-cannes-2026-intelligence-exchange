@@ -105,7 +105,7 @@ POL-first from day one (50% of all mint inflow) means the protocol builds its ow
 
 **Live demo:** http://168.119.15.122 — the full stack is running in production.
 
-### Smart contracts (9 passes of internal security audit, 531+ tests, 0 failures)
+### Smart contracts (15 passes of internal security audit, 688 tests, 0 failures)
 
 | Contract | Function |
 |---|---|
@@ -118,8 +118,18 @@ POL-first from day one (50% of all mint inflow) means the protocol builds its ow
 | `WorkerStakeManager.sol` | Worker bond staking with slashing on fraud |
 | `ReviewerStakeManager.sol` | Reviewer bond + fee share; slash on overturned disputes |
 | `DisputeResolution.sol` | Staker jury disputes; slash reviewer bond on overturn |
-| `BuybackBurn.sol` | Treasury buyback/burn with TWAP circuit breaker |
+| `BuybackBurn.sol` | Treasury buyback/burn with TWAP circuit breaker and recovery path |
 | `EpochRewardDistributor.sol` | Per-epoch performance bonuses; per-wallet cap prevents gaming |
+| `TaskEscrow.sol` | Per-task escrow with milestone release and dispute window |
+| `IntelPOLManager.sol` | Protocol-owned liquidity manager; routes mint inflow 50% to POL |
+| `LiquidityMining.sol` | LP incentive gauge for POL bootstrap |
+| `ReviewerQueue.sol` | Weighted reviewer assignment queue |
+| `ReviewerCredential.sol` | Credential gate for reviewer eligibility |
+| `CategoryRegistry.sol` | On-chain task category weighting (10,000 bps total) |
+| `IdentityGate.sol` | World ID proof-of-human verification gate |
+| `IntelVesting.sol` | Linear + cliff vesting for team/contributor allocations |
+| `AdvancedArcEscrow.sol` | Arc testnet escrow: conditional release, dispute, vesting, USDC |
+| `IdeaEscrow.sol` | Legacy idea-level escrow (deployed on Arc testnet, not on settlement path) |
 
 ### Application layer
 
@@ -137,7 +147,7 @@ POL-first from day one (50% of all mint inflow) means the protocol builds its ow
 
 ### Security posture
 
-9 internal security audit passes (methodology: x-ray adversarial + CSO STRIDE). No CRITICAL or HIGH findings remain. The pass-8 delta audit (`docs/x-ray/pass8-delta-audit.md`) confirmed the settlement split (81/9/10) is correct. A professional audit (Trail of Bits or OpenZeppelin) is required before handling real user funds — included in the grant ask.
+15 internal security audit passes (methodology: x-ray adversarial + CSO STRIDE). No CRITICAL or HIGH findings remain open. Each pass targeted specific attack surfaces: reentrancy, CEI ordering, TWAP manipulation, slash race conditions, LP reward drainage, and cross-contract economic interactions. The pass-15 reports are in `packages/intelligence-exchange-cannes-contracts/x-ray/`. A professional audit (Trail of Bits or OpenZeppelin) is required before handling real user funds — included in the grant ask.
 
 ---
 
@@ -153,7 +163,7 @@ curl http://168.119.15.122/v1/cannes/jobs            # 25 queued jobs in DB
 
 # Local demo
 corepack pnpm demo:tokenomics:actors     # full 81/9/10 split actor simulation
-corepack pnpm validate:all               # typecheck + build + 531 tests
+corepack pnpm validate:all               # typecheck + build + 688 tests
 ```
 
 **Phase 1 targets (6 months with funding):**

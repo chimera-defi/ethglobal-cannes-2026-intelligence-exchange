@@ -10,23 +10,33 @@
 
 ## 1. What is built and verifiable today
 
-### Smart contracts (531+ tests, 0 failures; 9 internal security audit passes)
+### Smart contracts (688 tests, 0 failures; 15 internal security audit passes)
 
 | Contract | Function | Security status |
 |---|---|---|
-| `AgentIdentityRegistry.sol` | Agent identity + reputation attestation (ERC-8004 style) | Audited pass 9 |
-| `WorkReceipt1155.sol` | Soulbound ERC-1155 NFT per accepted job | Audited pass 9 |
+| `AgentIdentityRegistry.sol` | Agent identity + reputation attestation (ERC-8004 style) | Audited pass 15 |
+| `WorkReceipt1155.sol` | Soulbound ERC-1155 NFT per accepted job | Audited pass 15 |
 | `IntelToken.sol` | ERC-20, 100M cap, burn, pause, Ownable2Step | Audited |
 | `IntelMintController.sol` | TWAP-gated mint with utilization multiplier | Audited |
 | `IntelStaking.sol` | Stake/unstake, ETH yield accumulator, reentrancy-guarded | Audited |
-| `IntelTimelockController.sol` | OpenZeppelin timelock for admin actions | Audited pass 9 |
-| `WorkerStakeManager.sol` | Worker bond + slashing | Audited pass 9 |
-| `ReviewerStakeManager.sol` | Reviewer bond + fee share + slash on overturn | Audited pass 9 |
-| `DisputeResolution.sol` | Staker jury; slash reviewer on overturned dispute | Audited pass 9 |
-| `BuybackBurn.sol` | Treasury buyback/burn, TWAP circuit breaker | Audited pass 9 |
-| `EpochRewardDistributor.sol` | Per-epoch performance bonuses; per-wallet cap prevents gaming | Audited pass 9 |
+| `IntelTimelockController.sol` | OpenZeppelin timelock for admin actions | Audited pass 15 |
+| `WorkerStakeManager.sol` | Worker bond + slashing | Audited pass 15 |
+| `ReviewerStakeManager.sol` | Reviewer bond + fee share + slash on overturn | Audited pass 15 |
+| `DisputeResolution.sol` | Staker jury; slash reviewer on overturned dispute | Audited pass 15 |
+| `BuybackBurn.sol` | Treasury buyback/burn, TWAP circuit breaker + trapped-reward recovery | Audited pass 15 |
+| `EpochRewardDistributor.sol` | Per-epoch performance bonuses; per-wallet cap prevents gaming | Audited pass 15 |
+| `TaskEscrow.sol` | Per-task escrow with milestone release and dispute window | Audited pass 13 |
+| `IntelPOLManager.sol` | Protocol-owned liquidity manager; routes 50% mint inflow to POL | Audited pass 14 |
+| `LiquidityMining.sol` | LP incentive gauge for POL bootstrap | Audited pass 14 |
+| `ReviewerQueue.sol` | Weighted reviewer assignment with OOG protection | Audited pass 13 |
+| `ReviewerCredential.sol` | Reviewer eligibility credential with grace period | Audited pass 13 |
+| `CategoryRegistry.sol` | On-chain task category weighting (10,000 bps total) | Audited pass 15 |
+| `IdentityGate.sol` | World ID proof-of-human verification gate | Audited pass 15 |
+| `IntelVesting.sol` | Linear + cliff vesting for team/contributor allocations | Audited pass 14 |
+| `AdvancedArcEscrow.sol` | Arc testnet: conditional escrow, dispute, vesting, USDC (Prize 1) | Audited pass 13 |
+| `IdeaEscrow.sol` | Legacy idea-level escrow (Arc testnet deployed; not on settlement path) | Audited pass 15 |
 
-All contracts implement the 81/9/10 split end-to-end. Off-chain broker ledger verified live. Mainnet-fork liquidity smoke test passes.
+All 21 contracts implement or support the 81/9/10 split end-to-end. Off-chain broker ledger verified live. Mainnet-fork liquidity smoke test passes.
 
 ### Application layer
 
@@ -57,7 +67,7 @@ All contracts implement the 81/9/10 split end-to-end. Off-chain broker ledger ve
 
 ```bash
 corepack pnpm demo:tokenomics:actors     # buyer → agent → reviewer → 81/9/10 split
-corepack pnpm validate:all               # typecheck + build + 531 tests
+corepack pnpm validate:all               # typecheck + build + 688 tests
 corepack pnpm --filter intelligence-exchange-cannes-contracts smoke:intel-liquidity:mainnet-fork
 ```
 
