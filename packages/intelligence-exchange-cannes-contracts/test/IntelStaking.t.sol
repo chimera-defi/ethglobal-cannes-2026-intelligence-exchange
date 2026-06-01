@@ -57,7 +57,7 @@ contract IntelStakingTest is Test {
         staking.stake(100e18);
 
         assertEq(staking.totalStaked(), 100e18);
-        (uint256 staked,,,,,,,,,) = staking.stakers(alice);
+        (uint256 staked,,,,,,,,,,) = staking.stakers(alice);
         assertEq(staked, 100e18);
         assertEq(intel.balanceOf(address(staking)), 100e18);
     }
@@ -65,13 +65,18 @@ contract IntelStakingTest is Test {
     function test_mintAllowance_sqrt_formula() public {
         // k=1, staked=100 tokens → sqrt(100e18) ≈ 10e9
         // base allowance = k * sqrt(staked) / 1e18 = 1e10
-        // Flow bonus (+15%) applies because alice is staking for the first time this epoch
-        // final = 1e10 * 1.15 = 11_500_000_000
+        // Flow bonus (+15%) applies after 1 day, not immediately
+        // initial = 1e10 (no bonus yet)
         vm.prank(alice);
         staking.stake(100e18);
 
         uint256 allowance = staking.mintAllowance(alice);
-        assertEq(allowance, 11_500_000_000); // 1e10 * 1.15 flow bonus
+        assertEq(allowance, 10_000_000_000); // 1e10 base only (no bonus yet)
+
+        // After 1 day, bonus applies
+        vm.warp(block.timestamp + 1 days);
+        uint256 allowanceWithBonus = staking.mintAllowance(alice);
+        assertEq(allowanceWithBonus, 11_500_000_000); // 1e10 * 1.15 flow bonus
     }
 
     function test_mintAllowance_wallet_cap_binds() public {
@@ -719,38 +724,47 @@ contract IntelStakingTest is Test {
 
     // ─── Flow bonus tests (Bittensor-inspired new staker bonus) ───────────────
 
-    /// @dev New stakers in the current epoch receive a 15% mint allowance bonus.
+    /// @dev New stakers in the current epoch receive a 15% mint allowance bonus after 1 day.
     function test_flowBonus_applies_to_new_staker() public {
         // Alice stakes in epoch 1
         vm.prank(alice);
         staking.stake(100e18);
 
-        uint256 allowanceWithBonus = staking.mintAllowance(alice);
+        uint256 allowanceWithoutBonus = staking.mintAllowance(alice);
         uint256 expectedBase = (K * 1e10) / 1e18; // sqrt(100e18) = 1e10, k=1e18 → 1e10
+
+        // Initially, no bonus (must wait 1 day)
+        assertEq(allowanceWithoutBonus, expectedBase, "new staker should NOT receive bonus immediately");
+
+        // Warp forward 1 day
+        vm.warp(block.timestamp + 1 days);
+
+        uint256 allowanceWithBonus = staking.mintAllowance(alice);
         uint256 expectedBonus = (expectedBase * 1500) / 10000; // 15% bonus
         uint256 expectedTotal = expectedBase + expectedBonus;
 
-        assertEq(allowanceWithBonus, expectedTotal, "new staker should receive 15% bonus");
+        assertEq(allowanceWithBonus, expectedTotal, "new staker should receive 15% bonus after 1 day");
     }
 
-    /// @dev Flow bonus does not apply after epoch advance.
+    /// @dev Flow bonus does not apply after epoch advance (even if within 1 day).
     function test_flowBonus_not_applied_after_epoch_advance() public {
         // Alice stakes in epoch 1
         vm.prank(alice);
         staking.stake(100e18);
 
         uint256 allowanceEpoch1 = staking.mintAllowance(alice);
+        uint256 expectedBase = (K * 1e10) / 1e18; // sqrt(100e18) = 1e10, k=1e18 → 1e10
 
-        // Advance to epoch 2
+        // Epoch 1 allowance should be base only (no bonus yet, must wait 1 day)
+        assertEq(allowanceEpoch1, expectedBase, "bonus should not apply immediately in epoch 1");
+
+        // Advance to epoch 2 (before 1 day has passed)
         vm.warp(block.timestamp + EPOCH + 1);
         staking.advanceEpoch();
 
         uint256 allowanceEpoch2 = staking.mintAllowance(alice);
-        uint256 expectedBase = (K * 1e10) / 1e18; // sqrt(100e18) = 1e10, k=1e18 → 1e10
 
-        // Epoch 2 allowance should be base only (no bonus)
+        // Epoch 2 allowance should still be base only (no bonus, different epoch)
         assertEq(allowanceEpoch2, expectedBase, "bonus should not apply after epoch advance");
-        // Epoch 1 should have been higher (with bonus)
-        assertGt(allowanceEpoch1, allowanceEpoch2, "epoch 1 allowance should include bonus");
     }
 }

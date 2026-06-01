@@ -223,7 +223,13 @@ contract EpochRewardDistributorTest is Test {
         distributor.claimReward(1);
 
         assertEq(intel.balanceOf(workers[0]), worker1Reward);
-        assertEq(intel.balanceOf(workers[1]), worker2Reward);
+        // worker2 gets dust remainder to ensure full pool distribution
+        uint256 totalDistributed = worker1Reward + worker2Reward;
+        uint256 expectedWorker2Reward = worker2Reward;
+        if (totalDistributed < REWARD_POOL) {
+            expectedWorker2Reward += REWARD_POOL - totalDistributed;
+        }
+        assertEq(intel.balanceOf(workers[1]), expectedWorker2Reward);
         // Allow for rounding errors in division
         assertLe(intel.balanceOf(workers[0]) + intel.balanceOf(workers[1]), REWARD_POOL);
         assertGe(intel.balanceOf(workers[0]) + intel.balanceOf(workers[1]), REWARD_POOL - 1e18); // Within 1 INTEL

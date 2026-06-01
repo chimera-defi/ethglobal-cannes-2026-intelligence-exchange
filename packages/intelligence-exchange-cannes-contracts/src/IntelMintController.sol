@@ -332,6 +332,9 @@ contract IntelMintController {
         if (paymentToken == address(0)) revert ZeroAddress();
         if (mintPaused) revert MintingPaused();
 
+        // Check TWAP staleness before computing price
+        if (twapIsStale()) revert TwapStale();
+
         // Check TWAP deviation before computing price
         _checkTwapDeviation();
 
@@ -417,6 +420,11 @@ contract IntelMintController {
 
         // Convert tick to price (ETH per 1e18 INTEL, scaled to 1e18)
         uint256 price = _tickToPrice(avgTick, intelIsToken0);
+
+        // Validate deviation from floorPrice - prevent setting TWAP too low
+        if (floorPrice > 0 && price < (floorPrice * 8000) / BPS) {
+            revert InvalidParam(); // TWAP must be > 80% of floorPrice
+        }
 
         // Enforce floor — never drop below floorPrice
         if (price < floorPrice) price = floorPrice;
