@@ -32,6 +32,7 @@ contract BuybackBurn {
     error SlippageExceeded(uint256 spot, uint256 twap, uint256 maxSlippageBps);
     error InsufficientEthBalance(uint256 available, uint256 required);
     error InsufficientIntelBalance(uint256 available, uint256 required);
+    error TwapTooLow(uint256 twap, uint256 minTwap);
 
     // ─── Events ───────────────────────────────────────────────────────────────
 
@@ -67,6 +68,7 @@ contract BuybackBurn {
     uint256 public minBuybackEth;  // minimum ETH to trigger buyback, default 0.1 ETH
     address public lpMiningAddress; // receives lpMiningBps share of each buyback
     uint256 public lpMiningBps;     // default 2000 (20%)
+    uint256 public minTwap;         // minimum TWAP to prevent suppressed price attacks
 
     // ─── Reentrancy guard ─────────────────────────────────────────────────────
 
@@ -142,6 +144,7 @@ contract BuybackBurn {
         // Get current TWAP from POL manager
         uint256 twap = _getTWAP();
         if (twap == 0) revert ZeroAmount();
+        if (minTwap > 0 && twap < minTwap) revert TwapTooLow(twap, minTwap);
 
         // Wrap ETH to WETH
         IWETH9(weth).deposit{value: ethBalance}();
@@ -173,12 +176,6 @@ contract BuybackBurn {
 
         // Clear approvals
         _approveToken(weth, address(swapRouter), 0);
-
-        // Verify slippage protection post-swap
-        uint256 spotPrice = (ethBalance * 1e18) / intelReceived;
-        if (_checkSlippageExceeded(spotPrice, twap, maxSlippageBps)) {
-            revert SlippageExceeded(spotPrice, twap, maxSlippageBps);
-        }
 
         // Route lpMiningBps share to LiquidityMining; burn the rest
         uint256 miningShare = 0;
@@ -280,6 +277,15 @@ contract BuybackBurn {
         lpMiningAddress = _lpMiningAddress;
         lpMiningBps = _lpMiningBps;
         emit LpMiningUpdated(_lpMiningAddress, _lpMiningBps);
+    }
+
+    /// @notice Set the minimum TWAP to prevent suppressed price attacks.
+    /// @custom:access owner
+    /// @param _minTwap Minimum TWAP in payment units per 1e18 INTEL (0 to disable).
+    function setMinTwap(uint256 _minTwap) external onlyOwner {
+        uint256 old = minTwap;
+        minTwap = _minTwap;
+        emit ParamsUpdated("minTwap", old, _minTwap);
     }
 
     /// @notice Approve or revoke an operator address.
