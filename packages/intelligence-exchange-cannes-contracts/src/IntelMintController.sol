@@ -426,6 +426,17 @@ contract IntelMintController {
             revert InvalidParam(); // TWAP must be > 80% of floorPrice
         }
 
+        // Validate max deviation from previous TWAP - prevents oracle manipulation via short window
+        if (twap > 0) {
+            uint256 deviation;
+            if (price > twap) {
+                deviation = ((price - twap) * BPS) / twap;
+            } else {
+                deviation = ((twap - price) * BPS) / twap;
+            }
+            if (deviation > 5000) revert InvalidParam(); // Max 50% change per pull
+        }
+
         // Enforce floor — never drop below floorPrice
         if (price < floorPrice) price = floorPrice;
 
