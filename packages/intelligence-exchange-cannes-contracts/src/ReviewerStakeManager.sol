@@ -61,6 +61,8 @@ contract ReviewerStakeManager {
     uint256 public unstakeCooldown; // default 30 days
     mapping(address => uint256) public unstakeAvailableAt;
     mapping(address => uint256) public pendingUnstake;
+    mapping(address => uint256) public slashLockUntil;
+    uint256 public constant SLASH_LOCK_WINDOW = 1 hours;
     address public treasury;
     IReviewerQueue public reviewerQueue;
     mapping(address => bool) public operators;
@@ -154,6 +156,7 @@ contract ReviewerStakeManager {
         reviewerBond[msg.sender] -= amount;
         pendingUnstake[msg.sender] += amount;
         unstakeAvailableAt[msg.sender] = block.timestamp + unstakeCooldown;
+        slashLockUntil[msg.sender] = block.timestamp + SLASH_LOCK_WINDOW;
         
         // Update eligibility if remaining bond falls below minimum
         if (reviewerBond[msg.sender] < minReviewerBond) {
@@ -170,6 +173,7 @@ contract ReviewerStakeManager {
         if (block.timestamp < unstakeAvailableAt[msg.sender]) {
             revert CooldownActive(unstakeAvailableAt[msg.sender]);
         }
+        require(block.timestamp >= slashLockUntil[msg.sender], "ReviewerStakeManager: slash lock active");
         
         uint256 amount = pendingUnstake[msg.sender];
         pendingUnstake[msg.sender] = 0;
@@ -246,6 +250,7 @@ contract ReviewerStakeManager {
 
         uint256 oldBond = reviewerBond[reviewer];
         reviewerBond[reviewer] -= amount;
+        slashLockUntil[reviewer] = block.timestamp + SLASH_LOCK_WINDOW;
 
         // Update eligibility if remaining bond falls below minimum
         if (reviewerBond[reviewer] < minReviewerBond) {

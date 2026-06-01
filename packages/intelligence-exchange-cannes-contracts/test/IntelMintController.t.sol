@@ -653,16 +653,15 @@ contract IntelMintControllerTest is Test {
         assertGt(controller.twap(), floorBefore);
     }
 
-    /// @dev pullTWAP enforces floor price.
+    /// @dev pullTWAP enforces floor price deviation check.
     function test_pullTWAP_enforces_floor() public {
         MockUniswapV3Pool mockPool = new MockUniswapV3Pool();
-        // Set tick cumulatives for very negative tick (price below floor)
-        // tick = -100000 over 1800 seconds (very negative to ensure price < floor)
+        // Set tick cumulatives for very negative tick (price below 80% of floor)
+        // This should revert with InvalidParam due to floor deviation check
         mockPool.setTickCumulatives(0, -180_000_000);
 
-        uint256 floorPrice = controller.floorPrice();
+        vm.expectRevert(IntelMintController.InvalidParam.selector);
         controller.pullTWAP(address(mockPool), 1800, true);
-        assertEq(controller.twap(), floorPrice);
     }
 
     /// @dev pullTWAP reverts with zero pool address.

@@ -192,11 +192,18 @@ contract EpochRewardDistributor {
         intel.transferFrom(treasury, address(this), pool);
         reward.totalPool = pool;
 
+        uint256 distributed;
         for (uint256 i = 0; i < topCount; i++) {
             address worker = reward.rankedWorkers[i];
             uint256 workerAiu = reward.aiuScore[worker];
             uint256 rewardAmount = (pool * workerAiu) / totalAiu;
             reward.rewardEarned[worker] = rewardAmount;
+            distributed += rewardAmount;
+        }
+
+        // Handle dust: give remainder to last worker if any
+        if (distributed < pool && topCount > 0) {
+            reward.rewardEarned[reward.rankedWorkers[topCount - 1]] += pool - distributed;
         }
 
         reward.distributed = true;

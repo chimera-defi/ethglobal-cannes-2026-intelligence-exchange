@@ -51,6 +51,7 @@ contract BuybackBurn {
 
     uint256 public constant BPS = 10_000;
     uint24 public constant POOL_FEE = 3000; // 0.3%
+    uint256 public constant TWAP_MAX_AGE = 2 hours;
 
     // ─── Storage ──────────────────────────────────────────────────────────────
 
@@ -69,6 +70,7 @@ contract BuybackBurn {
     address public lpMiningAddress; // receives lpMiningBps share of each buyback
     uint256 public lpMiningBps;     // default 2000 (20%)
     uint256 public minTwap;         // minimum TWAP to prevent suppressed price attacks
+    uint256 public twapUpdatedAt;   // timestamp of last TWAP fetch
 
     // ─── Reentrancy guard ─────────────────────────────────────────────────────
 
@@ -145,6 +147,11 @@ contract BuybackBurn {
         uint256 twap = _getTWAP();
         if (twap == 0) revert ZeroAmount();
         if (minTwap > 0 && twap < minTwap) revert TwapTooLow(twap, minTwap);
+
+        // Check TWAP staleness
+        if (twapUpdatedAt > 0 && block.timestamp - twapUpdatedAt > TWAP_MAX_AGE) {
+            revert InvalidParam(); // TWAP is too old
+        }
 
         // Wrap ETH to WETH
         IWETH9(weth).deposit{value: ethBalance}();
@@ -316,9 +323,10 @@ contract BuybackBurn {
     // ─── Internal Helpers ─────────────────────────────────────────────────────
 
     /// @notice Get current TWAP from IntelPOLManager.
-    function _getTWAP() internal view returns (uint256) {
+    function _getTWAP() internal returns (uint256) {
         (bool ok, bytes memory data) = pol.staticcall(abi.encodeWithSignature("pullTWAP()"));
         if (!ok || data.length < 32) revert ZeroAmount();
+        twapUpdatedAt = block.timestamp;
         return abi.decode(data, (uint256));
     }
 

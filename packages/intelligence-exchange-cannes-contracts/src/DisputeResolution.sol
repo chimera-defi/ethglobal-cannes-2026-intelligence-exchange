@@ -107,6 +107,7 @@ contract DisputeResolution {
         uint256 votesReject;
         address[] jury;
         mapping(address => bool) hasVoted;
+        mapping(address => bool) jurorVotedUphold;
     }
 
     mapping(uint256 => Dispute) public disputes;
@@ -225,7 +226,7 @@ contract DisputeResolution {
         for (uint256 i = 0; i < jurors.length; i++) {
             if (jurors[i] == address(0)) revert ZeroAddress();
             // Check juror has staked INTEL > 0
-            (uint256 staked,,,,,,,,,) = staking.stakers(jurors[i]);
+            (uint256 staked,,,,,,,,,,) = staking.stakers(jurors[i]);
             if (staked == 0) revert InvalidJuror();
         }
 
@@ -261,6 +262,7 @@ contract DisputeResolution {
         if (!isJuror) revert NotJuror();
 
         dispute.hasVoted[msg.sender] = true;
+        dispute.jurorVotedUphold[msg.sender] = uphold;
         if (uphold) {
             dispute.votesUphold++;
         } else {
@@ -396,7 +398,7 @@ contract DisputeResolution {
 
     function _rewardJurors(uint256 disputeId, bool rewardUpholdVoters) private {
         Dispute storage dispute = disputes[disputeId];
-        
+
         // Simple reward: split bond among correct jurors
         uint256 correctVotes = rewardUpholdVoters ? dispute.votesUphold : dispute.votesReject;
         if (correctVotes == 0) return;
@@ -404,18 +406,11 @@ contract DisputeResolution {
         uint256 rewardPerJuror = dispute.bond / correctVotes;
         uint256 distributed = 0;
         address lastRewardedJuror;
-        
+
         for (uint256 i = 0; i < dispute.jury.length; i++) {
             address juror = dispute.jury[i];
-            // Check if juror voted correctly
-            bool votedCorrectly = false;
-            if (rewardUpholdVoters && dispute.hasVoted[juror]) {
-                votedCorrectly = true; // Simplified - in production track vote direction
-            } else if (!rewardUpholdVoters && dispute.hasVoted[juror]) {
-                votedCorrectly = true; // Simplified
-            }
-            
-            if (votedCorrectly) {
+            // Check if juror voted correctly (track actual vote direction)
+            if (dispute.hasVoted[juror] && dispute.jurorVotedUphold[juror] == rewardUpholdVoters) {
                 // Note: IntelToken is a standard OZ ERC20 that reverts on failure.
                 // The bool check is defensive; the conditional emit handles false return gracefully.
                 bool transferOk = intel.transfer(juror, rewardPerJuror);
@@ -426,7 +421,7 @@ contract DisputeResolution {
                 }
             }
         }
-        
+
         // Give dust to last rewarded juror
         if (distributed < dispute.bond && correctVotes > 0 && lastRewardedJuror != address(0)) {
             uint256 dust = dispute.bond - distributed;

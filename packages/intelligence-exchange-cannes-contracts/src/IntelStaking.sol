@@ -65,6 +65,7 @@ contract IntelStaking {
         uint256 lastEpoch;          // Epoch at which epochAllowanceUsed was reset
         uint256 epochNewStake;      // INTEL staked in the current epoch (resets each epoch)
         uint256 epochNewStakeEpoch; // Which epoch epochNewStake was last updated
+        uint256 flowBonusEligibleAt; // Timestamp when flow bonus becomes eligible (1 day after new stake)
     }
 
     struct EpochSnapshot {
@@ -212,6 +213,7 @@ contract IntelStaking {
             s.epochNewStakeEpoch = currentEpoch;
         }
         s.epochNewStake += amount;
+        s.flowBonusEligibleAt = block.timestamp + 1 days;
 
         // Sync yield debts to the current accumulators AFTER updating staked.
         // This prevents a new (or returning) staker from claiming yield that
@@ -508,7 +510,8 @@ contract IntelStaking {
         // Minimum 1 INTEL new stake required to prevent 1-wei griefing — a whale staking
         // a dust amount every epoch would otherwise get the bonus on their entire position.
         // Applied BEFORE caps so wallet/global caps remain absolute ceilings.
-        if (s.epochNewStakeEpoch == currentEpoch && s.epochNewStake >= FLOW_BONUS_MIN_STAKE) {
+        // Only applies after 1 day from stake to prevent immediate abuse.
+        if (s.epochNewStakeEpoch == currentEpoch && s.epochNewStake >= FLOW_BONUS_MIN_STAKE && block.timestamp >= s.flowBonusEligibleAt) {
             rawAllowance += (rawAllowance * FLOW_BONUS_BPS) / BPS;
         }
         // Apply walletCap

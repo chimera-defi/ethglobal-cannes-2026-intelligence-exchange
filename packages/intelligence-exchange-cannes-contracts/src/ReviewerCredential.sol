@@ -25,6 +25,7 @@ contract ReviewerCredential {
     error NotCredentialed();
     error NotEligible();
     error SoulboundNonTransferable();
+    error InvalidSlashCount();
 
     // ─── Events ───────────────────────────────────────────────────────────────
 
@@ -193,7 +194,8 @@ contract ReviewerCredential {
         if (reviewer == address(0)) revert ZeroAddress();
         if (!hasMinted[reviewer]) revert NotCredentialed();
 
-        // Update slash count
+        // Update slash count (monotonic: can only increase)
+        if (newSlashCount < slashCount[reviewer]) revert InvalidSlashCount();
         slashCount[reviewer] = newSlashCount;
 
         uint256 reviewsSubmitted = reviewerStakeManager.reviewsSubmitted(reviewer);
