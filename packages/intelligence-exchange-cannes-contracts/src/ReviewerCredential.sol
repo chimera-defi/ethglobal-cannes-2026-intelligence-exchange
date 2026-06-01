@@ -61,6 +61,7 @@ contract ReviewerCredential {
     uint256 public constant TIER_1_MAX_SLASH_BPS = 1500; // 15%
     uint256 public constant TIER_2_MAX_SLASH_BPS = 800;  // 8%
     uint256 public constant TIER_3_MAX_SLASH_BPS = 300;  // 3%
+    uint256 public constant TIER_GRACE_PERIOD = 7 days;  // Grace period before tier downgrade
 
     // ─── Storage ──────────────────────────────────────────────────────────────
 
@@ -74,6 +75,7 @@ contract ReviewerCredential {
     mapping(address => uint256) public currentTier;       // reviewer -> active tier (0-3)
     mapping(address => bool) public hasMinted;           // reviewer -> has initial credential
     mapping(address => uint256) public slashCount;       // reviewer -> slash count (for rate calculation)
+    mapping(address => uint256) public tierProbationaryUntil; // reviewer -> timestamp when probation ends
 
     // ERC-1155 balances: tokenId -> owner -> balance (0 or 1 for soulbound)
     mapping(uint256 => mapping(address => uint256)) private _balances;
@@ -184,6 +186,7 @@ contract ReviewerCredential {
 
     /// @notice Evaluate and update reviewer tier based on performance.
     /// @dev Caller must be operator. Computes slash rate and determines highest qualifying tier.
+    ///      Implements 7-day grace period for tier downgrades.
     /// @param reviewer Address to evaluate.
     /// @param newSlashCount Total slash count for the reviewer.
     function evaluateAndUpdateTier(address reviewer, uint256 newSlashCount) external onlyOperator nonReentrant {
@@ -198,7 +201,23 @@ contract ReviewerCredential {
         uint256 oldTier = currentTier[reviewer];
 
         if (newTier != oldTier) {
-            _updateTier(reviewer, oldTier, newTier);
+            if (newTier < oldTier) {
+                // Downgrade: check grace period
+                if (tierProbationaryUntil[reviewer] == 0) {
+                    // Start 7-day probation instead of immediate downgrade
+                    tierProbationaryUntil[reviewer] = block.timestamp + TIER_GRACE_PERIOD;
+                    return; // do not downgrade yet
+                } else if (block.timestamp < tierProbationaryUntil[reviewer]) {
+                    return; // still in grace period
+                }
+                // Grace period expired — apply downgrade
+                delete tierProbationaryUntil[reviewer];
+                _updateTier(reviewer, oldTier, newTier);
+            } else {
+                // Upgrade or same tier — clear any probation
+                delete tierProbationaryUntil[reviewer];
+                _updateTier(reviewer, oldTier, newTier);
+            }
         }
     }
 

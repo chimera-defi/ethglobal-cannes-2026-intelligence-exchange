@@ -24,6 +24,7 @@ contract IdeaEscrow {
 
     address public immutable stakerYieldReceiver;
     address public immutable treasuryReceiver;
+    address public immutable owner;
     // ─── Errors ──────────────────────────────────────────────────────────────
 
     error Unauthorized();
@@ -46,6 +47,7 @@ contract IdeaEscrow {
     event TreasuryPaid(bytes32 indexed ideaId, bytes32 indexed milestoneId, address indexed receiver, uint256 amount);
     event MilestoneRefunded(bytes32 indexed ideaId, bytes32 indexed milestoneId, address indexed poster, uint256 amount);
     event FundsWithdrawn(bytes32 indexed ideaId, address indexed poster, uint256 amount);
+    event EmergencyRescue(bytes32 indexed ideaId, address indexed recipient, uint256 amount);
 
     // ─── Storage ──────────────────────────────────────────────────────────────
 
@@ -71,9 +73,10 @@ contract IdeaEscrow {
 
     // ─── Constructor ──────────────────────────────────────────────────────────
 
-    constructor(address _stakerYieldReceiver, address _treasuryReceiver) {
+    constructor(address _stakerYieldReceiver, address _treasuryReceiver, address _owner) {
         stakerYieldReceiver = _stakerYieldReceiver;
         treasuryReceiver = _treasuryReceiver;
+        owner = _owner;
     }
 
     // ─── Functions ────────────────────────────────────────────────────────────
@@ -86,9 +89,6 @@ contract IdeaEscrow {
         if (amount == 0) revert ZeroAmount();
         if (ideas[ideaId].exists) revert IdeaAlreadyFunded(ideaId);
 
-        bool ok = IERC20(token).transferFrom(msg.sender, address(this), amount);
-        if (!ok) revert TransferFailed();
-
         ideas[ideaId] = IdeaFund({
             poster: msg.sender,
             token: token,
@@ -96,6 +96,9 @@ contract IdeaEscrow {
             available: amount,
             exists: true
         });
+
+        bool ok = IERC20(token).transferFrom(msg.sender, address(this), amount);
+        if (!ok) revert TransferFailed();
 
         emit IdeaFunded(ideaId, msg.sender, token, amount);
     }
@@ -229,6 +232,21 @@ contract IdeaEscrow {
         bool ok = IERC20(fund.token).transfer(msg.sender, amount);
         if (!ok) revert TransferFailed();
         emit FundsWithdrawn(ideaId, msg.sender, amount);
+    }
+
+    /// @notice Emergency rescue function for owner to recover funds from deprecated contract.
+    /// @custom:access owner only
+    /// @param ideaId    Idea to rescue funds from.
+    /// @param recipient Address to receive rescued funds.
+    function rescueFunds(bytes32 ideaId, address recipient) external {
+        if (msg.sender != owner) revert Unauthorized();
+        IdeaFund storage fund = ideas[ideaId];
+        if (!fund.exists) revert IdeaNotFunded(ideaId);
+        uint256 amount = fund.available;
+        fund.available = 0;
+        bool ok = IERC20(fund.token).transfer(recipient, amount);
+        if (!ok) revert TransferFailed();
+        emit EmergencyRescue(ideaId, recipient, amount);
     }
 
     // ─── View helpers ─────────────────────────────────────────────────────────

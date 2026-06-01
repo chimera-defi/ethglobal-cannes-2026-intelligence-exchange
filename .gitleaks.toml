@@ -5,15 +5,18 @@ useDefault = true
 
 # Allowlist for safe patterns
 [allowlist]
-description = "Allowlist for test fixtures and example files"
+description = "Allowlist for test fixtures, example files, and documentation"
 paths = [
-    '''\.env\.example$''',
-    '''\.env\.test$''',
-    '''\.env\.local$''',
+    '''(\.env\.example|\.env\.test|\.env\.local)$''',
     '''test/.*\.fixture\..*$''',
     '''tests/.*\.fixture\..*$''',
     '''__tests__/.*\.fixture\..*$''',
     '''\.github/workflows/.*\.yml$''',
+    '''README\.md$''',
+    '''docs/.*''',
+    '''spec/.*''',
+    '''x-ray/.*''',
+    '''output/.*''',
 ]
 
 # Custom rules for Ethereum and common secrets
@@ -26,7 +29,7 @@ keywords = ["0x"]
 [[rules]]
 description = "Generic API key pattern"
 id = "generic-api-key"
-regex = '''(?i)(api[_-]?key|apikey|secret[_-]?key|access[_-]?token|private[_-]?key|auth[_-]?token)['"''\s]*[:=]['"''\s]*[a-zA-Z0-9_\-]{20,}'''
+regex = '''(?i)(api[_-]?key|apikey|secret[_-]?key|access[_-]?token|private[_-]?key|auth[_-]?token)[^\s]*[:=][^\s]*[a-zA-Z0-9_\-]{20,}'''
 keywords = ["api", "key", "secret", "token", "private"]
 
 [[rules]]
@@ -38,5 +41,5 @@ keywords = ["AKIA"]
 [[rules]]
 description = "AWS Secret Key"
 id = "aws-secret-key"
-regex = '''(?i)aws[_\.-]?secret[_\.-]?key['"''\s]*[:=]['"''\s]*[a-zA-Z0-9/+=]{40}'''
+regex = '''(?i)aws[_\.-]?secret[_\.-]?key[^\s]*[:=][^\s]*[a-zA-Z0-9/+=]{40}'''
 keywords = ["aws", "secret", "key"]

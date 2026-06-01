@@ -57,23 +57,21 @@ contract IntelStakingTest is Test {
         staking.stake(100e18);
 
         assertEq(staking.totalStaked(), 100e18);
-        (uint256 staked,,,,,,, ) = staking.stakers(alice);
+        (uint256 staked,,,,,,,,,) = staking.stakers(alice);
         assertEq(staked, 100e18);
         assertEq(intel.balanceOf(address(staking)), 100e18);
     }
 
     function test_mintAllowance_sqrt_formula() public {
-        // k=1, staked=100 tokens → sqrt(100e18) = 10e9 (sqrt of wei amount)
-        // allowance = k * sqrt(staked) / 1e18
-        // With k=1e18 and staked=100e18: sqrt(100e18)≈10e9, allowance = 1e18 * 10e9 / 1e18 = 10e9
-        // That's well below walletCap=10_000e18 so walletCap won't bind here.
+        // k=1, staked=100 tokens → sqrt(100e18) ≈ 10e9
+        // base allowance = k * sqrt(staked) / 1e18 = 1e10
+        // Flow bonus (+15%) applies because alice is staking for the first time this epoch
+        // final = 1e10 * 1.15 = 11_500_000_000
         vm.prank(alice);
         staking.stake(100e18);
 
         uint256 allowance = staking.mintAllowance(alice);
-        // sqrt(100e18) = 10_000_000_000 (1e10)
-        // k * sqrt(staked) / 1e18 = 1e18 * 1e10 / 1e18 = 1e10
-        assertEq(allowance, 1e10);
+        assertEq(allowance, 11_500_000_000); // 1e10 * 1.15 flow bonus
     }
 
     function test_mintAllowance_wallet_cap_binds() public {
@@ -92,6 +90,10 @@ contract IntelStakingTest is Test {
 
     function test_mintAllowance_global_cap_binds() public {
         staking.setParams(EPOCH, COOL, K, WALLET_CAP, 3e9); // globalCap < walletCap < rawAllowance
+        // H4 fix: setParams no longer resets globalCapRemaining mid-epoch.
+        // Advance to the next epoch so the new globalEpochCap (3e9) takes effect.
+        vm.warp(block.timestamp + EPOCH + 1);
+        staking.advanceEpoch();
 
         vm.prank(alice);
         staking.stake(100e18);
@@ -713,5 +715,42 @@ contract IntelStakingTest is Test {
         vm.prank(alice);
         vm.expectRevert(IntelStaking.Unauthorized.selector);
         staking.setMaxStakePerDeposit(200_000e18);
+    }
+
+    // ─── Flow bonus tests (Bittensor-inspired new staker bonus) ───────────────
+
+    /// @dev New stakers in the current epoch receive a 15% mint allowance bonus.
+    function test_flowBonus_applies_to_new_staker() public {
+        // Alice stakes in epoch 1
+        vm.prank(alice);
+        staking.stake(100e18);
+
+        uint256 allowanceWithBonus = staking.mintAllowance(alice);
+        uint256 expectedBase = (K * 1e10) / 1e18; // sqrt(100e18) = 1e10, k=1e18 → 1e10
+        uint256 expectedBonus = (expectedBase * 1500) / 10000; // 15% bonus
+        uint256 expectedTotal = expectedBase + expectedBonus;
+
+        assertEq(allowanceWithBonus, expectedTotal, "new staker should receive 15% bonus");
+    }
+
+    /// @dev Flow bonus does not apply after epoch advance.
+    function test_flowBonus_not_applied_after_epoch_advance() public {
+        // Alice stakes in epoch 1
+        vm.prank(alice);
+        staking.stake(100e18);
+
+        uint256 allowanceEpoch1 = staking.mintAllowance(alice);
+
+        // Advance to epoch 2
+        vm.warp(block.timestamp + EPOCH + 1);
+        staking.advanceEpoch();
+
+        uint256 allowanceEpoch2 = staking.mintAllowance(alice);
+        uint256 expectedBase = (K * 1e10) / 1e18; // sqrt(100e18) = 1e10, k=1e18 → 1e10
+
+        // Epoch 2 allowance should be base only (no bonus)
+        assertEq(allowanceEpoch2, expectedBase, "bonus should not apply after epoch advance");
+        // Epoch 1 should have been higher (with bonus)
+        assertGt(allowanceEpoch1, allowanceEpoch2, "epoch 1 allowance should include bonus");
     }
 }

@@ -43,6 +43,7 @@ contract ReviewerQueue {
     event OwnershipTransferStarted(address indexed previous, address indexed next);
     event OwnershipTransferred(address indexed previous, address indexed next);
     event IdentityGateUpdated(address newGate);
+    event ReviewerRemoved(address indexed reviewer);
 
     // ─── Storage ──────────────────────────────────────────────────────────────
 
@@ -64,10 +65,12 @@ contract ReviewerQueue {
 
     uint256 public reviewTimeout; // seconds before unreviewed task can be reassigned, default 24 hours
     uint256 public maxActiveReviewsPerReviewer; // default 5
+    uint256 public maxReviewerScanCount = 50; // max reviewers to scan per assignment
 
     mapping(bytes32 => ReviewAssignment) public assignments; // taskId => assignment
     mapping(address => bytes32[]) public reviewerQueue; // reviewer => assigned taskIds
     mapping(address => uint256) public reviewerActiveCount; // reviewer => active review count
+    mapping(address => mapping(bytes32 => uint256)) private _queueTaskIndex; // reviewer => taskId => 1-based index in queue
 
     address public owner;
     address public pendingOwner;
@@ -124,12 +127,14 @@ contract ReviewerQueue {
     /// @param taskId Unique identifier for the task.
     /// @param taskCategory Task category (0-5 from CategoryRegistry.TaskCategory).
     /// @param eligibleReviewers List of pre-filtered eligible reviewer addresses.
+    /// @param taskWorker Address of the task worker (to prevent self-assignment).
     function assignReview(
         bytes32 taskId,
         uint256 taskCategory,
-        address[] calldata eligibleReviewers
+        address[] calldata eligibleReviewers,
+        address taskWorker
     ) external onlyOperator nonReentrant {
-        _assignReview(taskId, taskCategory, eligibleReviewers);
+        _assignReview(taskId, taskCategory, eligibleReviewers, taskWorker);
     }
 
     /// @notice Mark a review as completed.
@@ -144,6 +149,7 @@ contract ReviewerQueue {
 
         assignment.completed = true;
         reviewerActiveCount[reviewer]--;
+        _removeFromQueue(reviewer, taskId);
 
         emit ReviewCompleted(taskId, reviewer);
     }
@@ -174,8 +180,8 @@ contract ReviewerQueue {
 
         emit ReviewTimedOut(taskId, oldReviewer);
 
-        // Select new reviewer and update assignment
-        address newReviewer = _selectReviewerForTask(taskId, assignment.taskCategory, newEligibleReviewers);
+        // Select new reviewer and update assignment (address(0) for taskWorker since it's reassignment)
+        address newReviewer = _selectReviewerForTask(taskId, assignment.taskCategory, newEligibleReviewers, address(0));
 
         assignment.assignedReviewer = newReviewer;
         assignment.assignedAt = block.timestamp;
@@ -183,6 +189,7 @@ contract ReviewerQueue {
 
         // Update new reviewer's queue and active count
         reviewerQueue[newReviewer].push(taskId);
+        _queueTaskIndex[newReviewer][taskId] = reviewerQueue[newReviewer].length; // 1-based index
         reviewerActiveCount[newReviewer]++;
 
         emit ReviewAssigned(taskId, newReviewer, assignment.taskCategory);
@@ -225,6 +232,14 @@ contract ReviewerQueue {
         maxActiveReviewsPerReviewer = newMax;
     }
 
+    /// @notice Set the maximum reviewers to scan per assignment.
+    /// @custom:access owner only
+    /// @param count New maximum scan count (must be between 10 and 200).
+    function setMaxReviewerScanCount(uint256 count) external onlyOwner {
+        require(count >= 10 && count <= 200, "Invalid scan count");
+        maxReviewerScanCount = count;
+    }
+
     /// @notice Approve or revoke an operator address.
     /// @custom:access owner only
     /// @param op Address to configure.
@@ -241,6 +256,32 @@ contract ReviewerQueue {
     function setIdentityGate(address _identityGate) external onlyOwner {
         identityGate = IdentityGate(_identityGate);
         emit IdentityGateUpdated(_identityGate);
+    }
+
+    /// @notice Remove a reviewer from the queue, clearing all their active assignments.
+    /// @dev Called when a reviewer is slashed or becomes ineligible.
+    /// @custom:access operator only
+    /// @param reviewer Address of the reviewer to remove.
+    function removeEligibleReviewer(address reviewer) external onlyOperator nonReentrant {
+        if (reviewer == address(0)) revert ZeroAddress();
+
+        // Clear all active assignments for this reviewer
+        bytes32[] storage queue = reviewerQueue[reviewer];
+        for (uint256 i = 0; i < queue.length; i++) {
+            bytes32 taskId = queue[i];
+            ReviewAssignment storage assignment = assignments[taskId];
+            if (assignment.assignedReviewer == reviewer && !assignment.completed) {
+                // Mark as timed out so it can be reassigned
+                assignment.timedOut = true;
+            }
+            delete _queueTaskIndex[reviewer][taskId];
+        }
+
+        // Clear the queue and reset active count
+        delete reviewerQueue[reviewer];
+        reviewerActiveCount[reviewer] = 0;
+
+        emit ReviewerRemoved(reviewer);
     }
 
     /// @notice Begin ownership transfer. Nominee must call acceptOwnership().
@@ -268,11 +309,13 @@ contract ReviewerQueue {
     /// @param taskId Unique identifier for the task (used as seed).
     /// @param taskCategory Task category (0-5 from CategoryRegistry.TaskCategory).
     /// @param eligibleReviewers List of pre-filtered eligible reviewer addresses.
+    /// @param taskWorker Address of the task worker (to prevent self-assignment).
     /// @return Selected reviewer address.
     function _selectReviewerForTask(
         bytes32 taskId,
         uint256 taskCategory,
-        address[] calldata eligibleReviewers
+        address[] calldata eligibleReviewers,
+        address taskWorker
     ) internal view returns (address) {
         if (eligibleReviewers.length == 0) revert NoEligibleReviewers();
 
@@ -280,9 +323,22 @@ contract ReviewerQueue {
         address[] memory availableReviewers = new address[](eligibleReviewers.length);
         uint256[] memory stakeWeights = new uint256[](eligibleReviewers.length);
         uint256 availableCount = 0;
+        uint256 scanCount = 0;
 
         for (uint256 i = 0; i < eligibleReviewers.length; i++) {
+            // Prevent OOG by limiting scan count
+            scanCount++;
+            if (scanCount > maxReviewerScanCount) {
+                break;
+            }
+
             address reviewer = eligibleReviewers[i];
+
+            // Prevent self-assignment
+            if (reviewer == taskWorker) {
+                continue;
+            }
+
             if (reviewerActiveCount[reviewer] < maxActiveReviewsPerReviewer) {
                 // Check WorldID verification if IdentityGate is set
                 if (address(identityGate) != address(0)) {
@@ -290,9 +346,16 @@ contract ReviewerQueue {
                         continue; // Skip reviewers without WorldID verification
                     }
                 }
-                availableReviewers[availableCount] = reviewer;
-                stakeWeights[availableCount] = reviewerStakeManager.reviewerBond(reviewer);
-                availableCount++;
+
+                // Wrap stake manager call in try/catch to prevent reverts
+                try reviewerStakeManager.reviewerBond(reviewer) returns (uint256 stake) {
+                    availableReviewers[availableCount] = reviewer;
+                    stakeWeights[availableCount] = stake;
+                    availableCount++;
+                } catch {
+                    // Skip reviewer if stake manager call fails
+                    continue;
+                }
             }
         }
 
@@ -312,12 +375,14 @@ contract ReviewerQueue {
     /// @param taskId Unique identifier for the task.
     /// @param taskCategory Task category (0-5 from CategoryRegistry.TaskCategory).
     /// @param eligibleReviewers List of pre-filtered eligible reviewer addresses.
+    /// @param taskWorker Address of the task worker (to prevent self-assignment).
     function _assignReview(
         bytes32 taskId,
         uint256 taskCategory,
-        address[] calldata eligibleReviewers
+        address[] calldata eligibleReviewers,
+        address taskWorker
     ) internal {
-        address selectedReviewer = _selectReviewerForTask(taskId, taskCategory, eligibleReviewers);
+        address selectedReviewer = _selectReviewerForTask(taskId, taskCategory, eligibleReviewers, taskWorker);
 
         // Create assignment
         assignments[taskId] = ReviewAssignment({
@@ -331,6 +396,7 @@ contract ReviewerQueue {
 
         // Update reviewer queue and active count
         reviewerQueue[selectedReviewer].push(taskId);
+        _queueTaskIndex[selectedReviewer][taskId] = reviewerQueue[selectedReviewer].length; // 1-based index
         reviewerActiveCount[selectedReviewer]++;
 
         emit ReviewAssigned(taskId, selectedReviewer, taskCategory);
@@ -373,18 +439,24 @@ contract ReviewerQueue {
         return reviewers[reviewers.length - 1];
     }
 
-    /// @notice Remove a taskId from a reviewer's queue.
+    /// @notice Remove a taskId from a reviewer's queue using O(1) swap-and-pop.
     /// @param reviewer Address of the reviewer.
     /// @param taskId TaskId to remove.
     function _removeFromQueue(address reviewer, bytes32 taskId) internal {
+        uint256 idx = _queueTaskIndex[reviewer][taskId];
+        if (idx == 0) return; // not in queue
+
+        idx--; // convert to 0-based
         bytes32[] storage queue = reviewerQueue[reviewer];
-        for (uint256 i = 0; i < queue.length; i++) {
-            if (queue[i] == taskId) {
-                // Swap with last element and pop
-                queue[i] = queue[queue.length - 1];
-                queue.pop();
-                break;
-            }
+        uint256 last = queue.length - 1;
+
+        if (idx != last) {
+            bytes32 lastTask = queue[last];
+            queue[idx] = lastTask;
+            _queueTaskIndex[reviewer][lastTask] = idx + 1; // update moved task's index (1-based)
         }
+
+        queue.pop();
+        delete _queueTaskIndex[reviewer][taskId];
     }
 }

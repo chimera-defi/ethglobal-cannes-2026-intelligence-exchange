@@ -12,6 +12,11 @@ import {IntelToken} from "./IntelToken.sol";
 /// They earn a share of treasury fees for submitted reviews and can be slashed
 /// if a review is overturned by dispute. This makes the human acceptance gate
 /// economically meaningful, not just identity-gated.
+
+interface IReviewerQueue {
+    function removeEligibleReviewer(address reviewer) external;
+}
+
 contract ReviewerStakeManager {
     // ─── Errors ──────────────────────────────────────────────────────────────
 
@@ -40,6 +45,8 @@ contract ReviewerStakeManager {
     event MinReviewerBondUpdated(uint256 oldMin, uint256 newMin);
     event ReviewerFeeShareUpdated(uint256 oldBps, uint256 newBps);
     event UnstakeCooldownUpdated(uint256 oldCooldown, uint256 newCooldown);
+    event ReviewerQueueUpdated(address indexed oldQueue, address indexed newQueue);
+    event QueueRemovalFailed(address indexed reviewer);
 
     // ─── Storage ──────────────────────────────────────────────────────────────
 
@@ -55,6 +62,7 @@ contract ReviewerStakeManager {
     mapping(address => uint256) public unstakeAvailableAt;
     mapping(address => uint256) public pendingUnstake;
     address public treasury;
+    IReviewerQueue public reviewerQueue;
     mapping(address => bool) public operators;
 
     address public owner;
@@ -116,6 +124,8 @@ contract ReviewerStakeManager {
         uint256 oldBond = reviewerBond[msg.sender];
         
         // Transfer INTEL from caller to contract
+        // Note: IntelToken is a standard OZ ERC20 that reverts on failure.
+        // The bool check is defensive; the require ensures execution stops on false return.
         bool transferOk = intel.transferFrom(msg.sender, address(this), bondAmount);
         require(transferOk, "ReviewerStakeManager: bond transferFrom failed");
         
@@ -165,6 +175,8 @@ contract ReviewerStakeManager {
         pendingUnstake[msg.sender] = 0;
         unstakeAvailableAt[msg.sender] = 0;
         
+        // Note: IntelToken is a standard OZ ERC20 that reverts on failure.
+        // The bool check is defensive; the require ensures execution stops on false return.
         bool transferOk = intel.transfer(msg.sender, amount);
         require(transferOk, "ReviewerStakeManager: unstake transfer failed");
         
@@ -199,6 +211,8 @@ contract ReviewerStakeManager {
         
         reviewFeeEarned[msg.sender] = 0;
         
+        // Note: IntelToken is a standard OZ ERC20 that reverts on failure.
+        // The bool check is defensive; the require ensures execution stops on false return.
         bool transferOk = intel.transfer(msg.sender, fees);
         require(transferOk, "ReviewerStakeManager: fee claim transfer failed");
         
@@ -211,6 +225,8 @@ contract ReviewerStakeManager {
     function depositFees(uint256 amount) external onlyOperator {
         if (amount == 0) revert ZeroAmount();
         
+        // Note: IntelToken is a standard OZ ERC20 that reverts on failure.
+        // The bool check is defensive; the require ensures execution stops on false return.
         bool transferOk = intel.transferFrom(msg.sender, address(this), amount);
         require(transferOk, "ReviewerStakeManager: fee deposit transferFrom failed");
     }
@@ -219,6 +235,7 @@ contract ReviewerStakeManager {
 
     /// @notice Slash a reviewer's bond for misconduct or overturned review.
     /// @dev Slashed amount is sent to treasury. Reviewer becomes ineligible if bond falls below minimum.
+    ///      Also removes reviewer from ReviewerQueue if configured.
     /// @custom:access operator only
     /// @param reviewer Address of the reviewer to slash.
     /// @param amount INTEL amount to slash.
@@ -226,19 +243,28 @@ contract ReviewerStakeManager {
         if (reviewer == address(0)) revert ZeroAddress();
         if (amount == 0) revert ZeroAmount();
         if (reviewerBond[reviewer] < amount) revert InsufficientBond();
-        
+
         uint256 oldBond = reviewerBond[reviewer];
         reviewerBond[reviewer] -= amount;
-        
+
         // Update eligibility if remaining bond falls below minimum
         if (reviewerBond[reviewer] < minReviewerBond) {
             eligibleReviewers[reviewer] = false;
+
+            // Remove from ReviewerQueue if configured
+            if (address(reviewerQueue) != address(0)) {
+                try reviewerQueue.removeEligibleReviewer(reviewer) {} catch {
+                    emit QueueRemovalFailed(reviewer);
+                }
+            }
         }
-        
+
         // Transfer slashed amount to treasury
+        // Note: IntelToken is a standard OZ ERC20 that reverts on failure.
+        // The bool check is defensive; the require ensures execution stops on false return.
         bool transferOk = intel.transfer(treasury, amount);
         require(transferOk, "ReviewerStakeManager: slash transfer failed");
-        
+
         emit ReviewerSlashed(reviewer, amount, reviewerBond[reviewer]);
         emit BondUpdated(reviewer, oldBond, reviewerBond[reviewer]);
     }
@@ -295,6 +321,14 @@ contract ReviewerStakeManager {
     function setUnstakeCooldown(uint256 newCooldown) external onlyOwner {
         emit UnstakeCooldownUpdated(unstakeCooldown, newCooldown);
         unstakeCooldown = newCooldown;
+    }
+
+    /// @notice Update the ReviewerQueue contract address.
+    /// @custom:access owner
+    /// @param newReviewerQueue New ReviewerQueue address.
+    function setReviewerQueue(address newReviewerQueue) external onlyOwner {
+        emit ReviewerQueueUpdated(address(reviewerQueue), newReviewerQueue);
+        reviewerQueue = IReviewerQueue(newReviewerQueue);
     }
 
     /// @notice Begin ownership transfer. Nominee must call acceptOwnership().
