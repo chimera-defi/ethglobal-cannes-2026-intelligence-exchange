@@ -1,9 +1,8 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
-import { createWalletClient, createPublicClient, http } from 'viem';
+import { createWalletClient, createPublicClient, http, keccak256, toBytes } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { keccak256, toBytes } from 'viem';
 import { httpError } from '../services/errors';
 import { getBreakerStatus, resetBreaker } from '../services/circuitBreakerService';
 
@@ -144,7 +143,7 @@ adminRouter.post(
           },
         ],
         functionName: 'submitEpochScores',
-        args: [BigInt(req.epoch), req.workers as any, scoresWei],
+        args: [BigInt(req.epoch), req.workers as `0x${string}`[], scoresWei],
       });
 
       console.log(`[admin:epoch/submit-scores] Submitted scores for epoch=${req.epoch} txHash=${hash}`);
