@@ -229,6 +229,70 @@ contract LiquidityMiningTest is Test {
         mining.setRewardRate(1e16);
     }
 
+    function test_setRewardRate_queuesDuringActivePeriod() public {
+        // Start active mining period
+        mining.setRewardRate(1e16);
+        vm.prank(operator);
+        mining.depositRewards(1000e18);
+        
+        vm.prank(alice);
+        mining.stake(100e18);
+        
+        // Try to change rate during active period - should queue, not apply immediately
+        mining.setRewardRate(2e16);
+        
+        // Rate should still be old rate
+        assertEq(mining.rewardRate(), 1e16);
+        // Pending rate should be set
+        assertEq(mining.pendingRewardRate(), 2e16);
+        // Rate change should be available after 2 days
+        assertEq(mining.rateChangeAvailableAt(), block.timestamp + 2 days);
+    }
+
+    function test_commitRewardRate_afterDelay() public {
+        // Start active mining period
+        mining.setRewardRate(1e16);
+        vm.prank(operator);
+        mining.depositRewards(1000e18);
+        
+        vm.prank(alice);
+        mining.stake(100e18);
+        
+        // Queue rate change
+        mining.setRewardRate(2e16);
+        
+        // Try to commit before delay - should revert
+        vm.expectRevert();
+        mining.commitRewardRate();
+        
+        // Warp past 2-day delay
+        vm.warp(block.timestamp + 2 days + 1);
+        
+        // Commit should now succeed
+        vm.expectEmit(true, false, false, true);
+        emit LiquidityMining.RewardRateUpdated(1e16, 2e16);
+        mining.commitRewardRate();
+        
+        // Rate should be updated
+        assertEq(mining.rewardRate(), 2e16);
+        // Pending should be cleared
+        assertEq(mining.pendingRewardRate(), 0);
+        assertEq(mining.rateChangeAvailableAt(), 0);
+    }
+
+    function test_setRewardRate_appliesImmediatelyWhenInactive() public {
+        // No active mining period
+        assertEq(mining.rewardEndTime(), 0);
+        
+        // Should apply immediately
+        vm.expectEmit(true, false, false, true);
+        emit LiquidityMining.RewardRateUpdated(0, 1e16);
+        mining.setRewardRate(1e16);
+        
+        assertEq(mining.rewardRate(), 1e16);
+        assertEq(mining.pendingRewardRate(), 0);
+    }
+
     function test_depositRewards_onlyOperator() public {
         vm.prank(alice);
         vm.expectRevert();

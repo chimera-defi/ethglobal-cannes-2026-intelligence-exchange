@@ -308,15 +308,15 @@ export const JobCreateRequestSchema = z.object({
 export type JobCreateRequest = z.infer<typeof JobCreateRequestSchema>;
 
 export const DemoJobClaimRequestSchema = z.object({
-  workerId: z.string(),
+  workerId: z.string().max(256),
   agentMetadata: AgentMetadataSchema.optional(),
-  idempotencyKey: z.string().optional(),
+  idempotencyKey: z.string().max(256).optional(),
 });
 export type DemoJobClaimRequest = z.infer<typeof DemoJobClaimRequestSchema>;
 
 export const SignedJobClaimRequestSchema = z.object({
   signedAction: SignedActionEnvelopeSchema,
-  idempotencyKey: z.string().optional(),
+  idempotencyKey: z.string().max(256).optional(),
 });
 export type SignedJobClaimRequest = z.infer<typeof SignedJobClaimRequestSchema>;
 
@@ -327,7 +327,7 @@ export const JobClaimRequestSchema = z.union([
 export type JobClaimRequest = z.infer<typeof JobClaimRequestSchema>;
 
 export const DemoJobUnclaimRequestSchema = z.object({
-  workerId: z.string(),
+  workerId: z.string().max(256),
   agentMetadata: AgentMetadataSchema.optional(),
 });
 export type DemoJobUnclaimRequest = z.infer<typeof DemoJobUnclaimRequestSchema>;
@@ -359,14 +359,14 @@ const JobSubmissionFieldsSchema = z.object({
 
 export const SignedJobResultSubmitRequestSchema = JobSubmissionFieldsSchema.extend({
   signedAction: SignedActionEnvelopeSchema,
-  idempotencyKey: z.string().optional(),
+  idempotencyKey: z.string().max(256).optional(),
 });
 export type SignedJobResultSubmitRequest = z.infer<typeof SignedJobResultSubmitRequestSchema>;
 
 export const DemoJobResultSubmitRequestSchema = JobSubmissionFieldsSchema.extend({
-  workerId: z.string(),
+  workerId: z.string().max(256),
   agentMetadata: AgentMetadataSchema.optional(),
-  idempotencyKey: z.string().optional(),
+  idempotencyKey: z.string().max(256).optional(),
 });
 export type DemoJobResultSubmitRequest = z.infer<typeof DemoJobResultSubmitRequestSchema>;
 
@@ -377,12 +377,12 @@ export const JobResultSubmitRequestSchema = z.union([
 export type JobResultSubmitRequest = z.infer<typeof JobResultSubmitRequestSchema>;
 
 export const JobSpendCreateRequestSchema = z.object({
-  workerId: z.string(),
+  workerId: z.string().max(256),
   vendor: z.string().min(1).max(200),
   purpose: z.string().min(1).max(500),
   amountUsd: z.number().positive(),
   settlementRail: z.enum(['demo', 'arc', 'intel']).default('demo'),
-  txHash: z.string().optional(),
+  txHash: z.string().max(66).optional(),
 });
 export type JobSpendCreateRequest = z.infer<typeof JobSpendCreateRequestSchema>;
 
