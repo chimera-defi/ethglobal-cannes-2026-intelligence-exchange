@@ -46,7 +46,7 @@ Staking earns both INTEL yield and ETH yield. Epoch mint allowance = `k × √(s
 
 ## What Is Built
 
-**21 Solidity contracts · 688 Foundry tests · 15 audit passes · 0 CRITICAL open**
+**21 Solidity contracts · 719 Foundry tests · 19 audit passes · 0 CRITICAL open · Security stable**
 
 Core contracts: `IntelToken` · `IntelStaking` · `IntelMintController` · `IntelPOLManager` · `LiquidityMining` · `BuybackBurn` · `TaskEscrow` · `AgentIdentityRegistry` · `WorkReceipt1155` · `WorkerStakeManager` · `ReviewerStakeManager` · `DisputeResolution` · `EpochRewardDistributor` + 8 more.
 
@@ -79,11 +79,11 @@ Full flywheel map: [docs/FLYWHEEL_ARCHITECTURE.md](docs/FLYWHEEL_ARCHITECTURE.md
 
 ## Security
 
-15 audit passes covering all contracts. No CRITICAL or HIGH findings open.
+19 audit passes covering all contracts. No CRITICAL or HIGH findings open. Security stable as of pass-19 clean verification.
 
 Audit reports: [`packages/intelligence-exchange-cannes-contracts/x-ray/`](packages/intelligence-exchange-cannes-contracts/x-ray/)
 
-CSO infrastructure review: secrets archaeology, CI/CD, OWASP Top 10, STRIDE threat model — all clean. Rate limiting Redis-backed, CORS configurable, arc webhook HMAC-verified.
+CSO infrastructure review: secrets archaeology, CI/CD, OWASP Top 10, STRIDE threat model — all clean. Rate limiting Redis-backed, CORS configurable, arc webhook HMAC-verified. Input validation hardened with string length limits and idempotency key bounds.
 
 ---
 
