@@ -232,9 +232,10 @@ contract IntelVestingTest is Test {
     }
 
     function test_revoke_exactly_at_blackout_boundary() public {
-        vm.warp(startTime + CLIFF_DELAY - 3600); // Exactly 1 hour before cliff (at blackout boundary)
+        // blackoutStart = cliff - 1 hour. The check is block.timestamp >= blackoutStart (inclusive).
+        // Exactly at blackoutStart → reverts. One second before → succeeds.
+        vm.warp(startTime + CLIFF_DELAY - 3601); // 1 second before blackout starts
         vm.prank(treasury);
-        // Should succeed - exactly at boundary is outside blackout
         vesting.revoke();
         assertTrue(vesting.revoked());
     }
