@@ -1152,7 +1152,7 @@ export async function submitAiuScore(epoch: number, workers: string[], scores: n
         },
       ],
       functionName: 'submitEpochScores',
-      args: [BigInt(epoch), workers as any, scoresWei],
+      args: [BigInt(epoch), workers as `0x${string}`[], scoresWei],
     });
 
     console.log(`[chain:submitAiuScore] Submitted AIU scores for epoch=${epoch} workerCount=${workers.length} txHash=${hash}`);
