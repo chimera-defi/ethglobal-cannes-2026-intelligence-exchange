@@ -113,7 +113,7 @@ contract IntelPOLManager {
     // ─── Owner: INTEL withdrawals ─────────────────────────────────────────
 
     /// @notice Withdraw INTEL tokens to `to` (manual liquidity deployment).
-    function withdrawIntel(address to, uint256 amount) external onlyOwner {
+    function withdrawIntel(address to, uint256 amount) external onlyOwner nonReentrant {
         if (to == address(0)) revert ZeroAddress();
 
         uint256 bal = _intelBalance();
@@ -215,7 +215,7 @@ contract IntelPOLManager {
     /// @notice Collect accumulated trading fees from the Uniswap V3 position.
     /// @return amount0 Amount of token0 collected
     /// @return amount1 Amount of token1 collected
-    function collectFees() external onlyOwner returns (uint256 amount0, uint256 amount1) {
+    function collectFees() external onlyOwner nonReentrant returns (uint256 amount0, uint256 amount1) {
         if (positionTokenId == 0) revert NoPosition();
 
         INonfungiblePositionManager.CollectParams memory params = INonfungiblePositionManager.CollectParams({

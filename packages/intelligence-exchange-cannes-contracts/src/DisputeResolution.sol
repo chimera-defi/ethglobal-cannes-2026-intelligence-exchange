@@ -276,7 +276,7 @@ contract DisputeResolution {
     /// @dev Tallies votes and executes slashing/bond return logic.
     /// @param disputeId Dispute ID.
     /// @param reviewerAtFault True if reviewer is at fault (fraudulent accept), false if worker is at fault.
-    function resolveDispute(uint256 disputeId, bool reviewerAtFault) external nonReentrant {
+    function resolveDispute(uint256 disputeId, bool reviewerAtFault) external onlyOperator nonReentrant {
         Dispute storage dispute = disputes[disputeId];
         if (dispute.state != DisputeState.Pending) revert DisputeNotPending();
         if (block.timestamp <= dispute.votingDeadline) revert VotingWindowOpen();
