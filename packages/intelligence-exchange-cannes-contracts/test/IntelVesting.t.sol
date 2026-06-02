@@ -231,6 +231,28 @@ contract IntelVestingTest is Test {
         vesting.revoke();
     }
 
+    function test_revoke_exactly_at_blackout_boundary() public {
+        vm.warp(startTime + CLIFF_DELAY - 3600); // Exactly 1 hour before cliff (at blackout boundary)
+        vm.prank(treasury);
+        // Should succeed - exactly at boundary is outside blackout
+        vesting.revoke();
+        assertTrue(vesting.revoked());
+    }
+
+    function test_vested_one_second_after_cliff() public {
+        vm.warp(startTime + CLIFF_DELAY + 1); // 1 second after cliff
+        // Should vest a tiny amount (1 second of linear vesting)
+        uint256 vested = vesting.vestedAmount(block.timestamp);
+        assertGt(vested, 0, "Should vest small amount immediately after cliff");
+        assertLt(vested, TOTAL / 1000, "But should be very small (< 0.1%)");
+    }
+
+    function test_releasable_one_second_after_cliff() public {
+        vm.warp(startTime + CLIFF_DELAY + 1); // 1 second after cliff
+        uint256 releasableAmount = vesting.releasable();
+        assertGt(releasableAmount, 0, "Should be releasable immediately after cliff");
+    }
+
     function test_revoke_twice_reverts() public {
         vm.prank(treasury);
         vesting.revoke();
