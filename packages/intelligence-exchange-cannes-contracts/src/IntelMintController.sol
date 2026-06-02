@@ -76,6 +76,9 @@ contract IntelMintController {
     event EpochMintCapChanged(uint256 oldCap, uint256 newCap);
     event EpochCapUpdated(uint256 oldCap, uint256 newCap, uint256 settledVolume);
     event TwapDeviationCheckToggled(bool enabled);
+    event TargetSettledVolumeSet(uint256 volume);
+    event ActivityCapEnabledSet(bool enabled);
+    event MaxTwapDeviationSet(uint256 bps);
 
     // ─── Storage ──────────────────────────────────────────────────────────────
 
@@ -643,6 +646,7 @@ contract IntelMintController {
     function setTargetSettledVolume(uint256 _targetSettledVolume) external onlyOwner {
         if (_targetSettledVolume == 0) revert ZeroAmount();
         targetSettledVolumePerEpoch = _targetSettledVolume;
+        emit TargetSettledVolumeSet(_targetSettledVolume);
     }
 
     /// @notice Set the activity cap bounds (floor and ceiling as % of BASE_EPOCH_CAP).
@@ -664,6 +668,7 @@ contract IntelMintController {
     /// @param  _enabled True to enable, false to disable.
     function setActivityCapEnabled(bool _enabled) external onlyOwner {
         activityCapEnabled = _enabled;
+        emit ActivityCapEnabledSet(_enabled);
     }
 
     // ─── TWAP deviation circuit breaker admin ─────────────────────────────────
@@ -674,6 +679,7 @@ contract IntelMintController {
     function setMaxTwapDeviation(uint256 bps) external onlyOwner {
         if (bps > BPS) revert InvalidParam();
         maxTwapDeviationBps = bps;
+        emit MaxTwapDeviationSet(bps);
     }
 
     /// @notice Enable or disable TWAP deviation checking.

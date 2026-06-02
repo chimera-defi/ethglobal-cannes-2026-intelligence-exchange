@@ -44,6 +44,7 @@ contract TaskEscrow {
     event TreasuryUpdated(address indexed treasury);
     event OperatorSet(address indexed op, bool approved);
     event RefundWindowUpdated(uint256 window);
+    event AutoReleaseWindowUpdated(uint256 window);
     event WorkerAssigned(bytes32 indexed taskId, address indexed worker);
     event WorkerCleared(bytes32 indexed taskId, address indexed previousWorker);
     event OwnershipTransferStarted(address indexed previous, address indexed next);
@@ -329,6 +330,7 @@ contract TaskEscrow {
     function setTaskAutoReleaseWindow(uint256 _window) external onlyOwner {
         require(_window >= 7 days, "TaskEscrow: auto-release window must be at least 7 days");
         taskAutoReleaseWindow = _window;
+        emit AutoReleaseWindowUpdated(_window);
     }
 
     // ─── Ownable2Step ─────────────────────────────────────────────────────────

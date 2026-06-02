@@ -47,6 +47,7 @@ contract IntelStaking {
     event OperatorSet(address indexed operator, bool approved);
     event OwnershipTransferStarted(address indexed previous, address indexed next);
     event OwnershipTransferred(address indexed previous, address indexed next);
+    event AllowanceConsumed(address indexed wallet, uint256 amount, uint256 epoch);
     event ParamsUpdated(uint256 epochLength, uint256 cooldown, uint256 k, uint256 walletCap, uint256 globalEpochCap);
     event Paused(address indexed by);
     event Unpaused(address indexed by);
@@ -318,7 +319,7 @@ contract IntelStaking {
     /// @notice Deposit ETH yield into the pool. Called by IntelMintController (ETH mint path).
     ///         ETH is distributed pro-rata to current stakers via the accEthYieldPerShare model.
     /// @custom:access operator only
-    function depositEthYield() external payable onlyOperator {
+    function depositEthYield() external payable onlyOperator nonReentrant {
         if (msg.value == 0) revert ZeroAmount();
         _handleEthYieldDeposit(msg.value);
         emit EthYieldDeposited(msg.sender, msg.value, currentEpoch);
@@ -375,6 +376,7 @@ contract IntelStaking {
         } else {
             globalCapRemaining = 0;
         }
+        emit AllowanceConsumed(wallet, amount, currentEpoch);
     }
 
     // ─── View ─────────────────────────────────────────────────────────────────
