@@ -554,7 +554,10 @@ contract IntelStaking {
         }
         // Flush pending ETH yield pool into accEthYieldPerShare
         if (pendingEthYieldPool > 0 && totalStaked > 0) {
-            accEthYieldPerShare += (pendingEthYieldPool * PRECISION) / totalStaked;
+            uint256 ethIncrement = (pendingEthYieldPool * PRECISION) / totalStaked;
+            if (accEthYieldPerShare + ethIncrement <= type(uint128).max) {
+                accEthYieldPerShare += ethIncrement;
+            }
             pendingEthYieldPool = 0;
         }
 
@@ -585,7 +588,9 @@ contract IntelStaking {
     /// @dev Shared ETH yield deposit logic — updates accEthYieldPerShare or buffers to pool.
     function _handleEthYieldDeposit(uint256 amount) internal {
         if (totalStaked > 0) {
-            accEthYieldPerShare += (amount * PRECISION) / totalStaked;
+            uint256 increment = (amount * PRECISION) / totalStaked;
+            require(accEthYieldPerShare + increment <= type(uint128).max, 'IntelStaking: ETH accumulator overflow');
+            accEthYieldPerShare += increment;
         } else {
             pendingEthYieldPool += amount;
         }
