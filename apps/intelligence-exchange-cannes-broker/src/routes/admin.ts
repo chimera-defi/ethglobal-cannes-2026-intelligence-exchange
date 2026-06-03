@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'crypto';
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
@@ -41,7 +42,10 @@ function requireAdminAuth(c: { req: { header: (name: string) => string | undefin
     throw httpError('ADMIN_API_KEY not configured', 500, 'ADMIN_NOT_CONFIGURED');
   }
 
-  if (token !== expectedToken) {
+  const tokenBuf = Buffer.from(token);
+  const expectedBuf = Buffer.from(expectedToken);
+  const tokenInvalid = tokenBuf.length !== expectedBuf.length || !timingSafeEqual(tokenBuf, expectedBuf);
+  if (tokenInvalid) {
     // Rate limit on failed auth
     const now = Date.now();
     const attempts = (failedAttempts.get(ip) ?? []).filter(t => now - t < 60000);
