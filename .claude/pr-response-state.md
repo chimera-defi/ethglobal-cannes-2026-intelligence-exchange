@@ -1,5 +1,5 @@
 # PR Response State
-last_run: 2026-06-10T13:20
+last_run: 2026-06-03T19:15
 
 prs:
   - number: 52
@@ -30,13 +30,6 @@ prs:
     notes: >
       infra-hardening-regression CI fails: pnpm version mismatch (10.33.0 vs 11.0.8).
       mergeable_state: dirty. Nightly maintenance from 2026-05-30; stale.
-
-  - number: 56
-    repo: chimera-defi/ethglobal-cannes-2026-intelligence-exchange
-    last_activity: "2026-06-01T06:11:03Z"
-    attempt_count: 0
-    status: skipped
-    notes: All CI green. No CHANGES_REQUESTED. Awaiting human review/merge.
 
   - number: 57
     repo: chimera-defi/ethglobal-cannes-2026-intelligence-exchange
@@ -75,61 +68,3 @@ prs:
     attempt_count: 0
     status: skipped
     notes: All CI green. No CHANGES_REQUESTED. Awaiting human review/merge.
-
-  - number: 62
-    repo: chimera-defi/ethglobal-cannes-2026-intelligence-exchange
-    last_activity: "2026-06-04T04:04:30Z"
-    attempt_count: 0
-    status: skipped
-    notes: >
-      All CI green. 22 AMM tokenomics tests added. No CHANGES_REQUESTED.
-      Awaiting human review/merge.
-
-  - number: 63
-    repo: chimera-defi/ethglobal-cannes-2026-intelligence-exchange
-    last_activity: "2026-06-06T14:49:28Z"
-    attempt_count: 0
-    status: skipped
-    notes: >
-      docs(dream) consolidation PR. All CI passing. No CHANGES_REQUESTED.
-      Awaiting human merge.
-
-  - number: 64
-    repo: chimera-defi/ethglobal-cannes-2026-intelligence-exchange
-    last_activity: "2026-06-07T19:19:44Z"
-    attempt_count: 1
-    status: fixed
-    notes: >
-      attribution CI was FAILED. Fixed by prior run updating PR description.
-      Latest CI: attribution, commit-format, infra-hardening all success.
-      Awaiting human review/merge.
-
-  - number: 65
-    repo: chimera-defi/ethglobal-cannes-2026-intelligence-exchange
-    last_activity: "2026-06-08T17:11:54Z"
-    attempt_count: 0
-    status: skipped
-    notes: >
-      docs(dream): 2026-06-07 consolidation pass. 0 CI check runs.
-      mergeable_state: dirty (expected for dream branches). No CHANGES_REQUESTED.
-      Awaiting human review/merge.
-
-  - number: 66
-    repo: chimera-defi/ethglobal-cannes-2026-intelligence-exchange
-    last_activity: "2026-06-09T07:24:10Z"
-    attempt_count: 0
-    status: skipped
-    notes: >
-      chore(maintenance): 2026-06-09 - TS cleanup pass. All 3 CI checks green
-      (infra-hardening-regression, commit-format, attribution: all success).
-      No CHANGES_REQUESTED. Awaiting human review/merge.
-
-  - number: 67
-    repo: chimera-defi/ethglobal-cannes-2026-intelligence-exchange
-    last_activity: "2026-06-10T00:08:19Z"
-    attempt_count: 0
-    status: skipped
-    notes: >
-      chore(maintenance): 2026-06-10 - security pass. All 3 CI checks green
-      (infra-hardening-regression, commit-format, attribution: all success).
-      No CHANGES_REQUESTED. Awaiting human review/merge.
