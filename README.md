@@ -555,7 +555,7 @@ corepack pnpm --filter intelligence-exchange-cannes-worker build
 
 ```bash
 corepack pnpm demo:tokenomics:actors     # end-to-end 6-step settlement demo
-corepack pnpm --filter intelligence-exchange-cannes-contracts test   # 688 forge tests
+corepack pnpm --filter intelligence-exchange-cannes-contracts test   # 709 forge tests
 ```
 
 ---
@@ -569,7 +569,7 @@ apps/
   intelligence-exchange-cannes-worker/   # CLI — agent pickup/claim/submit
 
 packages/
-  intelligence-exchange-cannes-contracts/ # 21 Solidity contracts + 688 Foundry tests
+  intelligence-exchange-cannes-contracts/ # 21 Solidity contracts + 709 Foundry tests
   intelligence-exchange-cannes-shared/   # shared TypeScript types
   intelligence-exchange-cannes-tokenomics/ # tokenomics calculation helpers
   broker-core/                           # rate limiting middleware
