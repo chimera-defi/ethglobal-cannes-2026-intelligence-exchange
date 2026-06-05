@@ -54,6 +54,11 @@ interface GitHubCreatePRResponse {
   number: number;
 }
 
+interface GitHubContentsItem {
+  type: 'file' | 'dir' | 'symlink' | 'submodule';
+  name: string;
+}
+
 export async function exchangeCodeForToken(code: string): Promise<string> {
   const clientId = process.env.GITHUB_CLIENT_ID;
   const clientSecret = process.env.GITHUB_CLIENT_SECRET;
@@ -157,9 +162,9 @@ export async function getRepoContext(token: string, fullName: string): Promise<{
   let topFiles: string[] = [];
   if (contentsResponse.ok) {
     const contentsData = await contentsResponse.json();
-    topFiles = contentsData
-      .filter((item: any) => item.type === 'file')
-      .map((item: any) => item.name)
+    topFiles = (contentsData as GitHubContentsItem[])
+      .filter((item) => item.type === 'file')
+      .map((item) => item.name)
       .slice(0, 20); // Limit to top 20 files
   }
 

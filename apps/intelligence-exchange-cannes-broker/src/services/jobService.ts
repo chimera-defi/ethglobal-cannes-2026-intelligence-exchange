@@ -493,12 +493,9 @@ async function updateAgentReputation(fingerprint: string, score: number) {
   const nextAvgScore = nextAcceptedCount > 0 ? cumulativeScore / nextAcceptedCount : score;
 
   // NOTE: Quality streak tracking requires schema migration to add consecutiveAccepts column
-  // const prevConsecutive = (identity as any).consecutiveAccepts ?? 0;
-  // const newConsecutive = prevConsecutive + 1;
   await db.update(agentIdentities).set({
     acceptedCount: nextAcceptedCount,
     avgScore: nextAvgScore.toFixed(2),
-    // consecutiveAccepts: newConsecutive,
   }).where(eq(agentIdentities.fingerprint, fingerprint));
 }
 
