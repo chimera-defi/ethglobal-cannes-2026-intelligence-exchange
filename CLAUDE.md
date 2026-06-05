@@ -121,3 +121,10 @@ Config: `.devin-delegate.json`
 Task classes: `research`, `implement`, `debug`, `review`, `browser`
 Fallback chain: Devin → Codex → Kimi → Claude
 <!-- devin-delegate:end -->
+
+## Meta Learnings
+
+- `.claude/` is listed in `.gitignore` but operational state files are tracked anyway via `git add -f` — consistent with existing `.claude/pr-response-state.md` already committed in the repo.
+- `intel/amm.ts` (constant-product AMM) is a core financial primitive with no external deps — good candidate for unit tests; `bun test` runs without network/DB.
+- Broker acceptance tests (`src/__tests__/acceptance/`) require a live PostgreSQL connection — always fail in sandbox CI; skip until infra is available.
+- Worker `bun test` fails with "Cannot find package 'viem'" when run from the package directory directly — run from workspace root with `pnpm test` instead.
