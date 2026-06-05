@@ -253,16 +253,6 @@ export async function settleAcceptedJobCredits(input: {
   let split = splitSettlementIntel(grossIntel, { protocolFeeBps: config.protocolFeeBps, stakerYieldBps: 900 });
 
   // NOTE: Quality streak tracking requires schema migration to add consecutiveAccepts column
-  // Quality streak bonus: workers with 5+ consecutive accepts get 10% bonus
-  // const [workerIdentity] = await db.select().from(agentIdentities)
-  //   .where(eq(agentIdentities.accountAddress, input.workerId));
-  // const consecutiveAccepts = (workerIdentity as any)?.consecutiveAccepts ?? 0;
-  // const streakMultiplier = consecutiveAccepts >= 5 ? 1.10 : 1.00;
-  // if (streakMultiplier > 1.00) {
-  //   const bonusAmount = split.workerPayoutIntel * (streakMultiplier - 1);
-  //   split.workerPayoutIntel = round(split.workerPayoutIntel * streakMultiplier, 8);
-  //   split.protocolFeeIntel = round(Math.max(0, split.protocolFeeIntel - bonusAmount), 8);
-  // }
 
   // Poster rebate: high-acceptance-rate posters pay lower fees (worker gets 83% instead of 81%)
   const posterStats = await db.execute(sql`
