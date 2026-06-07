@@ -1,5 +1,5 @@
 # PR Response State
-last_run: 2026-06-07T19:45
+last_run: 2026-06-07T21:15
 
 prs:
   - number: 52
@@ -82,8 +82,8 @@ prs:
     attempt_count: 0
     status: skipped
     notes: >
-      New PR 2026-06-04. All CI green (commit-format + infra-hardening-regression
-      both pass). mergeable_state: clean. 22 AMM tokenomics tests added.
+      All CI green (commit-format + infra-hardening-regression both pass).
+      mergeable_state: clean. 22 AMM tokenomics tests added.
       No CHANGES_REQUESTED. Awaiting human review/merge.
 
   - number: 63
@@ -101,7 +101,7 @@ prs:
     attempt_count: 1
     status: fixed
     notes: >
-      attribution CI FAILED (PR body missing **Agent:** and **Co-authored-by:** fields).
-      Fixed by updating PR description via MCP tool in prior run. Latest CI run
-      (job 79985015721) shows attribution: success, commit-format: success,
-      infra-hardening-regression: success. All green. Awaiting human review/merge.
+      attribution CI was FAILED (PR body missing **Agent:** and **Co-authored-by:**
+      fields). Fixed by prior run updating PR description via MCP tool. Latest CI
+      run shows attribution: success, commit-format: success, infra-hardening:
+      success. All green. Awaiting human review/merge.
