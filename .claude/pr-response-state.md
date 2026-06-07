@@ -1,5 +1,5 @@
 # PR Response State
-last_run: 2026-06-07T17:15
+last_run: 2026-06-07T19:20
 
 prs:
   - number: 52
@@ -94,3 +94,14 @@ prs:
     notes: >
       docs(dream) consolidation PR. All CI passing (commit-format +
       infra-hardening-regression: success). No CHANGES_REQUESTED. Awaiting human merge.
+
+  - number: 64
+    repo: chimera-defi/ethglobal-cannes-2026-intelligence-exchange
+    last_activity: "2026-06-07T19:17:19Z"
+    attempt_count: 1
+    status: fixed
+    notes: >
+      attribution CI FAILED (PR body missing **Agent:** and **Co-authored-by:** fields).
+      Fixed by updating PR description via MCP tool. CI re-triggered and now green
+      (attribution: success, commit-format: success, infra-hardening-regression: success).
+      Awaiting human review/merge.
