@@ -25,6 +25,7 @@
     "validate:all": "pnpm tooling:install && pnpm typecheck && pnpm build && pnpm test && pnpm test:acceptance && pnpm test:infra-security:ci"
   },
   "devDependencies": {
+
     "playwright": "^1.61.0"
   },
   "pnpm": {
