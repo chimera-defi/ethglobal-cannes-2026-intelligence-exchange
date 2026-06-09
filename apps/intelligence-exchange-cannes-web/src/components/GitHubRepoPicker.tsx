@@ -19,7 +19,7 @@ const GITHUB_REPOS_URL = '/v1/cannes/github/repos';
 
 export function GitHubRepoPicker({ onRepoSelected }: GitHubRepoPickerProps) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [token, setToken] = useState<string | null>(null);
+  const [, setToken] = useState<string | null>(null);
   const [repos, setRepos] = useState<Repo[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');

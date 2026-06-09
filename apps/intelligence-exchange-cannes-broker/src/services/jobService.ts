@@ -1,6 +1,6 @@
 import { eq, and, sql } from 'drizzle-orm';
 import { db } from '../db/client';
-import { jobs, claims, submissions, ideas, briefs, milestones, agentSpendEvents, agentIdentities, ideaTokenReserves } from '../db/schema';
+import { jobs, claims, submissions, ideas, briefs, milestones, agentSpendEvents, agentIdentities } from '../db/schema';
 import { scoreSubmission } from '../scoring/scorer';
 import {
   MILESTONE_ORDER,

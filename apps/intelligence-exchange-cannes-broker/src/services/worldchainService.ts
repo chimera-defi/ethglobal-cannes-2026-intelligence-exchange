@@ -1,5 +1,4 @@
 import { createPublicClient, createWalletClient, http, keccak256, parseAbi, toBytes } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
 import { getBrokerAttestorAccount, normalizeAccountAddress } from './identityService';
 import { httpError } from './errors';
 import { getWorldChainConfig } from './sponsorConfig';
