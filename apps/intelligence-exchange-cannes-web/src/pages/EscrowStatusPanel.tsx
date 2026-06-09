@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -20,7 +19,6 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { getIdea, getIdeaTokenReserve, getArcIdeaBalance, getArcStatus } from '../api';
-import { useSession } from '../hooks/useSession';
 
 function shortHex(value?: string | null, head = 8, tail = 6) {
   if (!value) return 'Not available';
@@ -31,10 +29,7 @@ function shortHex(value?: string | null, head = 8, tail = 6) {
 export function EscrowStatusPanel() {
   const { ideaId } = useParams<{ ideaId: string }>();
   const navigate = useNavigate();
-  const { session } = useSession();
-  const hasSession = !!session;
-
-  const [showArc, setShowArc] = useState(true);
+  const showArc = true;
 
   const { data: idea, isLoading: ideaLoading } = useQuery({
     queryKey: ['idea', ideaId],
