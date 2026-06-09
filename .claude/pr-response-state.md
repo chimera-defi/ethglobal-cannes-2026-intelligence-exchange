@@ -1,5 +1,5 @@
 # PR Response State
-last_run: 2026-06-09T08:15
+last_run: 2026-06-09T11:15
 
 prs:
   - number: 52
@@ -83,7 +83,7 @@ prs:
     status: skipped
     notes: >
       All CI green (commit-format + infra-hardening-regression both pass).
-      mergeable_state: clean. 22 AMM tokenomics tests added.
+      Clean mergeable_state. 22 AMM tokenomics tests added.
       No CHANGES_REQUESTED. Awaiting human review/merge.
 
   - number: 63
@@ -104,8 +104,7 @@ prs:
       attribution CI was FAILED (PR body missing **Agent:** and **Co-authored-by:**
       fields). Fixed by prior run updating PR description via MCP tool. Latest CI
       run shows attribution: success, commit-format: success, infra-hardening:
-      success. All green. updatedAt unchanged from last run — no new activity.
-      Awaiting human review/merge.
+      success. All green. No new activity. Awaiting human review/merge.
 
   - number: 65
     repo: chimera-defi/ethglobal-cannes-2026-intelligence-exchange
