@@ -1,49 +1,46 @@
-# Dream Log - 2026-06-06
+# Dream Log - 2026-06-07
 
 ## Summary
-- Repos processed: 13/13 (12 pushed, 1 push-failed: SharedStake-ui — token lacks write to SharedStake org)
-- Total lines removed: ~1,706 lines across 5 repos
-- Total files deleted: 0 (no zero-byte tracked files; empty untracked dirs left as-is)
-- PRs opened: via MCP (see below)
+- Repos processed: 13/13
+- Total lines removed: ~631 (Etc-mono-repo 505 + SharedStake-ui 125 + eth2-quickstart prior pass 688)
+- Total files deleted: 1 (kimi-delegate-skill/scripts/tests/__init__.py — zero-byte)
+- STATUS.md written for all 13 repos
 
 ## Per-Repo Results
 
-| repo | status | lines_before | lines_after | notes |
+| Repo | Status | Lines Before | Lines After | Notes |
 |------|--------|-------------|-------------|-------|
-| ethglobal-cannes-2026-intelligence-exchange | pushed | 0 artifacts | 0 | STATUS.md added |
-| SharedStake-ui | commit-only (push 403) | 163 | 33 | -130 lines; push needs SharedStake org token |
-| devin-delegate | pushed | 0 artifacts | 0 | STATUS.md added |
-| Etc-mono-repo | pushed | 412 (aztec) | 31 | -381 lines; InfraKit HANDOFF_PROMPT.md kept (unimplemented) |
-| walletradar | pushed | 321 | 23 | -298 lines; appeal pending |
-| routine-gen-skill | pushed | 0 | 0 | light pass |
-| kimi-delegate-skill | pushed | 0 | 0 | light pass |
-| token-reduce-skill | pushed | 0 | 0 | light pass |
-| chimericlabs-llc | pushed | 0 | 0 | light pass |
-| SharedDeposit | pushed | 0 | 0 | light pass; blocked on hardhat typechain |
-| specforge | pushed | 0 | 0 | light pass; specforge-handoff.md is skill def, kept |
-| eth2-quickstart | pushed | 800 | 101 | -699 lines; all features verified |
-| openclaw-autoresearch | pushed | 0 | 0 | light pass |
-
-**Total lines removed: ~1,508 (tracked files only)**
+| ethglobal-cannes | DONE | 0 artifacts | 0 | STATUS.md written |
+| SharedStake-ui | DONE (push 403) | 163 | 38 | -125 lines; committed locally only |
+| devin-delegate | DONE | 0 artifacts | 0 | STATUS.md written |
+| Etc-mono-repo | DONE | 602 | 97 | aztec HANDOFF (205→29), archive (207→20), bench (190→48) |
+| walletradar | DONE | 0 artifacts | 0 | STATUS.md written |
+| routine-gen-skill | DONE | 0 artifacts | 0 | .claude/ created + STATUS.md |
+| kimi-delegate-skill | DONE | 0 (zero-byte) | 0 | Deleted __init__.py |
+| token-reduce-skill | DONE | 0 to compress | 0 | refs kept as operational prompts |
+| chimericlabs-llc | DONE | 0 artifacts | 0 | STATUS.md written |
+| SharedDeposit | DONE | 0 artifacts | 0 | STATUS.md written |
+| specforge | DONE | 0 to compress | 0 | Skill handoff kept |
+| eth2-quickstart | DONE | 101 (prior pass: 800→101) | 101 | STATUS.md refreshed |
+| openclaw-autoresearch | DONE | 0 artifacts | 0 | STATUS.md written |
 
 ## Unverified Claims (all repos)
-- walletradar: VirusTotal re-scan result pending (human must check)
-- walletradar: Porkbun appeal not yet submitted (human must send)
-- Etc-mono-repo: InfraKit implementation — research/spec only, not built
+
+- Etc-mono-repo: InfraKit implementation status — HANDOFF_PROMPT.md describes planned work; check staking/monad/infra/scripts/ integration
+- SharedDeposit: Test coverage blocked (Typechain not generated, no full Hardhat env) — claims untestable without env
 
 ## Undocumented Features (Tier 1)
-- ethglobal-cannes: broker idempotency + demo mode hardening (commit 857fe65) not in README
-- ethglobal-cannes: AMM constant-product fuzz tests not in README
-- SharedStake-ui: referral-service bun.lock + Bun migration not in top-level README
-- SharedStake-ui: ReferralRegistry fee-token guardrails not in security overview
+
+- ethglobal-cannes: `fix(security): use timingSafeEqual for admin token comparison` (#61) — not in README Security section
+- ethglobal-cannes: `feat: improve broker crash resistance and error handling` (#59) — not in README
+- devin-delegate: `feat(telemetry): add provider warnings, log rotation, filtering, and alerting` — not in SKILL.md
+- devin-delegate: `feat(token-optimization): reduce token usage with multi-heuristic estimation and context compression` — not in SKILL.md
 
 ## Repos Needing Human Attention
-1. **SharedStake-ui**: Push blocked (403). Work committed locally at `dream/2026-06-06`. Needs SharedStake org write token to push.
-2. **walletradar**: Two human tasks pending — VirusTotal re-scan and Porkbun appeal.
-3. **SharedDeposit**: Test coverage blocked until `npx hardhat typechain` can run (needs full Ethereum env).
 
-## Secret Scan
-- `walletradar/scripts/README.md:207` contains `ghp_xxxxxxxxxxxxxxxxxxxx` — confirmed placeholder, not a real token. No action needed.
+- SharedStake-ui: push returned 403 (SharedStake/SharedStake-ui not in proxy auth scope) — PR created via MCP from local commit
+- SharedDeposit: test coverage entirely blocked until Typechain/Hardhat env available
 
-## Opus Advice
-- N/A: claude CLI not in PATH in this CCR sandbox session.
+## Notes
+- gh CLI not installed in CCR sandbox; GitHub ops via MCP tools
+- SharedStake-ui repo uses different org case (SharedStake vs chimera-defi) — proxy rejects pushes

@@ -35,7 +35,7 @@ treasury    = remainder (avoids dust accumulation)
 
 ## 50/45/5 Mint Routing — ✅ PASS
 
-**IntelMintController.sol lines 101-103:** Constants `POL_BPS=5000`, `STALER_BPS=4500`, `TREASURY_BPS=500`.
+**IntelMintController.sol lines 101-103:** Constants `POL_BPS=5000`, `STAKER_BPS=4500`, `TREASURY_BPS=500`.
 
 **Lines 668-674 (ETH path) and 337-344 (ERC20 path):** Both apply the same split. Treasury receives remainder to avoid dust.
 
@@ -43,13 +43,13 @@ treasury    = remainder (avoids dust accumulation)
 
 ## Security Notes
 
-|| Item | Status |
-||------|--------|
-|| Admin functions (onlyOwner / onlyOperator) | ✅ Protected |
-|| Split constants in IntelMintController | ✅ Immutable |
-|| TaskEscrow splits mutable by owner | ⚠️ Governance risk — requires strong key management |
-|| BPS math overflow | ✅ No risk at current precision |
-|| Rounding dust accumulation | ✅ Handled via remainder-to-treasury pattern |
+| Item | Status |
+|------|--------|
+| Admin functions (onlyOwner / onlyOperator) | ✅ Protected |
+| Split constants in IntelMintController | ✅ Immutable |
+| TaskEscrow splits mutable by owner | ⚠️ Governance risk — requires strong key management |
+| BPS math overflow | ✅ No risk at current precision |
+| Rounding dust accumulation | ✅ Handled via remainder-to-treasury pattern |
 
 ---
 

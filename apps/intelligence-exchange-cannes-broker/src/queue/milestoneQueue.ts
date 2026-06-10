@@ -3,16 +3,6 @@ import { STALLED_JOB_INTERVAL_MS } from 'intelligence-exchange-cannes-shared';
 import type { BrokerDb } from '../db/client';
 import { logJobEvent } from '../services/jobEvents';
 
-/*
- * PRODUCTION SECURITY: Redis must be hardened before exposing the stack publicly.
- *
- *   1. requirepass: Add `requirepass <strong-random-password>` to redis.conf and
- *      update REDIS_URL to redis://:<password>@127.0.0.1:6379
- *   2. bind: Ensure redis.conf has `bind 127.0.0.1` so Redis is NOT reachable
- *      from external interfaces.
- *   3. No pub/sub channels expose sensitive data — the milestone-jobs queue
- *      carries only job IDs and milestone types (no PII, no keys).
- */
 const REDIS_URL = process.env.REDIS_URL
   ?? `redis://:${process.env.REDIS_PASSWORD ?? 'iex_redis_local_dev_only_change_me'}@localhost:6379`;
 

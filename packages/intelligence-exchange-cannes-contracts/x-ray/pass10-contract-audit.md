@@ -14,15 +14,15 @@ Pass 9 H1 (unbounded distributeEpochRewards loop) is fixed. H2 (unbounded submit
 
 ## Pass 9 Finding Status
 
-|| Finding | Description | Status |
-||---------|-------------|--------|
-|| H1 | EpochRewardDistributor distributeEpochRewards unbounded loop | ✅ FIXED (topCount now bounded) |
-|| H2 | EpochRewardDistributor submitEpochScores unbounded workers array | ❌ STILL OPEN (line 140, no max cap) |
-|| M1 | DisputeResolution missing SafeERC20 | ❌ STILL OPEN |
-|| M2 | EpochRewardDistributor missing SafeERC20 | ❌ STILL OPEN (lines 186, 231, 241) |
-|| M3 | WorkerStakeManager missing SafeERC20 | ❌ STILL OPEN |
-|| M4 | ReviewerStakeManager missing SafeERC20 | ❌ STILL OPEN |
-|| M5 | BuybackBurn missing SafeERC20 | ❌ STILL OPEN |
+| Finding | Description | Status |
+|---------|-------------|--------|
+| H1 | EpochRewardDistributor distributeEpochRewards unbounded loop | ✅ FIXED (topCount now bounded) |
+| H2 | EpochRewardDistributor submitEpochScores unbounded workers array | ❌ STILL OPEN (line 140, no max cap) |
+| M1 | DisputeResolution missing SafeERC20 | ❌ STILL OPEN |
+| M2 | EpochRewardDistributor missing SafeERC20 | ❌ STILL OPEN (lines 186, 231, 241) |
+| M3 | WorkerStakeManager missing SafeERC20 | ❌ STILL OPEN |
+| M4 | ReviewerStakeManager missing SafeERC20 | ❌ STILL OPEN |
+| M5 | BuybackBurn missing SafeERC20 | ❌ STILL OPEN |
 
 ---
 
@@ -85,14 +85,14 @@ No new HIGH or MEDIUM findings. Contract is minimal and correctly implements sou
 
 ## Priority Order for Fixes
 
-|| Priority | Finding | Action |
-||----------|---------|--------|
-|| 1 | H4 (IntelStaking setParams cap reset) | Gate param changes to epoch boundaries |
-|| 2 | H3 (IntelStaking overflow) | Replace with mulDiv / FullMath |
-|| 3 | H2 (EpochRewardDistributor workers array) | Add `require(workers.length <= MAX_WORKERS)` |
-|| 4 | M1-M6 (SafeERC20 missing) | Batch replace manual transfers with SafeERC20 |
-|| 5 | M7 (depositYield reentrancy) | Add nonReentrant |
-|| 6 | M8-M9 (ReviewerQueue gas) | Cap loop, add O(1) removal map |
+| Priority | Finding | Action |
+|----------|---------|--------|
+| 1 | H4 (IntelStaking setParams cap reset) | Gate param changes to epoch boundaries |
+| 2 | H3 (IntelStaking overflow) | Replace with mulDiv / FullMath |
+| 3 | H2 (EpochRewardDistributor workers array) | Add `require(workers.length <= MAX_WORKERS)` |
+| 4 | M1-M6 (SafeERC20 missing) | Batch replace manual transfers with SafeERC20 |
+| 5 | M7 (depositYield reentrancy) | Add nonReentrant |
+| 6 | M8-M9 (ReviewerQueue gas) | Cap loop, add O(1) removal map |
 
 ---
 

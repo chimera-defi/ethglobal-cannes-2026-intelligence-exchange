@@ -5,28 +5,7 @@ set -e
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 cd "$REPO_ROOT"
 
-# Check for --build flag
-BUILD_FLAG=""
-if [ "$1" = "--build" ]; then
-    BUILD_FLAG="--build"
-fi
-
 echo "Starting production services..."
-
-# Build the web app if dist/ is older than src/ or --build flag passed
-WEB_APP_DIR="apps/intelligence-exchange-cannes-web"
-if [ -d "$WEB_APP_DIR" ]; then
-    echo "检查 web 应用构建状态..."
-    if [ "$BUILD_FLAG" = "--build" ] || [ "$WEB_APP_DIR/dist" -ot "$WEB_APP_DIR/src" ] || [ ! -d "$WEB_APP_DIR/dist" ]; then
-        echo "构建 web 应用..."
-        cd "$WEB_APP_DIR"
-        bun run build
-        cd "$REPO_ROOT"
-        echo "Web 应用构建完成"
-    else
-        echo "Web 应用已是最新构建，跳过"
-    fi
-fi
 
 # Start the broker
 echo "Starting broker on port 3100..."
