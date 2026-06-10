@@ -1,5 +1,5 @@
 # PR Response State
-last_run: 2026-06-10T10:15
+last_run: 2026-06-10T18:15
 
 prs:
   - number: 52
@@ -133,18 +133,3 @@ prs:
       chore(maintenance): 2026-06-10 - security pass. All 3 CI checks green
       (infra-hardening-regression, commit-format, attribution: all success).
       No CHANGES_REQUESTED. Awaiting human review/merge.
-
-  - number: 380
-    repo: SharedStake/SharedStake-ui
-    last_activity: "2026-06-10T10:12:59Z"
-    attempt_count: 1
-    status: blocked
-    notes: >
-      CI_FAILURE: test job failing — duplicate function declarations in
-      src/stores/modularStaking.js. Both parseAddressOverrides and
-      getLocalAddressOverrides are defined twice; second copy starts at line 108.
-      Fix: delete the second parseAddressOverrides + getLocalAddressOverrides
-      block (~lines 108-127). Could not push fix or post comment: GitHub
-      integration returns 403 for SharedStake/SharedStake-ui (no write access).
-      Needs human to apply the one-line fix manually on branch
-      codex/old-veth2-withdrawals-20260603.
