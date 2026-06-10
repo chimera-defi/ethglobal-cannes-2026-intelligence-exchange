@@ -1,6 +1,6 @@
 import { eq, and, sql } from 'drizzle-orm';
 import { db } from '../db/client';
-import { jobs, claims, submissions, ideas, briefs, milestones, agentSpendEvents, agentIdentities, ideaTokenReserves } from '../db/schema';
+import { jobs, claims, submissions, ideas, briefs, milestones, agentSpendEvents, agentIdentities } from '../db/schema';
 import { scoreSubmission } from '../scoring/scorer';
 import {
   MILESTONE_ORDER,
@@ -405,25 +405,13 @@ export async function acceptJob(jobId: string, reviewerId: string) {
   }).catch((err) => console.error('[job:accept] Failed to record accepted submission on-chain:', err));
 
   // Update agent reputation inline — increment acceptedCount + recalculate avgScore.
+  // This replaces the manual chain/sync webhook dependency for off-chain reputation tracking.
   updateAgentReputation(sub.agentFingerprint, score)
     .catch((err) => console.error('[job:accept] Failed to update agent reputation:', err));
 
   // Snapshot the AIU index after every acceptance to build the time series.
   saveAIUSnapshot()
     .catch((err) => console.error('[job:accept] Failed to save AIU snapshot:', err));
-
-  // Fire-and-forget on-chain economic security layer calls
-  const budgetUsd = Number.parseFloat(job.budgetUsd);
-  const taskValueIntel = BigInt(Math.floor(budgetUsd * 1e18)); // approximate: 1 INTEL = $1
-  const workerAddress = job.activeClaimWorkerId ?? sub.workerId;
-  const category = 0; // General category — mapping to be added later
-
-  recordReviewerReview(reviewerId, taskValueIntel)
-    .catch((err) => console.error(`[job:accept] Failed to record reviewer review:`, err));
-  recordCategoryCompletion(workerAddress, category, score ?? 1)
-    .catch((err) => console.error(`[job:accept] Failed to record category completion:`, err));
-  evaluateReviewerTier(reviewerId, 0)
-    .catch((err) => console.error(`[job:accept] Failed to evaluate reviewer tier:`, err));
 
   return { accepted: true, attestation, settlement };
 }
@@ -472,9 +460,6 @@ export async function rejectJob(jobId: string, reviewerId: string, reason?: stri
     return null;
   });
 
-  // Fire-and-forget on-chain escrow refund (if contract is deployed)
-  refundTaskEscrow(jobId).catch(err => console.error('[job:reject] escrow refund failed:', err));
-
   console.log(`[job:rejected→rework] jobId=${jobId} reason=${reason} refunded=${refund?.refundedIntel ?? 0}`);
   return { rework: true, refund };
 }
@@ -484,6 +469,7 @@ async function updateAgentReputation(fingerprint: string, score: number) {
     .where(eq(agentIdentities.fingerprint, fingerprint));
 
   if (!identity) {
+    // Agent identity not registered yet — skip silently (on-chain registry is the source of truth)
     console.warn(`[job:accept] agentIdentity not found for fingerprint=${fingerprint}, skipping reputation update`);
     return;
   }

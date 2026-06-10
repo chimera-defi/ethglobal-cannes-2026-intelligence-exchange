@@ -1,5 +1,5 @@
 # PR Response State
-last_run: 2026-06-10T13:20
+last_run: 2026-06-06T00:26
 
 prs:
   - number: 52
@@ -82,54 +82,8 @@ prs:
     attempt_count: 0
     status: skipped
     notes: >
-      All CI green. 22 AMM tokenomics tests added. No CHANGES_REQUESTED.
-      Awaiting human review/merge.
-
-  - number: 63
-    repo: chimera-defi/ethglobal-cannes-2026-intelligence-exchange
-    last_activity: "2026-06-06T14:49:28Z"
-    attempt_count: 0
-    status: skipped
-    notes: >
-      docs(dream) consolidation PR. All CI passing. No CHANGES_REQUESTED.
-      Awaiting human merge.
-
-  - number: 64
-    repo: chimera-defi/ethglobal-cannes-2026-intelligence-exchange
-    last_activity: "2026-06-07T19:19:44Z"
-    attempt_count: 1
-    status: fixed
-    notes: >
-      attribution CI was FAILED. Fixed by prior run updating PR description.
-      Latest CI: attribution, commit-format, infra-hardening all success.
-      Awaiting human review/merge.
-
-  - number: 65
-    repo: chimera-defi/ethglobal-cannes-2026-intelligence-exchange
-    last_activity: "2026-06-08T17:11:54Z"
-    attempt_count: 0
-    status: skipped
-    notes: >
-      docs(dream): 2026-06-07 consolidation pass. 0 CI check runs.
-      mergeable_state: dirty (expected for dream branches). No CHANGES_REQUESTED.
-      Awaiting human review/merge.
-
-  - number: 66
-    repo: chimera-defi/ethglobal-cannes-2026-intelligence-exchange
-    last_activity: "2026-06-09T07:24:10Z"
-    attempt_count: 0
-    status: skipped
-    notes: >
-      chore(maintenance): 2026-06-09 - TS cleanup pass. All 3 CI checks green
-      (infra-hardening-regression, commit-format, attribution: all success).
+      New PR 2026-06-04. All CI green (commit-format + infra-hardening-regression
+      both pass). mergeable_state: clean. 22 AMM tokenomics tests added.
       No CHANGES_REQUESTED. Awaiting human review/merge.
-
-  - number: 67
-    repo: chimera-defi/ethglobal-cannes-2026-intelligence-exchange
-    last_activity: "2026-06-10T00:08:19Z"
-    attempt_count: 0
-    status: skipped
-    notes: >
-      chore(maintenance): 2026-06-10 - security pass. All 3 CI checks green
-      (infra-hardening-regression, commit-format, attribution: all success).
-      No CHANGES_REQUESTED. Awaiting human review/merge.
+      NOTE: As of 2026-06-06 run, list_pull_requests returned empty —
+      all PRs in this repo appear to have been merged or closed.

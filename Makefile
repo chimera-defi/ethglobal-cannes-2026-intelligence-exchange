@@ -18,7 +18,7 @@ BROKER_URL ?= http://localhost:$(BROKER_PORT)
 VITE_DEV_PROXY_TARGET ?= $(BROKER_URL)
 COMPOSE ?= ./scripts/tooling/docker-compose.sh
 
-.PHONY: help install setup dev dev-broker dev-web seed stop clean test test-infra-security validate tunnel fork-mainnet deploy-intel-liquidity fork-mainnet-smoke tokenomics-demo demo-fork
+.PHONY: help install setup dev dev-broker dev-web seed stop clean test test-infra-security validate tunnel
 
 # Default command
 help:

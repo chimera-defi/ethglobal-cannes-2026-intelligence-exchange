@@ -140,7 +140,9 @@ sudo caddy start --config infra/caddy/Caddyfile
 
 Access the app at **http://localhost:3100** (or the port printed at startup).
 
-### Worker CLI
+### Cloudflare Tunnel (Public HTTPS URL)
+
+After `make dev` is running, open a second terminal and run:
 
 ```bash
 make tunnel

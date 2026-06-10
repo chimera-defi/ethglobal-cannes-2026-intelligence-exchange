@@ -1,21 +1,24 @@
-# Intelligence Exchange Status - 2026-06-06
+# ethglobal-cannes-2026-intelligence-exchange Status - 2026-06-07
+
 ## Last Dream Pass
-- Files deleted: 0 (gitkeep preserved)
-- Files compressed: 0 (no LLM artifacts in standard pattern locations)
-- Lines removed: 0
+- Files deleted: 0, lines removed: 0
+- Files compressed: 0, lines removed: 0
+- Zero-byte gitkeeps: 1 (intentional — packages/intelligence-exchange-cannes-contracts/deployments/.gitkeep)
+
 ## Verified Features
-- timingSafeEqual admin token comparison: VERIFIED (admin.ts, arc.ts, worldId.ts)
-- AMM fuzz tests (22 tests for intel/amm.ts): VERIFIED (tokenomics/test/amm.test.ts)
-- Broker crash resistance improvements: VERIFIED (multiple service files)
-- pass-20 access control / reentrancy parity in contracts: VERIFIED (git history)
-## Undocumented Features (Tier 1)
-- pass-17a/17b/17c/18a/18c/20 security fix series not individually documented in README (acceptable — covered under "Security" section)
-- Broker idempotency + demo mode hardening (commit 857fe65) not in README
-- AMM constant-product fuzz tests not mentioned in README (noted in CLAUDE.md meta learnings)
-## Maintenance State Notes
-- Last maintenance run: 2026-06-04 (test-coverage)
-- broker bun test fails with ECONNREFUSED 5432 — skip in sandbox
-- worker "Cannot find package viem" — run from workspace root
+- timingSafeEqual admin token comparison (fix #61 — security/admin-auth.ts confirmed)
+- AMM test coverage 22 tests (test(tokenomics) commit — ed3b3e8)
+- Broker crash resistance improvement (feat commit c16bb2e)
+- Contract pass-20 access control, reentrancy, ETH overflow guard (69a00dd, a1fc5f6)
+
+## Unverified Claims (needs investigation)
+- None flagged
+
+## Undocumented Features
+- `fix(security): use timingSafeEqual for admin token comparison` (#61) — not reflected in README.md Security section
+- `feat: improve broker crash resistance and error handling` (#59) — not reflected in README.md
+
 ## Open Items
-- Document broker idempotency and AMM coverage in README under "What Is Built"
-- Broker acceptance tests require PostgreSQL — skip in CI
+- Broker acceptance tests remain DB-dependent (PostgreSQL required) — skip in sandbox CI
+- Worker `pnpm test` must be run from workspace root, not package dir
+- PR #62 (AMM test coverage) — verify merged/open status
