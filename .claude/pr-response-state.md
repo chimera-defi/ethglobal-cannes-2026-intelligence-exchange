@@ -1,5 +1,5 @@
 # PR Response State
-last_run: 2026-06-06T00:26
+last_run: 2026-06-10T15:16
 
 prs:
   - number: 52
@@ -87,3 +87,37 @@ prs:
       No CHANGES_REQUESTED. Awaiting human review/merge.
       NOTE: As of 2026-06-06 run, list_pull_requests returned empty —
       all PRs in this repo appear to have been merged or closed.
+
+  - number: 64
+    repo: chimera-defi/ethglobal-cannes-2026-intelligence-exchange
+    last_activity: "2026-06-07T19:19:44Z"
+    attempt_count: 0
+    status: skipped
+    notes: >
+      chore(skills): migrate token-reduce vendored plugin to symlink.
+      CI green (latest runs): attribution success (re-run 19:19), commit-format
+      success, infra-hardening-regression success. Earlier attribution run
+      failed at 19:17 but was superseded by a re-run at 19:19.
+      No CHANGES_REQUESTED. Awaiting human review/merge.
+
+  - number: 66
+    repo: chimera-defi/ethglobal-cannes-2026-intelligence-exchange
+    last_activity: "2026-06-09T07:24:17Z"
+    attempt_count: 0
+    status: skipped
+    notes: >
+      chore(maintenance): 2026-06-09 - TS cleanup pass. Removed 21 unused imports
+      and dead variables across broker + web packages. CI green (attribution,
+      commit-format, infra-hardening-regression: all success).
+      No CHANGES_REQUESTED. Awaiting human review/merge.
+
+  - number: 67
+    repo: chimera-defi/ethglobal-cannes-2026-intelligence-exchange
+    last_activity: "2026-06-10T00:08:19Z"
+    attempt_count: 0
+    status: skipped
+    notes: >
+      chore(maintenance): 2026-06-10 - security pass. Wednesday security pass:
+      scan clean, no hardcoded secrets. CI green (attribution, commit-format,
+      infra-hardening-regression: all success).
+      No CHANGES_REQUESTED. Awaiting human review/merge.
