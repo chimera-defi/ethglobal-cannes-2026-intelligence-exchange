@@ -1,5 +1,5 @@
 # PR Response State
-last_run: 2026-06-10T15:16
+last_run: 2026-06-11T06:20
 
 prs:
   - number: 52
@@ -95,9 +95,7 @@ prs:
     status: skipped
     notes: >
       chore(skills): migrate token-reduce vendored plugin to symlink.
-      CI green (latest runs): attribution success (re-run 19:19), commit-format
-      success, infra-hardening-regression success. Earlier attribution run
-      failed at 19:17 but was superseded by a re-run at 19:19.
+      CI green (attribution, commit-format, infra-hardening-regression: all success).
       No CHANGES_REQUESTED. Awaiting human review/merge.
 
   - number: 66
