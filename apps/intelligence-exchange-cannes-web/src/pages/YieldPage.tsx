@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAccount, useReadContract, useReadContracts, useWriteContract, useSwitchChain } from 'wagmi';
+import { useAccount, useReadContracts, useWriteContract, useSwitchChain } from 'wagmi';
 import { parseUnits, formatUnits, type Address } from 'viem';
 import { Loader2, TrendingUp, ArrowRight, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,9 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { NavLink } from 'react-router-dom';
-import { intelTokenAbi, intelStakingAbi } from '../lib/intelStakingAbi';
+import { intelStakingAbi } from '../lib/intelStakingAbi';
 import { isArcEnabled } from '../config';
 
 const INTEL_TOKEN_ADDRESS = (import.meta.env.VITE_INTEL_TOKEN_ADDRESS ?? '') as Address;
@@ -67,9 +66,7 @@ export function YieldPage() {
     query: { enabled: stakingDeployed },
   });
 
-  const totalStaked = stakingData?.[0]?.result as bigint | undefined;
   const currentEpoch = stakingData?.[1]?.result as bigint | undefined;
-  const epochLength = stakingData?.[2]?.result as bigint | undefined;
   const cooldownSeconds = stakingData?.[3]?.result as bigint | undefined;
 
   // Read LP mining contract state
