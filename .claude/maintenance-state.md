@@ -1,8 +1,8 @@
 # Maintenance State
-last_run: 2026-06-04
-focus: test-coverage
+last_run: 2026-06-10
+focus: security
 status: completed
-completed: [tokenomics amm.ts coverage (22 tests added, 10→32), broker acceptance test noted as DB-dependent]
+completed: [security scan passed — all secret/password refs use process.env; .env in .gitignore confirmed; no eval/exec patterns; no hardcoded tokens]
 in_progress:
 pending: [broker unit tests — require PostgreSQL mock setup]
 known_failures:
