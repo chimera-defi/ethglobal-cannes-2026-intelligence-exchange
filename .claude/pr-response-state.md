@@ -1,5 +1,5 @@
 # PR Response State
-last_run: 2026-06-12T18:22
+last_run: 2026-06-12T21:01
 
 prs:
   - number: 52
@@ -128,3 +128,11 @@ prs:
       structured operational logs. CI green (commit-format: success,
       infra-hardening-regression: success). No CHANGES_REQUESTED.
       Awaiting human review/merge.
+
+# Cross-repo blocked fix (2026-06-12T21:01):
+# SharedStake/SharedStake-ui PR #380 (codex/old-veth2-withdrawals-20260603):
+#   CI FAILURE: bun audit --level moderate — joi < 18.2.1 (GHSA-q7cg-457f-vx79)
+#   via @web3-onboard/common transitive dep. Fix: add "joi": ">=18.2.1" to
+#   package.json overrides; regenerate bun.lock. Fix verified locally (build clean).
+#   Push blocked: MCP token lacks write access to SharedStake/SharedStake-ui.
+#   Manual apply needed.
