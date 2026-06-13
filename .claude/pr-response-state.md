@@ -1,5 +1,5 @@
 # PR Response State
-last_run: 2026-06-13T06:00
+last_run: 2026-06-13T06:16
 
 prs:
   - number: 52
@@ -129,12 +129,13 @@ prs:
       infra-hardening-regression: success). No CHANGES_REQUESTED.
       Awaiting human review/merge.
 
-# Cross-repo blocked fix (2026-06-13T06:00 — persistent from 2026-06-12T21:01):
+# Cross-repo blocked fix (2026-06-13T06:16 — persistent from 2026-06-12T21:01):
 # SharedStake/SharedStake-ui PR #380 (codex/old-veth2-withdrawals-20260603):
 #   CI FAILURE: bun audit --level moderate
 #   - joi < 18.2.1 (GHSA-q7cg-457f-vx79, moderate) via @web3-onboard/common
-#   - esbuild < 0.28.1 (GHSA-gv7w-rqvm-qjhr, high) via vite transitive dep
-#   Fix: add "joi": ">=18.2.1" and update "esbuild": ">=0.28.1" in package.json overrides.
-#   Fix verified locally: bun audit passes, build passes (pre-commit hook).
-#   Push blocked: both git push and mcp push_files return 403 for SharedStake org.
-#   Manual apply needed: chimera-defi user lacks write access to SharedStake/SharedStake-ui.
+#   Fix: add "joi": ">=18.2.1" in package.json overrides.
+#   Push blocked: chimera-defi user returns 403 for SharedStake org (no write access).
+#   Manual apply needed by SharedStake org member.
+#
+# chimera-defi/Etc-mono-repo state file: push blocked (branch protection, requires PR).
+# sharedstake-ui state file: push blocked (403, no write access to SharedStake org).
