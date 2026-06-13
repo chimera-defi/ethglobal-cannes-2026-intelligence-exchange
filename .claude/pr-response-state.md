@@ -1,5 +1,5 @@
 # PR Response State
-last_run: 2026-06-13T08:16
+last_run: 2026-06-13T15:16
 
 prs:
   - number: 52
@@ -8,10 +8,8 @@ prs:
     attempt_count: 0
     status: needs_human
     notes: >
-      infra-hardening-regression CI fails: pnpm/action-setup@v4 pinned to
-      version 10.33.0 in workflow but package.json has packageManager pnpm@11.0.8.
-      mergeable_state: dirty (conflicts with main). Root fix is already on main
-      (PRs #58+ pass). Recommend closing this stale maintenance PR.
+      infra-hardening-regression CI fails: pnpm version mismatch.
+      mergeable_state: dirty. Root fix already on main. Recommend closing.
 
   - number: 53
     repo: chimera-defi/ethglobal-cannes-2026-intelligence-exchange
@@ -28,8 +26,8 @@ prs:
     attempt_count: 0
     status: needs_human
     notes: >
-      infra-hardening-regression CI fails: pnpm version mismatch (10.33.0 vs 11.0.8).
-      mergeable_state: dirty. Nightly maintenance from 2026-05-30; stale.
+      infra-hardening-regression CI fails: pnpm version mismatch.
+      mergeable_state: dirty. Stale.
 
   - number: 56
     repo: chimera-defi/ethglobal-cannes-2026-intelligence-exchange
@@ -44,9 +42,7 @@ prs:
     attempt_count: 0
     status: needs_human
     notes: >
-      infra-hardening-regression CI fails: pnpm version mismatch (10.33.0 vs 11.0.8).
-      mergeable_state: dirty. Dep-update PR from 2026-06-01; superseded by #58+
-      which pass the same check. Recommend closing.
+      infra-hardening-regression CI fails: pnpm version mismatch. Superseded.
 
   - number: 58
     repo: chimera-defi/ethglobal-cannes-2026-intelligence-exchange
@@ -92,8 +88,7 @@ prs:
     status: skipped
     notes: >
       chore(skills): migrate token-reduce vendored plugin to symlink.
-      CI green (attribution, commit-format, infra-hardening-regression: all success).
-      No CHANGES_REQUESTED. Awaiting human review/merge.
+      CI green. No CHANGES_REQUESTED. Awaiting human review/merge.
 
   - number: 66
     repo: chimera-defi/ethglobal-cannes-2026-intelligence-exchange
@@ -101,9 +96,7 @@ prs:
     attempt_count: 0
     status: skipped
     notes: >
-      chore(maintenance): 2026-06-09 - TS cleanup pass. Removed 21 unused imports
-      and dead variables across broker + web packages. CI green (attribution,
-      commit-format, infra-hardening-regression: all success).
+      chore(maintenance): 2026-06-09 - TS cleanup pass. CI green.
       No CHANGES_REQUESTED. Awaiting human review/merge.
 
   - number: 67
@@ -112,9 +105,7 @@ prs:
     attempt_count: 0
     status: skipped
     notes: >
-      chore(maintenance): 2026-06-10 - security pass. Wednesday security pass:
-      scan clean, no hardcoded secrets. CI green (attribution, commit-format,
-      infra-hardening-regression: all success).
+      chore(maintenance): 2026-06-10 - security pass. CI green.
       No CHANGES_REQUESTED. Awaiting human review/merge.
 
   - number: 68
@@ -123,19 +114,17 @@ prs:
     attempt_count: 0
     status: skipped
     notes: >
-      chore(maintenance): 2026-06-12 - dead code pass. Friday dead code scan:
-      no actionable removals found. All broker console.logs are intentional
-      structured operational logs. CI green (commit-format: success,
-      infra-hardening-regression: success). No CHANGES_REQUESTED.
-      Awaiting human review/merge.
+      chore(maintenance): 2026-06-12 - dead code pass. CI green
+      (commit-format: success, infra-hardening-regression: success).
+      No CHANGES_REQUESTED. Awaiting human review/merge.
 
-# Cross-repo blocked fix (2026-06-13T06:16 — persistent from 2026-06-12T21:01):
-# SharedStake/SharedStake-ui PR #380 (codex/old-veth2-withdrawals-20260603):
+# Cross-repo blocked fix (persistent):
+# SharedStake/SharedStake-ui PR #380:
 #   CI FAILURE: bun audit --level moderate
-#   - joi < 18.2.1 (GHSA-q7cg-457f-vx79, moderate) via @web3-onboard/common
-#   Fix: add "joi": ">=18.2.1" in package.json overrides.
-#   Push blocked: chimera-defi user returns 403 for SharedStake org (no write access).
-#   Manual apply needed by SharedStake org member.
+#   - joi < 17.13.4 (moderate) via @web3-onboard/common
+#   - esbuild >= 0.17.0 < 0.28.1 (high) via vite/@web3-onboard/core
+#   Push blocked: 403, no write access to SharedStake org.
+#   Manual fix needed: add joi/esbuild overrides in package.json.
 #
-# chimera-defi/Etc-mono-repo state file: push blocked (branch protection, requires PR).
-# sharedstake-ui state file: push blocked (403, no write access to SharedStake org).
+# chimera-defi/Etc-mono-repo: push to main requires PR (branch protection).
+# sharedstake-ui state file: push blocked (403).
