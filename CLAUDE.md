@@ -128,3 +128,5 @@ Fallback chain: Devin → Codex → Kimi → Claude
 - `intel/amm.ts` (constant-product AMM) is a core financial primitive with no external deps — good candidate for unit tests; `bun test` runs without network/DB.
 - Broker acceptance tests (`src/__tests__/acceptance/`) require a live PostgreSQL connection — always fail in sandbox CI; skip until infra is available.
 - Worker `bun test` fails with "Cannot find package 'viem'" when run from the package directory directly — run from workspace root with `pnpm test` instead.
+- Broker `console.log` calls in routes/services are intentional structured operational logs (`[module:action] key=value` format) — do NOT remove during dead code passes.
+- `tsc --noEmit` has pre-existing errors (vite/client type definition missing, baseUrl deprecation warning) unrelated to app code — don't treat as blocking.
