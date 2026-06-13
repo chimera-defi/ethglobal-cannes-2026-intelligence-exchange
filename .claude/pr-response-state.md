@@ -1,5 +1,5 @@
 # PR Response State
-last_run: 2026-06-12T21:01
+last_run: 2026-06-13T06:00
 
 prs:
   - number: 52
@@ -129,10 +129,12 @@ prs:
       infra-hardening-regression: success). No CHANGES_REQUESTED.
       Awaiting human review/merge.
 
-# Cross-repo blocked fix (2026-06-12T21:01):
+# Cross-repo blocked fix (2026-06-13T06:00 — persistent from 2026-06-12T21:01):
 # SharedStake/SharedStake-ui PR #380 (codex/old-veth2-withdrawals-20260603):
-#   CI FAILURE: bun audit --level moderate — joi < 18.2.1 (GHSA-q7cg-457f-vx79)
-#   via @web3-onboard/common transitive dep. Fix: add "joi": ">=18.2.1" to
-#   package.json overrides; regenerate bun.lock. Fix verified locally (build clean).
-#   Push blocked: MCP token lacks write access to SharedStake/SharedStake-ui.
-#   Manual apply needed.
+#   CI FAILURE: bun audit --level moderate
+#   - joi < 18.2.1 (GHSA-q7cg-457f-vx79, moderate) via @web3-onboard/common
+#   - esbuild < 0.28.1 (GHSA-gv7w-rqvm-qjhr, high) via vite transitive dep
+#   Fix: add "joi": ">=18.2.1" and update "esbuild": ">=0.28.1" in package.json overrides.
+#   Fix verified locally: bun audit passes, build passes (pre-commit hook).
+#   Push blocked: both git push and mcp push_files return 403 for SharedStake org.
+#   Manual apply needed: chimera-defi user lacks write access to SharedStake/SharedStake-ui.
