@@ -1,8 +1,8 @@
 # Maintenance State
-last_run: 2026-06-04
-focus: test-coverage
+last_run: 2026-06-15
+focus: deps
 status: completed
-completed: [tokenomics amm.ts coverage (22 tests added, 10→32), broker acceptance test noted as DB-dependent]
+completed: [playwright 1.59.1 → 1.60.0 (minor bump, only outdated dep found by pnpm outdated)]
 in_progress:
 pending: [broker unit tests — require PostgreSQL mock setup]
 known_failures:
