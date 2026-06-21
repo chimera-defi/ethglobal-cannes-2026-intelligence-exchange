@@ -6,7 +6,7 @@ Compressed index of all security audit passes. Individual pass files remain as a
 **Date range:** 2026-05-27 → 2026-06-02  
 **Contracts audited:** 15+ smart contracts, 2,000+ SLOC  
 **Final test count:** 727 tests passing  
-**Net critical/high findings fixed:** All C and H findings resolved; select M/L findings accepted or deferred
+**Net critical/high findings fixed:** Most C and H findings resolved; 1 CRITICAL + 5 HIGH deferred to post-hackathon mainnet prep (see Open Findings table below)
 
 ---
 
