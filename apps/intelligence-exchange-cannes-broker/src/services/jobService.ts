@@ -10,7 +10,7 @@ import {
 } from 'intelligence-exchange-cannes-shared';
 import { randomUUID } from 'crypto';
 import { httpError } from './errors';
-import { issueAcceptedSubmissionAttestation, mintWorkReceipt, recordAcceptedSubmissionOnChain, recordReviewerReview, setWorkerOnEscrow, clearWorkerOnEscrow, recordCategoryCompletion, evaluateReviewerTier, checkReviewerAssignment, refundTaskEscrow } from './chainService';
+import { issueAcceptedSubmissionAttestation, mintWorkReceipt, recordAcceptedSubmissionOnChain, setWorkerOnEscrow, clearWorkerOnEscrow, checkReviewerAssignment } from './chainService';
 import { logJobEvent } from './jobEvents';
 import { refundRejectedJobCredits, settleAcceptedJobCredits } from './tokenomicsService';
 import { saveAIUSnapshot } from './aiuService';
