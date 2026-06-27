@@ -377,7 +377,9 @@ export async function settleAcceptedJobCredits(input: {
   // Deposit staker yield to IntelStaking contract on-chain
   // This is non-blocking: if it fails, we log and continue (off-chain-only mode for demo)
   if (split.stakerYieldIntel > 0) {
-    await depositStakerYield(split.stakerYieldIntel);
+    await depositStakerYield(split.stakerYieldIntel).catch(
+      (err) => console.error('[settlement] depositStakerYield failed:', err)
+    );
   }
 
   // Release task escrow on-chain via TaskEscrow.release()
