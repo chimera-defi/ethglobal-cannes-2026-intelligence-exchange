@@ -1,8 +1,12 @@
 # Maintenance State
-last_run: 2026-06-23
-focus: ts-cleanup
+last_run: 2026-07-13
+focus: deps
 status: completed
-completed: [removed 4 unused chainService imports from jobService.ts (recordReviewerReview, recordCategoryCompletion, evaluateReviewerTier, refundTaskEscrow) — new since PR #66; tsc --noEmit passes clean]
+completed:
+  - chore(deps): bump 11 @radix-ui/* to latest patch versions (web app)
+  - chore(deps): @rainbow-me/rainbowkit ^2.1.3 → ^2.2.11 (minor bump)
+  - chore(deps): hono ^4.12.14 → ^4.12.29 (broker-core)
+  - pnpm-lock.yaml regenerated; PR #81 opened
 in_progress:
 pending: [investigate @ts-ignore at StakingPage.tsx:204 — Type '0n | Element | undefined' not assignable to ReactNode; remaining noUnusedLocals errors tracked in open PR #66 (unmerged)]
 known_failures:
