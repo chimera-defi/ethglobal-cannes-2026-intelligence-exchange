@@ -201,7 +201,6 @@ export function StakingPage() {
           </Alert>
         )}
 
-        {/* @ts-ignore - TypeScript error: Type '0n | Element | undefined' not assignable to ReactNode - needs investigation */}
         {txStatus && (
           <Alert className={txStatus.type === 'error' ? 'border-red-700 bg-red-900/20' : txStatus.type === 'success' ? 'border-green-700 bg-green-900/20' : 'border-blue-700 bg-blue-900/20'}>
             <AlertDescription className={txStatus.type === 'error' ? 'text-red-300' : txStatus.type === 'success' ? 'text-green-300' : 'text-blue-300'}>
@@ -218,7 +217,7 @@ export function StakingPage() {
             { label: 'Epoch Length', value: epochLength ? secondsToDuration(epochLength) : '—' },
             { label: 'Unstake Cooldown', value: cooldownSeconds ? secondsToDuration(cooldownSeconds) : '—' },
             { label: 'Global Cap Left', value: fmt(globalCapRemaining) + ' INTEL' },
-            { label: 'Epoch Ends', value: epochStartTime && epochLength ? secondsToDuration((epochStartTime + epochLength) - BigInt(Math.floor(Date.now() / 1000))) : '—' },
+            { label: 'Epoch Ends', value: epochStartTime !== undefined && epochLength !== undefined ? secondsToDuration((epochStartTime + epochLength) - BigInt(Math.floor(Date.now() / 1000))) : '—' },
           ].map(({ label, value }) => (
             <div key={label} className="rounded-md border border-slate-800 bg-[#0D1625] p-3">
               <p className="text-xs text-slate-500">{label}</p>
@@ -228,7 +227,7 @@ export function StakingPage() {
         </div>
 
         {/* Epoch progress bar */}
-        {epochStartTime && epochLength && (
+        {epochStartTime !== undefined && epochLength !== undefined && (
           <div className="space-y-1">
             <div className="h-1 bg-slate-800 rounded-full w-full">
               <div 
