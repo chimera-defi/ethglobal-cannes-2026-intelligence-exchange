@@ -1,13 +1,15 @@
 # Maintenance State
-last_run: 2026-06-23
+last_run: 2026-07-14
 focus: ts-cleanup
 status: completed
-completed: [removed 4 unused chainService imports from jobService.ts (recordReviewerReview, recordCategoryCompletion, evaluateReviewerTier, refundTaskEscrow) — new since PR #66; tsc --noEmit passes clean]
+completed:
+  - removed stale @ts-ignore JSX comment from StakingPage.tsx:204 (PR #82)
+  - confirmed comment was never a valid TS directive and error no longer exists
+  - tsc --noEmit passes (only baseUrl deprecation remains, covered by PR #80)
 in_progress:
-pending: [investigate @ts-ignore at StakingPage.tsx:204 — Type '0n | Element | undefined' not assignable to ReactNode; remaining noUnusedLocals errors tracked in open PR #66 (unmerged)]
+pending: []
 known_failures:
   - broker acceptance tests require PostgreSQL — skip in sandbox
   - worker bun test fails from pkg dir — run from workspace root with pnpm test
-  - StakingPage.tsx has one @ts-ignore comment needing proper fix
-  - PR #66 (chore/maintenance-2026-06-09) unmerged — contains earlier noUnusedLocals fixes
+  - baseUrl deprecation warning in tsconfig — fix in open PR #80
 skip_next_run: []
