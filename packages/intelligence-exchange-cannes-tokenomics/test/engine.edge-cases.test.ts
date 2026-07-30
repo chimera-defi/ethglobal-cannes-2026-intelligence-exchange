@@ -51,12 +51,19 @@ describe('getCurvePriceUsdPerIntel — edge cases', () => {
     expect(price).toBe(1);
   });
 
-  test('price is always positive and finite', () => {
+  test('price is positive and finite for supplies within and at target', () => {
     for (const supply of [0, 1000, 50_000, 99_999]) {
       const price = getCurvePriceUsdPerIntel({ ...BASE_STATE, currentSupplyIntel: supply });
       expect(price).toBeGreaterThan(0);
       expect(Number.isFinite(price)).toBe(true);
     }
+  });
+
+  test('price overflows to Infinity for supply vastly exceeding target (known curve behaviour)', () => {
+    // utilization = 1_000_000 / 100_000 = 10
+    // exp(2 * 10^3) = exp(2000) → Infinity — this is intentional bonding-curve behaviour
+    const price = getCurvePriceUsdPerIntel({ ...BASE_STATE, currentSupplyIntel: 1_000_000 });
+    expect(price).toBe(Infinity);
   });
 });
 
