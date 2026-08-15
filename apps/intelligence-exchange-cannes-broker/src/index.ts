@@ -145,6 +145,7 @@ export async function bootstrap() {
 
 process.on('unhandledRejection', (reason) => {
   console.error('[broker:unhandledRejection]', reason);
+  process.exit(1);
 });
 
 process.on('uncaughtException', (err) => {
