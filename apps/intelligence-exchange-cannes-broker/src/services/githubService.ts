@@ -45,10 +45,6 @@ interface GitHubRepo {
   private: boolean;
 }
 
-interface GitHubUser {
-  login: string;
-}
-
 interface GitHubCreatePRResponse {
   html_url: string;
   number: number;
