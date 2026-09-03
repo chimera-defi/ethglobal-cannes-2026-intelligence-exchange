@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAccount, useReadContract, useReadContracts, useWriteContract, useSwitchChain } from 'wagmi';
+import { useAccount, useReadContracts, useWriteContract, useSwitchChain } from 'wagmi';
 import { parseUnits, formatUnits, type Address } from 'viem';
 import { Loader2, TrendingUp, Lock, Unlock, Coins, Info, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
