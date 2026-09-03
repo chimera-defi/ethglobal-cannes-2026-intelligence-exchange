@@ -4,11 +4,10 @@ import {
   getCurvePriceUsdPerIntel,
   quoteMintIntel,
   splitSettlementIntel,
-  type MintQuote,
   type PoolState,
 } from 'intelligence-exchange-cannes-tokenomics';
 import { db } from '../db/client';
-import { ideaTokenReserves, tokenAccounts, tokenLedgerEntries, agentIdentities, jobs } from '../db/schema';
+import { ideaTokenReserves, tokenAccounts, tokenLedgerEntries, jobs } from '../db/schema';
 import { httpError } from './errors';
 import { normalizeAccountAddress } from './identityService';
 import { depositStakerYield, releaseTaskEscrow, depositReviewerFees } from './chainService';
