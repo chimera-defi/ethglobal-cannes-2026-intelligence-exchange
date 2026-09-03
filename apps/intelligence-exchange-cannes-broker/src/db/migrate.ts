@@ -475,5 +475,8 @@ export async function migrate() {
 
 // Allow running directly: bun run src/db/migrate.ts
 if (import.meta.main) {
-  migrate().then(() => process.exit(0)).catch(console.error);
+  migrate().then(() => process.exit(0)).catch((err: unknown) => {
+    console.error('[migrate:error]', err);
+    process.exit(1);
+  });
 }
