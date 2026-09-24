@@ -185,7 +185,7 @@ export function IdeaSubmission() {
   const [error, setError] = useState<string | null>(null);
   const [isWorking, setIsWorking] = useState(false);
   const [ideaId, setIdeaId] = useState<string | null>(null);
-  const [worldProof, setWorldProof] = useState<WorldProof | null>(null);
+  const [, setWorldProof] = useState<WorldProof | null>(null);
   const [fundTxHash, setFundTxHash] = useState('');
   const [reservationSynced, setReservationSynced] = useState(false);
   const [demoPosterMode, setDemoPosterMode] = useState(false);

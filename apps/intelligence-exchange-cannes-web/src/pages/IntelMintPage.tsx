@@ -6,7 +6,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { intelMintControllerAbi } from '../lib/intelMintControllerAbi';
 import { intelStakingAbi } from '../lib/intelStakingAbi';
