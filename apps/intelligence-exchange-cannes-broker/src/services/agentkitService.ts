@@ -8,7 +8,7 @@ import {
 } from '@worldcoin/agentkit';
 import { and, eq } from 'drizzle-orm';
 import { db, sql } from '../db/client';
-import { agentAuthorizations, agentIdentities, agentkitNonces } from '../db/schema';
+import { agentAuthorizations, agentIdentities } from '../db/schema';
 import { httpError } from './errors';
 import { normalizeAccountAddress } from './identityService';
 import { getAgentKitConfig, getWorldChainConfig } from './sponsorConfig';
