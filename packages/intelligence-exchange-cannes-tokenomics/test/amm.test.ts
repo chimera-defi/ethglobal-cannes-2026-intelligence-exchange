@@ -150,3 +150,105 @@ describe('lpPositionReserves', () => {
     expect(result.stable).toBeCloseTo(200, 2);
   });
 });
+
+describe('feeBps clamping edge cases', () => {
+  test('feeBps > 2000 is clamped to 2000', () => {
+    const pool = createConstantProductPool(100, 100, 9999);
+    expect(pool.feeBps).toBe(2000);
+  });
+
+  test('negative feeBps is clamped to 0', () => {
+    const pool = createConstantProductPool(100, 100, -50);
+    expect(pool.feeBps).toBe(0);
+  });
+
+  test('NaN feeBps falls back to default 30', () => {
+    const pool = createConstantProductPool(100, 100, NaN);
+    expect(pool.feeBps).toBe(30);
+  });
+
+  test('feeBps of exactly 2000 is accepted unchanged', () => {
+    const pool = createConstantProductPool(100, 100, 2000);
+    expect(pool.feeBps).toBe(2000);
+  });
+
+  test('zero-fee pool charges no fee on swap', () => {
+    const pool = createConstantProductPool(100, 200, 0);
+    const result = swapStableForIntel(pool, 10);
+    expect(result.feeCharged).toBe(0);
+  });
+});
+
+describe('removeLiquidity error on excess shares', () => {
+  test('throws when lpShares exceeds totalLpShares', () => {
+    expect(() => removeLiquidity(POOL_100_200, POOL_100_200.totalLpShares + 1)).toThrow();
+  });
+
+  test('does not throw for shares exactly equal to totalLpShares', () => {
+    expect(() => removeLiquidity(POOL_100_200, POOL_100_200.totalLpShares)).not.toThrow();
+  });
+});
+
+describe('feeCharged invariants', () => {
+  test('swapStableForIntel feeCharged equals input * feeBps / 10000', () => {
+    const stableIn = 20;
+    const result = swapStableForIntel(POOL_100_200, stableIn);
+    const expected = (stableIn * POOL_100_200.feeBps) / 10_000;
+    expect(result.feeCharged).toBeCloseTo(expected, 6);
+  });
+
+  test('swapIntelForStable feeCharged equals input * feeBps / 10000', () => {
+    const intelIn = 10;
+    const result = swapIntelForStable(POOL_100_200, intelIn);
+    const expected = (intelIn * POOL_100_200.feeBps) / 10_000;
+    expect(result.feeCharged).toBeCloseTo(expected, 6);
+  });
+
+  test('feeCharged is positive for non-zero fee pool', () => {
+    expect(swapStableForIntel(POOL_100_200, 5).feeCharged).toBeGreaterThan(0);
+    expect(swapIntelForStable(POOL_100_200, 5).feeCharged).toBeGreaterThan(0);
+  });
+});
+
+describe('addLiquidity with imbalanced inputs', () => {
+  test('clips to the limiting side when ratios differ', () => {
+    // Pool ratio is 1:2 (intel:stable). Providing 10:100 (1:10) means stable is excess.
+    const result = addLiquidity(POOL_100_200, 10, 100);
+    // Should mint proportional to intel (the limiting side) at 1:2 ratio
+    expect(result.intelUsed).toBeCloseTo(10, 4);
+    expect(result.stableUsed).toBeCloseTo(20, 4);
+    expect(result.mintedLpShares).toBeGreaterThan(0);
+  });
+
+  test('intelUsed and stableUsed are within inputs', () => {
+    const intelDesired = 15;
+    const stableDesired = 50;
+    const result = addLiquidity(POOL_100_200, intelDesired, stableDesired);
+    expect(result.intelUsed).toBeLessThanOrEqual(intelDesired + 1e-8);
+    expect(result.stableUsed).toBeLessThanOrEqual(stableDesired + 1e-8);
+  });
+});
+
+describe('price impact and K-invariant', () => {
+  test('larger swap has more slippage per unit than smaller swap', () => {
+    const small = swapStableForIntel(POOL_100_200, 1);
+    const large = swapStableForIntel(POOL_100_200, 50);
+    const rateSmall = small.amountOut / 1;
+    const rateLarge = large.amountOut / 50;
+    expect(rateLarge).toBeLessThan(rateSmall);
+  });
+
+  test('K-invariant grows after a fee-bearing swap (fee accrues to pool)', () => {
+    const kBefore = POOL_100_200.reserveIntel * POOL_100_200.reserveStable;
+    const result = swapStableForIntel(POOL_100_200, 10);
+    const kAfter = result.pool.reserveIntel * result.pool.reserveStable;
+    expect(kAfter).toBeGreaterThanOrEqual(kBefore);
+  });
+
+  test('round-trip: add liquidity then remove all minted shares returns correct amounts', () => {
+    const added = addLiquidity(POOL_100_200, 20, 40);
+    const removed = removeLiquidity(added.pool, added.mintedLpShares);
+    expect(removed.intelOut).toBeCloseTo(added.intelUsed, 4);
+    expect(removed.stableOut).toBeCloseTo(added.stableUsed, 4);
+  });
+});
