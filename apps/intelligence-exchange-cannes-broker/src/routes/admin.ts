@@ -2,7 +2,7 @@ import { timingSafeEqual } from 'crypto';
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
-import { createWalletClient, createPublicClient, http, keccak256, toBytes } from 'viem';
+import { createWalletClient, http } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { httpError } from '../services/errors';
 import { getBreakerStatus, resetBreaker } from '../services/circuitBreakerService';
@@ -89,21 +89,6 @@ function createBrokerWalletClient() {
     account,
     chain,
     transport: http(),
-  });
-}
-
-// Helper function to create public client for read calls
-function createPublicClientForChain() {
-  const rpcUrl = process.env.WORLDCHAIN_RPC_URL;
-  if (!rpcUrl) {
-    throw httpError('WORLDCHAIN_RPC_URL not set', 500, 'CHAIN_NOT_CONFIGURED');
-  }
-
-  return createPublicClient({
-    transport: http(rpcUrl, {
-      timeout: 10000,
-      retryCount: 2,
-    }),
   });
 }
 
