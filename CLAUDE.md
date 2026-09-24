@@ -128,3 +128,6 @@ Fallback chain: Devin → Codex → Kimi → Claude
 - `intel/amm.ts` (constant-product AMM) is a core financial primitive with no external deps — good candidate for unit tests; `bun test` runs without network/DB.
 - Broker acceptance tests (`src/__tests__/acceptance/`) require a live PostgreSQL connection — always fail in sandbox CI; skip until infra is available.
 - Worker `bun test` fails with "Cannot find package 'viem'" when run from the package directory directly — run from workspace root with `pnpm test` instead.
+- Maintenance PRs on `chore/maintenance-*` branches return 0 CI check_runs — attribution/commit-format CI does not fire on these branch names; no action needed.
+- `pnpm install --no-frozen-lockfile` is required when bumping deps (frozen lockfile rejects updated ranges); commit both `package.json` files and `pnpm-lock.yaml`.
+- Monday deps skip list (as of 2026-06-08): typescript 5→6, zod 3→4 — both are major and require explicit migration planning.

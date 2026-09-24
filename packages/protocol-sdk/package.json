@@ -12,7 +12,7 @@
     "./governance": "./src/governance/index.ts"
   },
   "dependencies": {
-    "viem": "^2.23.2"
+    "viem": "^2.52.2"
   },
   "devDependencies": {
     "typescript": "^5.4.5"
