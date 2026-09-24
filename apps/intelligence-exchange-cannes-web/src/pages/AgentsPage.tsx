@@ -6,7 +6,6 @@ import { parseEventLogs, keccak256, toBytes } from 'viem';
 import {
   Bot,
   Loader2,
-  Copy,
   Globe2,
   ExternalLink,
   Link2,
@@ -82,7 +81,6 @@ export function AgentsPage() {
   const { writeContractAsync } = useWriteContract();
   const { session, signIn, isWorkerVerified, refreshSession } = useSession();
   const [agentDraft, setAgentDraft] = useAgentProfileDraft();
-  const [copyState, setCopyState] = useState<string | null>(null);
   const [setupError, setSetupError] = useState<string | null>(null);
   const [registrationError, setRegistrationError] = useState<string | null>(null);
   const [isSigningIn, setIsSigningIn] = useState(false);
@@ -146,12 +144,6 @@ export function AgentsPage() {
     } finally {
       setIsSigningIn(false);
     }
-  }
-
-  async function handleCopy(value: string, key: string) {
-    await navigator.clipboard.writeText(value);
-    setCopyState(key);
-    window.setTimeout(() => setCopyState((current) => (current === key ? null : current)), 1500);
   }
 
   async function refreshAgentStatus() {
