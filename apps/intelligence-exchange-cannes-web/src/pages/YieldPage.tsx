@@ -66,9 +66,7 @@ export function YieldPage() {
     query: { enabled: stakingDeployed },
   });
 
-  const totalStaked = stakingData?.[0]?.result as bigint | undefined;
   const currentEpoch = stakingData?.[1]?.result as bigint | undefined;
-  const epochLength = stakingData?.[2]?.result as bigint | undefined;
   const cooldownSeconds = stakingData?.[3]?.result as bigint | undefined;
 
   // Read LP mining contract state

@@ -19,8 +19,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { getIdea, getIntegrationsStatus } from '../api';
-import { useSession } from '../hooks/useSession';
+import { getIdea } from '../api';
 
 function shortHex(value?: string | null, head = 8, tail = 6) {
   if (!value) return 'Not available';
@@ -31,22 +30,11 @@ function shortHex(value?: string | null, head = 8, tail = 6) {
 export function DossierPanel() {
   const { ideaId } = useParams<{ ideaId: string }>();
   const navigate = useNavigate();
-  const { session } = useSession();
-  const hasSession = !!session;
-
   const { data: idea, isLoading, error } = useQuery({
     queryKey: ['idea', ideaId],
     queryFn: () => getIdea(ideaId!),
     enabled: !!ideaId,
   });
-
-  const { data: integrations } = useQuery({
-    queryKey: ['integrations-status'],
-    queryFn: getIntegrationsStatus,
-    staleTime: 30_000,
-  });
-
-  const zeroGExplorer = integrations?.zeroG.explorerBaseUrl ?? 'https://chainscan-galileo.0g.ai/tx/';
 
   if (!ideaId) {
     return (
