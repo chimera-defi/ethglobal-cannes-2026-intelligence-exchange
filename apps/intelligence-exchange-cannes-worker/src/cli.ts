@@ -411,5 +411,8 @@ program
   });
 
 if (import.meta.main) {
-  program.parse();
+  program.parseAsync().catch((err: unknown) => {
+    console.error('[iex-bridge:error]', err);
+    process.exit(1);
+  });
 }

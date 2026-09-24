@@ -23,16 +23,6 @@ export const worldchainMainnet = {
   },
 } as const satisfies Chain;
 
-export const zeroGTestnet = {
-  id: 16602,
-  name: '0G Testnet',
-  nativeCurrency: { name: 'AOGI', symbol: 'AOGI', decimals: 18 },
-  rpcUrls: {
-    default: { http: ['https://evmrpc-testnet.0g.ai'] },
-    public: { http: ['https://evmrpc-testnet.0g.ai'] },
-  },
-} as const satisfies Chain;
-
 // ─── Client Factory ──────────────────────────────────────────────────────────
 
 export function getPublicClient(chain: Chain, rpcUrl?: string) {
