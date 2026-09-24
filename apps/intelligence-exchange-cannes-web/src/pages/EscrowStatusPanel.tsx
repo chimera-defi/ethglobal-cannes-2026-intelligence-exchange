@@ -6,10 +6,8 @@ import {
   Loader2,
   AlertCircle,
   XCircle,
-  Wallet,
   ExternalLink,
   ShieldCheck,
-  Clock,
   Lock,
   Coins,
 } from 'lucide-react';
